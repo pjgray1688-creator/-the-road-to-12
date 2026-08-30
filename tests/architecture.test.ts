@@ -5,6 +5,9 @@ import { currentBlock, currentWeek, measurementChange, weightTrend } from "../li
 import type { RecoverySnapshot } from "../lib/domain";
 import { genuineHistoricalTraining } from "../lib/historical-data";
 import { resolveToday, upcomingAfterToday } from "../lib/schedule";
+import { assertOwnership, defaultStepGoal, ownedBy } from "../lib/platform";
+import { prepareOwnerMigration } from "../lib/migration";
+import type { AppData } from "../lib/types";
 
 test("historical records are explicit, genuine and distinct from current data", () => { assert.ok(genuineHistoricalTraining.every(record => record.origin === "historical")); assert.equal(genuineHistoricalTraining.find(record => record.exerciseId === "leg-press")?.weight, 300); });
 test("current block has a complete seven-day plan with explicit rest", () => { assert.equal(currentWeek.length, 7); assert.equal(currentBlock.status, "active"); assert.equal(currentWeek.find(day => day.id === "thu")?.status, "rest"); assert.equal(currentWeek.find(day => day.id === "thu")?.reason, "planned_rest"); });
@@ -15,3 +18,5 @@ test("recovery and integrations have no fabricated values", () => { const snapsh
 test("main app mounts visible readiness experience", () => { const source = fs.readFileSync("components/training-app.tsx", "utf8"); const dashboard = fs.readFileSync("components/dashboard-foundation.tsx", "utf8"); assert.match(source, /DashboardFoundation/); assert.match(dashboard, /READINESS/); assert.match(dashboard, /Connect WHOOP/); assert.match(dashboard, /Log recovery/); });
 test("schedule resolves Sunday in Europe/London without promoting Monday", () => { const sunday = resolveToday(currentWeek, "Europe/London", new Date("2026-08-30T12:00:00Z")); assert.equal(sunday.day, 7); assert.equal(sunday.session.id, "sun"); assert.equal(upcomingAfterToday(currentWeek, "Europe/London", new Date("2026-08-30T12:00:00Z"), 1)[0].id, "mon"); });
 test("schedule respects independent timezone boundaries", () => { const utcMonday = resolveToday(currentWeek, "UTC", new Date("2026-08-30T23:30:00Z")); const tokyoMonday = resolveToday(currentWeek, "Asia/Tokyo", new Date("2026-08-30T23:30:00Z")); assert.equal(utcMonday.day, 7); assert.equal(tokyoMonday.day, 1); });
+test("ownership helpers reject cross-user records and preserve step-goal defaults", () => { const record = { userId: "a", value: 1 }; assert.equal(ownedBy(record, "a"), true); assert.equal(ownedBy(record, "b"), false); assert.throws(() => assertOwnership(record, "b")); assert.equal(defaultStepGoal, 10000); });
+test("owner migration excludes test data and is idempotent", () => { const data: AppData = { version: 2, workouts: [{ id: "real", startedAt: "", name: "", sets: [], substitutions: {}, notes: [], origin: "real" }, { id: "test", startedAt: "", name: "", sets: [], substitutions: {}, notes: [], origin: "test" }], bodyMetrics: [], meals: [] }; const first = prepareOwnerMigration(data, "owner"); const second = prepareOwnerMigration(data, "owner"); assert.equal(first.counts.workouts, 1); assert.equal(first.idempotencyKey, second.idempotencyKey); });
