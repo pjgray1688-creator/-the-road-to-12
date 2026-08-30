@@ -32,3 +32,10 @@ Deploy by importing this repository into Vercel, or run `vercel` after installin
 ## Data direction
 
 `AppData` already models workout history, set history, cardio, body metrics and meals. The next production step is replacing browser-only storage with authenticated database persistence, then adding integrations behind server-side routes. API keys must remain server-side.
+
+## Current architecture foundation
+
+- Records are tagged `real`, `test`, or `historical`; the dashboard’s **Reset Test Data** only removes test-tagged workouts, nutrition and measurements.
+- The current seven-day block, planned/rest/recovery status and reason model are in `lib/domain.ts`.
+- Genuine known training references are imported in `lib/historical-data.ts` with confidence labels; unknown dates or RIR are not invented.
+- See [docs/integrations.md](docs/integrations.md) for the real WHOOP OAuth and Apple Health native-bridge requirements.
