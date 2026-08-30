@@ -7,6 +7,7 @@ import { genuineHistoricalTraining } from "../lib/historical-data";
 import { resolveToday, upcomingAfterToday } from "../lib/schedule";
 import { assertOwnership, defaultStepGoal, ownedBy } from "../lib/platform";
 import { prepareOwnerMigration } from "../lib/migration";
+import { siteUrl } from "../lib/site-url";
 import type { AppData } from "../lib/types";
 
 test("historical records are explicit, genuine and distinct from current data", () => { assert.ok(genuineHistoricalTraining.every(record => record.origin === "historical")); assert.equal(genuineHistoricalTraining.find(record => record.exerciseId === "leg-press")?.weight, 300); });
@@ -20,3 +21,4 @@ test("schedule resolves Sunday in Europe/London without promoting Monday", () =>
 test("schedule respects independent timezone boundaries", () => { const utcMonday = resolveToday(currentWeek, "UTC", new Date("2026-08-30T23:30:00Z")); const tokyoMonday = resolveToday(currentWeek, "Asia/Tokyo", new Date("2026-08-30T23:30:00Z")); assert.equal(utcMonday.day, 7); assert.equal(tokyoMonday.day, 1); });
 test("ownership helpers reject cross-user records and preserve step-goal defaults", () => { const record = { userId: "a", value: 1 }; assert.equal(ownedBy(record, "a"), true); assert.equal(ownedBy(record, "b"), false); assert.throws(() => assertOwnership(record, "b")); assert.equal(defaultStepGoal, 10000); });
 test("owner migration excludes test data and is idempotent", () => { const data: AppData = { version: 2, workouts: [{ id: "real", startedAt: "", name: "", sets: [], substitutions: {}, notes: [], origin: "real" }, { id: "test", startedAt: "", name: "", sets: [], substitutions: {}, notes: [], origin: "test" }], bodyMetrics: [], meals: [] }; const first = prepareOwnerMigration(data, "owner"); const second = prepareOwnerMigration(data, "owner"); assert.equal(first.counts.workouts, 1); assert.equal(first.idempotencyKey, second.idempotencyKey); });
+test("auth site URL is production-safe with local development support", () => { const previous = process.env.NEXT_PUBLIC_SITE_URL; process.env.NEXT_PUBLIC_SITE_URL = "https://the-road-to-12.vercel.app"; assert.equal(siteUrl(), "https://the-road-to-12.vercel.app"); process.env.NEXT_PUBLIC_SITE_URL = previous; });
