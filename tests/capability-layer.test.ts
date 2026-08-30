@@ -6,6 +6,8 @@ import { mondayExercises } from "../lib/workout";
 import { adaptSession, assessReadiness, rescheduleWeek, substitutionFor } from "../lib/adaptive-coach";
 import { currentWeek } from "../lib/domain";
 import { cardioRecommendation, evaluateSet, snapAvailableLoad } from "../lib/coach";
+import { cardioModalities, prescribeCardio } from "../lib/cardio";
+import { consumeState, createState, normalizeWhoop, connectionStatus } from "../lib/whoop-server";
 
 test("exercise knowledge preserves specific intent", () => { const item = exerciseKnowledge("incline-db-press"); assert.ok(item?.emphasis.includes("upper chest emphasis")); assert.ok(item?.substitutions.includes("incline-machine-press")); assert.equal(item?.stabilityDemand, "medium"); });
 test("dumbbell magnitude can make more than one increment when clearly underloaded", () => { const result = magnitudeLoad(mondayExercises[0], 20, 20, 10, 5); assert.equal(result, 26); });
@@ -18,3 +20,6 @@ test("live coach uses magnitude-aware dumbbell progression", () => { const exerc
 test("normal upper-body cardio keeps the exact baseline", () => { const result = cardioRecommendation(12, 0); assert.deepEqual(result, { duration: 40, incline: 8, speed: 5, why: "Normal session demand: complete the standard conditioning block." }); });
 test("configured machine loads always snap to valid stack values", () => { const machine = { ...mondayExercises[3], validLoads: [5, 9, 14] }; assert.equal(snapAvailableLoad(7.5, machine), 9); assert.equal(snapAvailableLoad(10, machine, "up"), 14); assert.equal(snapAvailableLoad(10, machine, "down"), 9); });
 test("genuine historical machine loads remain unchanged", () => { const machine = { ...mondayExercises[3], validLoads: [5, 9, 14] }; assert.equal((machine.validLoads ?? []).includes(9), true); assert.equal(snapAvailableLoad(9, machine), 9); });
+test("cardio modalities expose appropriate metric schemas", () => { assert.equal(cardioModalities.length, 6); assert.deepEqual(cardioModalities.find(item => item.id === "incline_treadmill")?.metrics, ["duration", "incline", "speed"]); assert.ok(cardioModalities.find(item => item.id === "rower")?.metrics.includes("pace500m")); });
+test("cardio choice preserves modality-specific prescription", () => { assert.deepEqual(prescribeCardio("incline_treadmill"), { modality: "incline_treadmill", duration: 40, settings: { incline: 8, speed: 5 }, why: "Complete the standard conditioning block." }); assert.equal(prescribeCardio("stairmaster").settings.level, undefined); });
+test("WHOOP OAuth state is single-use and normalization keeps missing metrics absent", () => { const state = createState(); assert.equal(consumeState(state), true); assert.equal(consumeState(state), false); const normalized = normalizeWhoop({ id: "cycle-1", created_at: "2026-08-30T10:00:00Z", score: { recovery_score: 72 } }); assert.equal(normalized.recoveryScore, 72); assert.equal(normalized.hrv, undefined); assert.equal(connectionStatus().connected, false); });

@@ -1,4 +1,6 @@
 export type DataOrigin = "real" | "test" | "historical";
+export type CardioModality = "incline_treadmill" | "stairmaster" | "upright_bike" | "recumbent_bike" | "elliptical" | "rower";
+export type CardioSession = { id: string; modality: CardioModality; duration: number; settings: Record<string, number | string>; completed: boolean; perceivedEffort?: number; pain?: string; source: DataOrigin | "manual"; startedAt: string; completedAt?: string };
 export type SessionStatus = "planned" | "completed" | "missed" | "rest" | "recovery_rest" | "rescheduled" | "unplanned_activity" | "illness_injury" | "other";
 export type ChangeReason = "planned_rest" | "missed" | "recovery" | "physical_activity" | "illness_injury" | "user_report";
 export type Profile = { id: string; displayName: string; goals: string[]; startWeight?: number };

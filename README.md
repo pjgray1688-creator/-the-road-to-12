@@ -39,3 +39,7 @@ Deploy by importing this repository into Vercel, or run `vercel` after installin
 - The current seven-day block, planned/rest/recovery status and reason model are in `lib/domain.ts`.
 - Genuine known training references are imported in `lib/historical-data.ts` with confidence labels; unknown dates or RIR are not invented.
 - See [docs/integrations.md](docs/integrations.md) for the real WHOOP OAuth and Apple Health native-bridge requirements.
+
+## WHOOP connection (optional)
+
+Create an application in the [WHOOP Developer Dashboard](https://developer.whoop.com/), set the callback URL to `http://localhost:3000/api/integrations/whoop/callback` for local development (and the equivalent deployed URL), then copy the client ID and secret into server-only `WHOOP_CLIENT_ID`, `WHOOP_CLIENT_SECRET`, and `WHOOP_REDIRECT_URI` variables. Restart the app and choose Connect WHOOP from Readiness. The app requests `offline`, `read:recovery`, `read:sleep`, `read:cycles`, and `read:workout`; tokens remain server-side. Sync imports only metrics returned by WHOOP (recovery score, HRV, resting heart rate, strain and timestamps). Apple Health remains a native iOS bridge requirement; this PWA does not claim browser HealthKit access.
