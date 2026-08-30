@@ -1,2 +1,2 @@
 /** Replace this development-safe placeholder before publishing. */
-export const privacyContactEmail = "privacy contact email to be provided";
+export const privacyContactEmail = "pjgray1688@gmail.com";
