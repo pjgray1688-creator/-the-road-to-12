@@ -3,10 +3,10 @@ import { createClient } from "@supabase/supabase-js";
 
 export const WHOOP_SCOPES = ["offline", "read:recovery", "read:sleep", "read:cycles", "read:workout"];
 export type StoredToken = { accessToken: string; refreshToken?: string; expiresAt: number; scopes: string[] };
-const consumedStates = new Set<string>();
 export function config() { return { clientId: process.env.WHOOP_CLIENT_ID, clientSecret: process.env.WHOOP_CLIENT_SECRET, redirectUri: process.env.WHOOP_REDIRECT_URI }; }
 export function createState() { return crypto.randomBytes(24).toString("base64url"); }
-export function consumeState(state: string) { if (state.length < 16 || consumedStates.has(state)) return false; consumedStates.add(state); return true; }
+export function consumeState(state: string) { return state.length >= 16; }
+export function statesMatch(expected: string, received: string) { const left = Buffer.from(expected); const right = Buffer.from(received); return left.length === right.length && crypto.timingSafeEqual(left, right); }
 export function connectionStatus() { return { connected: false }; }
 export function authorizationUrl(state: string) { const c = config(); if (!c.clientId || !c.redirectUri) return undefined; const params = new URLSearchParams({ client_id: c.clientId, redirect_uri: c.redirectUri, response_type: "code", scope: WHOOP_SCOPES.join(" "), state }); return `https://api.prod.whoop.com/oauth/oauth2/auth?${params}`; }
 function key() { return crypto.createHash("sha256").update(process.env.WHOOP_TOKEN_ENCRYPTION_KEY ?? "development-only-key").digest(); }
