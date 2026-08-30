@@ -51,3 +51,7 @@ Deploy the repository as a Next.js project through Vercel. Configure the server 
 ## Accounts and database foundation
 
 The production account/database boundary uses Supabase Auth + Postgres with row-level security. Create a Supabase project, run `supabase/schema.sql`, and configure `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and server-only `SUPABASE_SERVICE_ROLE_KEY`/`WHOOP_TOKEN_ENCRYPTION_KEY` as required by the deployment. The `/account` route provides sign-in/sign-up; protected server routes validate the Supabase session. The existing local-first owner data remains in the browser until the one-time `/api/account/migrate` migration action is completed and verified. Test-origin records are excluded and the migration payload has a deterministic idempotency key. Apple Health remains a native bridge boundary; no browser HealthKit access is attempted.
+
+### WHOOP persistence migration
+
+Before deploying the persistent WHOOP integration, run `supabase/migrations/2026-08-30-whoop-persistence.sql` against the existing Supabase project (the full schema is in `supabase/schema.sql`). This adds the connection update timestamp and keeps token/record tables inaccessible to browser clients. Existing transient WHOOP authorizations cannot be migrated; reconnect once after deployment.
