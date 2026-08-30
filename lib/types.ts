@@ -4,7 +4,7 @@ export type Exercise = { id: string; name: string; target: string; sets: number;
 export type LoggedSet = { id: string; exerciseId: string; exerciseName: string; weight: number; reps: number; rir?: number; kind: SetKind; createdAt: string; };
 export type Cardio = { modality?: import("./domain").CardioModality; duration: number; incline?: number; speed?: number; settings?: Record<string, number | string>; completedAt?: string; };
 export type Workout = { id: string; startedAt: string; completedAt?: string; name: string; sets: LoggedSet[]; substitutions: Record<string, string>; cardio?: Cardio; notes: string[]; origin?: "real" | "test"; };
-export type AppData = { version: 2; workouts: Workout[]; bodyMetrics: BodyMeasurement[]; meals: { origin?: "real" | "test" }[]; recoverySnapshots?: import("./domain").RecoverySnapshot[]; cardioSessions?: import("./domain").CardioSession[]; sessionStatusOverrides?: Record<string, { status: import("./domain").SessionStatus; note?: string }>; };
+export type AppData = { version: 2; timezone?: string; workouts: Workout[]; bodyMetrics: BodyMeasurement[]; meals: { origin?: "real" | "test" }[]; recoverySnapshots?: import("./domain").RecoverySnapshot[]; cardioSessions?: import("./domain").CardioSession[]; sessionStatusOverrides?: Record<string, { status: import("./domain").SessionStatus; note?: string }>; };
 export type Recommendation = { title: string; detail: string; nextWeight: number; repTarget: string; restSeconds: number; tone: "progress" | "hold" | "reduce"; };
 export type CoachDecision = Recommendation & { nextKind: SetKind | "complete"; completed: boolean; workingSetsCompleted: number; };
 import type { BodyMeasurement } from "./domain";
