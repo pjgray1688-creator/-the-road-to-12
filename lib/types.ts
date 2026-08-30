@@ -1,7 +1,7 @@
 export type SetKind = "warmup" | "ramp" | "working";
 export type Equipment = "dumbbell" | "barbell" | "machine" | "cable";
 export type Exercise = { id: string; name: string; target: string; sets: number; restSeconds: number; purpose: "strength" | "hypertrophy" | "isolation" | "core"; equipment: Equipment; stackIncrement?: number; defaultWorkingWeight: number; };
-export type LoggedSet = { id: string; exerciseId: string; exerciseName: string; weight: number; reps: number; rir: number; kind: SetKind; createdAt: string; };
+export type LoggedSet = { id: string; exerciseId: string; exerciseName: string; weight: number; reps: number; rir?: number; kind: SetKind; createdAt: string; };
 export type Cardio = { duration: number; incline: number; speed: number; completedAt?: string; };
 export type Workout = { id: string; startedAt: string; completedAt?: string; name: string; sets: LoggedSet[]; substitutions: Record<string, string>; cardio?: Cardio; notes: string[]; origin?: "real" | "test"; };
 export type AppData = { version: 2; workouts: Workout[]; bodyMetrics: BodyMeasurement[]; meals: { origin?: "real" | "test" }[]; };
