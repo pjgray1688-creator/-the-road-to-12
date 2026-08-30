@@ -5,7 +5,7 @@ import { magnitudeLoad, progressionProfile, rampLoad } from "../lib/progression"
 import { mondayExercises } from "../lib/workout";
 import { adaptSession, assessReadiness, rescheduleWeek, substitutionFor } from "../lib/adaptive-coach";
 import { currentWeek } from "../lib/domain";
-import { cardioRecommendation, evaluateSet } from "../lib/coach";
+import { cardioRecommendation, evaluateSet, snapAvailableLoad } from "../lib/coach";
 
 test("exercise knowledge preserves specific intent", () => { const item = exerciseKnowledge("incline-db-press"); assert.ok(item?.emphasis.includes("upper chest emphasis")); assert.ok(item?.substitutions.includes("incline-machine-press")); assert.equal(item?.stabilityDemand, "medium"); });
 test("dumbbell magnitude can make more than one increment when clearly underloaded", () => { const result = magnitudeLoad(mondayExercises[0], 20, 20, 10, 5); assert.equal(result, 26); });
@@ -16,3 +16,5 @@ test("missed sessions remain missed and later plans remain planned", () => { con
 test("exercise library has a substantive initial catalogue", () => { assert.ok(exerciseLibrary.length >= 80); assert.ok(exerciseLibrary.every(item => item.primaryMuscles.length && item.intent.length && item.progression.length)); });
 test("live coach uses magnitude-aware dumbbell progression", () => { const exercise = mondayExercises[0]; const result = evaluateSet(exercise, [{ id: "s", exerciseId: exercise.id, exerciseName: exercise.name, weight: 20, reps: 20, rir: 5, kind: "working", createdAt: "now" }]); assert.equal(result.nextWeight, 26); });
 test("normal upper-body cardio keeps the exact baseline", () => { const result = cardioRecommendation(12, 0); assert.deepEqual(result, { duration: 40, incline: 8, speed: 5, why: "Normal session demand: complete the standard conditioning block." }); });
+test("configured machine loads always snap to valid stack values", () => { const machine = { ...mondayExercises[3], validLoads: [5, 9, 14] }; assert.equal(snapAvailableLoad(7.5, machine), 9); assert.equal(snapAvailableLoad(10, machine, "up"), 14); assert.equal(snapAvailableLoad(10, machine, "down"), 9); });
+test("genuine historical machine loads remain unchanged", () => { const machine = { ...mondayExercises[3], validLoads: [5, 9, 14] }; assert.equal((machine.validLoads ?? []).includes(9), true); assert.equal(snapAvailableLoad(9, machine), 9); });
