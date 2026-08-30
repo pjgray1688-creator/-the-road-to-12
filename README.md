@@ -43,3 +43,7 @@ Deploy by importing this repository into Vercel, or run `vercel` after installin
 ## WHOOP connection (optional)
 
 Create an application in the [WHOOP Developer Dashboard](https://developer.whoop.com/), set the callback URL to `http://localhost:3000/api/integrations/whoop/callback` for local development (and the equivalent deployed URL), then copy the client ID and secret into server-only `WHOOP_CLIENT_ID`, `WHOOP_CLIENT_SECRET`, and `WHOOP_REDIRECT_URI` variables. Restart the app and choose Connect WHOOP from Readiness. The app requests `offline`, `read:recovery`, `read:sleep`, `read:cycles`, and `read:workout`; tokens remain server-side. Sync imports only metrics returned by WHOOP (recovery score, HRV, resting heart rate, strain and timestamps). Apple Health remains a native iOS bridge requirement; this PWA does not claim browser HealthKit access.
+
+## Vercel deployment
+
+Deploy the repository as a Next.js project through Vercel. Configure the server environment variables from `.env.example` in the Vercel project settings; never commit secrets. Set `WHOOP_REDIRECT_URI` to `https://PRODUCTION_DOMAIN/api/integrations/whoop/callback`, and add that exact URL to the WHOOP Developer Dashboard. The public privacy policy will be `https://PRODUCTION_DOMAIN/privacy`. Terms are available at `https://PRODUCTION_DOMAIN/terms`. Local development can continue using the localhost callback in `.env.local`.
