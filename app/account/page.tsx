@@ -1,10 +1,12 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { browserSupabase } from "@/lib/supabase-browser";
 type Account = { id: string; email?: string; profile?: { display_name?: string; timezone?: string; step_goal?: number; created_at?: string } };
 export default function AccountPage() {
   const [email, setEmail] = useState(""); const [password, setPassword] = useState(""); const [message, setMessage] = useState(""); const [account, setAccount] = useState<Account | null>(null); const [loading, setLoading] = useState(true); const [supabase, setSupabase] = useState<ReturnType<typeof browserSupabase> | null>(null);
+  const router = useRouter();
   const refresh = async () => { if (!supabase) return; const { data: { user } } = await supabase.auth.getUser(); if (!user) { setAccount(null); setLoading(false); return; } const response = await fetch("/api/account"); const profile = response.ok ? await response.json() : undefined; setAccount({ id: user.id, email: user.email, profile: profile?.profile }); setLoading(false); };
   // The browser client must not be created during static production prerendering.
   // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -12,7 +14,7 @@ export default function AccountPage() {
   // Auth listeners intentionally update UI state from the external Supabase session.
   // eslint-disable-next-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps
   useEffect(() => { if (!supabase) return; refresh(); const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => { if (session?.user) refresh(); else { setAccount(null); setLoading(false); } }); return () => listener.subscription.unsubscribe(); }, [supabase]);
-  const submit = async (mode: "signIn" | "signUp") => { if (!supabase) return; setMessage(""); const result = mode === "signIn" ? await supabase.auth.signInWithPassword({ email, password }) : await supabase.auth.signUp({ email, password, options: { emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || (process.env.NODE_ENV === "development" ? window.location.origin : "https://the-road-to-12.vercel.app")}/account` } }); if (result.error) setMessage(result.error.message); else if (mode === "signUp") setMessage("Check your email to confirm your account."); else await refresh(); };
+  const submit = async (mode: "signIn" | "signUp") => { if (!supabase) return; setMessage(""); const result = mode === "signIn" ? await supabase.auth.signInWithPassword({ email, password }) : await supabase.auth.signUp({ email, password, options: { emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || (process.env.NODE_ENV === "development" ? window.location.origin : "https://the-road-to-12.vercel.app")}/account` } }); if (result.error) setMessage(result.error.message); else if (mode === "signUp") setMessage("Check your email to confirm your account."); else { await refresh(); router.push("/"); } };
   const reset = async () => { if (!supabase) return; if (!email) { setMessage("Enter your email first."); return; } const result = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/account` }); setMessage(result.error?.message ?? "Password reset email sent."); };
   const signOut = async () => { if (supabase) await supabase.auth.signOut(); setAccount(null); setMessage("Signed out."); };
   if (loading) return <main className="legal-page account-page"><h1>Account</h1><p>Loading your account…</p></main>;
