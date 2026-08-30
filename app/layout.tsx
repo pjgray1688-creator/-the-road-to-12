@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import "./theme.css";
 
 export const metadata: Metadata = {
   title: "The Road to 12%",
