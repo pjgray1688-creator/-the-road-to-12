@@ -47,3 +47,7 @@ Create an application in the [WHOOP Developer Dashboard](https://developer.whoop
 ## Vercel deployment
 
 Deploy the repository as a Next.js project through Vercel. Configure the server environment variables from `.env.example` in the Vercel project settings; never commit secrets. Set `WHOOP_REDIRECT_URI` to `https://PRODUCTION_DOMAIN/api/integrations/whoop/callback`, and add that exact URL to the WHOOP Developer Dashboard. The public privacy policy will be `https://PRODUCTION_DOMAIN/privacy`. Terms are available at `https://PRODUCTION_DOMAIN/terms`. Local development can continue using the localhost callback in `.env.local`.
+
+## Accounts and database foundation
+
+The production account/database boundary uses Supabase Auth + Postgres with row-level security. Create a Supabase project, run `supabase/schema.sql`, and configure `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and server-only `SUPABASE_SERVICE_ROLE_KEY`/`WHOOP_TOKEN_ENCRYPTION_KEY` as required by the deployment. The `/account` route provides sign-in/sign-up; protected server routes validate the Supabase session. The existing local-first owner data remains in the browser until the one-time `/api/account/migrate` migration action is completed and verified. Test-origin records are excluded and the migration payload has a deterministic idempotency key. Apple Health remains a native bridge boundary; no browser HealthKit access is attempted.
