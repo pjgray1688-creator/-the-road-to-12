@@ -1,5 +1,5 @@
 export type DataOrigin = "real" | "test" | "historical";
-export type SessionStatus = "planned" | "completed" | "missed" | "rest" | "recovery_rest" | "rescheduled";
+export type SessionStatus = "planned" | "completed" | "missed" | "rest" | "recovery_rest" | "rescheduled" | "unplanned_activity" | "illness_injury" | "other";
 export type ChangeReason = "planned_rest" | "missed" | "recovery" | "physical_activity" | "illness_injury" | "user_report";
 export type Profile = { id: string; displayName: string; goals: string[]; startWeight?: number };
 export type TrainingBlock = { id: string; name: string; startDate: string; endDate: string; weekNumber: number; goals: string[]; progressionFocus: string; status: "active" | "complete" | "proposed"; reviewDate: string; proposedNextBlock?: string };

@@ -7,6 +7,8 @@ export type Exposure = { date: string; weight: number; reps: number; rir?: numbe
 export type StallProposal = { proposed: boolean; message?: string; replacement?: string; temporarySessions?: number };
 
 export function assessReadiness(input: ReadinessInput): { level: ReadinessLevel; message: string } {
+  if (input.recovery?.userReported && ((input.recovery.fatigue ?? 0) >= 4 || (input.recovery.soreness ?? 0) >= 5)) return { level: "RECOVERY PRIORITY", message: "Your reported fatigue is high. Reduce demand and protect recovery." };
+  if (input.recovery?.userReported && ((input.recovery.energy ?? 5) <= 2 || (input.recovery.sleepQuality ?? 5) <= 2)) return { level: "TRAIN WITH CAUTION", message: "Your reported recovery is below baseline. Keep effort conservative today." };
   if (input.pain || input.fatigue && (input.recovery?.recoveryScore ?? 100) < 40) return { level: "RECOVERY PRIORITY", message: "Recovery is the priority today. Rest or keep movement easy." };
   if (input.fatigue || input.recentStrain !== undefined && input.recentStrain > 17 || input.recovery?.recoveryScore !== undefined && input.recovery.recoveryScore < 67) return { level: "TRAIN WITH CAUTION", message: "Train, but keep selection and effort conservative today." };
   return { level: "READY", message: "Good to train. Proceed with today’s plan." };
@@ -15,7 +17,7 @@ export function assessReadiness(input: ReadinessInput): { level: ReadinessLevel;
 export function adaptSession(input: ReadinessInput & { lowerBodyDemand?: boolean; plannedSets: number }): SessionAdaptation {
   const readiness = assessReadiness(input);
   if (readiness.level === "RECOVERY PRIORITY") return { ...readiness, action: "rest", reduceSetsBy: input.plannedSets, cardioMinutes: 30 };
-  if (readiness.level === "TRAIN WITH CAUTION") return { ...readiness, action: "reduce_demand", reduceSetsBy: Math.max(1, Math.ceil(input.plannedSets * .2)), cardioMinutes: input.lowerBodyDemand ? 30 : 34 };
+  if (readiness.level === "TRAIN WITH CAUTION") return { ...readiness, action: "reduce_demand", reduceSetsBy: Math.max(1, Math.ceil(input.plannedSets * .2)), cardioMinutes: input.lowerBodyDemand ? 30 : 35 };
   return { ...readiness, action: "proceed", cardioMinutes: 40 };
 }
 
