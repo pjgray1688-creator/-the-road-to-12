@@ -1,3 +1,3 @@
-import { TrainingApp } from "@/components/training-app";
+import { HomeShell } from "@/components/home-shell";
 
-export default function Home() { return <TrainingApp />; }
+export default function Home() { return <HomeShell />; }
