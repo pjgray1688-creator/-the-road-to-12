@@ -37,11 +37,7 @@ export function proposeMondaySetClassifications(): ProposedSetClassification[] {
     const group = grouped.get(`${set.exerciseName}:${set.side ?? "both"}`) ?? [];
     const workingCount = workingCounts[set.exerciseName];
     if (!workingCount || group.length < workingCount + 1) {
-      if (set.exerciseName === "Reverse Crunch Machine" && group.length === 4) {
-        return set.setOrder > 1
-          ? { ...set, proposedKind: "working", reason: "Three final sets match the prescribed core volume while preserving Reverse Crunch Machine as a substitution; it is not renamed Cable Crunch.", confidence: "medium", performanceHistoryEligible: true }
-          : { ...set, proposedKind: "ramp", reason: "One preparation set precedes the three-set substituted core movement.", confidence: "medium", performanceHistoryEligible: false };
-      }
+      if (set.exerciseName === "Reverse Crunch Machine" && group.length === 4) return { ...set, proposedKind: "unknown", reason: "Source evidence preserves this substituted movement, but its working-set role is not promoted without independent confirmation.", confidence: "low", performanceHistoryEligible: false };
       return { ...set, proposedKind: "unknown", reason: "The source exercise/count does not unambiguously match a prescribed movement.", confidence: "low", performanceHistoryEligible: false };
     }
     const workingStart = group.length - workingCount;

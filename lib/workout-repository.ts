@@ -99,8 +99,8 @@ export async function createOrResumeWorkout(client: SupabaseClient, userId: stri
   return { session: data, resumed: false };
 }
 
-export async function upsertWorkoutSet(client: SupabaseClient, userId: string, workoutId: string, set: LoggedSet, setOrder: number) {
-  await assertSessionActive(client, userId, workoutId);
+export async function upsertWorkoutSet(client: SupabaseClient, userId: string, workoutId: string, set: LoggedSet, setOrder: number, allowCompleted = false) {
+  await assertSessionActive(client, userId, workoutId, allowCompleted);
   const row = { id: uuidOrNew(set.id), user_id: userId, session_id: workoutId, exercise_id: set.exerciseId, exercise_name: set.exerciseName, set_order: setOrder, kind: set.kind, weight: set.weight, reps: set.reps, rir: set.kind === "working" ? (set.rir ?? null) : null, side: (set as LoggedSet & { side?: string }).side ?? null, feedback: (set as LoggedSet & { feedback?: string }).feedback ?? null, metadata: {}, updated_at: new Date().toISOString() };
   const { data, error } = await client.from("workout_sets").upsert(row, { onConflict: "id" }).select().single();
   if (error) fail(error.message, "upsert_set", error.code); return data;
@@ -151,8 +151,16 @@ export async function reconcileMondayWorkout(client: SupabaseClient, userId: str
   }
   const { data: existing, error: lookupError } = await client.from("workout_sessions").select("*").eq("user_id", userId).eq("planned_session_id", "mon").eq("scheduled_date", "2026-08-31").maybeSingle();
   if (lookupError) fail(lookupError.message, "reconcile_lookup", lookupError.code);
-  if (existing?.id === incoming.id) fail("The recovery candidate has the same identity as the preserved test record", "reconcile_conflict", "IDENTITY_COLLISION");
-  if (existing && existing.origin !== "test" && existing.id !== incoming.id) fail("A genuine Monday session already exists; no automatic replacement was performed", "reconcile_conflict", "GENUINE_SESSION_EXISTS");
+  if (existing && existing.origin !== "test") {
+    const current = await getWorkoutSession(client, userId, existing.id);
+    const currentSets = (current?.sets ?? []) as Array<Record<string, unknown>>;
+    if (currentSets.filter(set => set.kind === "working").length >= 25 && current?.cardio) return { promoted: existing.id, alreadyRecovered: true };
+    for (const [index, set] of incoming.sets.entries()) {
+      if (!currentSets[index]) await upsertWorkoutSet(client, userId, existing.id, set, index, true);
+    }
+    if (incoming.cardio && !current?.cardio) await upsertWorkoutCardio(client, userId, existing.id, incoming.cardio);
+    return { promoted: existing.id, alreadyRecovered: false };
+  }
   if (existing?.origin === "test") {
     const metadata = { ...((existing.metadata as Record<string, unknown> | null) ?? {}), reconciliation: { reason: "owner-reviewed genuine recovery", deCanonicalizedAt: new Date().toISOString(), formerCanonicalKey: "mon:2026-08-31" } };
     const { error } = await client.from("workout_sessions").update({ planned_session_id: null, scheduled_date: null, metadata, updated_at: new Date().toISOString(), version: Number(existing.version ?? 1) + 1 }).eq("id", existing.id).eq("user_id", userId).eq("origin", "test");
@@ -161,7 +169,7 @@ export async function reconcileMondayWorkout(client: SupabaseClient, userId: str
   const created = await createOrResumeWorkout(client, userId, incoming);
   const session = created.session as WorkoutSessionRow;
   if (created.resumed && session.origin !== "test" && session.id !== incoming.id) fail("A genuine Monday session already exists; no automatic replacement was performed", "reconcile_conflict", "GENUINE_SESSION_EXISTS");
-  for (const [index, set] of incoming.sets.entries()) await upsertWorkoutSet(client, userId, session.id, set, index);
+  for (const [index, set] of incoming.sets.entries()) await upsertWorkoutSet(client, userId, session.id, set, index, true);
   if (incoming.cardio) await upsertWorkoutCardio(client, userId, session.id, incoming.cardio);
   if (session.status !== "completed") await completeWorkout(client, userId, session.id, incoming.completedAt ?? new Date().toISOString(), session.version);
   return { promoted: session.id, preservedTest: existing?.origin === "test" ? existing.id : undefined };
@@ -169,10 +177,10 @@ export async function reconcileMondayWorkout(client: SupabaseClient, userId: str
 
 export { sessionRow, setRows, cardioRow };
 
-async function assertSessionActive(client: SupabaseClient, userId: string, workoutId: string) {
+async function assertSessionActive(client: SupabaseClient, userId: string, workoutId: string, allowCompleted = false) {
   const { data, error } = await client.from("workout_sessions").select("status").eq("id", workoutId).eq("user_id", userId).maybeSingle();
   if (error) fail(error.message, "session_state", error.code);
   const session = data as { status: string } | null;
   if (!session) { const missing = new Error("Workout session not found") as RepositoryError; missing.operation = "session_state"; missing.code = "NOT_FOUND"; throw missing; }
-  if (session.status !== "active") fail("Completed workout cannot be changed", "session_state", "WORKOUT_COMPLETED");
+  if (session.status !== "active" && !allowCompleted) fail("Completed workout cannot be changed", "session_state", "WORKOUT_COMPLETED");
 }

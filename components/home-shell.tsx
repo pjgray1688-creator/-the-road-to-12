@@ -63,7 +63,7 @@ export function HomeShell() {
       setResolved(true);
     } catch { setServerResolved(false); }
   }, [serverResolved, timezone]);
-  useEffect(() => { const frame = window.requestAnimationFrame(() => void hydrateServer()); const onFocus = () => void hydrateServer(); window.addEventListener("focus", onFocus); return () => { window.cancelAnimationFrame(frame); window.removeEventListener("focus", onFocus); }; }, [hydrateServer]);
+  useEffect(() => { const frame = window.requestAnimationFrame(() => void hydrateServer()); const onFocus = () => void hydrateServer(); const onWorkoutsUpdated = () => void hydrateServer(); window.addEventListener("focus", onFocus); window.addEventListener("workouts-updated", onWorkoutsUpdated); return () => { window.cancelAnimationFrame(frame); window.removeEventListener("focus", onFocus); window.removeEventListener("workouts-updated", onWorkoutsUpdated); }; }, [hydrateServer]);
   const summary = useMemo(() => { if (!completed) return undefined; const working = completed.sets.filter(set => set.kind === "working"); return { sets: working.length, cardio: completed.cardio?.duration }; }, [completed]);
   if (!resolved || !serverResolved) return <main className="shell home-screen" aria-busy="true"><PwaRegister /><section className="card dashboard"><span className="eyebrow">THE ROAD TO 12%</span><p>Loading today&apos;s plan…</p></section></main>;
   if (resumeRequested && active) return <TrainingApp resumeWorkout={active} workoutHistory={serverWorkouts} />;
