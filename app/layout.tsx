@@ -4,6 +4,7 @@ import "./theme.css";
 import "./presentation.css";
 import "./adaptive-controls.css";
 import "./legal.css";
+import "./training-polish.css";
 import { SiteFooter } from "@/components/site-footer";
 
 export const metadata: Metadata = {

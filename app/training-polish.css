@@ -1,0 +1,132 @@
+.timer{position:sticky;top:calc(8px + env(safe-area-inset-top));z-index:3;box-shadow:0 8px 24px #0008}.timer select{min-height:35px;background:#c6dd37;color:#111600;border:0;border-radius:8px;padding:0 8px;font-size:12px}
+
+/* Premium product layer: one compact token set shared by Home, training and account. */
+:root {
+  --surface-0: #07080b;
+  --surface-1: #101116;
+  --surface-2: #171922;
+  --surface-3: #202330;
+  --text-primary: #f7f7fb;
+  --text-secondary: #a9abb8;
+  --text-tertiary: #777b8d;
+  --separator: rgba(255,255,255,.09);
+  --accent: #a855f7;
+  --accent-bright: #c084fc;
+  --success: #5ee6a8;
+  --warning: #f4c76b;
+  --danger: #ff8178;
+  --radius-sm: 10px;
+  --radius-md: 16px;
+  --radius-lg: 22px;
+  --space-1: 6px;
+  --space-2: 10px;
+  --space-3: 14px;
+  --space-4: 18px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --control-height: 48px;
+}
+
+html, body { background: var(--surface-0); }
+body { color: var(--text-primary); font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Inter, Arial, sans-serif; background-image: radial-gradient(circle at 95% -10%, rgba(168,85,247,.14), transparent 34%), linear-gradient(180deg, #09090d 0%, #07080b 55%); }
+button, input, select { font-family: inherit; }
+button, a { -webkit-tap-highlight-color: transparent; transition: transform .16s ease, background-color .16s ease, border-color .16s ease, opacity .16s ease; }
+button:active, a:active { transform: scale(.98); }
+input, select { min-height: var(--control-height); font-size: 16px; }
+
+.shell { max-width: 620px; padding: calc(18px + env(safe-area-inset-top)) 20px calc(34px + env(safe-area-inset-bottom)); }
+.home-screen { display: flex; flex-direction: column; gap: 0; }
+.home-screen > header { order: 1; }
+.home-screen > .readiness-card { order: 2; }
+.home-screen > .today-hero { order: 3; }
+.home-screen > .exercise-overview { order: 4; }
+.home-screen > .post-workout { order: 3; }
+.home-screen > .upcoming-card { order: 5; }
+.home-screen > .block-card { order: 6; }
+.home-screen > .activity-card { order: 7; }
+.home-screen > .dashboard:not(.readiness-card):not(.upcoming-card):not(.block-card):not(.activity-card):not(.post-workout) { order: 8; }
+
+header { margin: 10px 0 20px; align-items: center; }
+.brand-mark { width: 42px; height: 42px; background: var(--accent); color: #160c21; border-radius: 11px; clip-path: none; letter-spacing: -1.5px; }
+h1 { font-size: clamp(30px, 8vw, 38px); line-height: .98; letter-spacing: -1.8px; }
+h1 em, .day, .topline button, .text-button, .plan-row b, .coach-callout span { color: var(--accent-bright); }
+.eyebrow, .topline { color: var(--text-tertiary); letter-spacing: 1.4px; }
+.card { background: rgba(17,18,25,.92); border: 1px solid var(--separator); border-radius: var(--radius-md); padding: var(--space-5); box-shadow: 0 10px 28px rgba(0,0,0,.16); }
+.dashboard { margin-top: 12px; }
+.dashboard strong { font-size: 20px; }
+.dashboard p, .dashboard small { color: var(--text-secondary); }
+.today-hero { margin-top: 0; padding: var(--space-5); border-color: rgba(168,85,247,.3); background: linear-gradient(145deg, rgba(45,24,61,.86), rgba(16,17,22,.96)); }
+.hero h2 { font-size: clamp(26px, 7vw, 34px); margin: 10px 0 10px; }
+.session-meta { gap: 8px; margin: 18px 0; }
+.session-meta span { background: rgba(168,85,247,.13); border: 1px solid rgba(192,132,252,.16); color: var(--text-secondary); padding: 10px 11px; border-radius: var(--radius-sm); }
+.session-meta b { color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.primary { background: var(--accent); color: #fff; min-height: var(--control-height); border-radius: var(--radius-sm); }
+.primary:hover { background: var(--accent-bright); }
+.secondary { background: var(--surface-3); color: var(--text-primary); border: 1px solid var(--separator); min-height: var(--control-height); border-radius: var(--radius-sm); }
+.danger { background: rgba(255,129,120,.14); color: #ffb1aa; border-radius: var(--radius-sm); }
+.big { min-height: 56px; }
+.exercise-overview { padding-top: 16px; padding-bottom: 10px; }
+.plan-row { gap: 14px; padding: 13px 0; border-bottom-color: var(--separator); }
+.plan-row b { min-width: 24px; font-variant-numeric: tabular-nums; }
+.plan-row span { line-height: 1.25; }
+.plan-row small { margin-top: 4px; color: var(--text-tertiary); }
+
+.readiness-card { background: linear-gradient(145deg, rgba(28,20,37,.96), rgba(16,17,22,.96)); border-color: rgba(168,85,247,.28); }
+.coach-greeting { display: block; font-size: 22px; font-weight: 700; letter-spacing: -.35px; margin-bottom: 16px; }
+.readiness-advice { margin: 14px 0 0; color: var(--text-primary)!important; font-weight: 650; }
+.readiness-rings { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 16px 0 12px; }
+.readiness-metric { min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 13px 6px; border: 1px solid var(--separator); border-radius: 50%; aspect-ratio: 1; justify-content: center; background: radial-gradient(circle, rgba(168,85,247,.18), rgba(10,11,15,.9) 68%); }
+.readiness-metric b { color: var(--text-tertiary); font-size: 9px; letter-spacing: .9px; }
+.readiness-metric strong { font-size: clamp(21px, 6vw, 28px); line-height: 1; font-variant-numeric: tabular-nums; }
+.whoop-date { display: block; color: var(--text-tertiary); margin-bottom: 8px; font-variant-numeric: tabular-nums; }
+.readiness-card > .text-button { font-size: 12px; }
+.manual-recovery { border-top-color: var(--separator); }
+.manual-recovery .secondary { font-size: 13px; }
+.upcoming-card .plan-row { align-items: center; }
+.upcoming-card select { min-height: 38px; max-width: 112px; background: var(--surface-3); color: var(--text-secondary); border: 1px solid var(--separator); border-radius: 8px; padding: 0 5px; font-size: 12px; }
+.block-card p { font-variant-numeric: tabular-nums; }
+.activity-grid { gap: 8px; }
+.activity-grid span { background: var(--surface-0); border-color: var(--separator); }
+.activity-grid strong { font-variant-numeric: tabular-nums; }
+.post-workout { background: linear-gradient(145deg, rgba(22,45,37,.9), rgba(16,17,22,.96)); border-color: rgba(94,230,168,.2); }
+.post-workout h2 { margin: 9px 0 6px; font-size: 27px; }
+.post-workout-actions { display: flex; gap: 8px; margin-top: 16px; }
+.post-workout-actions button { flex: 1; font-size: 13px; }
+
+/* Live workout density: preserve the existing flow while keeping the next action close. */
+.workout-header { margin: 4px 0 15px; }
+.workout-header h1 { font-size: clamp(28px, 8vw, 34px); }
+.log { margin-top: 10px; padding: 16px; }
+.log .plan-line { padding: 10px 0; }
+.log .plan-line span { font-size: 16px; font-variant-numeric: tabular-nums; }
+.logged { margin: 13px 0; gap: 6px; }
+.logged span { padding: 10px; font-size: 12px; }
+.logged b { font-variant-numeric: tabular-nums; }
+.coach-callout { background: rgba(45,25,58,.66); border-left-color: var(--accent); padding: 13px 15px; margin: 13px 0; }
+.coach-callout.reduce { border-color: var(--danger); background: rgba(83,31,37,.42); }
+.timer { background: var(--accent); color: #fff; border-radius: var(--radius-md); padding: 13px 14px; box-shadow: 0 8px 24px rgba(0,0,0,.4); }
+.timer .eyebrow { color: rgba(255,255,255,.72); }
+.timer strong { font-size: 36px; font-variant-numeric: tabular-nums; }
+.timer .secondary, .timer select { background: rgba(20,8,27,.32); color: #fff; border-color: rgba(255,255,255,.16); }
+.timer select { min-height: 35px; }
+.skip-controls { border-top-color: rgba(168,85,247,.3); }
+.ask-coach, .text-button { min-height: 44px; }
+
+.auth-welcome { max-width: 620px; padding-top: calc(36px + env(safe-area-inset-top)); }
+.auth-welcome h1 { font-size: clamp(34px, 10vw, 54px); max-width: 560px; }
+.auth-welcome > p:not(.eyebrow) { font-size: 17px; line-height: 1.45; }
+.welcome-glimpse { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+.welcome-glimpse span { color: var(--text-secondary); border: 1px solid var(--separator); background: var(--surface-1); border-radius: 999px; padding: 9px 12px; font-size: 12px; }
+.auth-welcome-actions { margin-top: 10px; }
+.auth-welcome-actions a { min-width: 140px; }
+
+.legal-page { max-width: 620px; padding: calc(26px + env(safe-area-inset-top)) 20px calc(30px + env(safe-area-inset-bottom)); }
+.account-page { min-height: 100svh; }
+.account-page header { margin-bottom: 24px; }
+.account-card { display: grid; gap: 12px; margin-top: 18px; }
+.account-card label { margin-top: 2px; }
+.account-card input { margin-top: 7px; }
+.account-card button { width: 100%; }
+
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto!important; transition-duration: .01ms!important; animation-duration: .01ms!important; } }
+@media (min-width: 700px) { .shell { padding-left: 28px; padding-right: 28px; } .readiness-rings { max-width: 360px; } }
