@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { assessReadiness } from "@/lib/adaptive-coach";
 import { currentBlock, currentWeek, latestWhoopSnapshot, type RecoverySnapshot, type SessionStatus } from "@/lib/domain";
 import { loadData, saveData } from "@/lib/storage";
-import { completedWorkoutsInRange, dayLabel, localDateParts, resolveToday, upcomingAfterToday } from "@/lib/schedule";
+import { dayLabel, localDateParts, resolveToday, uniqueCompletedSessionCount, upcomingAfterToday } from "@/lib/schedule";
 import { shouldSyncReadiness } from "@/lib/whoop-sync";
 import { coachGreeting } from "@/lib/greeting";
 
@@ -25,7 +25,7 @@ export function DashboardFoundation() {
   const localSnapshot = useMemo(() => latestWhoopSnapshot(data.recoverySnapshots ?? [], localToday.date)?.record, [data.recoverySnapshots, localToday.date]);
   const snapshot = whoop.latest ?? localSnapshot;
   const isToday = snapshot?.date === localToday.date;
-  const completedInBlock = completedWorkoutsInRange(data.workouts, currentBlock.startDate, currentBlock.endDate, timezone).length;
+  const completedInBlock = uniqueCompletedSessionCount(data.workouts, currentBlock.startDate, currentBlock.endDate, timezone);
   const applySnapshots = (snapshots: RecoverySnapshot[]) => { if (!snapshots.length) return; const byId = new Map((data.recoverySnapshots ?? []).map(item => [item.id, item])); snapshots.forEach(item => byId.set(item.id, item)); const next = { ...data, recoverySnapshots: [...byId.values()] }; saveData(next); setData(next); setWhoop(value => ({ ...value, latest: snapshots.at(-1) })); };
   const sync = async () => { if (syncingRef.current) return; syncingRef.current = true; setSyncing(true); setWhoop(value => ({ ...value, error: undefined })); try { const response = await fetch("/api/integrations/whoop/sync", { method: "POST" }); const result = await response.json(); if (!response.ok) throw new Error(result.error ?? "WHOOP sync failed"); applySnapshots(result.snapshots ?? []); setWhoop(value => ({ ...value, connected: true, lastSyncAt: result.syncedAt })); const refreshed = await fetch("/api/integrations/whoop/status"); if (refreshed.ok) { const status = await refreshed.json(); whoopRef.current = status; setWhoop(status); if (status.latest) applySnapshots([status.latest]); } } catch (error) { setWhoop(value => ({ ...value, error: error instanceof Error ? error.message : "WHOOP sync failed" })); } finally { syncingRef.current = false; setSyncing(false); } };
   useEffect(() => { if (!data.timezone) saveData({ ...data, timezone }); fetch("/api/account").then(response => response.ok ? response.json() : undefined).then(result => setDisplayName(result?.profile?.first_name)).catch(() => undefined); fetch("/api/integrations/whoop/status").then(response => response.json()).then(result => { whoopRef.current = result; setWhoop(result); if (result.latest) applySnapshots([result.latest]); if (shouldSyncReadiness(result)) void sync(); }).catch(() => undefined); const onFocus = () => { const current = whoopRef.current; if (shouldSyncReadiness(current) && Date.now() - lastAttemptRef.current > 6 * 60 * 60 * 1000) void sync(); }; window.addEventListener("focus", onFocus); return () => window.removeEventListener("focus", onFocus); // eslint-disable-next-line react-hooks/exhaustive-deps
