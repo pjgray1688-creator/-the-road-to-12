@@ -86,6 +86,7 @@ h1 em, .day, .topline button, .text-button, .plan-row b, .coach-callout span { c
 .upcoming-card select { min-height: 38px; max-width: 112px; background: var(--surface-3); color: var(--text-secondary); border: 1px solid var(--separator); border-radius: 8px; padding: 0 5px; font-size: 12px; }
 .block-card p { font-variant-numeric: tabular-nums; }
 .activity-grid { gap: 8px; }
+.activity-grid { grid-template-columns: repeat(2, 1fr); }
 .activity-grid span { background: var(--surface-0); border-color: var(--separator); }
 .activity-grid strong { font-variant-numeric: tabular-nums; }
 .post-workout { background: linear-gradient(145deg, rgba(22,45,37,.9), rgba(16,17,22,.96)); border-color: rgba(94,230,168,.2); }
@@ -119,6 +120,32 @@ h1 em, .day, .topline button, .text-button, .plan-row b, .coach-callout span { c
 .welcome-glimpse span { color: var(--text-secondary); border: 1px solid var(--separator); background: var(--surface-1); border-radius: 999px; padding: 9px 12px; font-size: 12px; }
 .auth-welcome-actions { margin-top: 10px; }
 .auth-welcome-actions a { min-width: 140px; }
+
+.upcoming-row { align-items: center; }
+.upcoming-row > span { flex: 1; min-width: 0; }
+.status-pill { flex: 0 0 auto; min-height: 32px; border-radius: 999px; padding: 0 10px; border: 1px solid var(--separator); background: rgba(255,255,255,.06); color: var(--text-secondary); font-size: 11px; font-weight: 750; }
+.status-planned { color: var(--accent-bright); background: rgba(168,85,247,.12); border-color: rgba(168,85,247,.24); }
+.status-completed { color: var(--success); background: rgba(94,230,168,.1); }
+.status-rest, .status-recovery_rest { color: var(--text-tertiary); }
+.status-missed, .status-illness_injury { color: #ffb1aa; background: rgba(255,129,120,.1); }
+.sheet-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.sheet-heading h2 { margin-top: 6px; }
+.status-options { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.status-options button { font-size: 13px; }
+.block-sheet { max-height: min(86svh, 760px); overflow-y: auto; }
+.block-progress { color: var(--accent-bright)!important; font-weight: 700; font-variant-numeric: tabular-nums; }
+.block-week { display: grid; gap: 7px; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--separator); }
+.block-week > div { display: flex; justify-content: space-between; align-items: baseline; }
+.block-week > div b { font-size: 16px; }
+.block-week > div small { color: var(--accent-bright); }
+.block-week > span { display: flex; justify-content: space-between; gap: 10px; padding: 9px 0; color: var(--text-secondary); }
+.block-week > span strong { font-size: 13px; font-weight: 600; }
+.block-week > span em { color: var(--text-tertiary); font-size: 12px; font-style: normal; }
+.sheet-input { display: grid; gap: 6px; color: var(--text-secondary); font-size: 12px; font-weight: 700; }
+.sheet-input input, .sheet-input select { margin: 0; width: 100%; }
+.conversation { min-height: 54px; display: flex; align-items: center; }
+.conversation small { color: var(--text-tertiary); }
+.modal section { max-height: 90svh; overflow-y: auto; }
 
 .legal-page { max-width: 620px; padding: calc(26px + env(safe-area-inset-top)) 20px calc(30px + env(safe-area-inset-bottom)); }
 .account-page { min-height: 100svh; }
