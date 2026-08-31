@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import fs from "node:fs";
 import { canonicalSessionKey, isImportableWorkout, shouldPreferIncoming } from "../lib/workout-repository";
-import { workingWeight } from "../lib/coach";
+import { estimateLiftingDuration, evaluateSet, nextExerciseRecommendation, restFor, workingWeight } from "../lib/coach";
 
 test("workout persistence migration has owned canonical tables, RLS and grants", () => {
   const sql = fs.readFileSync("supabase/migrations/2026-08-31-workout-persistence.sql", "utf8");
@@ -107,6 +107,59 @@ test("preparation-only sets never become working-weight history", () => {
   const exercise = { id: "press", name: "Press", target: "3 × 8–10", sets: 3, restSeconds: 120, purpose: "strength" as const, equipment: "dumbbell" as const, defaultWorkingWeight: 40 };
   const rampOnly = [{ id: "r", exerciseId: exercise.id, exerciseName: exercise.name, kind: "ramp" as const, weight: 24, reps: 8, rir: 2, createdAt: "2026-08-31T08:00:00Z" }];
   assert.equal(workingWeight(exercise, rampOnly), 40);
+});
+
+test("prescribed ramp completion does not establish a working load or cap progression", () => {
+  const exercise = { id: "press", name: "Press", target: "3 × 8–10", sets: 3, restSeconds: 120, purpose: "strength" as const, equipment: "dumbbell" as const, defaultWorkingWeight: 40 };
+  const ramp = { id: "r", exerciseId: exercise.id, exerciseName: exercise.name, kind: "ramp" as const, weight: 24, reps: 8, rir: 0, createdAt: "2026-08-31T08:00:00Z" };
+  assert.equal(nextExerciseRecommendation(exercise, [ramp], 0).weight, 40);
+  const decision = evaluateSet(exercise, [ramp], "", [], 0);
+  assert.equal(decision.nextKind, "ramp");
+  assert.ok(decision.nextWeight > 24 && decision.nextWeight < 40);
+});
+
+test("working history outranks ramp-only evidence", () => {
+  const exercise = { id: "press", name: "Press", target: "3 × 8–10", sets: 3, restSeconds: 120, purpose: "strength" as const, equipment: "dumbbell" as const, defaultWorkingWeight: 40 };
+  const sets = [
+    { id: "r", exerciseId: exercise.id, exerciseName: exercise.name, kind: "ramp" as const, weight: 60, reps: 8, rir: 0, createdAt: "now" },
+    { id: "w", exerciseId: exercise.id, exerciseName: exercise.name, kind: "working" as const, weight: 40, reps: 9, rir: 2, createdAt: "now" },
+  ];
+  assert.equal(workingWeight(exercise, sets), 40);
+});
+
+test("explicit preparation pain can stop progression without turning the ramp into history", () => {
+  const exercise = { id: "press", name: "Press", target: "3 × 8–10", sets: 3, restSeconds: 120, purpose: "strength" as const, equipment: "dumbbell" as const, defaultWorkingWeight: 40 };
+  const ramp = { id: "r", exerciseId: exercise.id, exerciseName: exercise.name, kind: "ramp" as const, weight: 24, reps: 8, createdAt: "now" };
+  const decision = evaluateSet(exercise, [ramp], "shoulder pain", [], 0);
+  assert.equal(decision.completed, false);
+  assert.equal(decision.tone, "reduce");
+});
+
+test("working-set adaptation changes load, not normal rest, when performance is clear", () => {
+  const exercise = { id: "press", name: "Press", target: "3 × 8–10", sets: 3, restSeconds: 120, purpose: "strength" as const, equipment: "dumbbell" as const, defaultWorkingWeight: 40 };
+  const easy = evaluateSet(exercise, [{ id: "w", exerciseId: exercise.id, exerciseName: exercise.name, kind: "working" as const, weight: 40, reps: 20, rir: 5, createdAt: "now" }]);
+  const hard = evaluateSet(exercise, [{ id: "w", exerciseId: exercise.id, exerciseName: exercise.name, kind: "working" as const, weight: 40, reps: 5, rir: 0, createdAt: "now" }]);
+  const normal = evaluateSet(exercise, [{ id: "w", exerciseId: exercise.id, exerciseName: exercise.name, kind: "working" as const, weight: 40, reps: 9, rir: 2, createdAt: "now" }]);
+  assert.ok(easy.nextWeight > 40);
+  assert.ok(hard.nextWeight < 40);
+  assert.equal(normal.restSeconds, 120);
+});
+
+test("rest defaults follow preparation and exercise context", () => {
+  const heavy = { id: "heavy", name: "Heavy", target: "3 × 8", sets: 3, restSeconds: 120, purpose: "strength" as const, equipment: "barbell" as const, defaultWorkingWeight: 80 };
+  const isolation = { ...heavy, id: "iso", purpose: "isolation" as const, restSeconds: 75 };
+  assert.equal(restFor(heavy, "warmup"), 45);
+  assert.equal(restFor(heavy, "ramp"), 60);
+  assert.equal(restFor(heavy, "working"), 120);
+  assert.equal(restFor(isolation, "working"), 75);
+});
+
+test("lifting duration estimates programmed work before cardio", () => {
+  const exercises = [
+    { id: "a", name: "A", target: "4 × 8", sets: 4, restSeconds: 120, purpose: "strength" as const, equipment: "barbell" as const, defaultWorkingWeight: 80 },
+    { id: "b", name: "B", target: "3 × 12", sets: 3, restSeconds: 75, purpose: "isolation" as const, equipment: "cable" as const, defaultWorkingWeight: 20 },
+  ];
+  assert.equal(estimateLiftingDuration(exercises), 15);
 });
 
 test("server round-trip exposes complete sessions and canonical completion", () => {
