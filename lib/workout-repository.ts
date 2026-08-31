@@ -15,7 +15,7 @@ export function serverSessionToWorkout(session: WorkoutSessionRow & { metadata?:
     id: session.id, name: session.name, startedAt: session.started_at, completedAt: session.completed_at ?? undefined,
     plannedSessionId: session.planned_session_id ?? undefined, scheduledDate: session.scheduled_date ?? undefined,
     status: session.status, serverVersion: session.version, origin: session.origin,
-    substitutions: (metadata.substitutions as Record<string, string> | undefined) ?? {}, notes: (metadata.notes as string[] | undefined) ?? [],
+    substitutions: (metadata.substitutions as Record<string, string> | undefined) ?? {}, notes: (metadata.notes as string[] | undefined) ?? [], provenance: (metadata.provenance as Workout["provenance"] | undefined) ?? undefined, recoveryEvidence: (metadata.recoveryEvidence as Workout["recoveryEvidence"] | undefined) ?? undefined,
     sets: sets.map(item => ({ id: String(item.id), exerciseId: String(item.exercise_id), exerciseName: String(item.exercise_name), weight: Number(item.weight ?? 0), reps: Number(item.reps ?? 0), kind: item.kind as LoggedSet["kind"], rir: item.rir == null ? undefined : Number(item.rir), createdAt: String(item.created_at ?? new Date().toISOString()), ...(item.side ? { side: String(item.side) } : {}), ...(item.feedback ? { feedback: String(item.feedback) } : {}) })),
     ...(cardio ? { cardio: { modality: cardio.modality as Cardio["modality"], duration: Number(cardio.duration ?? 0), completedAt: cardio.completed_at ? String(cardio.completed_at) : undefined, settings: { ...((cardio.actual_settings as Record<string, number | string> | null) ?? {}) } } } : {}),
   };
@@ -41,7 +41,7 @@ function sessionRow(workout: Workout, userId: string, version = 1) {
     scheduled_date: workout.scheduledDate ?? null, status: workout.status ?? (workout.completedAt ? "completed" : "active"),
     name: workout.name, workout_type: "strength", started_at: workout.startedAt, completed_at: workout.completedAt ?? null,
     origin: workout.origin ?? "real", source: "app", version,
-    metadata: { substitutions: workout.substitutions ?? {}, notes: workout.notes ?? [] }, updated_at: new Date().toISOString(),
+    metadata: { substitutions: workout.substitutions ?? {}, notes: workout.notes ?? [], ...(workout.provenance ? { provenance: workout.provenance } : {}), ...(workout.recoveryEvidence ? { recoveryEvidence: workout.recoveryEvidence } : {}) }, updated_at: new Date().toISOString(),
   };
 }
 
@@ -142,6 +142,29 @@ export async function importWorkout(client: SupabaseClient, userId: string, work
   const { data: savedReceipt, error } = await client.from("workout_import_receipts").insert({ user_id: userId, source: "local-first", source_record_id: workout.id, source_hash: sourceHash, imported_session_id: session.id, status: "imported", details: { populated: workout.sets.length > 0 } }).select().single();
   if (error && error.code !== "23505") fail(error.message, "import_receipt_write", error.code);
   return { status: "imported", resumed: created.resumed, session, receipt: savedReceipt };
+}
+
+/** Owner-reviewed recovery: preserve a test canonical row, then promote a verified real candidate. */
+export async function reconcileMondayWorkout(client: SupabaseClient, userId: string, incoming: Workout) {
+  if (incoming.origin === "test" || incoming.plannedSessionId !== "mon" || incoming.scheduledDate !== "2026-08-31" || incoming.status !== "completed" || (incoming.sets.length === 0 && !incoming.cardio)) {
+    fail("Only a verified completed Monday candidate can be reconciled", "reconcile_validation", "INVALID_RECOVERY_CANDIDATE");
+  }
+  const { data: existing, error: lookupError } = await client.from("workout_sessions").select("*").eq("user_id", userId).eq("planned_session_id", "mon").eq("scheduled_date", "2026-08-31").maybeSingle();
+  if (lookupError) fail(lookupError.message, "reconcile_lookup", lookupError.code);
+  if (existing?.id === incoming.id) fail("The recovery candidate has the same identity as the preserved test record", "reconcile_conflict", "IDENTITY_COLLISION");
+  if (existing && existing.origin !== "test" && existing.id !== incoming.id) fail("A genuine Monday session already exists; no automatic replacement was performed", "reconcile_conflict", "GENUINE_SESSION_EXISTS");
+  if (existing?.origin === "test") {
+    const metadata = { ...((existing.metadata as Record<string, unknown> | null) ?? {}), reconciliation: { reason: "owner-reviewed genuine recovery", deCanonicalizedAt: new Date().toISOString(), formerCanonicalKey: "mon:2026-08-31" } };
+    const { error } = await client.from("workout_sessions").update({ planned_session_id: null, scheduled_date: null, metadata, updated_at: new Date().toISOString(), version: Number(existing.version ?? 1) + 1 }).eq("id", existing.id).eq("user_id", userId).eq("origin", "test");
+    if (error) fail(error.message, "reconcile_decanonicalize_test", error.code);
+  }
+  const created = await createOrResumeWorkout(client, userId, incoming);
+  const session = created.session as WorkoutSessionRow;
+  if (created.resumed && session.origin !== "test" && session.id !== incoming.id) fail("A genuine Monday session already exists; no automatic replacement was performed", "reconcile_conflict", "GENUINE_SESSION_EXISTS");
+  for (const [index, set] of incoming.sets.entries()) await upsertWorkoutSet(client, userId, session.id, set, index);
+  if (incoming.cardio) await upsertWorkoutCardio(client, userId, session.id, incoming.cardio);
+  if (session.status !== "completed") await completeWorkout(client, userId, session.id, incoming.completedAt ?? new Date().toISOString(), session.version);
+  return { promoted: session.id, preservedTest: existing?.origin === "test" ? existing.id : undefined };
 }
 
 export { sessionRow, setRows, cardioRow };
