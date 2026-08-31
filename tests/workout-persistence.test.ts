@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import fs from "node:fs";
 import { canonicalSessionKey, isImportableWorkout, shouldPreferIncoming } from "../lib/workout-repository";
+import { workingWeight } from "../lib/coach";
 
 test("workout persistence migration has owned canonical tables, RLS and grants", () => {
   const sql = fs.readFileSync("supabase/migrations/2026-08-31-workout-persistence.sql", "utf8");
@@ -89,4 +90,39 @@ test("local import is non-destructive and server cache cannot erase richer local
   assert.match(sync, /existing\.sets\.length > server\.sets\.length/);
   assert.match(sync, /road-to-12-data-v1/);
   assert.doesNotMatch(sync, /removeItem\("road-to-12-data-v1"/);
+});
+
+test("server round-trip paths are awaited and completion does not clear active state early", () => {
+  const training = fs.readFileSync("components/training-app.tsx", "utf8");
+  const sync = fs.readFileSync("lib/workout-sync.ts", "utf8");
+  assert.match(training, /await persistSet/);
+  assert.match(training, /await persistCardio\(workout/);
+  assert.match(training, /await completeServerWorkout\(final\)/);
+  assert.match(training, /clearActiveWorkout\(\)/);
+  assert.match(sync, /responseJson\(await fetch/);
+  assert.match(sync, /if \(!detail\.ok\) throw/);
+});
+
+test("preparation-only sets never become working-weight history", () => {
+  const exercise = { id: "press", name: "Press", target: "3 × 8–10", sets: 3, restSeconds: 120, purpose: "strength" as const, equipment: "dumbbell" as const, defaultWorkingWeight: 40 };
+  const rampOnly = [{ id: "r", exerciseId: exercise.id, exerciseName: exercise.name, kind: "ramp" as const, weight: 24, reps: 8, rir: 2, createdAt: "2026-08-31T08:00:00Z" }];
+  assert.equal(workingWeight(exercise, rampOnly), 40);
+});
+
+test("server round-trip exposes complete sessions and canonical completion", () => {
+  const listRoute = fs.readFileSync("app/api/workouts/route.ts", "utf8");
+  const detailRoute = fs.readFileSync("app/api/workouts/[id]/route.ts", "utf8");
+  const completeRoute = fs.readFileSync("app/api/workouts/[id]/complete/route.ts", "utf8");
+  assert.match(listRoute, /listCompleteWorkouts/);
+  assert.match(detailRoute, /serverSessionToWorkout/);
+  assert.match(completeRoute, /completeWorkout/);
+  assert.match(completeRoute, /409/);
+});
+
+test("Home uses server canonical state rather than a local active-session shortcut", () => {
+  const shell = fs.readFileSync("components/home-shell.tsx", "utf8");
+  assert.match(shell, /fetchServerWorkouts/);
+  assert.match(shell, /setCompleted\(completedToday\(workouts/);
+  assert.match(shell, /setActive\(workouts\.find/);
+  assert.doesNotMatch(shell, /loadActiveWorkout/);
 });

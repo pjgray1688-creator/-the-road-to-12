@@ -43,7 +43,7 @@ export async function createOrResumeServerWorkout(workout: Workout) {
   const canonical = { ...workout, id: row.id, status: row.status, completedAt: row.completed_at ?? workout.completedAt, serverVersion: row.version } as Workout;
   if (!row.id) return canonical;
   const detail = await fetch(`/api/workouts/${row.id}`, { credentials: "same-origin" });
-  if (!detail.ok) return canonical;
+  if (!detail.ok) throw new Error("Workout session could not be hydrated");
   const complete = await detail.json();
   return complete.workout ?? canonical;
 }
