@@ -1,3 +1,3 @@
-import { HomeShell } from "@/components/home-shell";
+import { AuthenticatedHome } from "@/components/authenticated-home";
 
-export default function Home() { return <HomeShell />; }
+export default function Home() { return <AuthenticatedHome />; }
