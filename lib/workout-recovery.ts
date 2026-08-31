@@ -26,6 +26,46 @@ export const verifiedMondayEvidenceSets = [
   whoopSet("Reverse Crunch Machine", 1, 68, 8), whoopSet("Reverse Crunch Machine", 2, 82, 15), whoopSet("Reverse Crunch Machine", 3, 82, 15), whoopSet("Reverse Crunch Machine", 4, 82, 12),
 ];
 
+export type ProposedSetClassification = { exerciseName: string; side?: string; setOrder: number; proposedKind: "warmup" | "ramp" | "working" | "unknown"; reason: string; confidence: "high" | "medium" | "low"; performanceHistoryEligible: boolean };
+
+/** Structural proposal only; this never mutates evidence or invents RIR. */
+export function proposeMondaySetClassifications(): ProposedSetClassification[] {
+  const workingCounts: Record<string, number> = { "Incline Dumbbell Bench Press": 4, "Machine Chest Press": 3, "Seated Dumbbell Overhead Press": 3, "Cable Lateral Raise": 4, "Rope Triceps Pushdown": 4, "Overhead Cable Triceps Extension": 3 };
+  const grouped = new Map<string, typeof verifiedMondayEvidenceSets>();
+  for (const set of verifiedMondayEvidenceSets) grouped.set(`${set.exerciseName}:${set.side ?? "both"}`, [...(grouped.get(`${set.exerciseName}:${set.side ?? "both"}`) ?? []), set]);
+  return verifiedMondayEvidenceSets.map(set => {
+    const group = grouped.get(`${set.exerciseName}:${set.side ?? "both"}`) ?? [];
+    const workingCount = workingCounts[set.exerciseName];
+    if (!workingCount || group.length < workingCount + 1) {
+      if (set.exerciseName === "Reverse Crunch Machine" && group.length === 4) {
+        return set.setOrder > 1
+          ? { ...set, proposedKind: "working", reason: "Three final sets match the prescribed core volume while preserving Reverse Crunch Machine as a substitution; it is not renamed Cable Crunch.", confidence: "medium", performanceHistoryEligible: true }
+          : { ...set, proposedKind: "ramp", reason: "One preparation set precedes the three-set substituted core movement.", confidence: "medium", performanceHistoryEligible: false };
+      }
+      return { ...set, proposedKind: "unknown", reason: "The source exercise/count does not unambiguously match a prescribed movement.", confidence: "low", performanceHistoryEligible: false };
+    }
+    const workingStart = group.length - workingCount;
+    if (set.setOrder > workingStart) return { ...set, proposedKind: "working", reason: `The final ${workingCount} ordered sets match the programme's prescribed working-set count.`, confidence: "high", performanceHistoryEligible: true };
+    return { ...set, proposedKind: set.setOrder === 1 ? "ramp" : "ramp", reason: "One preparation set precedes the exact prescribed working-set count; preparation subtype is not independently proven.", confidence: "medium", performanceHistoryEligible: false };
+  });
+}
+
+const exerciseIds: Record<string, string> = {
+  "Incline Dumbbell Bench Press": "incline-db-press", "Machine Chest Press": "machine-chest-press", "Seated Dumbbell Overhead Press": "seated-db-shoulder-press", "Cable Lateral Raise": "cable-lateral-raise", "Rope Triceps Pushdown": "rope-triceps-pushdown", "Overhead Cable Triceps Extension": "overhead-cable-triceps-extension", "Reverse Crunch Machine": "reverse-crunch-machine",
+};
+
+/** Build the owner-approved evidence promotion without assigning performance meaning to Reverse Crunch. */
+export function promotableMondayWorkout(now = new Date().toISOString()): Workout {
+  const classifications = proposeMondaySetClassifications();
+  const classificationByKey = new Map(classifications.map(item => [`${item.exerciseName}:${item.side ?? "both"}:${item.setOrder}`, item]));
+  const sets = verifiedMondayEvidenceSets.filter(set => set.exerciseName !== "Reverse Crunch Machine").map((set, index) => {
+    const classification = classificationByKey.get(`${set.exerciseName}:${set.side ?? "both"}:${set.setOrder}`)!;
+    const kind: "working" | "ramp" = classification.proposedKind === "working" ? "working" : "ramp";
+    return { id: `recovered-mon-${index + 1}`, exerciseId: exerciseIds[set.exerciseName], exerciseName: set.exerciseName, weight: set.weight!, reps: set.reps!, kind, createdAt: now, ...(set.side ? { side: set.side } : {}) };
+  });
+  return { id: "recovered-monday-2026-08-31", name: "Monday — Upper Push + Core + Conditioning", plannedSessionId: MONDAY_PLANNED_SESSION_ID, scheduledDate: MONDAY_RECOVERY_DATE, status: "completed", startedAt: now, completedAt: now, sets, substitutions: { "cable-crunch": "Reverse Crunch Machine" }, cardio: verifiedMondayCardio, notes: ["Owner-approved WHOOP reconstruction; workout timestamp unavailable."], origin: "real", provenance: [{ source: "whoop", detail: "verified weighted exercise screenshots and cardio entry" }, { source: "user_correction", detail: "Incline treadmill 9.5% at 5.0 km/h; Reverse Crunch Machine name preserved" }], recoveryEvidence: verifiedMondayEvidenceSets.filter(set => set.exerciseName === "Reverse Crunch Machine") };
+}
+
 /** Reviewable external-evidence payload. Unknown set values remain absent rather than guessed. */
 export const manualMondayReconstruction = {
   plannedSessionId: MONDAY_PLANNED_SESSION_ID,
@@ -40,6 +80,7 @@ export const manualMondayReconstruction = {
     { exerciseName: "Reverse Crunch Machine", source: "whoop" as const, note: "Source label preserved; no Cable Crunch rename." },
   ],
   sets: verifiedMondayEvidenceSets,
+  classifications: proposeMondaySetClassifications(),
   tonnageKg: 14122,
   cardio: verifiedMondayCardio,
   provenance: [
