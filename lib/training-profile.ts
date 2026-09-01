@@ -1,6 +1,8 @@
 export type TrainingGoal = "fat_loss" | "muscle_gain" | "strength" | "general_fitness";
 export type TrainingExperience = "beginner" | "intermediate" | "experienced";
 export type TrainingEnvironment = "full_gym" | "limited_gym" | "home_basic" | "bodyweight";
+export type TrainingPriority = "balanced" | "chest" | "upper_chest" | "shoulders" | "arms" | "back_width" | "back_thickness" | "glutes" | "quads" | "hamstrings" | "calves" | "core";
+export type ConditioningPreference = "post_workout" | "separate_day" | "mixed";
 export type TrainingProfile = {
   goal: TrainingGoal;
   experience: TrainingExperience;
@@ -12,6 +14,12 @@ export type TrainingProfile = {
   dislikedExercises?: string[];
   includeCardio: boolean;
   cardioPreference?: "walking" | "cycling" | "rowing" | "mixed";
+  priorities?: TrainingPriority[];
+  wantedExercises?: string[];
+  conditioningPreference?: ConditioningPreference;
+  conditioningFrequency?: 0 | 1 | 2 | 3;
+  lowImpactConditioning?: boolean;
+  dislikedConditioning?: string[];
 };
 
 export const defaultTrainingProfile: TrainingProfile = { goal: "general_fitness", experience: "beginner", daysPerWeek: 3, sessionMinutes: 60, environment: "full_gym", limitations: [], dislikedExercises: [], includeCardio: true, cardioPreference: "walking" };

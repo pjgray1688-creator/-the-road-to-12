@@ -1,10 +1,11 @@
 export type DataOrigin = "real" | "test" | "historical";
 export type CardioModality = "incline_treadmill" | "stairmaster" | "upright_bike" | "recumbent_bike" | "elliptical" | "rower";
+export type ConditioningPrescription = { id: string; modality: CardioModality; duration: number; intensity: "easy" | "steady" | "interval"; placement: "post_workout" | "separate_day" | "recovery"; day?: number; rationale: string };
 export type CardioSession = { id: string; modality: CardioModality; duration: number; settings: Record<string, number | string>; completed: boolean; perceivedEffort?: number; pain?: string; source: DataOrigin | "manual"; startedAt: string; completedAt?: string };
 export type SessionStatus = "planned" | "completed" | "missed" | "rest" | "recovery_rest" | "rescheduled" | "unplanned_activity" | "illness_injury" | "other";
 export type ChangeReason = "planned_rest" | "missed" | "recovery" | "physical_activity" | "illness_injury" | "user_report";
 export type Profile = { id: string; displayName: string; goals: string[]; startWeight?: number };
-export type TrainingBlock = { id: string; name: string; startDate: string; endDate: string; weekNumber: number; goals: string[]; progressionFocus: string; status: "active" | "complete" | "proposed"; reviewDate: string; proposedNextBlock?: string };
+export type TrainingBlock = { id: string; name: string; startDate: string; endDate: string; weekNumber: number; goals: string[]; progressionFocus: string; status: "active" | "complete" | "proposed"; reviewDate: string; proposedNextBlock?: string; totalWeeks?: number; framework?: string };
 export type PlannedSession = { id: string; day: number; name: string; status: SessionStatus; reason?: ChangeReason; exerciseIds: string[]; exerciseOverrides?: Record<string, { name?: string; target?: string; sets?: number }> };
 export type RecoverySnapshot = { id: string; date: string; origin: DataOrigin; source: "manual" | "whoop" | "apple_health"; recoveryScore?: number; sleepPerformance?: number; sleepHours?: number; strain?: number; hrv?: number; restingHeartRate?: number; steps?: number; activeEnergy?: number; userReported?: boolean; energy?: number; sleepQuality?: number; soreness?: number; motivation?: number; fatigue?: number; providerId?: string; providerTimestamp?: string; syncedAt?: string };
 export type BodyMeasurementType = "waist_navel" | "waist_trouser" | "chest" | "shoulders" | "upper_arm_left" | "upper_arm_right" | "thigh_left" | "thigh_right" | "calf_left" | "calf_right";

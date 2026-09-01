@@ -45,7 +45,22 @@ const additionalExercises: Exercise[] = [
   { id: "hip-abductor", name: "Hip Abductor", target: "3 × 12–20", sets: 3, restSeconds: 75, purpose: "isolation", equipment: "machine", defaultWorkingWeight: 50 },
   { id: "cable-shrug", name: "Cable Shrug", target: "3 × 12–15", sets: 3, restSeconds: 75, purpose: "isolation", equipment: "cable", defaultWorkingWeight: 40 },
 ];
-export const allExercises = (): Exercise[] => Array.from(new Map([...mondayExercises, ...additionalExercises].map(item => [item.id, item])).values());
+const libraryExpansion: Exercise[] = [
+  { id: "chest-supported-db-row", name: "Chest-Supported DB Row", target: "upper back", sets: 3, restSeconds: 105, purpose: "hypertrophy", equipment: "dumbbell", defaultWorkingWeight: 24 },
+  { id: "one-arm-db-row", name: "One-Arm DB Row", target: "lats", sets: 3, restSeconds: 90, purpose: "hypertrophy", equipment: "dumbbell", defaultWorkingWeight: 24 },
+  { id: "face-pull", name: "Face Pull", target: "rear delts", sets: 3, restSeconds: 75, purpose: "isolation", equipment: "cable", stackIncrement: 2.5, defaultWorkingWeight: 18 },
+  { id: "machine-lateral-raise", name: "Machine Lateral Raise", target: "lateral delts", sets: 3, restSeconds: 75, purpose: "isolation", equipment: "machine", defaultWorkingWeight: 30 },
+  { id: "romanian-deadlift", name: "Romanian Deadlift", target: "hamstrings", sets: 3, restSeconds: 150, purpose: "strength", equipment: "barbell", defaultWorkingWeight: 60 },
+  { id: "barbell-overhead-press", name: "Barbell Overhead Press", target: "front delts", sets: 3, restSeconds: 135, purpose: "strength", equipment: "barbell", defaultWorkingWeight: 35 },
+  { id: "front-squat", name: "Front Squat", target: "quads", sets: 3, restSeconds: 150, purpose: "strength", equipment: "barbell", defaultWorkingWeight: 50 },
+  { id: "barbell-hip-thrust", name: "Barbell Hip Thrust", target: "glutes", sets: 3, restSeconds: 120, purpose: "strength", equipment: "barbell", defaultWorkingWeight: 60 },
+  { id: "reverse-lunge", name: "Reverse Lunge", target: "quads", sets: 3, restSeconds: 105, purpose: "hypertrophy", equipment: "dumbbell", defaultWorkingWeight: 14 },
+  { id: "cable-row", name: "Seated Cable Row", target: "upper back", sets: 3, restSeconds: 105, purpose: "hypertrophy", equipment: "cable", stackIncrement: 2.5, defaultWorkingWeight: 45 },
+  { id: "straight-arm-pulldown", name: "Straight-Arm Pulldown", target: "lats", sets: 3, restSeconds: 75, purpose: "isolation", equipment: "cable", stackIncrement: 2.5, defaultWorkingWeight: 25 },
+  { id: "pallof-press", name: "Pallof Press", target: "obliques", sets: 2, restSeconds: 60, purpose: "core", equipment: "cable", stackIncrement: 2.5, defaultWorkingWeight: 12 },
+  { id: "dead-bug", name: "Dead Bug", target: "abs", sets: 2, restSeconds: 45, purpose: "core", equipment: "machine", defaultWorkingWeight: 0 },
+];
+export const allExercises = (): Exercise[] => Array.from(new Map([...mondayExercises, ...additionalExercises, ...libraryExpansion].map(item => [item.id, item])).values());
 export const exerciseById = (id: string): Exercise | undefined => allExercises().find(item => item.id === id);
 export const exercisesForSession = (exerciseIds: string[], overrides: Record<string, { name?: string; target?: string; sets?: number }> = {}): Exercise[] => {
   const catalog = new Map(allExercises().map(item => [item.id, item]));
