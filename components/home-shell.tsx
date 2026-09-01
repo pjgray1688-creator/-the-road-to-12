@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { DashboardFoundation } from "./dashboard-foundation";
 import { TrainingApp } from "./training-app";
-import { currentWeek } from "@/lib/domain";
+import { activeWeek } from "@/lib/active-programme";
 import { resolveToday, selectCompletedWorkout } from "@/lib/schedule";
 import { fetchServerWorkouts, importLocalWorkouts, cacheServerWorkouts } from "@/lib/workout-sync";
 import { loadData, saveData } from "@/lib/storage";
@@ -11,8 +11,8 @@ import type { Workout } from "@/lib/types";
 import { AppNav } from "./app-nav";
 import { WorkoutErrorBoundary } from "./workout-error-boundary";
 
-function completedToday(workouts: Workout[], timezone: string): Workout | undefined {
-  return selectCompletedWorkout(workouts, new Date(), timezone, resolveToday(currentWeek, timezone).session?.id);
+function completedToday(workouts: Workout[], timezone: string, week: ReturnType<typeof activeWeek>): Workout | undefined {
+  return selectCompletedWorkout(workouts, new Date(), timezone, resolveToday(week, timezone).session?.id);
 }
 
 function CoachSheet({ workout, onClose }: { workout: Workout; onClose: () => void }) {
@@ -61,7 +61,7 @@ export function HomeShell() {
         workouts = await fetchServerWorkouts();
       }
       cacheServerWorkouts(workouts); setServerWorkouts(workouts); setServerResolved(true);
-      const plan = resolveToday(currentWeek, timezone); setCompleted(completedToday(workouts, timezone));
+      const plan = resolveToday(activeWeek(), timezone); setCompleted(completedToday(workouts, timezone, activeWeek()));
       setActive(workouts.find(item => item.status === "active" && item.plannedSessionId === plan.session?.id && item.scheduledDate === new Intl.DateTimeFormat("en-CA", { timeZone: timezone }).format(new Date())));
       setResolved(true);
     } catch { setServerResolved(false); }

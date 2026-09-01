@@ -47,6 +47,23 @@ test("planned sessions resolve their own exercise lists", () => {
   assert.equal(exercisesForSession(currentWeek.find(session => session.id === "fri")!.exerciseIds)[0].id, "flat-bench");
   assert.deepEqual(exercisesForSession(currentWeek.find(session => session.id === "thu")!.exerciseIds), []);
 });
+
+test("generated programme metadata is shared by Dashboard and workout player", () => {
+  const dashboard = fs.readFileSync("components/dashboard-foundation.tsx", "utf8");
+  const player = fs.readFileSync("components/training-app.tsx", "utf8");
+  assert.match(dashboard, /loadGeneratedProgramme/);
+  assert.match(dashboard, /programmeWeek/);
+  assert.match(dashboard, /programmeSnapshot/);
+  assert.match(player, /const programmeWeek = activeWeek\(\); const currentWeek = programmeWeek/);
+  assert.match(player, /resolveToday\(currentWeek/);
+});
+
+test("Account and onboarding preserve mobile-safe, non-destructive programme navigation", () => {
+  const accountCss = fs.readFileSync("app/training-polish.css", "utf8");
+  const onboarding = fs.readFileSync("app/onboarding/page.tsx", "utf8");
+  assert.match(accountCss, /\.account-page \{[^}]*env\(safe-area-inset-top\)/);
+  assert.match(onboarding, /href="\/training"/);
+});
 test("workout summary exercise count uses the resolved prescribed list", () => {
   const source = fs.readFileSync("components/training-app.tsx", "utf8");
   assert.match(source, /<b>\{sessionExercises\.length\}<\/b> exercises/);

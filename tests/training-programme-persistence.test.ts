@@ -45,6 +45,19 @@ test("onboarding activation is server-first, confirmed, guarded and retryable", 
   assert.match(source, /disabled=\{activating\}/);
   assert.match(source, /activeWorkoutsFromPayload/);
   assert.match(source, /persisted\.active_programme_id !== programme\.id/);
-  assert.match(source, /saveTrainingProfile\(profile, programme\); router\.push/);
+  assert.match(source, /saveTrainingProfile\(profile, persisted\.generated_programme\); router\.push/);
   assert.match(source, /We couldn’t save this programme/);
+});
+
+test("programme replacement archives the prior generated snapshot without changing its identity", () => {
+  const route = fs.readFileSync("app/api/training-profile/route.ts", "utf8");
+  assert.match(route, /previousProgrammes/);
+  assert.match(route, /current\.generated_programme/);
+  assert.match(route, /active_programme_id: generatedProgramme\.id/);
+});
+
+test("programme creation can be cancelled without activation", () => {
+  const source = fs.readFileSync("app/onboarding/page.tsx", "utf8");
+  assert.match(source, /href="\/training"/);
+  assert.match(source, /Change answers/);
 });

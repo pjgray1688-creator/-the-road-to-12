@@ -162,7 +162,7 @@ h1 em, .day, .topline button, .text-button, .plan-row b, .coach-callout span { c
 .legal-page header { display: block; margin-bottom: var(--space-5); }
 .legal-page header h1 { max-width: 100%; overflow-wrap: anywhere; }
 .legal-page header p { margin-top: var(--space-2); }
-.account-page { min-height: 100svh; }
+.account-page { min-height: 100svh; padding: calc(22px + env(safe-area-inset-top)) var(--page-gutter) calc(34px + env(safe-area-inset-bottom)); }
 .account-page header { margin-bottom: 24px; }
 .account-card { display: grid; gap: 12px; margin-top: 18px; }
 .account-card label { margin-top: 2px; }
