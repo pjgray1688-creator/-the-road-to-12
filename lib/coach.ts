@@ -25,6 +25,13 @@ export function effortSignal(feedback = "") { const f = feedback.toLowerCase(); 
 export type CalibrationSignal = "very_easy" | "easy" | "getting_close" | "hard" | "too_hard";
 export function calibrationSignal(feedback = ""): CalibrationSignal | undefined { const f = feedback.toLowerCase(); if (/(too hard|uncomfortable|pain|sharp|dizz|faint|unstable|chest)/.test(f)) return "too_hard"; if (/very\s+easy|very light|loads? more there/.test(f)) return "very_easy"; if (/(getting close|starting to work|about right)/.test(f)) return "getting_close"; if (/(easy|plenty left|could have done)/.test(f)) return "easy"; if (/(hard|not much left)/.test(f)) return "hard"; return undefined; }
 export function calibrationConfidence(previous: LoggedSet[]) { const count = workingHistory(previous).length; return count === 0 ? "unknown" as const : count < 3 ? "low" as const : "established" as const; }
+export function resolveDiscoveryLoad(exercise: Exercise, raw: number, discoveryCount = 0, established = false) {
+  const profile = progressionProfile(exercise); const heavy = profile.category === "heavy_plate_compound" || profile.category === "heavy_machine_compound";
+  if (!heavy || established) return snapAvailableLoad(raw, exercise, "up");
+  const resolution = discoveryCount < 3 ? 10 : 5;
+  const coarse = Math.max(resolution, Math.round(raw / resolution) * resolution);
+  return snapAvailableLoad(coarse, exercise, "up");
+}
 export function calibrationLoad(exercise: Exercise, current: number, signal: CalibrationSignal, discoveryCount = 0, experience: "beginner" | "intermediate" | "experienced" = "intermediate") {
   const category = progressionProfile(exercise).category;
   const heavy = category === "heavy_plate_compound" || category === "heavy_machine_compound";
@@ -32,7 +39,7 @@ export function calibrationLoad(exercise: Exercise, current: number, signal: Cal
   const base = heavy ? ({ very_easy: 40, easy: 25, getting_close: 10, hard: 0, too_hard: -10 }[signal]) : ({ very_easy: 12, easy: 8, getting_close: 4, hard: 0, too_hard: -4 }[signal]);
   const fatigueDiscount = discoveryCount >= 2 ? .8 : 1;
   const delta = Math.round(base * multiplier * fatigueDiscount);
-  return snapAvailableLoad(Math.max(0, current + delta), exercise, delta < 0 ? "down" : "up");
+  return delta < 0 ? snapAvailableLoad(Math.max(0, current + delta), exercise, "down") : resolveDiscoveryLoad(exercise, Math.max(0, current + delta), discoveryCount);
 }
 export type SessionAssessment = "progress" | "hold" | "reduce" | "very_easy";
 export function assessWorkingSession(exercise: Exercise, sets: LoggedSet[]): SessionAssessment {
