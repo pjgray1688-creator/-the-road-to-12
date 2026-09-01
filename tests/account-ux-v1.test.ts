@@ -7,6 +7,7 @@ const source = fs.readFileSync("app/account/page.tsx", "utf8");
 test("account presents consumer sections without backend or recovery jargon", () => {
   assert.match(source, /PROFILE/); assert.match(source, /TRAINING PROFILE/); assert.match(source, /CONNECTIONS/); assert.match(source, /SUPPORT/);
   assert.doesNotMatch(source, /canonical|rehydrate|reconcile|payload|migration|server workout|local workout/i);
+  assert.doesNotMatch(source, /setMessage\(result\.error\.message\)/);
   assert.doesNotMatch(source, /account\.id/);
 });
 
