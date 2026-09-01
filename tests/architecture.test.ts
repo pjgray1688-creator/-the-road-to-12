@@ -112,6 +112,20 @@ test("authenticated navigation and workout escape stay product-scoped", () => {
   assert.match(shell, /AppNav/); assert.match(training, /onMinimize/); assert.match(training, /⌂ Home/);
   assert.doesNotMatch(shell, /<PwaRegister \/>/);
 });
+test("active workout failures have an observable recovery boundary and transition diagnostics", () => {
+  const boundary = fs.readFileSync("components/workout-error-boundary.tsx", "utf8");
+  const training = fs.readFileSync("components/training-app.tsx", "utf8");
+  const shell = fs.readFileSync("components/home-shell.tsx", "utf8");
+  assert.match(boundary, /Workout screen error/);
+  assert.match(boundary, /componentStack/);
+  assert.match(boundary, /⌂ Home/);
+  assert.match(training, /Could not start exercise/);
+  assert.match(training, /START_CLICKED/);
+  assert.match(training, /RECOMMENDATION_RESOLVED/);
+  assert.match(training, /ACTIVE_STATE_SET/);
+  assert.match(training, /ACTIVE_RENDER_STARTED/);
+  assert.match(shell, /<WorkoutErrorBoundary/);
+});
 test("active workout correction and optional exercise media remain safe", () => {
   const training = fs.readFileSync("components/training-app.tsx", "utf8");
   const types = fs.readFileSync("lib/types.ts", "utf8");
