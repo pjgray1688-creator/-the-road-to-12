@@ -217,6 +217,20 @@ main.legal-page { display: flex; flex-direction: column; }
 .metric-card { display: grid; gap: var(--space-xs); padding: var(--space-md); background: var(--surface-0); border: 1px solid var(--separator); border-radius: var(--radius-sm); }
 .metric-card strong { font-size: 25px; font-variant-numeric: tabular-nums; }
 .metric-card small { color: var(--text-secondary); }
+.progress-page { gap: var(--space-lg); }
+.progress-page h2 { margin: 6px 0 0; }
+.progress-form { display: grid; gap: 10px; margin-top: 16px; }
+.progress-form label { display: grid; gap: 6px; color: var(--text-secondary); font-size: 12px; font-weight: 700; }
+.progress-form input, .progress-form select { min-height: 44px; border: 1px solid var(--separator); border-radius: var(--radius-sm); background: var(--surface-0); color: var(--text-primary); padding: 0 12px; font: inherit; }
+.progress-spark { display: flex; align-items: end; gap: 6px; height: 72px; margin: 18px 0 8px; padding: 8px; border-bottom: 1px solid var(--separator); }
+.progress-spark span { flex: 1; min-width: 8px; border-radius: 4px 4px 0 0; background: var(--accent); opacity: .75; }
+.progress-entry { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 11px 0; border-top: 1px solid var(--separator); color: var(--text-secondary); }
+.progress-entry strong, .progress-entry b { color: var(--text-primary); }
+.progress-entry span { display: grid; gap: 3px; }
+.progress-entry small { color: var(--text-secondary); }
+.progress-positive { color: #a7e3c0; }
+.measurement-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 18px; }
+.caption { color: var(--text-tertiary); font-size: 12px; line-height: 1.45; }
 .progress-bar { height: 6px; overflow: hidden; border-radius: 999px; background: rgba(255,255,255,.1); margin: var(--space-md) 0; }
 .progress-bar span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--accent), var(--accent-bright)); transition: width var(--motion-normal) var(--ease-standard); }
 .empty-state { display: grid; gap: var(--space-sm); padding: var(--space-lg) 0; color: var(--text-secondary); }
@@ -259,7 +273,7 @@ main.legal-page { display: flex; flex-direction: column; }
 .settings-row:active, .navigation-row:active, .back-button:active, .tertiary-button:active { transform: scale(.985); }
 .pb-badge { display: none; }
 .history-set b { font-variant-numeric: tabular-nums; }
-.app-nav { position: sticky; bottom: 0; z-index: 4; display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin: var(--space-xl) calc(var(--page-gutter) * -1) calc(var(--space-md) * -1); padding: 8px var(--page-gutter) calc(8px + env(safe-area-inset-bottom)); background: rgba(12,13,18,.94); border-top: 1px solid var(--separator); box-shadow: 0 -8px 24px rgba(0,0,0,.18); backdrop-filter: blur(14px); }
+.app-nav { position: sticky; bottom: 0; z-index: 4; display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin: var(--space-xl) calc(var(--page-gutter) * -1) calc(var(--space-md) * -1); padding: 8px var(--page-gutter) calc(8px + env(safe-area-inset-bottom)); background: rgba(12,13,18,.94); border-top: 1px solid var(--separator); box-shadow: 0 -8px 24px rgba(0,0,0,.18); backdrop-filter: blur(14px); }
 .app-nav a { min-height: 52px; display: grid; place-items: center; align-content: center; gap: 2px; border-radius: var(--radius-sm); color: var(--text-tertiary); text-decoration: none; }
 .app-nav a span { font-size: 20px; line-height: 1; }
 .app-nav a small { font-size: 11px; font-weight: 700; }
