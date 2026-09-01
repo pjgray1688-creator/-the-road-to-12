@@ -6,4 +6,13 @@ function next(value: number, exercise: Exercise) { return snap(value + increment
 export type ProgressionProfile = { kind: "dumbbell" | "barbell" | "selectorised_machine" | "plate_loaded_machine"; baseIncrement: number; rampStyle: "proportional" | "plate_jump" | "small_step" };
 export function progressionProfile(exercise: Exercise): ProgressionProfile { if (exercise.equipment === "dumbbell") return { kind: "dumbbell", baseIncrement: 2, rampStyle: "small_step" }; if (exercise.equipment === "barbell") return { kind: "barbell", baseIncrement: 2.5, rampStyle: "plate_jump" }; if (exercise.loadProfile === "plate_loaded" || exercise.id === "leg-press") return { kind: "plate_loaded_machine", baseIncrement: 20, rampStyle: "plate_jump" }; if (exercise.equipment === "machine") return { kind: "selectorised_machine", baseIncrement: exercise.stackIncrement ?? 5, rampStyle: "small_step" }; return { kind: "selectorised_machine", baseIncrement: exercise.stackIncrement ?? 2.5, rampStyle: "small_step" }; }
 export function magnitudeLoad(exercise: Exercise, weight: number, reps: number, targetHigh: number, rir?: number) { const profile = progressionProfile(exercise); if ((rir ?? 2) < 3 || reps < targetHigh) return next(weight, exercise); const excess = Math.max(0, reps - targetHigh); const jumps = profile.kind === "dumbbell" ? Math.min(3, 1 + Math.floor(excess / 4)) : profile.kind === "plate_loaded_machine" ? Math.min(2, 1 + Math.floor(excess / 5)) : 1; let result = weight; for (let i = 0; i < jumps; i++) result = next(result, exercise); return result; }
+export function workingLoadIncrease(exercise: Exercise, weight: number, rir = 2) {
+  const profile = progressionProfile(exercise);
+  if (profile.kind === "barbell" || profile.kind === "plate_loaded_machine") {
+    const nearTop = weight >= exercise.defaultWorkingWeight * 1.2;
+    const jump = rir >= 4 ? 10 : nearTop && rir >= 3 ? 2.5 : 5;
+    return snap(weight + jump, exercise, "up");
+  }
+  return next(weight, exercise);
+}
 export function rampLoad(exercise: Exercise, current: number, target: number) { const profile = progressionProfile(exercise); if (profile.rampStyle === "plate_jump") { const distance = Math.max(0, target - current); const jump = distance >= target * .5 ? 40 : distance >= target * .2 ? 20 : distance >= target * .1 ? 10 : 5; return Math.min(target, snap(current + jump, exercise, "up")); } return Math.min(target, next(current, exercise)); }
