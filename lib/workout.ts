@@ -45,8 +45,10 @@ const additionalExercises: Exercise[] = [
   { id: "hip-abductor", name: "Hip Abductor", target: "3 × 12–20", sets: 3, restSeconds: 75, purpose: "isolation", equipment: "machine", defaultWorkingWeight: 50 },
   { id: "cable-shrug", name: "Cable Shrug", target: "3 × 12–15", sets: 3, restSeconds: 75, purpose: "isolation", equipment: "cable", defaultWorkingWeight: 40 },
 ];
+export const allExercises = (): Exercise[] => Array.from(new Map([...mondayExercises, ...additionalExercises].map(item => [item.id, item])).values());
+export const exerciseById = (id: string): Exercise | undefined => allExercises().find(item => item.id === id);
 export const exercisesForSession = (exerciseIds: string[], overrides: Record<string, { name?: string; target?: string; sets?: number }> = {}): Exercise[] => {
-  const catalog = new Map([...mondayExercises, ...additionalExercises].map(item => [item.id, item]));
+  const catalog = new Map(allExercises().map(item => [item.id, item]));
   return exerciseIds.map(id => { const exercise = catalog.get(id); if (!exercise) throw new Error(`Unresolved prescribed exercise: ${id}`); return { ...exercise, ...overrides[id] }; });
 };
 export const parseRange = (target: string) => { const values = target.match(/\d+/g)?.map(Number) ?? [0, 0]; return { low: values[values.length - 2] ?? values[0], high: values[values.length - 1] ?? values[0] }; };

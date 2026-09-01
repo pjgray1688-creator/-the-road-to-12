@@ -15,7 +15,7 @@ export function serverSessionToWorkout(session: WorkoutSessionRow & { metadata?:
     id: session.id, name: session.name, startedAt: session.started_at, completedAt: session.completed_at ?? undefined,
     plannedSessionId: session.planned_session_id ?? undefined, scheduledDate: session.scheduled_date ?? undefined,
     status: session.status, serverVersion: session.version, origin: session.origin,
-    substitutions: (metadata.substitutions as Record<string, string> | undefined) ?? {}, notes: (metadata.notes as string[] | undefined) ?? [], provenance: (metadata.provenance as Workout["provenance"] | undefined) ?? undefined, recoveryEvidence: (metadata.recoveryEvidence as Workout["recoveryEvidence"] | undefined) ?? undefined,
+    substitutions: (metadata.substitutions as Record<string, string> | undefined) ?? {}, substitutionDetails: (metadata.substitutionDetails as Workout["substitutionDetails"] | undefined) ?? undefined, notes: (metadata.notes as string[] | undefined) ?? [], provenance: (metadata.provenance as Workout["provenance"] | undefined) ?? undefined, recoveryEvidence: (metadata.recoveryEvidence as Workout["recoveryEvidence"] | undefined) ?? undefined,
     sets: sets.map(item => ({ id: String(item.id), exerciseId: String(item.exercise_id), exerciseName: String(item.exercise_name), weight: Number(item.weight ?? 0), reps: Number(item.reps ?? 0), kind: item.kind as LoggedSet["kind"], rir: item.rir == null ? undefined : Number(item.rir), createdAt: String(item.created_at ?? new Date().toISOString()), ...(item.side ? { side: String(item.side) } : {}), ...(item.feedback ? { feedback: String(item.feedback) } : {}) })),
     ...(cardio ? { cardio: { modality: cardio.modality as Cardio["modality"], duration: Number(cardio.duration ?? 0), completedAt: cardio.completed_at ? String(cardio.completed_at) : undefined, settings: { ...((cardio.actual_settings as Record<string, number | string> | null) ?? {}) } } } : {}),
   };
@@ -41,7 +41,7 @@ function sessionRow(workout: Workout, userId: string, version = 1) {
     scheduled_date: workout.scheduledDate ?? null, status: workout.status ?? (workout.completedAt ? "completed" : "active"),
     name: workout.name, workout_type: "strength", started_at: workout.startedAt, completed_at: workout.completedAt ?? null,
     origin: workout.origin ?? "real", source: "app", version,
-    metadata: { substitutions: workout.substitutions ?? {}, notes: workout.notes ?? [], ...(workout.provenance ? { provenance: workout.provenance } : {}), ...(workout.recoveryEvidence ? { recoveryEvidence: workout.recoveryEvidence } : {}) }, updated_at: new Date().toISOString(),
+    metadata: { substitutions: workout.substitutions ?? {}, ...(workout.substitutionDetails ? { substitutionDetails: workout.substitutionDetails } : {}), notes: workout.notes ?? [], ...(workout.provenance ? { provenance: workout.provenance } : {}), ...(workout.recoveryEvidence ? { recoveryEvidence: workout.recoveryEvidence } : {}) }, updated_at: new Date().toISOString(),
   };
 }
 

@@ -1,4 +1,6 @@
 import type { PlannedSession, RecoverySnapshot, SessionStatus } from "./domain";
+import { exerciseById } from "./workout";
+import { rankSubstitutions } from "./substitution";
 
 export type ReadinessLevel = "READY" | "TRAIN WITH CAUTION" | "RECOVERY PRIORITY";
 export type ReadinessInput = { recovery?: RecoverySnapshot; fatigue?: boolean; pain?: boolean; recentStrain?: number };
@@ -29,6 +31,6 @@ export function detectStall(exposures: Exposure[], replacement: string): StallPr
 
 export type ExerciseRole = "primary_compound" | "secondary_compound" | "isolation" | "accessory";
 const substitutions: Record<string, { role: ExerciseRole; replacement: string }> = { "incline-db-press": { role: "primary_compound", replacement: "Incline Machine Press" }, "barbell-row": { role: "primary_compound", replacement: "Chest-Supported DB Row" }, "hack-squat": { role: "secondary_compound", replacement: "Leg Press" }, rdl: { role: "secondary_compound", replacement: "Seated Hamstring Curl" }, "cable-lateral-raise": { role: "isolation", replacement: "DB Lateral Raise" }, "rope-triceps-pushdown": { role: "isolation", replacement: "V-bar Pushdown" } };
-export function substitutionFor(exerciseId: string, reason: "pain" | "equipment" | "stall") { const option = substitutions[exerciseId]; if (!option) return undefined; return { ...option, temporary: reason !== "stall", reason: reason === "pain" ? "This keeps the training purpose while reducing the irritated movement." : reason === "equipment" ? "This preserves the same movement role with available equipment." : "This is a temporary two-session proposal, not a block rewrite." }; }
+export function substitutionFor(exerciseId: string, reason: "pain" | "equipment" | "stall") { const source = exerciseById(exerciseId); const ranked = source ? rankSubstitutions(source, undefined, reason === "pain" ? "pain_or_discomfort" : reason === "equipment" ? "equipment_unavailable" : "request_alternative")[0] : undefined; const option = substitutions[exerciseId]; if (!option && !ranked) return undefined; return { role: option?.role ?? (source?.purpose === "isolation" ? "isolation" : "secondary_compound"), replacement: option?.replacement ?? ranked!.exercise.name, temporary: reason !== "stall", reason: reason === "pain" ? "This keeps the training purpose while reducing the irritated movement." : reason === "equipment" ? "This preserves the same movement role with available equipment." : "This is a temporary two-session proposal, not a block rewrite." }; }
 
 export function rescheduleWeek(sessions: PlannedSession[], completedIds: string[], missedId?: string): PlannedSession[] { return sessions.map(session => { if (completedIds.includes(session.id)) return { ...session, status: "completed" as SessionStatus }; if (session.id === missedId) return { ...session, status: "missed" as SessionStatus, reason: "missed" }; return session; }); }
