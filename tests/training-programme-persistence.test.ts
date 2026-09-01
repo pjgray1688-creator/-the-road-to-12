@@ -91,3 +91,25 @@ test("archive deletion is server-first and protects the active programme", () =>
   assert.match(route, /active programme cannot be deleted/);
   assert.match(route, /previousProgrammes/);
 });
+
+test("programme action sheet keeps inactive actions above the mobile navigation", () => {
+  const source = fs.readFileSync("app/training/page.tsx", "utf8");
+  const styles = fs.readFileSync("app/training-polish.css", "utf8");
+  assert.match(source, /className="modal programme-action-modal"/);
+  assert.match(source, /className="programme-action-sheet"/);
+  assert.match(source, /onClick=\{\(\) => setSelectedProgramme\(option\)\}/);
+  assert.match(source, /Use this programme/);
+  assert.match(source, /!selectedProgramme\.isLegacy && selectedProgramme\.id !== active\.id/);
+  assert.match(source, /Delete programme/);
+  assert.match(styles, /\.programme-action-modal\s*\{[^}]*z-index:\s*30/);
+  assert.match(styles, /\.programme-action-sheet\s*\{[^}]*max-height:\s*min\(70svh,\s*520px\)/);
+  assert.match(styles, /\.programme-action-sheet\s*\{[^}]*overflow-y:\s*auto/);
+  assert.match(styles, /\.programme-action-sheet\s*\{[^}]*safe-area-inset-bottom/);
+});
+
+test("programme actions require explicit use and never expose delete for active or original programmes", () => {
+  const source = fs.readFileSync("app/training/page.tsx", "utf8");
+  assert.match(source, /setSelectedProgramme\(option\)/);
+  assert.match(source, /setSelectedProgramme\(null\); void switchProgramme\(selectedProgramme\)/);
+  assert.match(source, /!selectedProgramme\.isLegacy && selectedProgramme\.id !== active\.id/);
+});
