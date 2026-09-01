@@ -71,6 +71,14 @@ test("user-facing history suppresses stale duplicates without changing source re
   assert.deepEqual(completedWorkouts([empty, genuine]).map(workout => workout.id), ["genuine"]);
   assert.equal(empty.sets.length, 0);
 });
+test("primary personal bests prioritize meaningful compounds", () => {
+  const workout = { id: "pb", name: "Session", startedAt: "2026-08-31T08:00:00Z", completedAt: "2026-08-31T09:00:00Z", status: "completed" as const, origin: "real" as const, substitutions: {}, notes: [], sets: [
+    { id: "compound", exerciseId: "machine-chest-press", exerciseName: "Machine Chest Press", kind: "working" as const, weight: 80, reps: 12, createdAt: "2026-08-31" },
+    { id: "accessory", exerciseId: "cable-lateral-raise", exerciseName: "Cable Lateral Raise", kind: "working" as const, weight: 14, reps: 15, createdAt: "2026-08-31" }
+  ] };
+  const bests = personalBests([workout]);
+  assert.deepEqual(bests.map(best => best.exerciseName), ["Machine Chest Press"]);
+});
 test("every scheduled training exercise resolves without omission", () => {
   for (const session of currentWeek) assert.equal(exercisesForSession(session.exerciseIds).length, session.exerciseIds.length);
   assert.equal(exercisesForSession(currentWeek.find(session => session.id === "mon")!.exerciseIds).length, 7);
@@ -81,8 +89,8 @@ test("every scheduled training exercise resolves without omission", () => {
 });
 test("history and personal bests use only the latest completed working-session evidence", () => {
   const base = { id: "w", name: "Push", startedAt: "2026-08-01T08:00:00Z", completedAt: "2026-08-01T09:00:00Z", status: "completed" as const, origin: "real" as const, sets: [], substitutions: {}, notes: [] };
-  const older = { ...base, id: "old", sets: [{ id: "o", exerciseId: "x", exerciseName: "Press", weight: 70, reps: 10, kind: "working" as const, createdAt: "2026-08-01" }] };
-  const newer = { ...base, id: "new", completedAt: "2026-08-08T09:00:00Z", sets: [{ id: "n1", exerciseId: "x", exerciseName: "Press", weight: 75, reps: 10, kind: "working" as const, createdAt: "2026-08-08" }, { id: "n2", exerciseId: "x", exerciseName: "Press", weight: 75, reps: 9, kind: "working" as const, createdAt: "2026-08-08" }, { id: "r", exerciseId: "x", exerciseName: "Press", weight: 90, reps: 3, kind: "ramp" as const, createdAt: "2026-08-08" }] };
+  const older = { ...base, id: "old", sets: [{ id: "o", exerciseId: "x", exerciseName: "Machine Chest Press", weight: 70, reps: 10, kind: "working" as const, createdAt: "2026-08-01" }] };
+  const newer = { ...base, id: "new", completedAt: "2026-08-08T09:00:00Z", sets: [{ id: "n1", exerciseId: "x", exerciseName: "Machine Chest Press", weight: 75, reps: 10, kind: "working" as const, createdAt: "2026-08-08" }, { id: "n2", exerciseId: "x", exerciseName: "Machine Chest Press", weight: 75, reps: 9, kind: "working" as const, createdAt: "2026-08-08" }, { id: "r", exerciseId: "x", exerciseName: "Machine Chest Press", weight: 90, reps: 3, kind: "ramp" as const, createdAt: "2026-08-08" }] };
   assert.deepEqual(mostRecentExerciseSession("x", [older, newer])?.sets.map(set => set.id), ["n1", "n2"]);
   assert.equal(personalBests([older, newer]).find(item => item.exerciseId === "x")?.weight, 75);
 });

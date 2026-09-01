@@ -35,7 +35,8 @@ button:active, a:active { transform: scale(.98); }
 input, select { min-height: var(--control-height); font-size: 16px; }
 
 .shell { max-width: 620px; padding: calc(18px + env(safe-area-inset-top)) 20px calc(34px + env(safe-area-inset-bottom)); }
-.home-screen { display: flex; flex-direction: column; gap: 0; }
+.home-screen { display: flex; flex-direction: column; gap: var(--space-3); }
+.home-screen > .dashboard { margin-top: 0; }
 .home-screen > header { order: 1; }
 .home-screen > .readiness-card { order: 2; }
 .home-screen > .today-hero { order: 3; }
@@ -147,7 +148,10 @@ h1 em, .day, .topline button, .text-button, .plan-row b, .coach-callout span { c
 .conversation small { color: var(--text-tertiary); }
 .modal section { max-height: 90svh; overflow-y: auto; }
 
-.legal-page { max-width: 620px; padding: calc(26px + env(safe-area-inset-top)) 20px calc(30px + env(safe-area-inset-bottom)); }
+.legal-page { max-width: 620px; padding: calc(26px + env(safe-area-inset-top)) 20px calc(34px + env(safe-area-inset-bottom)); }
+.legal-page header { display: block; margin-bottom: var(--space-5); }
+.legal-page header h1 { max-width: 100%; overflow-wrap: anywhere; }
+.legal-page header p { margin-top: var(--space-2); }
 .account-page { min-height: 100svh; }
 .account-page header { margin-bottom: 24px; }
 .account-card { display: grid; gap: 12px; margin-top: 18px; }

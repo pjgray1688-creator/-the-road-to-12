@@ -13,12 +13,27 @@ export function completedWorkouts(workouts: Workout[]) {
 }
 export function workingSets(workout: Workout): LoggedSet[] { return workout.sets.filter(set => set.kind === "working"); }
 export type PersonalBest = { exerciseId: string; exerciseName: string; weight: number; reps: number; estimated1RM?: number; date: string };
+export type PersonalBestCategory = "free_weight_compound" | "power" | "machine_compound";
+const primaryPbIds = new Map<string, PersonalBestCategory>([
+  ["flat-bench", "free_weight_compound"], ["barbell-row", "free_weight_compound"], ["rdl", "free_weight_compound"], ["trap-bar-deadlift", "free_weight_compound"],
+  ["hack-squat", "machine_compound"], ["leg-press", "machine_compound"], ["machine-chest-press", "machine_compound"], ["incline-machine-press", "machine_compound"],
+  ["snatch", "power"], ["power-snatch", "power"], ["clean", "power"], ["power-clean", "power"], ["clean-and-jerk", "power"], ["hang-clean", "power"]
+]);
+export function personalBestCategory(exerciseId: string, exerciseName: string): PersonalBestCategory | undefined {
+  const direct = primaryPbIds.get(exerciseId); if (direct) return direct;
+  const name = exerciseName.toLowerCase();
+  if (/(snatch|clean|jerk)/.test(name)) return "power";
+  if (/(bench press|overhead press|military press|back squat|front squat|deadlift|romanian deadlift|barbell row|pendlay row)/.test(name)) return "free_weight_compound";
+  if (/(hack squat|leg press|machine chest press|machine shoulder press)/.test(name)) return "machine_compound";
+  return undefined;
+}
 export function personalBests(workouts: Workout[]): PersonalBest[] {
   const best = new Map<string, PersonalBest>();
   for (const workout of completedWorkouts(workouts)) for (const set of workingSets(workout)) {
-    if (set.weight <= 0) continue;
+    if (set.weight <= 0 || !personalBestCategory(set.exerciseId, set.exerciseName)) continue;
     const candidate = { exerciseId: set.exerciseId, exerciseName: set.exerciseName, weight: set.weight, reps: set.reps, estimated1RM: set.reps <= 15 ? estimate1RM(set.weight, set.reps) : undefined, date: (workout.completedAt ?? workout.startedAt).slice(0, 10) };
     const current = best.get(set.exerciseId); if (!current || candidate.weight > current.weight || (candidate.weight === current.weight && candidate.reps > current.reps)) best.set(set.exerciseId, candidate);
   }
-  return [...best.values()].sort((a, b) => a.exerciseName.localeCompare(b.exerciseName));
+  const rank: Record<PersonalBestCategory, number> = { free_weight_compound: 0, power: 1, machine_compound: 2 };
+  return [...best.values()].sort((a, b) => rank[personalBestCategory(a.exerciseId, a.exerciseName)!] - rank[personalBestCategory(b.exerciseId, b.exerciseName)!] || a.exerciseName.localeCompare(b.exerciseName));
 }
