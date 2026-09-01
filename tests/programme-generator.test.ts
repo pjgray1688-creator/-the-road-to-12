@@ -1,0 +1,13 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { generateTrainingProgramme } from "../lib/programme-generator";
+import type { TrainingProfile } from "../lib/training-profile";
+import { exercisesForSession } from "../lib/workout";
+
+const profile = (overrides: Partial<TrainingProfile> = {}): TrainingProfile => ({ goal: "muscle_gain", experience: "beginner", daysPerWeek: 3, sessionMinutes: 60, environment: "full_gym", limitations: [], includeCardio: false, ...overrides });
+
+test("beginner three-day programme is complete, bounded and balanced", () => { const programme = generateTrainingProgramme(profile()); assert.equal(programme.week.length, 3); assert.ok(programme.week.every(day => day.exerciseIds.length >= 3 && day.exerciseIds.length <= 5)); assert.ok(programme.week.every(day => exercisesForSession(day.exerciseIds, day.exerciseOverrides).every(exercise => exercise.defaultWorkingWeight >= 0))); assert.ok(programme.week.flatMap(day => day.exerciseIds).some(id => id === "leg-press")); assert.ok(programme.week.flatMap(day => day.exerciseIds).some(id => id === "flat-bench")); });
+test("availability and experience change split and volume", () => { const four = generateTrainingProgramme(profile({ daysPerWeek: 4, experience: "intermediate" })); const sixBeginner = generateTrainingProgramme(profile({ daysPerWeek: 6, experience: "beginner" })); assert.equal(four.week.length, 4); assert.ok(four.week.some(day => day.name === "Upper Body")); assert.ok(sixBeginner.week.every(day => day.exerciseIds.length <= 5)); });
+test("limited equipment never prescribes cable or machine work", () => { const programme = generateTrainingProgramme(profile({ environment: "home_basic", daysPerWeek: 2, sessionMinutes: 45 })); assert.ok(programme.week.every(day => exercisesForSession(day.exerciseIds).every(exercise => exercise.equipment === "dumbbell" || exercise.equipment === "barbell"))); });
+test("goal-sensitive prescriptions retain explicit sets and reps without starting weights", () => { const programme = generateTrainingProgramme(profile({ goal: "strength", experience: "intermediate", daysPerWeek: 4 })); const exercises = programme.week.flatMap(day => exercisesForSession(day.exerciseIds, day.exerciseOverrides)); assert.ok(exercises.some(exercise => exercise.target.includes("4–6"))); assert.ok(exercises.every(exercise => !Object.prototype.hasOwnProperty.call(exercise, "workingWeight"))); });
+test("limitations are respected conservatively", () => { const programme = generateTrainingProgramme(profile({ limitations: ["knee"] })); assert.ok(programme.week.flatMap(day => day.exerciseIds).every(id => !["leg-press", "hack-squat", "leg-extension"].includes(id))); });
