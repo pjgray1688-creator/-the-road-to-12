@@ -96,8 +96,8 @@ test("server round-trip paths are awaited and completion does not clear active s
   const training = fs.readFileSync("components/training-app.tsx", "utf8");
   const sync = fs.readFileSync("lib/workout-sync.ts", "utf8");
   assert.match(training, /await persistSet/);
-  assert.match(training, /await persistCardio\(workout/);
-  assert.match(training, /await completeServerWorkout\(final\)/);
+  assert.match(training, /await persistCardio\(serverCurrent/);
+  assert.match(training, /await completeServerWorkout\(serverFinal\)/);
   assert.match(training, /clearActiveWorkout\(\)/);
   assert.match(sync, /responseJson\(await fetch/);
   assert.match(sync, /if \(!detail\.ok\) throw/);

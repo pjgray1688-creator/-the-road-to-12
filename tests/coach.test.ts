@@ -4,6 +4,7 @@ import { assessWorkingSession, cardioRecommendation, evaluateSet, initialCoachPl
 import { formatWhoopExport } from "../components/whoop-export";
 import type { LoggedSet, Workout } from "../lib/types";
 import { mondayExercises } from "../lib/workout";
+import { rampLoad } from "../lib/progression";
 
 const db = mondayExercises[0]; const machine = mondayExercises[1]; const cable = mondayExercises[3];
 const s = (kind: LoggedSet["kind"], weight: number, reps: number, rir: number): LoggedSet => ({ id: crypto.randomUUID(), exerciseId: db.id, exerciseName: db.name, kind, weight, reps, rir, createdAt: new Date().toISOString() });
@@ -22,7 +23,18 @@ test("reduce lowers the next start from the sustainable final load", () => {
   const cableFailure = failed.map((set, index) => ({ ...set, exerciseId: cable.id, exerciseName: cable.name, weight: [23, 18, 14][index], reps: [10, 11, 12][index] }));
   assert.equal(workingWeight(cable, cableFailure), 9);
 });
-test("equipment loads are selectable", () => { assert.equal(practicalLoad(27.25, "dumbbell"), 28); assert.equal(practicalLoad(82, "machine", 5), 80); assert.equal(practicalLoad(11.4, "cable", 2.5), 12.5); });
+test("equipment loads are selectable", () => { assert.equal(practicalLoad(27.25, "dumbbell"), 28); assert.equal(practicalLoad(82, "machine", 5), 80); assert.equal(practicalLoad(11.4, "cable", 2.5), 12.5); assert.equal(practicalLoad(62.5, "barbell"), 62.5); });
+test("plate-loaded ramps use large early jumps and small top-end probes", () => {
+  const deadlift = { ...db, id: "deadlift", equipment: "barbell" as const, defaultWorkingWeight: 150 };
+  assert.deepEqual([rampLoad(deadlift, 60, 150), rampLoad(deadlift, 100, 150), rampLoad(deadlift, 120, 150), rampLoad(deadlift, 140, 150)], [100, 120, 140, 145]);
+  const bench = { ...db, id: "bench", equipment: "barbell" as const, defaultWorkingWeight: 110 };
+  assert.equal(rampLoad(bench, 85, 110), 105);
+  assert.equal(rampLoad(bench, 105, 110), 110);
+  const plateMachine = { ...machine, loadProfile: "plate_loaded" as const };
+  assert.equal(rampLoad(plateMachine, 60, 120), 100);
+  assert.equal(rampLoad(machine, 80, 120), 85);
+  assert.equal(rampLoad(cable, 41, 55), 45);
+});
 test("Coach begins at exercise start and minimises later preparation", () => { assert.equal(initialCoachPlan(db, [], 0).kind, "warmup"); assert.equal(initialCoachPlan(machine, [], 1).kind, "ramp"); assert.equal(startingPrescription(cable, [], 3).ramps, 1); });
 test("no-history baseline is experienced-lifter sensible", () => { assert.equal(nextExerciseRecommendation(machine, [], 1).weight, 80); assert.equal(nextExerciseRecommendation(cable, [], 3).weight, 14); });
 test("warm-up adapts immediately when user chooses a much heavier load", () => { const d = evaluateSet(db, [s("warmup", 50, 12, 3)], "", [], 0); assert.equal(d.nextKind, "ramp"); assert.equal(d.nextWeight, 50); });

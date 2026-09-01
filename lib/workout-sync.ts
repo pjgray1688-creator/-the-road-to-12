@@ -65,5 +65,7 @@ export async function completeServerWorkout(workout: Workout) {
   return payload.session;
 }
 export async function discardServerWorkout(workout: Workout) {
-  return responseJson(await fetch(`/api/workouts/${workout.id}/discard`, { method: "DELETE", credentials: "same-origin" }));
+  const response = await fetch(`/api/workouts/${workout.id}/discard`, { method: "DELETE", credentials: "same-origin" });
+  if (response.status === 404) return { discarded: workout.id, alreadyAbsent: true };
+  return responseJson(response);
 }

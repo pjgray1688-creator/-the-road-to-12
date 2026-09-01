@@ -119,3 +119,16 @@ test("active workout correction and optional exercise media remain safe", () => 
   assert.match(training, /⌂ Home/); assert.match(training, /SessionSheet/); assert.match(training, /persistSet/); assert.match(training, /deletePersistedSet/); assert.match(training, /discardServerWorkout/);
   assert.match(types, /ExerciseMedia/); assert.match(discardRoute, /DELETE/);
 });
+test("discard cleanup is idempotent and conditioning has a safe Home route", () => {
+  const training = fs.readFileSync("components/training-app.tsx", "utf8");
+  const sync = fs.readFileSync("lib/workout-sync.ts", "utf8");
+  assert.match(training, /onDiscard\?\./);
+  assert.match(training, /PwaRegister enabled=\{Boolean\(exercise\)\}/);
+  assert.match(training, /onMinimize\?\.\(workout\)/);
+  assert.match(training, /⌂ Home/);
+  assert.match(training, /setSessionOpen\(true\)/);
+  assert.match(training, /setNotice\(""\)/);
+  assert.match(training, /serverCurrent = await createOrResumeServerWorkout/);
+  assert.match(fs.readFileSync("components/home-shell.tsx", "utf8"), /onMinimize=\{\(current\) =>/);
+  assert.match(sync, /response\.status === 404/);
+});

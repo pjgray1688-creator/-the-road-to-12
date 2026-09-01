@@ -12,8 +12,8 @@ export const mondayExercises: Exercise[] = [
 ];
 const additionalExercises: Exercise[] = [
   { id: "trap-bar-deadlift", name: "Trap-Bar Deadlift", target: "3 × 5–6", sets: 3, restSeconds: 180, purpose: "strength", equipment: "barbell", defaultWorkingWeight: 80 },
-  { id: "leg-press", name: "Leg Press", target: "4 × 10", sets: 4, restSeconds: 150, purpose: "strength", equipment: "machine", defaultWorkingWeight: 120 },
-  { id: "hack-squat", name: "Hack Squat", target: "3 × 8–12", sets: 3, restSeconds: 150, purpose: "strength", equipment: "machine", defaultWorkingWeight: 80 },
+  { id: "leg-press", name: "Leg Press", target: "4 × 10", sets: 4, restSeconds: 150, purpose: "strength", equipment: "machine", loadProfile: "plate_loaded", defaultWorkingWeight: 120 },
+  { id: "hack-squat", name: "Hack Squat", target: "3 × 8–12", sets: 3, restSeconds: 150, purpose: "strength", equipment: "machine", loadProfile: "plate_loaded", defaultWorkingWeight: 80 },
   { id: "rdl", name: "Romanian Deadlift", target: "4 × 8–10", sets: 4, restSeconds: 150, purpose: "strength", equipment: "barbell", defaultWorkingWeight: 60 },
   { id: "hamstring-curl", name: "Seated Hamstring Curl", target: "4 × 10–15", sets: 4, restSeconds: 90, purpose: "hypertrophy", equipment: "machine", defaultWorkingWeight: 40 },
   { id: "leg-extension", name: "Leg Extension", target: "3 × 12–15", sets: 3, restSeconds: 75, purpose: "isolation", equipment: "machine", defaultWorkingWeight: 40 },
