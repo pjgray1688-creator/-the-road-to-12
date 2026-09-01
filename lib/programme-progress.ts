@@ -1,0 +1,8 @@
+import type { PlannedSession, TrainingBlock } from "./domain";
+import type { Workout } from "./types";
+import { completedWorkouts } from "./training-history";
+
+export type ProgrammeSnapshot = { name: string; goal: string; daysPerWeek: number; totalWeeks: number; sessionsPerWeek: number; completedSessions: number; totalSessions: number; progressPercent: number; currentWeek: number; nextSession?: PlannedSession };
+export function programmeSnapshot(name: string, block: TrainingBlock, week: PlannedSession[], workouts: Workout[], generated = false): ProgrammeSnapshot {
+  const completed = completedWorkouts(workouts); const completedKeys = new Set(completed.map(item => item.plannedSessionId).filter(Boolean)); const completedSessions = week.filter(session => completedKeys.has(session.id)).length; const totalWeeks = generated ? 4 : Math.max(1, Math.round((new Date(block.endDate).getTime() - new Date(block.startDate).getTime()) / (7 * 86400000))); const totalSessions = week.filter(session => session.exerciseIds.length > 0).length * totalWeeks; const nextSession = week.find(session => session.exerciseIds.length > 0 && !completedKeys.has(session.id)); return { name, goal: block.goals[0] ?? "general fitness", daysPerWeek: week.filter(session => session.exerciseIds.length > 0).length, totalWeeks, sessionsPerWeek: week.filter(session => session.exerciseIds.length > 0).length, completedSessions, totalSessions, progressPercent: totalSessions ? Math.round((completedSessions / totalSessions) * 100) : 0, currentWeek: Math.min(totalWeeks, Math.floor(completedSessions / Math.max(1, week.filter(session => session.exerciseIds.length > 0).length)) + 1), nextSession };
+}
