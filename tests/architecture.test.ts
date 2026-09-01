@@ -124,6 +124,9 @@ test("active workout failures have an observable recovery boundary and transitio
   assert.match(training, /RECOMMENDATION_RESOLVED/);
   assert.match(training, /ACTIVE_STATE_SET/);
   assert.match(training, /ACTIVE_RENDER_STARTED/);
+  assert.match(training, /ACTIVE DEBUG/);
+  assert.match(training, /UNKNOWN WORKOUT STATE/);
+  assert.match(training, /Log \{kind\} set/);
   assert.match(shell, /<WorkoutErrorBoundary/);
 });
 test("active workout correction and optional exercise media remain safe", () => {
