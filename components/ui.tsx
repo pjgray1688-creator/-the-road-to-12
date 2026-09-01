@@ -21,9 +21,9 @@ export function Surface({ children, className = "" }: { children: ReactNode; cla
   return <section className={`surface ${className}`.trim()}>{children}</section>;
 }
 
-export function NavigationRow({ href, label, detail, children }: { href?: string; label: string; detail?: string; children?: ReactNode }) {
+export function NavigationRow({ href, label, detail, children, onClick }: { href?: string; label: string; detail?: string; children?: ReactNode; onClick?: () => void }) {
   const content = <><span><strong>{label}</strong>{detail && <small>{detail}</small>}</span>{children ?? <b aria-hidden="true">›</b>}</>;
-  return href ? <Link className="navigation-row" href={href}>{content}</Link> : <button className="navigation-row" type="button">{content}</button>;
+  return href ? <Link className="navigation-row" href={href}>{content}</Link> : <button className="navigation-row" type="button" onClick={onClick}>{content}</button>;
 }
 
 export function MetricCard({ label, value, detail }: { label: string; value: ReactNode; detail?: ReactNode }) {
