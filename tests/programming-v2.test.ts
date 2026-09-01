@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { allExercises } from "../lib/workout";
 import { generateTrainingProgramme } from "../lib/programme-generator";
-import { conditioningFor, detectProgrammeEditIntent, frameworkFor, taxonomyForExercise, validateProgramme, weeklyVolume } from "../lib/programming-v2";
+import { applyProgrammeEdit, conditioningFor, detectProgrammeEditIntent, frameworkFor, planProgrammeEdit, taxonomyForExercise, validateProgramme, weeklyVolume } from "../lib/programming-v2";
 import type { TrainingProfile } from "../lib/training-profile";
 
 const profile = (overrides: Partial<TrainingProfile> = {}): TrainingProfile => ({ goal: "muscle_gain", experience: "intermediate", daysPerWeek: 4, sessionMinutes: 60, environment: "full_gym", limitations: [], includeCardio: false, ...overrides });
@@ -44,6 +44,24 @@ test("exercise library taxonomy is complete enough for safe programming", () => 
 test("programme edit intents remain structured and deterministic", () => {
   assert.equal(detectProgrammeEditIntent("Please replace this with hip thrusts")?.kind, "replace");
   assert.equal(detectProgrammeEditIntent("I want more glute focus")?.kind, "priority");
-  assert.equal(detectProgrammeEditIntent("I hate treadmill cardio")?.kind, "remove");
+  assert.equal(detectProgrammeEditIntent("I hate treadmill cardio")?.kind, "conditioning");
   assert.equal(detectProgrammeEditIntent("just had a great set"), undefined);
+});
+
+test("programme edit plans require explicit application and remain immutable until then", () => {
+  const programme = generateTrainingProgramme(profile({ daysPerWeek: 4 }), undefined, "edit");
+  const intent = detectProgrammeEditIntent("Swap leg press for Bulgarian split squats")!;
+  const plan = planProgrammeEdit(programme, intent)!;
+  assert.equal(plan.kind, "replace");
+  assert.ok(plan.summary.includes("Bulgarian"));
+  assert.ok(programme.week.flatMap(s => s.exerciseIds).includes("leg-press"));
+  const edited = applyProgrammeEdit(programme, plan)!;
+  assert.notDeepEqual(edited.week, programme.week);
+  assert.ok(edited.week.flatMap((s: any) => s.exerciseIds).includes("bulgarian-split-squat"));
+  assert.equal(programme.id, edited.id);
+});
+
+test("avoided exercise preference is distinct from limitations and honoured", () => {
+  const programme = generateTrainingProgramme(profile({ daysPerWeek: 4, avoidedExercises: ["back-squat"] }), undefined, "avoid");
+  assert.ok(!programme.week.flatMap(s => s.exerciseIds).includes("back-squat"));
 });

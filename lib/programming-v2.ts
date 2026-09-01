@@ -85,11 +85,34 @@ export function validateProgramme(sessions: PlannedSession[], profile: TrainingP
 
 export type ProgrammeEditIntent = { kind: "replace" | "add" | "remove" | "priority" | "conditioning"; query: string; target?: string };
 export function detectProgrammeEditIntent(text: string): ProgrammeEditIntent | undefined {
-  const t = text.toLowerCase(); const target = ["hip thrust", "treadmill", "rower", "lateral raise", "bench press"].find(x => t.includes(x));
+  const t = text.toLowerCase(); const target = ["hip thrust", "bulgarian split squat", "leg press", "leg extension", "barbell row", "back squat", "treadmill", "rower", "lateral raise", "bench press"].find(x => t.includes(x));
   if (/replace|swap|change/.test(t)) return { kind: "replace", query: text, target };
   if (/add|include|want .* in my programme/.test(t)) return { kind: "add", query: text, target };
+  if (/conditioning|cardio|treadmill|rower/.test(t) && (/hate|dislike|prefer|rather/.test(t))) return { kind: "conditioning", query: text, target };
   if (/remove|take out|hate|dislike/.test(t)) return { kind: "remove", query: text, target };
   if (/more (glute|upper.?chest|arm|back|shoulder|core)/.test(t)) return { kind: "priority", query: text, target };
   if (/conditioning|cardio|treadmill|rower/.test(t)) return { kind: "conditioning", query: text, target };
   return undefined;
+}
+
+export type ProgrammeEditPlan = { kind: ProgrammeEditIntent["kind"]; summary: string; rationale: string; sessionId?: string; fromExerciseId?: string; toExerciseId?: string; priority?: TrainingPriority; conditioning?: Partial<TrainingProfile>; };
+export function planProgrammeEdit(programme: { week: PlannedSession[]; profile: TrainingProfile }, intent: ProgrammeEditIntent, catalogue = allExercises()): ProgrammeEditPlan | undefined {
+  const find = (value?: string) => value && catalogue.find(e => e.id === value || e.name.toLowerCase().includes(value.toLowerCase()));
+  if (intent.kind === "priority") { const priority = ["glutes", "upper_chest", "arms", "shoulders", "back_width", "core"].find(p => intent.query.toLowerCase().includes(p.replace("_", " "))) as TrainingPriority | undefined; return priority ? { kind: intent.kind, priority, summary: `Add ${priority.replace("_", " ")} emphasis`, rationale: "Rebalances exercise choice and order within the existing volume guardrails." } : undefined; }
+  if (intent.kind === "conditioning") { const rower = /rower|rowing/.test(intent.query.toLowerCase()); return { kind: intent.kind, summary: rower ? "Use rowing for conditioning" : "Update conditioning preference", rationale: "Keeps conditioning aligned with your preferred, sustainable modality.", conditioning: { cardioPreference: rower ? "rowing" : undefined, dislikedConditioning: /hate|dislike/.test(intent.query.toLowerCase()) ? ["incline_treadmill"] : undefined } }; }
+  const target = find(intent.target); if (!target) return undefined;
+  const session = programme.week.find(s => s.exerciseIds.includes(target.id));
+  if (intent.kind === "remove") return session ? { kind: intent.kind, summary: `Remove ${target.name}`, rationale: "The remaining session still has a complete movement balance.", sessionId: session.id, fromExerciseId: target.id } : undefined;
+  if (intent.kind === "replace") { const replacement = intent.query.toLowerCase().includes("bulgarian") ? find("bulgarian-split-squat") : intent.query.toLowerCase().includes("hip thrust") ? find("barbell-hip-thrust") : undefined; if (!replacement || !session) return undefined; return { kind: intent.kind, summary: `Replace ${target.name} with ${replacement.name}`, rationale: "This keeps the movement role and training stimulus while respecting your preference.", sessionId: session.id, fromExerciseId: target.id, toExerciseId: replacement.id }; }
+  if (intent.kind === "add") { const session = programme.week.find(s => s.exerciseIds.some(id => id.includes("hip-thrust") || id.includes("glute"))) ?? programme.week[programme.week.length - 1]; return { kind: intent.kind, summary: `Add ${target.name}`, rationale: "Adds the requested exercise only where session size and weekly balance allow.", sessionId: session?.id, toExerciseId: target.id }; }
+  return undefined;
+}
+export function applyProgrammeEdit(programme: any, plan: ProgrammeEditPlan, catalogue = allExercises()) {
+  const next = structuredClone(programme); const session = next.week.find((s: PlannedSession) => s.id === plan.sessionId); if (plan.kind === "priority" && plan.priority) { next.profile = { ...next.profile, priorities: [plan.priority] }; return next; }
+  if (plan.kind === "conditioning" && plan.conditioning) { next.profile = { ...next.profile, ...plan.conditioning }; return next; }
+  if (!session) return undefined;
+  if (plan.kind === "remove" && plan.fromExerciseId) { session.exerciseIds = session.exerciseIds.filter((id: string) => id !== plan.fromExerciseId); delete session.exerciseOverrides?.[plan.fromExerciseId]; }
+  if (plan.kind === "replace" && plan.fromExerciseId && plan.toExerciseId) { const at = session.exerciseIds.indexOf(plan.fromExerciseId); if (at < 0) return undefined; session.exerciseIds[at] = plan.toExerciseId; const source = catalogue.find(e => e.id === plan.toExerciseId); if (source) session.exerciseOverrides = { ...session.exerciseOverrides, [source.id]: { sets: source.sets, target: source.target } }; delete session.exerciseOverrides?.[plan.fromExerciseId]; }
+  if (plan.kind === "add" && plan.toExerciseId && !session.exerciseIds.includes(plan.toExerciseId)) { session.exerciseIds.push(plan.toExerciseId); const source = catalogue.find(e => e.id === plan.toExerciseId); if (source) session.exerciseOverrides = { ...session.exerciseOverrides, [source.id]: { sets: source.sets, target: source.target } }; }
+  return next;
 }

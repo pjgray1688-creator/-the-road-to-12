@@ -16,6 +16,7 @@ export type TrainingProfile = {
   cardioPreference?: "walking" | "cycling" | "rowing" | "mixed";
   priorities?: TrainingPriority[];
   wantedExercises?: string[];
+  avoidedExercises?: string[];
   conditioningPreference?: ConditioningPreference;
   conditioningFrequency?: 0 | 1 | 2 | 3;
   lowImpactConditioning?: boolean;

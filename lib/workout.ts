@@ -1,4 +1,5 @@
 import type { Exercise } from "./types";
+import { exerciseLibrary } from "./exercise-library";
 
 export const COMMERCIAL_CABLE_STACK_LOADS = [9, 14, 18, 23, 27, 32, 36, 41, 45, 50, 55, 59, 64, 68, 73, 77, 82];
 export const mondayExercises: Exercise[] = [
@@ -60,7 +61,8 @@ const libraryExpansion: Exercise[] = [
   { id: "pallof-press", name: "Pallof Press", target: "obliques", sets: 2, restSeconds: 60, purpose: "core", equipment: "cable", stackIncrement: 2.5, defaultWorkingWeight: 12 },
   { id: "dead-bug", name: "Dead Bug", target: "abs", sets: 2, restSeconds: 45, purpose: "core", equipment: "machine", defaultWorkingWeight: 0 },
 ];
-export const allExercises = (): Exercise[] => Array.from(new Map([...mondayExercises, ...additionalExercises, ...libraryExpansion].map(item => [item.id, item])).values());
+const catalogueFromKnowledge: Exercise[] = exerciseLibrary.map(item => ({ id: item.id, name: item.name, target: item.primaryMuscles[0] ?? "full body", sets: item.programmeRole === "primary_compound" ? 4 : item.programmeRole === "isolation" ? 3 : 3, restSeconds: item.programmeRole === "primary_compound" ? 120 : 75, purpose: item.programmeRole === "isolation" ? "isolation" : item.primaryMuscles.includes("abs") || item.primaryMuscles.includes("obliques") ? "core" : "hypertrophy", equipment: item.equipment === "dumbbell" || item.equipment === "barbell" || item.equipment === "cable" ? item.equipment : "machine", loadingProfile: item.equipment === "bodyweight" ? "bodyweight_assisted" : item.equipment.includes("machine") ? "selectorised_compound" : undefined, loadUnit: item.equipment === "dumbbell" ? "per_hand" : item.equipment === "bodyweight" ? "assistance" : item.equipment === "cable" || item.equipment.includes("machine") ? "stack" : "total", defaultWorkingWeight: 0 }));
+export const allExercises = (): Exercise[] => Array.from(new Map([...catalogueFromKnowledge, ...mondayExercises, ...additionalExercises, ...libraryExpansion].map(item => [item.id, item])).values());
 export const exerciseById = (id: string): Exercise | undefined => allExercises().find(item => item.id === id);
 export const exercisesForSession = (exerciseIds: string[], overrides: Record<string, { name?: string; target?: string; sets?: number }> = {}): Exercise[] => {
   const catalog = new Map(allExercises().map(item => [item.id, item]));
