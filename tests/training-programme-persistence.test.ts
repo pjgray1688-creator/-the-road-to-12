@@ -77,3 +77,17 @@ test("Training exposes reversible programme switching with active-workout protec
   assert.match(source, /Finish or discard your current workout before switching programmes/);
   assert.match(source, /active_programme_id !== programme\.id/);
 });
+
+test("inactive programme opens actions and never activates from the row", () => {
+  const source = fs.readFileSync("app/training/page.tsx", "utf8");
+  assert.match(source, /setSelectedProgramme\(option\)/);
+  assert.match(source, /Use this programme/);
+  assert.match(source, /Delete this saved programme definition/);
+});
+
+test("archive deletion is server-first and protects the active programme", () => {
+  const route = fs.readFileSync("app/api/training-profile/route.ts", "utf8");
+  assert.match(route, /removeProgrammeId/);
+  assert.match(route, /active programme cannot be deleted/);
+  assert.match(route, /previousProgrammes/);
+});
