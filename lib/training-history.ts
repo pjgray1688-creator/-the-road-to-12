@@ -16,6 +16,12 @@ export type HistoryExerciseGroup = { exerciseId: string; exerciseName: string; s
 const unilateralName = /(lateral raise|single[- ]arm|single[- ]leg|bulgarian split|unilateral)/i;
 function sideOf(name: string) { const match = name.match(/(?:\s|[-—])(left|right|l|r)$/i); return match?.[1]?.toLowerCase().startsWith("l") ? "left" : match?.[1] ? "right" : undefined; }
 export function historySideLabel(name: string) { return sideOf(name) ? (sideOf(name) === "left" ? "Left" : "Right") : "Each side"; }
+export function formatLogicalHistorySet(sets: LoggedSet[]) {
+  if (sets.length < 2) { const set = sets[0]; return set ? `${set.weight} kg × ${set.reps}${set.rir === undefined ? "" : ` · ${set.rir} RIR`}` : ""; }
+  const [left, right] = sets;
+  if (left.weight === right.weight && left.reps === right.reps && left.rir === right.rir) return `${left.weight} kg × ${left.reps} / side${left.rir === undefined ? "" : ` · ${left.rir} RIR`}`;
+  return `L ${left.weight} kg × ${left.reps}${left.rir === undefined ? "" : ` · ${left.rir} RIR`} · R ${right.weight} kg × ${right.reps}${right.rir === undefined ? "" : ` · ${right.rir} RIR`}`;
+}
 function baseExerciseName(name: string) { return name.replace(/\s*(?:[-—]\s*)?(?:left|right|l|r)$/i, "").trim(); }
 export function historyExerciseGroups(workout: Workout): HistoryExerciseGroup[] {
   const source = workingSets(workout);
