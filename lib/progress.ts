@@ -6,10 +6,16 @@ export const measurementLabels: Record<BodyMeasurementType, string> = {
   upper_arm_left: "Left upper arm", upper_arm_right: "Right upper arm", thigh_left: "Left thigh", thigh_right: "Right thigh", calf_left: "Left calf", calf_right: "Right calf",
 };
 export const measurementGuidance: Partial<Record<BodyMeasurementType, string>> = {
-  waist_navel: "Measure horizontally around the level of your belly button.",
-  waist_trouser: "Use the same trouser-line position each time.",
-  chest: "Measure around the fullest part, keeping the tape level.",
-  shoulders: "Measure around the broadest shoulder position consistently.",
+  waist_navel: "Around your belly button, relaxed and level. Do not hold your stomach in; keep tape tension consistent.",
+  waist_trouser: "Use the same trouser-line landmark each time, with a level tape and relaxed posture.",
+  chest: "Around the fullest part of your chest with the tape level; use the same relaxed breathing position each time.",
+  shoulders: "Around the widest shoulder and upper-torso circumference with the same arm position each time.",
+  upper_arm_left: "Measure the same point on your relaxed left upper arm every time; use the same convention on both sides.",
+  upper_arm_right: "Measure the same point on your relaxed right upper arm every time; use the same convention on both sides.",
+  thigh_left: "Measure the same landmark on your left thigh with a consistent stance and tape tension.",
+  thigh_right: "Measure the same landmark on your right thigh with a consistent stance and tape tension.",
+  calf_left: "Measure around the widest point of your left calf while standing consistently.",
+  calf_right: "Measure around the widest point of your right calf while standing consistently.",
 };
 
 export type MeasurementEntry = { id: string; date: string; type: BodyMeasurementType; value: number; unit: "cm" };

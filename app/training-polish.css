@@ -218,6 +218,7 @@ main.legal-page { display: flex; flex-direction: column; }
 .metric-card strong { font-size: 25px; font-variant-numeric: tabular-nums; }
 .metric-card small { color: var(--text-secondary); }
 .progress-page { gap: var(--space-lg); }
+.progress-page { max-width: 680px; margin: 0 auto; padding: calc(22px + env(safe-area-inset-top)) var(--page-gutter) calc(34px + env(safe-area-inset-bottom)); }
 .progress-page h2 { margin: 6px 0 0; }
 .progress-form { display: grid; gap: 10px; margin-top: 16px; }
 .progress-form label { display: grid; gap: 6px; color: var(--text-secondary); font-size: 12px; font-weight: 700; }
@@ -231,6 +232,21 @@ main.legal-page { display: flex; flex-direction: column; }
 .progress-positive { color: #a7e3c0; }
 .measurement-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 18px; }
 .caption { color: var(--text-tertiary); font-size: 12px; line-height: 1.45; }
+.compact-action { width: 100%; min-height: 44px; text-align: left; }
+.compact-form { display: grid; gap: 10px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--separator); }
+.compact-form label, .progress-form-label { display: grid; gap: 6px; color: var(--text-secondary); font-size: 12px; font-weight: 700; }
+.compact-form input { min-height: 44px; }
+.unit-switch { display: inline-flex; gap: 4px; padding: 4px; margin: 4px 0 12px; background: var(--surface-0); border: 1px solid var(--separator); border-radius: 999px; }
+.unit-switch button { min-height: 32px; min-width: 42px; border: 0; border-radius: 999px; background: transparent; color: var(--text-secondary); font-weight: 700; }
+.unit-switch button.selected { background: rgba(168,85,247,.2); color: var(--text-primary); }
+.measurement-group { margin-top: 20px; }
+.measurement-group .measurement-grid { margin-top: 8px; }
+.guidance { padding: 10px 12px; margin: 0; color: var(--text-secondary); background: rgba(168,85,247,.08); border-left: 2px solid var(--accent); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; font-size: 13px; line-height: 1.45; }
+.picker-trigger { min-height: 46px; display: flex; justify-content: space-between; align-items: center; padding: 0 12px; color: var(--text-primary); background: var(--surface-0); border: 1px solid var(--separator); border-radius: var(--radius-sm); text-align: left; font: inherit; }
+.option-sheet { max-height: 86svh; overflow: auto; }
+.option-row { width: 100%; min-height: 48px; display: flex; justify-content: space-between; align-items: center; padding: 10px 4px; color: var(--text-primary); background: transparent; border: 0; border-bottom: 1px solid var(--separator); text-align: left; font: inherit; }
+.option-row.selected { color: var(--accent-bright); }
+.subtle-danger { color: var(--text-tertiary); font-size: 11px; }
 .account-profile-summary { margin: 12px 0 4px; color: var(--text-primary); text-transform: capitalize; }
 .account-signout { width: 100%; margin-top: 2px; }
 .progress-bar { height: 6px; overflow: hidden; border-radius: 999px; background: rgba(255,255,255,.1); margin: var(--space-md) 0; }
