@@ -104,3 +104,11 @@ test("unilateral history pairs left and right entries without doubling logical s
   const groups = historyExerciseGroups(workout);
   assert.equal(groups.length, 1); assert.equal(groups[0].unilateral, true); assert.equal(Math.ceil(groups[0].sets.length / 2), 2); assert.equal(groups[0].sets[1].weight, 9); assert.equal(groups[0].sets[3].weight, 8);
 });
+test("authenticated navigation and workout escape stay product-scoped", () => {
+  const nav = fs.readFileSync("components/app-nav.tsx", "utf8");
+  const shell = fs.readFileSync("components/home-shell.tsx", "utf8");
+  const training = fs.readFileSync("components/training-app.tsx", "utf8");
+  assert.match(nav, /Today/); assert.match(nav, /Training/); assert.match(nav, /Account/);
+  assert.match(shell, /AppNav/); assert.match(training, /onMinimize/); assert.match(training, /Minimise/);
+  assert.doesNotMatch(shell, /<PwaRegister \/>/);
+});

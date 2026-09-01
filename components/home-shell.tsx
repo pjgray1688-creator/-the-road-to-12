@@ -1,13 +1,13 @@
 "use client";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { DashboardFoundation } from "./dashboard-foundation";
-import { PwaRegister } from "./pwa-register";
 import { TrainingApp } from "./training-app";
 import { currentWeek } from "@/lib/domain";
 import { resolveToday, selectCompletedWorkout } from "@/lib/schedule";
 import { fetchServerWorkouts, importLocalWorkouts, cacheServerWorkouts } from "@/lib/workout-sync";
 import { mondayExercises } from "@/lib/workout";
 import type { Workout } from "@/lib/types";
+import { AppNav } from "./app-nav";
 
 function completedToday(workouts: Workout[], timezone: string): Workout | undefined {
   return selectCompletedWorkout(workouts, new Date(), timezone, resolveToday(currentWeek, timezone).session?.id);
@@ -67,7 +67,7 @@ export function HomeShell() {
   const summary = useMemo(() => { if (!completed) return undefined; const working = completed.sets.filter(set => set.kind === "working"); return { sets: working.length, cardio: completed.cardio?.duration }; }, [completed]);
   if (!resolved || !serverResolved) return <main className="shell home-screen" aria-busy="true"><section className="card dashboard"><span className="eyebrow">THE ROAD TO 12%</span><p>Loading today&apos;s plan…</p></section></main>;
   if (resumeRequested && active) return <TrainingApp resumeWorkout={active} workoutHistory={serverWorkouts} onMinimize={() => setResumeRequested(false)} />;
-  if (!completed && active) return <main className="shell home-screen"><DashboardFoundation workoutHistory={serverWorkouts} /><section className="card dashboard post-workout"><span className="eyebrow">WORKOUT IN PROGRESS</span><h2>{active.name}</h2><p>Your logged sets are saved. Resume when you&apos;re ready.</p><button className="primary big" onClick={() => setResumeRequested(true)}>Resume workout →</button></section></main>;
+  if (!completed && active) return <main className="shell home-screen"><DashboardFoundation workoutHistory={serverWorkouts} /><section className="card dashboard post-workout active-workout-card"><span className="eyebrow">WORKOUT IN PROGRESS</span><h2>{active.name}</h2><p>Your logged sets are saved. Resume when you&apos;re ready.</p><button className="primary big" onClick={() => setResumeRequested(true)}>Resume workout →</button></section><AppNav /></main>;
   if (!completed) return <TrainingApp workoutHistory={serverWorkouts} />;
-  return <main className="shell home-screen"><PwaRegister /><DashboardFoundation workoutHistory={serverWorkouts} /><section className="card dashboard post-workout" aria-label="Post-workout"><span className="eyebrow">TODAY COMPLETE</span><h2>Nice work.</h2><p>{completed.name} is complete.</p><small>{summary?.sets ?? 0} working sets logged{summary?.cardio ? ` · ${summary.cardio} min cardio` : ""}.</small><p className="coach-note">Training is done for today. Easy mobility or a relaxed walk is plenty if you want to move.</p><div className="post-workout-actions"><button className="secondary" onClick={() => setCoachOpen(true)}>Ask Coach</button><button className="secondary" onClick={() => setRecoveryOpen(true)}>Recovery work</button></div></section>{coachOpen && <CoachSheet workout={completed} onClose={() => setCoachOpen(false)} />}{recoveryOpen && <RecoverySheet onClose={() => setRecoveryOpen(false)} />}</main>;
+  return <main className="shell home-screen"><DashboardFoundation workoutHistory={serverWorkouts} /><section className="card dashboard post-workout" aria-label="Post-workout"><span className="eyebrow">TODAY COMPLETE</span><h2>Nice work.</h2><p>{completed.name} is complete.</p><small>{summary?.sets ?? 0} working sets logged{summary?.cardio ? ` · ${summary.cardio} min cardio` : ""}.</small><p className="coach-note">Training is done for today. Easy mobility or a relaxed walk is plenty if you want to move.</p><div className="post-workout-actions"><button className="secondary" onClick={() => setCoachOpen(true)}>Ask Coach</button><button className="secondary" onClick={() => setRecoveryOpen(true)}>Recovery work</button></div></section>{coachOpen && <CoachSheet workout={completed} onClose={() => setCoachOpen(false)} />}{recoveryOpen && <RecoverySheet onClose={() => setRecoveryOpen(false)} />}<AppNav /></main>;
 }
