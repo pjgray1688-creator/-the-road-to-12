@@ -1,7 +1,16 @@
 import { estimate1RM } from "./storage";
 import type { LoggedSet, Workout } from "./types";
 
-export function completedWorkouts(workouts: Workout[]) { return workouts.filter(workout => workout.status === "completed" || workout.completedAt).filter(workout => workout.origin !== "test").sort((a, b) => (b.completedAt ?? b.startedAt).localeCompare(a.completedAt ?? a.startedAt)); }
+export function completedWorkouts(workouts: Workout[]) {
+  const visible = workouts.filter(workout => (workout.status === "completed" || workout.completedAt) && workout.origin !== "test" && workout.origin !== "historical");
+  const selected = new Map<string, Workout>();
+  for (const workout of visible) {
+    const key = workout.plannedSessionId && workout.scheduledDate ? `${workout.plannedSessionId}:${workout.scheduledDate}` : `legacy:${workout.id}`;
+    const current = selected.get(key);
+    if (!current || workout.sets.filter(set => set.kind === "working").length > current.sets.filter(set => set.kind === "working").length || (workout.sets.length > current.sets.length && !workout.sets.some(set => set.kind === "working") && !current.sets.some(set => set.kind === "working"))) selected.set(key, workout);
+  }
+  return [...selected.values()].sort((a, b) => (b.completedAt ?? b.startedAt).localeCompare(a.completedAt ?? a.startedAt));
+}
 export function workingSets(workout: Workout): LoggedSet[] { return workout.sets.filter(set => set.kind === "working"); }
 export type PersonalBest = { exerciseId: string; exerciseName: string; weight: number; reps: number; estimated1RM?: number; date: string };
 export function personalBests(workouts: Workout[]): PersonalBest[] {

@@ -12,7 +12,7 @@ import { siteUrl } from "../lib/site-url";
 import type { AppData } from "../lib/types";
 import { exercisesForSession } from "../lib/workout";
 import { mostRecentExerciseSession } from "../lib/storage";
-import { personalBests } from "../lib/training-history";
+import { completedWorkouts, personalBests } from "../lib/training-history";
 import { genuineMondayCandidates, manualMondayReconstruction, promotableMondayWorkout, reconstructVerifiedMonday, verifiedMondayCardio } from "../lib/workout-recovery";
 
 test("historical records are explicit, genuine and distinct from current data", () => { assert.ok(genuineHistoricalTraining.every(record => record.origin === "historical")); assert.equal(genuineHistoricalTraining.find(record => record.exerciseId === "leg-press")?.weight, 300); });
@@ -30,7 +30,7 @@ test("owner migration excludes test data and is idempotent", () => { const data:
 test("auth site URL is production-safe with local development support", () => { const previous = process.env.NEXT_PUBLIC_SITE_URL; process.env.NEXT_PUBLIC_SITE_URL = "https://the-road-to-12.vercel.app"; assert.equal(siteUrl(), "https://the-road-to-12.vercel.app"); process.env.NEXT_PUBLIC_SITE_URL = previous; });
 test("coach greeting uses the profile name and user timezone", () => { const instant = new Date("2026-08-30T07:00:00Z"); assert.equal(coachGreeting("Peter", "Europe/London", instant), "Good morning, Peter"); assert.equal(coachGreeting(undefined, "Europe/London", new Date("2026-08-30T13:00:00Z")), "Good afternoon"); assert.equal(coachGreeting("Peter", "America/New_York", instant), "Good morning, Peter"); assert.equal(coachGreeting("Ready", "Europe/London", new Date("2026-08-30T18:00:00Z")), "Good evening"); });
 test("ordinary sign-in redirects to Home while Account remains available", () => { const source = fs.readFileSync("app/account/page.tsx", "utf8"); assert.match(source, /router\.push\("\/"\)/); assert.match(source, /export default function AccountPage/); });
-test("profile supports independent names and first-name-only greeting", () => { const schema = fs.readFileSync("supabase/schema.sql", "utf8"); const migration = fs.readFileSync("supabase/migrations/2026-08-31-profile-names.sql", "utf8"); const account = fs.readFileSync("app/account/page.tsx", "utf8"); const dashboard = fs.readFileSync("components/dashboard-foundation.tsx", "utf8"); assert.match(schema, /first_name text/); assert.match(schema, /last_name text/); assert.match(migration, /add column if not exists first_name/); assert.match(account, /First name/); assert.match(account, /Last name/); assert.match(account, /first_name: firstName/); assert.match(account, /hidden=\{authMode !== "signUp"\}/); assert.match(account, /data: \{ first_name: firstName\.trim\(\), last_name: lastName\.trim\(\)/); assert.match(dashboard, /profile\?\.first_name/); });
+test("profile supports independent names and first-name-only greeting", () => { const schema = fs.readFileSync("supabase/schema.sql", "utf8"); const migration = fs.readFileSync("supabase/migrations/2026-08-31-profile-names.sql", "utf8"); const account = fs.readFileSync("app/account/page.tsx", "utf8"); const dashboard = fs.readFileSync("components/dashboard-foundation.tsx", "utf8"); assert.match(schema, /first_name text/); assert.match(schema, /last_name text/); assert.match(migration, /add column if not exists first_name/); assert.match(account, /First name/); assert.match(account, /Last name/); assert.match(account, /first_name: firstName/); assert.match(account, /authMode === "signUp"/); assert.match(account, /data: \{ first_name: firstName\.trim\(\), last_name: lastName\.trim\(\)/); assert.match(dashboard, /profile\?\.first_name/); });
 test("authenticated profile updates are user-scoped and returned", () => { const route = fs.readFileSync("app/api/account/route.ts", "utf8"); assert.match(route, /update\(\{ first_name: firstName, last_name: lastName, display_name: displayName \}\)/); assert.match(route, /\.eq\("id", user\.id\)/); assert.match(route, /select\(profileFields\)/); assert.match(route, /profile_\$\{operation\}_failed/); assert.doesNotMatch(route, /user_metadata\?\.display_name.*first_name/); });
 test("Home transitions completed sessions into a post-workout state", () => { const shell = fs.readFileSync("components/home-shell.tsx", "utf8"); assert.match(shell, /selectCompletedWorkout/); assert.match(shell, /requestAnimationFrame\(\(\) => void hydrateServer\(\)\)/); assert.match(shell, /TODAY COMPLETE/); assert.match(shell, /Training is done for today/); assert.match(fs.readFileSync("app/page.tsx", "utf8"), /AuthenticatedHome/); });
 test("root gates personal app data behind Supabase authentication", () => { const root = fs.readFileSync("app/page.tsx", "utf8"); const gate = fs.readFileSync("components/authenticated-home.tsx", "utf8"); assert.match(root, /AuthenticatedHome/); assert.match(gate, /getSession/); assert.match(gate, /signed_out/); assert.match(gate, /Get started/); assert.match(gate, /<HomeShell \/>/); });
@@ -46,6 +46,30 @@ test("planned sessions resolve their own exercise lists", () => {
   assert.equal(exercisesForSession(currentWeek.find(session => session.id === "tue")!.exerciseIds)[0].id, "trap-bar-deadlift");
   assert.equal(exercisesForSession(currentWeek.find(session => session.id === "fri")!.exerciseIds)[0].id, "flat-bench");
   assert.deepEqual(exercisesForSession(currentWeek.find(session => session.id === "thu")!.exerciseIds), []);
+});
+test("workout summary exercise count uses the resolved prescribed list", () => {
+  const source = fs.readFileSync("components/training-app.tsx", "utf8");
+  assert.match(source, /<b>\{sessionExercises\.length\}<\/b> exercises/);
+  assert.doesNotMatch(source, /<b>7<\/b> exercises/);
+});
+test("history and account surfaces use polished, user-facing records", () => {
+  const history = fs.readFileSync("app/history/page.tsx", "utf8");
+  const personalBests = fs.readFileSync("app/personal-bests/page.tsx", "utf8");
+  const account = fs.readFileSync("app/account/page.tsx", "utf8");
+  assert.match(history, /history-exercise/);
+  assert.match(history, /Preparation sets/);
+  assert.doesNotMatch(history, /Not specified/);
+  assert.match(personalBests, /Best set/);
+  assert.match(personalBests, /toLocaleDateString\("en-GB"/);
+  assert.match(account, /resetPasswordForEmail/);
+  assert.match(account, /Forgot password\?/);
+});
+test("user-facing history suppresses stale duplicates without changing source records", () => {
+  const base = { name: "Monday", plannedSessionId: "mon", scheduledDate: "2026-08-31", status: "completed" as const, origin: "real" as const, startedAt: "2026-08-31T07:00:00Z", completedAt: "2026-08-31T08:00:00Z", substitutions: {}, notes: [] };
+  const empty = { ...base, id: "empty", sets: [] };
+  const genuine = { ...base, id: "genuine", sets: [{ id: "set", exerciseId: "press", exerciseName: "Press", kind: "working" as const, weight: 80, reps: 10, createdAt: base.startedAt }] };
+  assert.deepEqual(completedWorkouts([empty, genuine]).map(workout => workout.id), ["genuine"]);
+  assert.equal(empty.sets.length, 0);
 });
 test("every scheduled training exercise resolves without omission", () => {
   for (const session of currentWeek) assert.equal(exercisesForSession(session.exerciseIds).length, session.exerciseIds.length);
