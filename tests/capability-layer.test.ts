@@ -9,8 +9,10 @@ import { cardioRecommendation, evaluateSet, restFor, snapAvailableLoad } from ".
 import { cardioModalities, prescribeCardio } from "../lib/cardio";
 import { consumeState, createState, normalizeWhoop, connectionStatus, decryptToken, encryptToken, statesMatch, WHOOP_CONNECTION_WRITE, sanitizedPersistenceDiagnostic } from "../lib/whoop-server";
 import { shouldSyncReadiness } from "../lib/whoop-sync";
+import { guideForExercise } from "../lib/exercise-guide";
 
 test("exercise knowledge preserves specific intent", () => { const item = exerciseKnowledge("incline-db-press"); assert.ok(item?.emphasis.includes("upper chest emphasis")); assert.ok(item?.substitutions.includes("incline-machine-press")); assert.equal(item?.stabilityDemand, "medium"); });
+test("current programme exercises have reusable guide data with safe fallbacks", () => { const ids = ["trap-bar-deadlift", "hack-squat", "leg-press", "bulgarian-split-squat", "hamstring-curl", "leg-extension", "calves", "incline-db-press", "lat-pulldown", "barbell-row", "cable-lateral-raise", "incline-db-curl", "rope-triceps-pushdown"]; const exercises = exercisesForSession(ids); for (const exercise of exercises) { const guide = guideForExercise(exercise); assert.ok(guide?.setup); assert.ok(guide?.execution); assert.ok((guide?.cues.length ?? 0) >= 2); assert.ok((guide?.primaryMuscles.length ?? 0) >= 1); } assert.equal(guideForExercise({ ...exercises[0], id: "unknown" }), undefined); });
 test("dumbbell magnitude can make more than one increment when clearly underloaded", () => { const result = magnitudeLoad(mondayExercises[0], 20, 20, 10, 5); assert.equal(result, 26); });
 test("leg press uses proportional plate-style ramp jumps", () => { const leg = { ...mondayExercises[0], id: "leg-press", name: "Leg Press", equipment: "machine" as const, stackIncrement: 5, defaultWorkingWeight: 300 }; assert.equal(progressionProfile(leg).kind, "plate_loaded_machine"); assert.equal(rampLoad(leg, 120, 300), 160); });
 test("loading profiles distinguish movement and load semantics", () => {

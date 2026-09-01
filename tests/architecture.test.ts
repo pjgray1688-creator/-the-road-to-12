@@ -147,6 +147,7 @@ test("active workout correction and optional exercise media remain safe", () => 
   assert.match(training, /⌂ Home/); assert.match(training, /SessionSheet/); assert.match(training, /persistSet/); assert.match(training, /deletePersistedSet/); assert.match(training, /discardServerWorkout/);
   assert.match(types, /ExerciseMedia/); assert.match(discardRoute, /DELETE/);
 });
+test("exercise guide is available from the workout session without mutating set state", () => { const training = fs.readFileSync("components/training-app.tsx", "utf8"); const guide = fs.readFileSync("lib/exercise-guide.ts", "utf8"); assert.match(training, /ExerciseGuideSheet/); assert.match(training, /Exercise Guide/); assert.match(training, /setGuideExercise\(item\)/); assert.match(guide, /setup:/); assert.match(guide, /execution:/); assert.match(guide, /cues:/); assert.doesNotMatch(training, /setGuideExercise\(item\).*setWorkout/); });
 test("discard cleanup is idempotent and conditioning has a safe Home route", () => {
   const training = fs.readFileSync("components/training-app.tsx", "utf8");
   const sync = fs.readFileSync("lib/workout-sync.ts", "utf8");
