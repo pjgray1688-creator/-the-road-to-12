@@ -5,7 +5,7 @@ import { exerciseKnowledge } from "./exercise-library";
 import type { TrainingProfile } from "./training-profile";
 import { prescriptionForExercise } from "./prescription";
 
-export type GeneratedProgramme = { id: string; name: string; profile: TrainingProfile; block: TrainingBlock; week: PlannedSession[]; rationale: string; previousProgrammes?: GeneratedProgramme[] };
+export type GeneratedProgramme = { id: string; name: string; profile: TrainingProfile; block: TrainingBlock; week: PlannedSession[]; rationale: string; previousProgrammes?: GeneratedProgramme[]; isLegacy?: boolean };
 const daySets: Record<number, number[]> = { 2: [1, 4], 3: [1, 3, 5], 4: [1, 2, 4, 5], 5: [1, 2, 3, 5, 6], 6: [1, 2, 3, 5, 6, 7] };
 const templates: Record<string, string[][]> = {
   full: [["flat-bench", "leg-press", "lat-pulldown", "rdl", "cable-lateral-raise"], ["trap-bar-deadlift", "incline-db-press", "hack-squat", "barbell-row", "hamstring-curl"]],
