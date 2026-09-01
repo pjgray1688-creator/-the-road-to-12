@@ -12,7 +12,7 @@ import { siteUrl } from "../lib/site-url";
 import type { AppData } from "../lib/types";
 import { exercisesForSession } from "../lib/workout";
 import { mostRecentExerciseSession } from "../lib/storage";
-import { completedWorkouts, personalBests } from "../lib/training-history";
+import { completedWorkouts, historyExerciseGroups, personalBests } from "../lib/training-history";
 import { genuineMondayCandidates, manualMondayReconstruction, promotableMondayWorkout, reconstructVerifiedMonday, verifiedMondayCardio } from "../lib/workout-recovery";
 
 test("historical records are explicit, genuine and distinct from current data", () => { assert.ok(genuineHistoricalTraining.every(record => record.origin === "historical")); assert.equal(genuineHistoricalTraining.find(record => record.exerciseId === "leg-press")?.weight, 300); });
@@ -93,4 +93,14 @@ test("history and personal bests use only the latest completed working-session e
   const newer = { ...base, id: "new", completedAt: "2026-08-08T09:00:00Z", sets: [{ id: "n1", exerciseId: "x", exerciseName: "Machine Chest Press", weight: 75, reps: 10, kind: "working" as const, createdAt: "2026-08-08" }, { id: "n2", exerciseId: "x", exerciseName: "Machine Chest Press", weight: 75, reps: 9, kind: "working" as const, createdAt: "2026-08-08" }, { id: "r", exerciseId: "x", exerciseName: "Machine Chest Press", weight: 90, reps: 3, kind: "ramp" as const, createdAt: "2026-08-08" }] };
   assert.deepEqual(mostRecentExerciseSession("x", [older, newer])?.sets.map(set => set.id), ["n1", "n2"]);
   assert.equal(personalBests([older, newer]).find(item => item.exerciseId === "x")?.weight, 75);
+});
+test("unilateral history pairs left and right entries without doubling logical sets", () => {
+  const workout = { id: "uni", name: "Push", startedAt: "2026-08-31T08:00:00Z", completedAt: "2026-08-31T09:00:00Z", status: "completed" as const, origin: "real" as const, substitutions: {}, notes: [], sets: [
+    { id: "l1", exerciseId: "cable-lateral-raise", exerciseName: "Cable Lateral Raise — Left", kind: "working" as const, weight: 9, reps: 15, createdAt: "2026-08-31" },
+    { id: "r1", exerciseId: "cable-lateral-raise", exerciseName: "Cable Lateral Raise — Right", kind: "working" as const, weight: 9, reps: 14, createdAt: "2026-08-31" },
+    { id: "l2", exerciseId: "cable-lateral-raise", exerciseName: "Cable Lateral Raise — Left", kind: "working" as const, weight: 9, reps: 12, createdAt: "2026-08-31" },
+    { id: "r2", exerciseId: "cable-lateral-raise", exerciseName: "Cable Lateral Raise — Right", kind: "working" as const, weight: 8, reps: 12, createdAt: "2026-08-31" }
+  ] };
+  const groups = historyExerciseGroups(workout);
+  assert.equal(groups.length, 1); assert.equal(groups[0].unilateral, true); assert.equal(Math.ceil(groups[0].sets.length / 2), 2); assert.equal(groups[0].sets[1].weight, 9); assert.equal(groups[0].sets[3].weight, 8);
 });

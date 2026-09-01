@@ -12,6 +12,25 @@ export function completedWorkouts(workouts: Workout[]) {
   return [...selected.values()].sort((a, b) => (b.completedAt ?? b.startedAt).localeCompare(a.completedAt ?? a.startedAt));
 }
 export function workingSets(workout: Workout): LoggedSet[] { return workout.sets.filter(set => set.kind === "working"); }
+export type HistoryExerciseGroup = { exerciseId: string; exerciseName: string; sets: LoggedSet[]; unilateral: boolean };
+const unilateralName = /(lateral raise|single[- ]arm|single[- ]leg|bulgarian split|unilateral)/i;
+function sideOf(name: string) { const match = name.match(/(?:\s|[-—])(left|right|l|r)$/i); return match?.[1]?.toLowerCase().startsWith("l") ? "left" : match?.[1] ? "right" : undefined; }
+export function historySideLabel(name: string) { return sideOf(name) ? (sideOf(name) === "left" ? "Left" : "Right") : "Each side"; }
+function baseExerciseName(name: string) { return name.replace(/\s*(?:[-—]\s*)?(?:left|right|l|r)$/i, "").trim(); }
+export function historyExerciseGroups(workout: Workout): HistoryExerciseGroup[] {
+  const source = workingSets(workout);
+  const groups = new Map<string, LoggedSet[]>();
+  for (const set of source) { const base = baseExerciseName(set.exerciseName).toLowerCase(); const key = unilateralName.test(base) ? `unilateral:${base}` : `${set.exerciseId}:${base}`; groups.set(key, [...(groups.get(key) ?? []), set]); }
+  return [...groups.values()].map(sets => {
+    const exerciseName = baseExerciseName(sets[0].exerciseName);
+    const unilateral = unilateralName.test(exerciseName) || new Set(sets.map(set => sideOf(set.exerciseName)).filter(Boolean)).size > 1;
+    if (!unilateral) return { exerciseId: sets[0].exerciseId, exerciseName, sets, unilateral: false };
+    const left = sets.filter(set => sideOf(set.exerciseName) === "left"); const right = sets.filter(set => sideOf(set.exerciseName) === "right");
+    if (!left.length || !right.length) return { exerciseId: sets[0].exerciseId, exerciseName, sets, unilateral: true };
+    const paired = left.flatMap((item, index) => [item, ...(right[index] ? [right[index]] : [])]);
+    return { exerciseId: sets[0].exerciseId, exerciseName, sets: paired, unilateral: true };
+  });
+}
 export type PersonalBest = { exerciseId: string; exerciseName: string; weight: number; reps: number; estimated1RM?: number; date: string };
 export type PersonalBestCategory = "free_weight_compound" | "power" | "machine_compound";
 const primaryPbIds = new Map<string, PersonalBestCategory>([
