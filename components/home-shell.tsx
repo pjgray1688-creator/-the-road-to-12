@@ -5,6 +5,7 @@ import { TrainingApp } from "./training-app";
 import { currentWeek } from "@/lib/domain";
 import { resolveToday, selectCompletedWorkout } from "@/lib/schedule";
 import { fetchServerWorkouts, importLocalWorkouts, cacheServerWorkouts } from "@/lib/workout-sync";
+import { loadData, saveData } from "@/lib/storage";
 import { mondayExercises } from "@/lib/workout";
 import type { Workout } from "@/lib/types";
 import { AppNav } from "./app-nav";
@@ -51,6 +52,7 @@ export function HomeShell() {
   const [serverResolved, setServerResolved] = useState(false);
   const [coachOpen, setCoachOpen] = useState(false);
   const [recoveryOpen, setRecoveryOpen] = useState(false);
+  const [, setProgrammeHydrated] = useState(0);
   const hydrateServer = useCallback(async () => {
     try {
       let workouts = await fetchServerWorkouts();
@@ -64,11 +66,13 @@ export function HomeShell() {
       setResolved(true);
     } catch { setServerResolved(false); }
   }, [serverResolved, timezone]);
+  useEffect(() => { void fetch("/api/training-profile").then(response => response.ok ? response.json() : undefined).then(result => { if (result?.generated_programme) { const data = loadData(); saveData({ ...data, trainingProfile: result.training_profile, generatedProgramme: result.generated_programme }); setProgrammeHydrated(value => value + 1); } }).catch(() => undefined); }, []);
   useEffect(() => { const frame = window.requestAnimationFrame(() => void hydrateServer()); const onFocus = () => void hydrateServer(); const onWorkoutsUpdated = () => void hydrateServer(); window.addEventListener("focus", onFocus); window.addEventListener("workouts-updated", onWorkoutsUpdated); return () => { window.cancelAnimationFrame(frame); window.removeEventListener("focus", onFocus); window.removeEventListener("workouts-updated", onWorkoutsUpdated); }; }, [hydrateServer]);
   const summary = useMemo(() => { if (!completed) return undefined; const working = completed.sets.filter(set => set.kind === "working"); return { sets: working.length, cardio: completed.cardio?.duration }; }, [completed]);
   if (!resolved || !serverResolved) return <main className="shell home-screen" aria-busy="true"><section className="card dashboard"><span className="eyebrow">THE ROAD TO 12%</span><p>Loading today&apos;s plan…</p></section></main>;
   if (resumeRequested && active) return <WorkoutErrorBoundary workout={active} phase="active" onHome={(current) => { setResumeRequested(false); if (current) setActive(current); }}><TrainingApp resumeWorkout={active} workoutHistory={serverWorkouts} onMinimize={() => setResumeRequested(false)} onDiscard={() => { setResumeRequested(false); setActive(undefined); void hydrateServer(); }} /></WorkoutErrorBoundary>;
   if (!completed && active) return <main className="shell home-screen"><DashboardFoundation workoutHistory={serverWorkouts} /><section className="card dashboard post-workout active-workout-card"><span className="eyebrow">WORKOUT IN PROGRESS</span><h2>{active.name}</h2><p>Your logged sets are saved. Resume when you&apos;re ready.</p><button className="primary big" onClick={() => setResumeRequested(true)}>Resume workout →</button></section><AppNav /></main>;
+  if (!completed && !active && serverWorkouts.length === 0 && loadData().workouts.length === 0 && !loadData().generatedProgramme) return <main className="shell home-screen"><DashboardFoundation workoutHistory={serverWorkouts} /><section className="card dashboard"><span className="eyebrow">YOUR STARTING POINT</span><h2>Build your programme</h2><p>Answer a few quick questions and we&apos;ll shape your first training block.</p><a className="primary big" href="/onboarding">Build my programme <span>→</span></a></section><AppNav /></main>;
   if (!completed) return <WorkoutErrorBoundary phase="preview" onHome={(current) => { if (current) setActive(current); setResumeRequested(false); }}><TrainingApp workoutHistory={serverWorkouts} onMinimize={(current) => { if (current) setActive(current); setResumeRequested(false); }} /></WorkoutErrorBoundary>;
   return <main className="shell home-screen"><DashboardFoundation workoutHistory={serverWorkouts} /><section className="card dashboard post-workout" aria-label="Post-workout"><span className="eyebrow">TODAY COMPLETE</span><h2>Nice work.</h2><p>{completed.name} is complete.</p><small>{summary?.sets ?? 0} working sets logged{summary?.cardio ? ` · ${summary.cardio} min cardio` : ""}.</small><p className="coach-note">Training is done for today. Easy mobility or a relaxed walk is plenty if you want to move.</p><div className="post-workout-actions"><button className="secondary" onClick={() => setCoachOpen(true)}>Ask Coach</button><button className="secondary" onClick={() => setRecoveryOpen(true)}>Recovery work</button></div></section>{coachOpen && <CoachSheet workout={completed} onClose={() => setCoachOpen(false)} />}{recoveryOpen && <RecoverySheet onClose={() => setRecoveryOpen(false)} />}<AppNav /></main>;
 }
