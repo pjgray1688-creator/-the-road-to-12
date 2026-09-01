@@ -10,6 +10,9 @@ import { assertOwnership, defaultStepGoal, ownedBy } from "../lib/platform";
 import { prepareOwnerMigration } from "../lib/migration";
 import { siteUrl } from "../lib/site-url";
 import type { AppData } from "../lib/types";
+import { exercisesForSession } from "../lib/workout";
+import { mostRecentExerciseSession } from "../lib/storage";
+import { personalBests } from "../lib/training-history";
 import { genuineMondayCandidates, manualMondayReconstruction, promotableMondayWorkout, reconstructVerifiedMonday, verifiedMondayCardio } from "../lib/workout-recovery";
 
 test("historical records are explicit, genuine and distinct from current data", () => { assert.ok(genuineHistoricalTraining.every(record => record.origin === "historical")); assert.equal(genuineHistoricalTraining.find(record => record.exerciseId === "leg-press")?.weight, 300); });
@@ -38,3 +41,24 @@ test("owner promotion writes only 25 working sets and preserves Reverse Crunch e
 test("block progress counts only canonical real sessions", () => { const base = { id: "x", name: "Upper Push", startedAt: "2026-08-31T07:00:00Z", completedAt: "2026-08-31T08:00:00Z", plannedSessionId: "mon", scheduledDate: "2026-08-31", status: "completed" as const, sets: [], substitutions: {}, notes: [] }; const fake = { ...base, id: "fake", origin: "test" as const }; const historical = { ...base, id: "hist", origin: "historical" as const }; const legacy = { ...base, id: "legacy", plannedSessionId: undefined, scheduledDate: undefined, origin: "real" as const }; const real = { ...base, id: "real", origin: "real" as const }; const duplicate = { ...real, id: "dup" }; assert.equal(uniqueCompletedSessionCount([fake, historical, legacy, real, duplicate], "2026-08-31", "2026-10-25", "Europe/London"), 1); });
 test("profile diagnostics and readiness presentation stay safe and concise", () => { const route = fs.readFileSync("app/api/account/route.ts", "utf8"); const dashboard = fs.readFileSync("components/dashboard-foundation.tsx", "utf8"); const theme = fs.readFileSync("app/theme.css", "utf8"); assert.match(route, /profile_permission_denied/); assert.match(route, /profile_rls_violation/); assert.match(route, /profile_missing_column/); assert.match(dashboard, /className="readiness-advice"/); assert.match(theme, /readiness-label.*display:none/); });
 test("WHOOP persistence uses the server service-role boundary", () => { const source = fs.readFileSync("lib/whoop-server.ts", "utf8"); assert.match(source, /SUPABASE_SERVICE_ROLE_KEY/); assert.match(source, /createClient/); assert.doesNotMatch(source, /NEXT_PUBLIC_SUPABASE_ANON_KEY/); });
+test("planned sessions resolve their own exercise lists", () => {
+  assert.equal(exercisesForSession(currentWeek.find(session => session.id === "mon")!.exerciseIds)[0].id, "incline-db-press");
+  assert.equal(exercisesForSession(currentWeek.find(session => session.id === "tue")!.exerciseIds)[0].id, "trap-bar-deadlift");
+  assert.equal(exercisesForSession(currentWeek.find(session => session.id === "fri")!.exerciseIds)[0].id, "flat-bench");
+  assert.deepEqual(exercisesForSession(currentWeek.find(session => session.id === "thu")!.exerciseIds), []);
+});
+test("every scheduled training exercise resolves without omission", () => {
+  for (const session of currentWeek) assert.equal(exercisesForSession(session.exerciseIds).length, session.exerciseIds.length);
+  assert.equal(exercisesForSession(currentWeek.find(session => session.id === "mon")!.exerciseIds).length, 7);
+  assert.equal(exercisesForSession(currentWeek.find(session => session.id === "tue")!.exerciseIds).find(item => item.id === "leg-press")?.target, "4 × 10");
+  assert.equal(exercisesForSession(currentWeek.find(session => session.id === "wed")!.exerciseIds).find(item => item.id === "pull-up-practice")?.sets, 3);
+  const friday = currentWeek.find(session => session.id === "fri")!;
+  assert.equal(exercisesForSession(friday.exerciseIds, friday.exerciseOverrides).find(item => item.id === "rope-triceps-pushdown")?.target, "3 × 12");
+});
+test("history and personal bests use only the latest completed working-session evidence", () => {
+  const base = { id: "w", name: "Push", startedAt: "2026-08-01T08:00:00Z", completedAt: "2026-08-01T09:00:00Z", status: "completed" as const, origin: "real" as const, sets: [], substitutions: {}, notes: [] };
+  const older = { ...base, id: "old", sets: [{ id: "o", exerciseId: "x", exerciseName: "Press", weight: 70, reps: 10, kind: "working" as const, createdAt: "2026-08-01" }] };
+  const newer = { ...base, id: "new", completedAt: "2026-08-08T09:00:00Z", sets: [{ id: "n1", exerciseId: "x", exerciseName: "Press", weight: 75, reps: 10, kind: "working" as const, createdAt: "2026-08-08" }, { id: "n2", exerciseId: "x", exerciseName: "Press", weight: 75, reps: 9, kind: "working" as const, createdAt: "2026-08-08" }, { id: "r", exerciseId: "x", exerciseName: "Press", weight: 90, reps: 3, kind: "ramp" as const, createdAt: "2026-08-08" }] };
+  assert.deepEqual(mostRecentExerciseSession("x", [older, newer])?.sets.map(set => set.id), ["n1", "n2"]);
+  assert.equal(personalBests([older, newer]).find(item => item.exerciseId === "x")?.weight, 75);
+});

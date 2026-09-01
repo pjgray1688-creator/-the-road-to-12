@@ -1,12 +1,27 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { cardioRecommendation, evaluateSet, initialCoachPlan, nextExerciseRecommendation, practicalLoad, restFor, startingPrescription } from "../lib/coach";
+import { assessWorkingSession, cardioRecommendation, evaluateSet, initialCoachPlan, nextExerciseRecommendation, practicalLoad, restFor, startingPrescription, workingWeight } from "../lib/coach";
 import { formatWhoopExport } from "../components/whoop-export";
 import type { LoggedSet, Workout } from "../lib/types";
 import { mondayExercises } from "../lib/workout";
 
 const db = mondayExercises[0]; const machine = mondayExercises[1]; const cable = mondayExercises[3];
 const s = (kind: LoggedSet["kind"], weight: number, reps: number, rir: number): LoggedSet => ({ id: crypto.randomUUID(), exerciseId: db.id, exerciseName: db.name, kind, weight, reps, rir, createdAt: new Date().toISOString() });
+const sessionSets = (values: Array<[number, number, number]>) => values.map(([weight, reps, rir], index) => ({ id: String(index), exerciseId: db.id, exerciseName: db.name, weight, reps, rir, kind: "working" as const, createdAt: String(index) }));
+test("session-level progression rewards strong top-range work", () => { assert.equal(assessWorkingSession(db, sessionSets([[75, 10, 2], [75, 10, 2], [75, 9, 1]])), "progress"); assert.equal(assessWorkingSession(db, sessionSets([[75, 8, 2], [75, 8, 2], [75, 8, 1]])), "hold"); assert.notEqual(assessWorkingSession(db, sessionSets([[75, 10, 1], [75, 7, 0], [70, 8, 1]])), "progress"); assert.equal(assessWorkingSession(db, sessionSets([[75, 10, 4], [75, 10, 4], [75, 10, 3]])), "very_easy"); });
+test("starting weight uses the completed session assessment", () => {
+  const strong = sessionSets([[75, 10, 2], [75, 10, 2], [75, 9, 1]]);
+  const bottom = sessionSets([[75, 8, 2], [75, 8, 2], [75, 8, 1]]);
+  assert.equal(startingPrescription(db, strong, 0).work, 78);
+  assert.equal(startingPrescription(db, bottom, 0).work, 75);
+});
+test("reduce lowers the next start from the sustainable final load", () => {
+  const failed = sessionSets([[75, 7, 0], [72.5, 7, 1], [70, 8, 1]]);
+  assert.equal(assessWorkingSession(db, failed), "reduce");
+  assert.equal(workingWeight(db, failed), 68);
+  const cableFailure = failed.map((set, index) => ({ ...set, exerciseId: cable.id, exerciseName: cable.name, weight: [23, 18, 14][index], reps: [10, 11, 12][index] }));
+  assert.equal(workingWeight(cable, cableFailure), 9);
+});
 test("equipment loads are selectable", () => { assert.equal(practicalLoad(27.25, "dumbbell"), 28); assert.equal(practicalLoad(82, "machine", 5), 80); assert.equal(practicalLoad(11.4, "cable", 2.5), 12.5); });
 test("Coach begins at exercise start and minimises later preparation", () => { assert.equal(initialCoachPlan(db, [], 0).kind, "warmup"); assert.equal(initialCoachPlan(machine, [], 1).kind, "ramp"); assert.equal(startingPrescription(cable, [], 3).ramps, 1); });
 test("no-history baseline is experienced-lifter sensible", () => { assert.equal(nextExerciseRecommendation(machine, [], 1).weight, 80); assert.equal(nextExerciseRecommendation(cable, [], 3).weight, 14); });
@@ -14,7 +29,7 @@ test("warm-up adapts immediately when user chooses a much heavier load", () => {
 test("ramp uses actual heavier input to establish working load rapidly", () => { const d = evaluateSet(db, [s("ramp", 50, 12, 3)], "", [], 1); assert.equal(d.nextKind, "working"); assert.equal(d.nextWeight, 50); });
 test("warm-up and ramp do not count as programme work", () => { const d = evaluateSet(db, [s("warmup", 16, 12, 4), s("ramp", 24, 8, 3)], "", [], 0); assert.equal(d.workingSetsCompleted, 0); });
 test("working prescription completes automatically", () => { const d = evaluateSet(db, [s("working", 30, 10, 2), s("working", 30, 9, 1), s("working", 30, 8, 1), s("working", 30, 8, 1)]); assert.equal(d.completed, true); assert.equal(d.nextKind, "complete"); });
-test("top-range work at appropriate RIR does not force a load increase", () => { const d = evaluateSet(machine, [{ ...s("working", 80, 12, 2), exerciseId: machine.id }]); assert.equal(d.nextWeight, 80); });
+test("top-range work at appropriate RIR can earn the next load", () => { const d = evaluateSet(machine, [{ ...s("working", 80, 12, 2), exerciseId: machine.id }]); assert.equal(d.nextWeight, 85); });
 test("very easy working set progresses one realistic increment", () => { const d = evaluateSet(machine, [{ ...s("working", 80, 12, 4), exerciseId: machine.id }]); assert.equal(d.nextWeight, 85); });
 test("rest is short for preparation and extends with fatigue", () => { assert.equal(restFor(db, "warmup"), 45); assert.equal(restFor(cable, "ramp"), 60); assert.equal(restFor(machine, "working", true), 135); });
 test("all actual sets are retained in Whoop export", () => { const workout: Workout = { id: "x", name: "x", startedAt: "x", substitutions: {}, notes: [], sets: [s("warmup", 12.5, 12, 4), s("ramp", 50, 8, 3), s("working", 70, 12, 2)], cardio: { duration: 34, incline: 7, speed: 5 } }; const value = formatWhoopExport(workout); assert.equal(value.split("\n").length, 4); assert.match(value, /12.5kg/); });

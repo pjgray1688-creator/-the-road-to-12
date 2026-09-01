@@ -21,7 +21,36 @@ export function estimateLiftingDuration(exercises: Exercise[], executionSeconds 
 
 /** Only completed working sets are performance evidence. Preparation sets are never history. */
 export const workingHistory = (previous: LoggedSet[]) => previous.filter(set => set.kind === "working");
-export function workingWeight(exercise: Exercise, previous: LoggedSet[]) { const reference = workingHistory(previous).at(0); return reference ? reference.weight : snapAvailableLoad(exercise.defaultWorkingWeight, exercise); }
+export type SessionAssessment = "progress" | "hold" | "reduce" | "very_easy";
+export function assessWorkingSession(exercise: Exercise, sets: LoggedSet[]): SessionAssessment {
+  const work = workingHistory(sets); if (!work.length) return "hold";
+  const { low, high } = parseRange(exercise.target); const inRange = work.filter(set => set.reps >= low && set.reps <= high).length;
+  const easy = work.filter(set => set.reps >= high && (set.rir ?? 2) >= 3).length;
+  const hard = work.filter(set => set.reps < low || (set.rir ?? 2) <= 0).length;
+  if (hard >= Math.ceil(work.length / 2) || (work.length > 1 && work.at(-1)!.reps < work[0].reps - 2)) return "reduce";
+  // A single good set is not enough to establish next-session progression;
+  // assess the completed session as a whole when multiple working sets exist.
+  if (work.length >= 2 && easy >= Math.ceil(work.length * .7)) return "very_easy";
+  if (work.length >= 2 && inRange === work.length && work.filter(set => set.reps >= high).length >= Math.ceil(work.length * .6) && work.every(set => (set.rir ?? 2) >= 1)) return "progress";
+  return "hold";
+}
+export function workingWeight(exercise: Exercise, previous: LoggedSet[]) {
+  const history = workingHistory(previous);
+  const reference = history.at(0);
+  if (!reference) return snapAvailableLoad(exercise.defaultWorkingWeight, exercise);
+  const assessment = assessWorkingSession(exercise, history);
+  if (assessment === "progress") return nextPracticalLoad(reference.weight, exercise, "up");
+  if (assessment === "very_easy") return nextPracticalLoad(nextPracticalLoad(reference.weight, exercise, "up"), exercise, "up");
+  if (assessment === "reduce") {
+    // Use the final working load as the sustainable reference after a collapse,
+    // then take one conservative equipment-valid step down.
+    const sustainable = history.at(-1)!.weight;
+    return nextPracticalLoad(sustainable, exercise, "down");
+  }
+  // Preserve the user's genuine historical load when holding or recovering;
+  // only newly calculated progressions should be snapped to equipment steps.
+  return reference.weight;
+}
 export function startingPrescription(exercise: Exercise, previous: LoggedSet[], position = 0) { const work = workingWeight(exercise, previous); const history = workingHistory(previous); const isolation = exercise.purpose === "isolation" || exercise.purpose === "core"; const warmupRequired = !isolation && position === 0; const ramps = isolation ? 1 : position === 0 && history.length === 0 ? 2 : 1; return { warmupRequired, ramps, warmup: snapAvailableLoad(work * .5, exercise, "down"), rampOne: snapAvailableLoad(work * .75, exercise), rampTwo: snapAvailableLoad(work * .9, exercise), work }; }
 export function initialCoachPlan(exercise: Exercise, previous: LoggedSet[], position = 0) { const plan = startingPrescription(exercise, previous, position); const kind: SetKind = plan.warmupRequired ? "warmup" : "ramp"; const weight = kind === "warmup" ? plan.warmup : plan.rampOne; return { kind, weight, reps: kind === "warmup" ? "10–12" : "6–8", detail: plan.warmupRequired ? `Start with ${weight}kg for 10–12 easy reps, then we will calibrate the ramp.` : `Start with ${weight}kg for a brief calibration set. We are keeping preparation efficient.` }; }
 export function nextExerciseRecommendation(exercise: Exercise, previous: LoggedSet[], position = 0) { const weight = workingWeight(exercise, previous); const history = workingHistory(previous); const previousLine = history[0] ? `${history[0].weight}kg × ${history[0].reps}` : "No logged performance yet"; const plan = startingPrescription(exercise, previous, position); return { weight, previousLine, firstStep: initialCoachPlan(exercise, previous, position), reason: history[0] ? `Your last working reference was ${previousLine}; we will use it as a reference and calibrate quickly.` : `Using an experienced-lifter baseline for this movement. ${plan.warmupRequired ? "A short warm-up and ramps will establish today’s working load." : "A brief calibration set will establish today’s working load."}` }; }
@@ -45,7 +74,7 @@ export function evaluateSet(exercise: Exercise, logged: LoggedSet[], feedback = 
   if (latest.kind === "ramp") { const rampCount = nonWorking.filter(s => s.kind === "ramp").length; const enoughRamp = exercise.purpose === "isolation" || exercise.purpose === "core" || latest.weight >= target * .85 || rampCount >= plan.ramps; if (enoughRamp) return { ...base, title: "Working weight established", detail: `Go to ${target}kg. Working set 1 of ${exercise.sets}: aim for ${low}–${high} controlled reps.`, nextWeight: target, tone: "hold", nextKind: "working", completed: false }; const nextRamp = rampLoad(exercise, latest.weight, target); return { ...base, title: "One final ramp", detail: `Go to ${nextRamp}kg for 4–6 reps, then we start working sets.`, nextWeight: nextRamp, repTarget: "4–6", tone: "hold", nextKind: "ramp", completed: false }; }
   if (working.length >= exercise.sets) return { ...base, title: "Exercise complete", detail: `${exercise.sets}/${exercise.sets} working sets completed. Move to the next programmed exercise.`, nextWeight: latest.weight, tone: "hold", nextKind: "complete", completed: true };
   const nextNumber = working.length + 1;
-  if (latest.reps >= high && (latest.rir ?? 2) >= 4) { const next = magnitudeLoad(exercise, latest.weight, latest.reps, high, latest.rir); return { ...base, title: "Increase load", detail: `Go to ${next}kg for working set ${nextNumber} of ${exercise.sets}.`, nextWeight: next, tone: "progress", nextKind: "working", completed: false }; }
+  if (latest.reps >= high && (latest.rir ?? 2) >= 2) { const next = magnitudeLoad(exercise, latest.weight, latest.reps, high, latest.rir); return { ...base, title: "Increase load", detail: `Go to ${next}kg for working set ${nextNumber} of ${exercise.sets}.`, nextWeight: next, tone: "progress", nextKind: "working", completed: false }; }
   if (latest.reps < low && (latest.rir ?? 2) <= 1 && working.length >= 1) return { ...base, title: "Manage fatigue", detail: `Drop to ${nextPracticalLoad(latest.weight, exercise, "down")}kg and finish with clean reps.`, nextWeight: nextPracticalLoad(latest.weight, exercise, "down"), tone: "reduce", nextKind: "working", completed: false };
   return { ...base, title: "Stay at this load", detail: `Stay at ${latest.weight}kg for working set ${nextNumber} of ${exercise.sets}.`, nextWeight: latest.weight, tone: "hold", nextKind: "working", completed: false };
 }

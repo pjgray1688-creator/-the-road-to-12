@@ -10,4 +10,43 @@ export const mondayExercises: Exercise[] = [
   { id: "overhead-cable-triceps-extension", name: "Overhead Cable Triceps Extension", target: "3 × 12", sets: 3, restSeconds: 75, purpose: "isolation", equipment: "cable", stackIncrement: 2.5, validLoads: COMMERCIAL_CABLE_STACK_LOADS, defaultWorkingWeight: 27 },
   { id: "cable-crunch", name: "Cable Crunch", target: "3 × 12–15", sets: 3, restSeconds: 60, purpose: "core", equipment: "cable", stackIncrement: 2.5, validLoads: COMMERCIAL_CABLE_STACK_LOADS, defaultWorkingWeight: 77 },
 ];
+const additionalExercises: Exercise[] = [
+  { id: "trap-bar-deadlift", name: "Trap-Bar Deadlift", target: "3 × 5–6", sets: 3, restSeconds: 180, purpose: "strength", equipment: "barbell", defaultWorkingWeight: 80 },
+  { id: "leg-press", name: "Leg Press", target: "4 × 10", sets: 4, restSeconds: 150, purpose: "strength", equipment: "machine", defaultWorkingWeight: 120 },
+  { id: "hack-squat", name: "Hack Squat", target: "3 × 8–12", sets: 3, restSeconds: 150, purpose: "strength", equipment: "machine", defaultWorkingWeight: 80 },
+  { id: "rdl", name: "Romanian Deadlift", target: "4 × 8–10", sets: 4, restSeconds: 150, purpose: "strength", equipment: "barbell", defaultWorkingWeight: 60 },
+  { id: "hamstring-curl", name: "Seated Hamstring Curl", target: "4 × 10–15", sets: 4, restSeconds: 90, purpose: "hypertrophy", equipment: "machine", defaultWorkingWeight: 40 },
+  { id: "leg-extension", name: "Leg Extension", target: "3 × 12–15", sets: 3, restSeconds: 75, purpose: "isolation", equipment: "machine", defaultWorkingWeight: 40 },
+  { id: "vertical-pull", name: "Pull-up / Assisted Pull-up", target: "performance-based reps", sets: 4, restSeconds: 120, purpose: "strength", equipment: "machine", defaultWorkingWeight: 0 },
+  { id: "barbell-row", name: "Barbell Row", target: "4 × 8", sets: 4, restSeconds: 120, purpose: "strength", equipment: "barbell", defaultWorkingWeight: 60 },
+  { id: "lat-pullover", name: "Lat Pullover", target: "3 × 12", sets: 3, restSeconds: 75, purpose: "isolation", equipment: "cable", defaultWorkingWeight: 35 },
+  { id: "calves", name: "Calf Raise", target: "5 × 15", sets: 5, restSeconds: 75, purpose: "isolation", equipment: "machine", defaultWorkingWeight: 60 },
+  { id: "flat-bench", name: "Flat Bench Press", target: "4 × 6–8", sets: 4, restSeconds: 120, purpose: "strength", equipment: "barbell", defaultWorkingWeight: 70 },
+  { id: "incline-machine-press", name: "Incline Machine Press", target: "3 × 10–12", sets: 3, restSeconds: 105, purpose: "hypertrophy", equipment: "machine", defaultWorkingWeight: 60 },
+  { id: "cable-fly", name: "Cable Fly", target: "3 × 12–15", sets: 3, restSeconds: 75, purpose: "isolation", equipment: "cable", defaultWorkingWeight: 20 },
+  { id: "machine-shoulder-press", name: "Machine Shoulder Press", target: "3 × 10", sets: 3, restSeconds: 105, purpose: "hypertrophy", equipment: "machine", defaultWorkingWeight: 40 },
+  { id: "lateral-raise", name: "Lateral Raise (mechanical drop set)", target: "3 mechanical-drop-set rounds", sets: 3, restSeconds: 60, purpose: "isolation", equipment: "dumbbell", defaultWorkingWeight: 8 },
+  { id: "ez-curl", name: "EZ-Bar Curl", target: "3 × 10", sets: 3, restSeconds: 75, purpose: "isolation", equipment: "barbell", defaultWorkingWeight: 25 },
+  { id: "hoist-roc-it-leg-extension", name: "Hoist ROC-IT Leg Extension", target: "4 × 10–15", sets: 4, restSeconds: 75, purpose: "isolation", equipment: "machine", defaultWorkingWeight: 40 },
+  { id: "hip-thrust", name: "Hip Thrust", target: "3 × 8–12", sets: 3, restSeconds: 120, purpose: "strength", equipment: "machine", defaultWorkingWeight: 60 },
+  { id: "lat-pulldown", name: "Lat Pulldown", target: "4 × 8–12", sets: 4, restSeconds: 105, purpose: "hypertrophy", equipment: "machine", defaultWorkingWeight: 55 },
+  { id: "rear-delt-fly", name: "Rear-Delt Fly", target: "4 × 12–15", sets: 4, restSeconds: 75, purpose: "isolation", equipment: "machine", defaultWorkingWeight: 30 },
+  { id: "shrug", name: "Shrug", target: "3 × 8–12", sets: 3, restSeconds: 105, purpose: "strength", equipment: "dumbbell", defaultWorkingWeight: 30 },
+  { id: "incline-db-curl", name: "Incline Dumbbell Curl", target: "3 × 8–12", sets: 3, restSeconds: 75, purpose: "isolation", equipment: "dumbbell", defaultWorkingWeight: 10 },
+  { id: "hammer-curl", name: "Hammer Curl", target: "3 × 10–12", sets: 3, restSeconds: 75, purpose: "isolation", equipment: "dumbbell", defaultWorkingWeight: 12 },
+  { id: "pull-up-practice", name: "Pull-Up Practice", target: "3 submaximal practice sets", sets: 3, restSeconds: 90, purpose: "strength", equipment: "machine", defaultWorkingWeight: 0 },
+  { id: "low-to-high-cable-fly", name: "Low-to-High Cable Fly", target: "3 × 12–15", sets: 3, restSeconds: 75, purpose: "isolation", equipment: "cable", defaultWorkingWeight: 15 },
+  { id: "lateral-raise-mechanical-drop-set", name: "Lateral Raise Mechanical Drop Set", target: "3 mechanical-drop-set rounds", sets: 3, restSeconds: 60, purpose: "isolation", equipment: "dumbbell", defaultWorkingWeight: 8 },
+  { id: "bayesian-cable-curl", name: "Bayesian Cable Curl", target: "3 × 10–15", sets: 3, restSeconds: 75, purpose: "isolation", equipment: "cable", defaultWorkingWeight: 14 },
+  { id: "cross-body-single-arm-cable-lat-pulldown", name: "Cross-Body Single-Arm Cable Lat Pulldown", target: "4 × 10–12 per side", sets: 4, restSeconds: 90, purpose: "hypertrophy", equipment: "cable", defaultWorkingWeight: 18 },
+  { id: "hoist-roc-it-row", name: "Hoist ROC-IT Row", target: "3 × 10–12", sets: 3, restSeconds: 105, purpose: "hypertrophy", equipment: "machine", defaultWorkingWeight: 60 },
+  { id: "bulgarian-split-squat", name: "Bulgarian Split Squat", target: "3 × 8–12 per leg", sets: 3, restSeconds: 120, purpose: "strength", equipment: "dumbbell", defaultWorkingWeight: 16 },
+  { id: "hip-adductor", name: "Hip Adductor", target: "3 × 12–20", sets: 3, restSeconds: 75, purpose: "isolation", equipment: "machine", defaultWorkingWeight: 50 },
+  { id: "hip-abductor", name: "Hip Abductor", target: "3 × 12–20", sets: 3, restSeconds: 75, purpose: "isolation", equipment: "machine", defaultWorkingWeight: 50 },
+  { id: "cable-shrug", name: "Cable Shrug", target: "3 × 12–15", sets: 3, restSeconds: 75, purpose: "isolation", equipment: "cable", defaultWorkingWeight: 40 },
+];
+export const exercisesForSession = (exerciseIds: string[], overrides: Record<string, { name?: string; target?: string; sets?: number }> = {}): Exercise[] => {
+  const catalog = new Map([...mondayExercises, ...additionalExercises].map(item => [item.id, item]));
+  return exerciseIds.map(id => { const exercise = catalog.get(id); if (!exercise) throw new Error(`Unresolved prescribed exercise: ${id}`); return { ...exercise, ...overrides[id] }; });
+};
 export const parseRange = (target: string) => { const values = target.match(/\d+/g)?.map(Number) ?? [0, 0]; return { low: values[values.length - 2] ?? values[0], high: values[values.length - 1] ?? values[0] }; };
