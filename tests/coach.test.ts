@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { assessWorkingSession, cardioRecommendation, evaluateSet, initialCoachPlan, nextExerciseRecommendation, practicalLoad, restFor, startingPrescription, workingWeight } from "../lib/coach";
+import { assessWorkingSession, cardioRecommendation, effortSignal, evaluateSet, initialCoachPlan, nextExerciseRecommendation, practicalLoad, restFor, startingPrescription, workingWeight } from "../lib/coach";
 import { formatWhoopExport } from "../components/whoop-export";
 import type { LoggedSet, Workout } from "../lib/types";
-import { mondayExercises } from "../lib/workout";
+import { exercisesForSession, mondayExercises } from "../lib/workout";
 import { rampLoad } from "../lib/progression";
 
-const db = mondayExercises[0]; const machine = mondayExercises[1]; const cable = mondayExercises[3];
+const db = mondayExercises[0]; const trap = exercisesForSession(["trap-bar-deadlift"])[0]; const machine = mondayExercises[1]; const cable = mondayExercises[3];
 const s = (kind: LoggedSet["kind"], weight: number, reps: number, rir: number): LoggedSet => ({ id: crypto.randomUUID(), exerciseId: db.id, exerciseName: db.name, kind, weight, reps, rir, createdAt: new Date().toISOString() });
 const sessionSets = (values: Array<[number, number, number]>) => values.map(([weight, reps, rir], index) => ({ id: String(index), exerciseId: db.id, exerciseName: db.name, weight, reps, rir, kind: "working" as const, createdAt: String(index) }));
 test("session-level progression rewards strong top-range work", () => { assert.equal(assessWorkingSession(db, sessionSets([[75, 10, 2], [75, 10, 2], [75, 9, 1]])), "progress"); assert.equal(assessWorkingSession(db, sessionSets([[75, 8, 2], [75, 8, 2], [75, 8, 1]])), "hold"); assert.notEqual(assessWorkingSession(db, sessionSets([[75, 10, 1], [75, 7, 0], [70, 8, 1]])), "progress"); assert.equal(assessWorkingSession(db, sessionSets([[75, 10, 4], [75, 10, 4], [75, 10, 3]])), "very_easy"); });
@@ -48,5 +48,7 @@ test("all actual sets are retained in Whoop export", () => { const workout: Work
 test("cardio is always 30–40 minutes and reduces intensity under fatigue", () => { const moderate = cardioRecommendation(14, 1); const hard = cardioRecommendation(18, 6); assert.ok(moderate.duration >= 30 && moderate.duration <= 40); assert.ok(hard.duration >= 30 && hard.duration <= 40); assert.ok(hard.incline < moderate.incline); });
 test("preparation RIR cannot lower the expected first working load", () => { const first = evaluateSet(db, [s("warmup", 16, 12, 2)], "", [{ ...s("working", 38, 10, 2) }], 0); const ramp = evaluateSet(db, [s("ramp", 24, 8, 0)], "", [{ ...s("working", 38, 10, 2) }], 0); assert.equal(first.nextWeight, 28); assert.equal(ramp.nextWeight, 38); });
 test("ramp records may omit RIR and still progress", () => { const d = evaluateSet(db, [{ ...s("ramp", 24, 8, 0), rir: undefined }], "", [{ ...s("working", 38, 10, 2) }], 1); assert.equal(d.nextKind, "working"); assert.equal(d.nextWeight, 38); });
+test("low-confidence plate-loaded ramps discover load from easy feedback", () => { const first = evaluateSet(trap, [{ ...s("ramp", 60, 6, 0), exerciseId: trap.id, exerciseName: trap.name }], "very easy", [], 0); assert.equal(first.nextKind, "ramp"); assert.ok(first.nextWeight >= 80); const second = evaluateSet(trap, [{ ...s("ramp", 60, 6, 0), exerciseId: trap.id, exerciseName: trap.name }, { ...s("ramp", first.nextWeight, 6, 0), exerciseId: trap.id, exerciseName: trap.name }], "easy", [], 0); assert.equal(second.nextKind, "ramp"); assert.ok(second.nextWeight > first.nextWeight); });
+test("effort feedback exposes deterministic coaching signals", () => { assert.equal(effortSignal("very easy"), "easy"); assert.equal(effortSignal("easy today"), "easy"); assert.equal(effortSignal("hard set"), "hard"); assert.equal(effortSignal("about right"), "about_right"); });
 test("working-set RIR still drives adaptive decisions", () => { const easy = evaluateSet(machine, [{ ...s("working", 80, 12, 4), exerciseId: machine.id }]); const hard = evaluateSet(machine, [{ ...s("working", 80, 7, 0), exerciseId: machine.id }, { ...s("working", 80, 7, 0), exerciseId: machine.id }]); assert.equal(easy.nextWeight, 85); assert.equal(hard.nextWeight, 75); });
 test("pain or failure feedback on a ramp can still stop progression", () => { const d = evaluateSet(db, [{ ...s("ramp", 24, 4, 0) }], "shoulder pain", [], 0); assert.equal(d.tone, "reduce"); assert.equal(d.nextKind, "complete"); });
