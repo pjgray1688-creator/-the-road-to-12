@@ -52,6 +52,9 @@ export async function persistSet(workout: Workout, set: LoggedSet) {
   const payload = await responseJson(await fetch(`/api/workouts/${workout.id}/sets`, { method: "PUT", credentials: "same-origin", headers: { "content-type": "application/json" }, body: JSON.stringify({ set, setOrder: workout.sets.findIndex(item => item.id === set.id) }) }));
   return payload.set;
 }
+export async function deletePersistedSet(workout: Workout, setId: string) {
+  return responseJson(await fetch(`/api/workouts/${workout.id}/sets?setId=${encodeURIComponent(setId)}`, { method: "DELETE", credentials: "same-origin" }));
+}
 
 export async function persistCardio(workout: Workout, cardio: Cardio) {
   return responseJson(await fetch(`/api/workouts/${workout.id}/cardio`, { method: "PUT", credentials: "same-origin", headers: { "content-type": "application/json" }, body: JSON.stringify(cardio) }));
@@ -60,4 +63,7 @@ export async function persistCardio(workout: Workout, cardio: Cardio) {
 export async function completeServerWorkout(workout: Workout) {
   const payload = await responseJson(await fetch(`/api/workouts/${workout.id}/complete`, { method: "PATCH", credentials: "same-origin", headers: { "content-type": "application/json" }, body: JSON.stringify({ expectedVersion: workout.serverVersion, completedAt: workout.completedAt }) }));
   return payload.session;
+}
+export async function discardServerWorkout(workout: Workout) {
+  return responseJson(await fetch(`/api/workouts/${workout.id}/discard`, { method: "DELETE", credentials: "same-origin" }));
 }

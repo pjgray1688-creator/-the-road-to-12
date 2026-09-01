@@ -109,6 +109,13 @@ test("authenticated navigation and workout escape stay product-scoped", () => {
   const shell = fs.readFileSync("components/home-shell.tsx", "utf8");
   const training = fs.readFileSync("components/training-app.tsx", "utf8");
   assert.match(nav, /Today/); assert.match(nav, /Training/); assert.match(nav, /Account/);
-  assert.match(shell, /AppNav/); assert.match(training, /onMinimize/); assert.match(training, /Minimise/);
+  assert.match(shell, /AppNav/); assert.match(training, /onMinimize/); assert.match(training, /⌂ Home/);
   assert.doesNotMatch(shell, /<PwaRegister \/>/);
+});
+test("active workout correction and optional exercise media remain safe", () => {
+  const training = fs.readFileSync("components/training-app.tsx", "utf8");
+  const types = fs.readFileSync("lib/types.ts", "utf8");
+  const discardRoute = fs.readFileSync("app/api/workouts/[id]/discard/route.ts", "utf8");
+  assert.match(training, /⌂ Home/); assert.match(training, /SessionSheet/); assert.match(training, /persistSet/); assert.match(training, /deletePersistedSet/); assert.match(training, /discardServerWorkout/);
+  assert.match(types, /ExerciseMedia/); assert.match(discardRoute, /DELETE/);
 });

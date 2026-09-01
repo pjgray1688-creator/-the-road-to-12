@@ -258,6 +258,21 @@ main.legal-page { display: flex; flex-direction: column; }
 .active-workout-card h2 { margin: var(--space-sm) 0; }
 @keyframes active-border { 0%,100% { border-color: rgba(168,85,247,.38); } 50% { border-color: rgba(192,132,252,.72); } }
 @media (prefers-reduced-motion: reduce) { .active-workout-card { animation: none; } }
+.session-list { display: grid; gap: var(--space-sm); max-height: 58svh; overflow: auto; }
+.session-item { border-top: 1px solid var(--separator); padding-top: var(--space-sm); }
+.session-item.current { border-color: rgba(192,132,252,.5); }
+.session-select { width: 100%; min-height: 48px; display: flex; justify-content: space-between; align-items: center; gap: var(--space-sm); padding: 8px 0; background: transparent; color: var(--text-primary); text-align: left; }
+.session-select span { display: grid; gap: 3px; min-width: 0; }
+.session-select small, .session-select i { color: var(--text-secondary); font-size: 12px; font-style: normal; }
+.session-select i { color: var(--accent-bright); }
+.session-set { display: flex; align-items: center; gap: 8px; padding: 5px 0; color: var(--text-secondary); font-size: 12px; }
+.session-set span { min-width: 52px; text-transform: capitalize; }
+.session-set b { margin-right: auto; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.session-set .tertiary-button { min-height: 34px; padding: 4px 7px; font-size: 11px; }
+.danger-text { color: var(--danger)!important; }
+.edit-set { display: grid; gap: var(--space-sm); margin-top: var(--space-md); padding-top: var(--space-md); border-top: 1px solid var(--separator); }
+.exercise-actions { display: grid; gap: var(--space-sm); margin-top: var(--space-md); }
+.exercise-thumbnail { width: 64px; height: 64px; object-fit: cover; border-radius: var(--radius-sm); border: 1px solid var(--separator); }
 @media (max-width: 420px) {
   .topline { align-items: flex-start; gap: var(--space-sm); }
   .topline-actions { flex-wrap: wrap; justify-content: flex-end; }

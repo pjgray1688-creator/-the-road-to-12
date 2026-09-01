@@ -105,6 +105,12 @@ export async function upsertWorkoutSet(client: SupabaseClient, userId: string, w
   const { data, error } = await client.from("workout_sets").upsert(row, { onConflict: "id" }).select().single();
   if (error) fail(error.message, "upsert_set", error.code); return data;
 }
+export async function deleteWorkoutSet(client: SupabaseClient, userId: string, workoutId: string, setId: string) {
+  await assertSessionActive(client, userId, workoutId);
+  const { error } = await client.from("workout_sets").delete().eq("id", setId).eq("session_id", workoutId).eq("user_id", userId);
+  if (error) fail(error.message, "delete_set", error.code);
+  return { deleted: setId };
+}
 
 export async function upsertWorkoutCardio(client: SupabaseClient, userId: string, workoutId: string, cardio: Cardio) {
   await assertSessionActive(client, userId, workoutId);
@@ -125,6 +131,16 @@ export async function updateWorkoutSession(client: SupabaseClient, userId: strin
   if (changes.expectedVersion !== undefined) query = query.eq("version", changes.expectedVersion);
   const { data, error } = await query.select().maybeSingle();
   if (error) fail(error.message, "update_session", error.code); if (!data) fail("Session has changed or does not exist", "update_session", "WORKOUT_CONFLICT"); return data;
+}
+
+export async function discardActiveWorkout(client: SupabaseClient, userId: string, workoutId: string) {
+  const { data: session, error: lookupError } = await client.from("workout_sessions").select("status, origin").eq("id", workoutId).eq("user_id", userId).maybeSingle();
+  if (lookupError) fail(lookupError.message, "discard_lookup", lookupError.code);
+  if (!session) fail("Workout session not found", "discard_lookup", "NOT_FOUND");
+  if ((session as { status: string }).status !== "active") fail("Only an unfinished workout can be discarded", "discard_validation", "WORKOUT_NOT_ACTIVE");
+  const { error } = await client.from("workout_sessions").delete().eq("id", workoutId).eq("user_id", userId).eq("status", "active");
+  if (error) fail(error.message, "discard_session", error.code);
+  return { discarded: workoutId };
 }
 
 export async function importWorkout(client: SupabaseClient, userId: string, workout: Workout, sourceHash: string) {
