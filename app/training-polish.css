@@ -159,6 +159,8 @@ h1 em, .day, .topline button, .text-button, .plan-row b, .coach-callout span { c
 .modal section { max-height: 90svh; overflow-y: auto; }
 .programme-action-modal { z-index: 30; }
 .programme-action-sheet { max-height: min(70svh, 520px); overflow-y: auto; padding-bottom: calc(28px + env(safe-area-inset-bottom)); }
+.session-exception { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 12px 0 20px; color: var(--text-tertiary); font-size: 13px; }
+.session-exception .text-button { font-size: 13px; }
 
 .legal-page { max-width: 620px; padding: calc(26px + env(safe-area-inset-top)) 20px calc(34px + env(safe-area-inset-bottom)); }
 .legal-page header { display: block; margin-bottom: var(--space-5); }

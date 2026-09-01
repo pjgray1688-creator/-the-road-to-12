@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import { adherenceSummary, canCompleteWorkout, endWorkoutEarly, planMissedSessionSalvage, sessionOutcome } from "../lib/session-outcomes";
 import type { PlannedSession } from "../lib/domain";
+import { currentWeek } from "../lib/domain";
 import type { Workout } from "../lib/types";
 
 const session = (id: string, name = id): PlannedSession => ({ id, day: 1, name, status: "planned", exerciseIds: ["leg-press", "hamstring-curl"] });
@@ -29,18 +30,39 @@ test("missed-session salvage is a bounded approval-only proposal", () => {
   assert.equal(planMissedSessionSalvage(session("missed"), [], [], { goal: "muscle_gain", experience: "intermediate", daysPerWeek: 4, sessionMinutes: 60, environment: "full_gym", limitations: [], includeCardio: false }), undefined);
 });
 
+test("Original Heavy Lower review produces a real proposal or explicit no-salvage result", () => {
+  const missed = currentWeek.find(item => item.id === "tue")!;
+  const later = currentWeek.filter(item => item.day > missed.day && item.status === "planned");
+  const result = planMissedSessionSalvage(missed, later, [], { goal: "general_fitness", experience: "experienced", daysPerWeek: 5, sessionMinutes: 90, environment: "full_gym", limitations: [], includeCardio: false });
+  assert.ok(result === undefined || result.title.length > 0);
+  if (result) assert.match(result.detail, /missed|add/i);
+});
+
 test("consumer UI exposes explicit missed and partial actions", () => {
   const dashboard = fs.readFileSync("components/missed-session-action.tsx", "utf8");
   const workout = fs.readFileSync("components/training-app.tsx", "utf8");
   assert.match(dashboard, /Mark session missed/);
-  assert.match(dashboard, /window\.confirm/);
   assert.match(dashboard, /status: "missed"/);
   assert.match(dashboard, /Review missed work/);
-  assert.match(dashboard, /Apply modest changes/);
+  assert.match(dashboard, /Apply changes/);
+  assert.doesNotMatch(dashboard, /window\.(confirm|prompt|alert)/);
+  assert.match(dashboard, /programme-action-modal/);
+  assert.match(dashboard, /Why did you miss it/);
+  assert.match(dashboard, /No catch-up recommended/);
+  assert.match(workout, /START WORKOUT[\s\S]*MissedSessionAction/);
   assert.match(workout, /End workout early/);
   assert.match(workout, /marked Partial/);
   assert.match(workout, /endServerWorkoutEarly/);
   assert.match(workout, /clearActiveWorkout\(\)/);
+});
+
+test("current-week salvage is consumed by the active workout itinerary", () => {
+  const active = fs.readFileSync("lib/active-programme.ts", "utf8");
+  const action = fs.readFileSync("components/missed-session-action.tsx", "utf8");
+  assert.match(active, /salvageAdjustments/);
+  assert.match(active, /exerciseIds\.push/);
+  assert.match(action, /source: today\.session\.id/);
+  assert.match(action, /Current-week option only/);
 });
 
 test("partial outcome is persisted in server metadata without changing schema status", () => {
