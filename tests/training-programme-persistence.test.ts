@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import { defaultTrainingProfile } from "../lib/training-profile";
 import { generateTrainingProgramme } from "../lib/programme-generator";
+import { activeWorkoutsFromPayload } from "../lib/programme-activation";
 
 test("account programme persistence is user-scoped and stores the accepted snapshot", () => {
   const route = fs.readFileSync("app/api/training-profile/route.ts", "utf8");
@@ -31,4 +32,19 @@ test("new users receive a visible build-programme entry point", () => {
   const source = fs.readFileSync("components/home-shell.tsx", "utf8");
   assert.match(source, /Build my programme/);
   assert.match(source, /\/onboarding/);
+});
+
+test("activation normalizes the workouts API envelope for active-workout protection", () => {
+  assert.equal(activeWorkoutsFromPayload({ workouts: [{ status: "completed" }, { status: "active" }] }).length, 1);
+  assert.equal(activeWorkoutsFromPayload({ sessions: [{ status: "active" }] }).length, 1);
+  assert.equal(activeWorkoutsFromPayload({ workouts: [] }).length, 0);
+});
+
+test("onboarding activation is server-first, confirmed, guarded and retryable", () => {
+  const source = fs.readFileSync("app/onboarding/page.tsx", "utf8");
+  assert.match(source, /disabled=\{activating\}/);
+  assert.match(source, /activeWorkoutsFromPayload/);
+  assert.match(source, /persisted\.active_programme_id !== programme\.id/);
+  assert.match(source, /saveTrainingProfile\(profile, programme\); router\.push/);
+  assert.match(source, /We couldn’t save this programme/);
 });
