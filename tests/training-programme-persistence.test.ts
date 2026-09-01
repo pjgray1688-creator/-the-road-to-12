@@ -61,3 +61,19 @@ test("programme creation can be cancelled without activation", () => {
   assert.match(source, /href="\/training"/);
   assert.match(source, /Change answers/);
 });
+
+test("legacy personal programme is available through the canonical programme contract", () => {
+  const source = fs.readFileSync("lib/legacy-programme.ts", "utf8");
+  assert.match(source, /legacy-personal-programme/);
+  assert.match(source, /currentBlock/);
+  assert.match(source, /currentWeek/);
+});
+
+test("Training exposes reversible programme switching with active-workout protection", () => {
+  const source = fs.readFileSync("app/training/page.tsx", "utf8");
+  assert.match(source, /Original programme/);
+  assert.match(source, /previousProgrammes/);
+  assert.match(source, /loadActiveWorkout/);
+  assert.match(source, /Finish or discard your current workout before switching programmes/);
+  assert.match(source, /active_programme_id !== programme\.id/);
+});
