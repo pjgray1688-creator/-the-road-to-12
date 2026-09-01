@@ -53,4 +53,16 @@ test("effort feedback exposes deterministic coaching signals", () => { assert.eq
 test("low-confidence heavy compounds converge within a bounded descending-rep ramp", () => { const sets: LoggedSet[] = []; let decision = evaluateSet(trap, [{ ...s("ramp", 60, 6, 0), exerciseId: trap.id, exerciseName: trap.name }], "very easy", [], 0); sets.push({ ...s("ramp", 60, 6, 0), exerciseId: trap.id, exerciseName: trap.name }); assert.match(decision.repTarget, /5–8|3–5|1–3/); for (let i = 0; i < 2; i++) { const next = { ...s("ramp", decision.nextWeight, i === 0 ? 5 : 3, 0), exerciseId: trap.id, exerciseName: trap.name }; sets.push(next); decision = evaluateSet(trap, sets, "very easy", [], 0); } assert.ok(sets.filter(set => set.kind === "ramp").length <= 3); assert.notEqual(decision.nextKind, "ramp"); });
 test("working RIR is never assumed while preparation remains RIR-free", () => { const plan = initialCoachPlan(trap, [], 0); assert.equal(plan.kind, "warmup"); const ramp = evaluateSet(trap, [{ ...s("ramp", 100, 3, 0), exerciseId: trap.id, exerciseName: trap.name }], "very easy", [], 0); assert.equal(ramp.restSeconds <= 120, true); });
 test("working-set RIR still drives adaptive decisions", () => { const easy = evaluateSet(machine, [{ ...s("working", 80, 12, 4), exerciseId: machine.id }]); const hard = evaluateSet(machine, [{ ...s("working", 80, 7, 0), exerciseId: machine.id }, { ...s("working", 80, 7, 0), exerciseId: machine.id }]); assert.equal(easy.nextWeight, 85); assert.equal(hard.nextWeight, 75); });
+test("gross underload uses reps-above-range and genuine high RIR for recalibration", () => {
+  const first = evaluateSet(trap, [{ ...s("working", 100, 6, 5), exerciseId: trap.id, exerciseName: trap.name }], "very easy", [], 0);
+  const gross = evaluateSet(trap, [{ ...s("working", 110, 10, 5), exerciseId: trap.id, exerciseName: trap.name }], "very easy", [], 0);
+  assert.equal(first.nextWeight, 110);
+  assert.equal(gross.nextWeight, 140);
+  assert.equal(gross.title, "Recalibrate working load");
+});
+test("normal plate-loaded progression remains smaller when effort is near target", () => {
+  const decision = evaluateSet(trap, [{ ...s("working", 140, 6, 2), exerciseId: trap.id, exerciseName: trap.name }], "about right", [], 0);
+  assert.equal(decision.nextWeight, 145);
+  assert.notEqual(decision.title, "Recalibrate working load");
+});
 test("pain or failure feedback on a ramp can still stop progression", () => { const d = evaluateSet(db, [{ ...s("ramp", 24, 4, 0) }], "shoulder pain", [], 0); assert.equal(d.tone, "reduce"); assert.equal(d.nextKind, "complete"); });

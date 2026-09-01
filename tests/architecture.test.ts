@@ -135,6 +135,8 @@ test("all resistance set phases retain reps entry and validate required values",
   assert.match(training, /<label>Reps<input/);
   assert.match(training, /Number\.isFinite\(reps\)/);
   assert.match(training, /Enter weight and reps before logging this set/);
+  assert.match(training, /useState\(\{ weight: "", reps: "", rir: "" \}\)/);
+  assert.match(training, /min="0" max="5" placeholder="e\.g\. 2" value=\{form\.rir\}/);
   assert.match(presentation, /\.rir-input\{display:none\}/);
   assert.doesNotMatch(presentation, /data-set-kind=.*label:last-child/);
 });
