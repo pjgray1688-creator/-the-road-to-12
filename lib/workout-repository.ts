@@ -142,6 +142,11 @@ export async function discardActiveWorkout(client: SupabaseClient, userId: strin
   if (error) fail(error.message, "discard_session", error.code);
   return { discarded: workoutId };
 }
+export async function deleteWorkout(client: SupabaseClient, userId: string, workoutId: string) {
+  const { error } = await client.from("workout_sessions").delete().eq("id", workoutId).eq("user_id", userId);
+  if (error) fail(error.message, "delete_session", error.code);
+  return { deleted: workoutId };
+}
 
 export async function importWorkout(client: SupabaseClient, userId: string, workout: Workout, sourceHash: string) {
   if (!isImportableWorkout(workout)) return { status: "skipped", reason: "test_data" };

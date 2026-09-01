@@ -45,7 +45,10 @@ export async function createOrResumeServerWorkout(workout: Workout) {
   const detail = await fetch(`/api/workouts/${row.id}`, { credentials: "same-origin" });
   if (!detail.ok) throw new Error("Workout session could not be hydrated");
   const complete = await detail.json();
-  return complete.workout ?? canonical;
+  const hydrated = (complete.workout ?? canonical) as Workout;
+  const byId = new Map(hydrated.sets.map(set => [set.id, set]));
+  for (const set of workout.sets) if (!byId.has(set.id)) byId.set(set.id, set);
+  return { ...hydrated, ...workout, id: hydrated.id, serverVersion: hydrated.serverVersion, sets: [...byId.values()].sort((a, b) => a.createdAt.localeCompare(b.createdAt)) };
 }
 
 export async function persistSet(workout: Workout, set: LoggedSet) {
@@ -67,5 +70,10 @@ export async function completeServerWorkout(workout: Workout) {
 export async function discardServerWorkout(workout: Workout) {
   const response = await fetch(`/api/workouts/${workout.id}/discard`, { method: "DELETE", credentials: "same-origin" });
   if (response.status === 404) return { discarded: workout.id, alreadyAbsent: true };
+  return responseJson(response);
+}
+export async function deleteServerWorkout(workoutId: string) {
+  const response = await fetch(`/api/workouts/${workoutId}`, { method: "DELETE", credentials: "same-origin" });
+  if (response.status === 404) return { deleted: workoutId, alreadyAbsent: true };
   return responseJson(response);
 }

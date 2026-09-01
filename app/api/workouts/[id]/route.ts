@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { authenticatedServerClient } from "@/lib/require-user";
-import { getWorkoutSession, serverSessionToWorkout, updateWorkoutSession } from "@/lib/workout-repository";
+import { deleteWorkout, getWorkoutSession, serverSessionToWorkout, updateWorkoutSession } from "@/lib/workout-repository";
 
 export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
   const { client, user } = await authenticatedServerClient();
@@ -18,4 +18,12 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   try {
     return NextResponse.json({ session: await updateWorkoutSession(client, user.id, id, { name: typeof body.name === "string" ? body.name : undefined, metadata: body.metadata && typeof body.metadata === "object" ? body.metadata : undefined, expectedVersion: typeof body.expectedVersion === "number" ? body.expectedVersion : undefined }) });
   } catch (error) { const code = (error as { code?: string }).code; return NextResponse.json({ error: code === "WORKOUT_CONFLICT" ? "Workout changed on another device" : "Unable to update workout", code }, { status: code === "WORKOUT_CONFLICT" ? 409 : 500 }); }
+}
+
+export async function DELETE(_request: Request, context: { params: Promise<{ id: string }> }) {
+  const { client, user } = await authenticatedServerClient();
+  if (!user) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+  const { id } = await context.params;
+  try { return NextResponse.json(await deleteWorkout(client, user.id, id)); }
+  catch { return NextResponse.json({ error: "Unable to delete workout" }, { status: 500 }); }
 }

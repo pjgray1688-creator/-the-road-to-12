@@ -2,7 +2,7 @@ import { estimate1RM } from "./storage";
 import type { LoggedSet, Workout } from "./types";
 
 export function completedWorkouts(workouts: Workout[]) {
-  const visible = workouts.filter(workout => (workout.status === "completed" || workout.completedAt) && workout.origin !== "test" && workout.origin !== "historical");
+  const visible = workouts.filter(workout => (workout.status === "completed" || workout.completedAt) && workout.outcome !== "discarded" && workout.origin !== "test" && workout.origin !== "historical" && (workout.sets.length > 0 || workout.cardio));
   const selected = new Map<string, Workout>();
   for (const workout of visible) {
     const key = workout.plannedSessionId && workout.scheduledDate ? `${workout.plannedSessionId}:${workout.scheduledDate}` : `legacy:${workout.id}`;
@@ -10,6 +10,10 @@ export function completedWorkouts(workouts: Workout[]) {
     if (!current || workout.sets.filter(set => set.kind === "working").length > current.sets.filter(set => set.kind === "working").length || (workout.sets.length > current.sets.length && !workout.sets.some(set => set.kind === "working") && !current.sets.some(set => set.kind === "working"))) selected.set(key, workout);
   }
   return [...selected.values()].sort((a, b) => (b.completedAt ?? b.startedAt).localeCompare(a.completedAt ?? a.startedAt));
+}
+/** Performed sessions include deliberately ended partial workouts, but never discarded/empty records. */
+export function performedWorkouts(workouts: Workout[]) {
+  return workouts.filter(workout => (workout.status === "completed" || workout.status === "partial" || workout.completedAt) && workout.outcome !== "discarded" && workout.origin !== "test" && workout.origin !== "historical" && (workout.sets.length > 0 || workout.cardio));
 }
 export function workingSets(workout: Workout): LoggedSet[] { return workout.sets.filter(set => set.kind === "working"); }
 /** Canonical progression evidence: only working sets from completed, non-test sessions. */
