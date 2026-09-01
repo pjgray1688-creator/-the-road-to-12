@@ -129,6 +129,15 @@ test("active workout failures have an observable recovery boundary and transitio
   assert.match(training, /Log \{kind\} set/);
   assert.match(shell, /<WorkoutErrorBoundary/);
 });
+test("all resistance set phases retain reps entry and validate required values", () => {
+  const training = fs.readFileSync("components/training-app.tsx", "utf8");
+  const presentation = fs.readFileSync("app/presentation.css", "utf8");
+  assert.match(training, /<label>Reps<input/);
+  assert.match(training, /Number\.isFinite\(reps\)/);
+  assert.match(training, /Enter weight and reps before logging this set/);
+  assert.match(presentation, /\.rir-input\{display:none\}/);
+  assert.doesNotMatch(presentation, /data-set-kind=.*label:last-child/);
+});
 test("active workout correction and optional exercise media remain safe", () => {
   const training = fs.readFileSync("components/training-app.tsx", "utf8");
   const types = fs.readFileSync("lib/types.ts", "utf8");
