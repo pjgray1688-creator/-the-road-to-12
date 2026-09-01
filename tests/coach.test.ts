@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { assessWorkingSession, cardioRecommendation, effortSignal, evaluateSet, initialCoachPlan, nextExerciseRecommendation, practicalLoad, restFor, startingPrescription, workingWeight } from "../lib/coach";
+import { assessWorkingSession, calibrationConfidence, calibrationLoad, calibrationSignal, cardioRecommendation, effortSignal, evaluateSet, initialCoachPlan, nextExerciseRecommendation, practicalLoad, restFor, startingPrescription, workingWeight } from "../lib/coach";
 import { formatWhoopExport } from "../components/whoop-export";
 import type { LoggedSet, Workout } from "../lib/types";
 import { exercisesForSession, mondayExercises } from "../lib/workout";
@@ -66,3 +66,6 @@ test("normal plate-loaded progression remains smaller when effort is near target
   assert.notEqual(decision.title, "Recalibrate working load");
 });
 test("pain or failure feedback on a ramp can still stop progression", () => { const d = evaluateSet(db, [{ ...s("ramp", 24, 4, 0) }], "shoulder pain", [], 0); assert.equal(d.tone, "reduce"); assert.equal(d.nextKind, "complete"); });
+test("calibration feedback is structured and confidence is exercise-history based", () => { assert.equal(calibrationSignal("very easy"), "very_easy"); assert.equal(calibrationSignal("starting to work"), "getting_close"); assert.equal(calibrationSignal("sharp knee pain"), "too_hard"); assert.equal(calibrationConfidence([]), "unknown"); assert.equal(calibrationConfidence([s("working", 80, 6, 2)]), "low"); });
+test("low-confidence discovery uses meaningful profile-aware jumps and avoids same-load repeats", () => { const first = evaluateSet(trap, [{ ...s("ramp", 60, 8, 0), exerciseId: trap.id, exerciseName: trap.name }], "very easy", [], 0, "experienced"); const second = evaluateSet(trap, [{ ...s("ramp", 60, 8, 0), exerciseId: trap.id, exerciseName: trap.name }, { ...s("ramp", first.nextWeight, 5, 0), exerciseId: trap.id, exerciseName: trap.name }], "very easy", [], 0, "experienced"); assert.ok(first.nextWeight - 60 >= 20); assert.ok(second.nextWeight > first.nextWeight); assert.notEqual(first.nextWeight, 60); });
+test("calibration jump scale remains conservative for beginners and smaller profiles", () => { assert.ok(calibrationLoad(trap, 80, "very_easy", 0, "beginner") < calibrationLoad(trap, 80, "very_easy", 0, "experienced")); assert.ok(calibrationLoad(cable, 14, "very_easy") - 14 < calibrationLoad(trap, 80, "very_easy") - 80); });

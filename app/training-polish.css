@@ -281,6 +281,11 @@ main.legal-page { display: flex; flex-direction: column; }
 .app-nav a small { font-size: 11px; font-weight: 700; }
 .app-nav a.selected { color: var(--accent-bright); background: rgba(168,85,247,.12); }
 .active-workout-card { background: var(--surface-1); border-color: rgba(168,85,247,.5); box-shadow: 0 0 0 1px rgba(168,85,247,.12), 0 12px 30px rgba(0,0,0,.24); animation: active-border 3s ease-in-out infinite; }
+.calibration-feedback { display: grid; gap: 8px; margin: 14px 0; }
+.calibration-feedback > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+.calibration-feedback button { display: grid; gap: 2px; min-height: 48px; padding: 8px; text-align: left; border: 1px solid var(--separator); border-radius: var(--radius-sm); background: var(--surface-2); color: var(--text-primary); }
+.calibration-feedback button.selected { border-color: var(--accent); background: rgba(168,85,247,.16); }
+.calibration-feedback button small { color: var(--text-secondary); font-size: 10px; text-transform: uppercase; letter-spacing: .06em; }
 .active-workout-card h2 { margin: var(--space-sm) 0; }
 @keyframes active-border { 0%,100% { border-color: rgba(168,85,247,.38); } 50% { border-color: rgba(192,132,252,.72); } }
 @media (prefers-reduced-motion: reduce) { .active-workout-card { animation: none; } }
