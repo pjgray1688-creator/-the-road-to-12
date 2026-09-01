@@ -119,6 +119,12 @@ export async function upsertWorkoutCardio(client: SupabaseClient, userId: string
 }
 
 export async function completeWorkout(client: SupabaseClient, userId: string, workoutId: string, completedAt: string, expectedVersion?: number) {
+  const [{ count: setCount, error: setError }, { data: cardio, error: cardioError }] = await Promise.all([
+    client.from("workout_sets").select("id", { count: "exact", head: true }).eq("session_id", workoutId).eq("user_id", userId),
+    client.from("workout_cardio").select("session_id").eq("session_id", workoutId).eq("user_id", userId).maybeSingle(),
+  ]);
+  if (setError) fail(setError.message, "complete_validation", setError.code); if (cardioError) fail(cardioError.message, "complete_validation", cardioError.code);
+  if (!setCount && !cardio) fail("A workout needs at least one logged set or conditioning session", "complete_validation", "EMPTY_WORKOUT");
   let query = client.from("workout_sessions").update({ status: "completed", completed_at: completedAt, updated_at: new Date().toISOString(), version: (expectedVersion ?? 1) + 1 }).eq("id", workoutId).eq("user_id", userId).eq("status", "active");
   if (expectedVersion !== undefined) query = query.eq("version", expectedVersion);
   const { data, error } = await query.select().maybeSingle();
