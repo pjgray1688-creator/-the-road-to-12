@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import { allExercises } from "../lib/workout";
 import { generateTrainingProgramme } from "../lib/programme-generator";
 import { applyProgrammeEdit, conditioningFor, detectProgrammeEditIntent, frameworkFor, planProgrammeEdit, taxonomyForExercise, validateProgramme, weeklyVolume } from "../lib/programming-v2";
@@ -59,6 +60,16 @@ test("programme edit plans require explicit application and remain immutable unt
   assert.notDeepEqual(edited.week, programme.week);
   assert.ok(edited.week.flatMap((s: any) => s.exerciseIds).includes("bulgarian-split-squat"));
   assert.equal(programme.id, edited.id);
+});
+
+test("programme Coach actions provide proposal then explicit apply UI", () => {
+  const source = fs.readFileSync("components/programme-coach-actions.tsx", "utf8");
+  assert.match(source, /detectProgrammeEditIntent/);
+  assert.match(source, /planProgrammeEdit/);
+  assert.match(source, /Apply change/);
+  assert.match(source, /PERMANENT CHANGE/);
+  assert.match(source, /programme\.id\}-edit-/);
+  assert.match(source, /Your current programme is unchanged/);
 });
 
 test("avoided exercise preference is distinct from limitations and honoured", () => {

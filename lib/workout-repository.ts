@@ -14,7 +14,7 @@ export function serverSessionToWorkout(session: WorkoutSessionRow & { metadata?:
   return {
     id: session.id, name: session.name, startedAt: session.started_at, completedAt: session.completed_at ?? undefined,
     plannedSessionId: session.planned_session_id ?? undefined, scheduledDate: session.scheduled_date ?? undefined,
-    status: session.status, serverVersion: session.version, origin: session.origin,
+    status: session.status, outcome: metadata.outcome === "partial" ? "partial" : metadata.outcome === "discarded" ? "discarded" : session.status === "completed" ? "completed" : undefined, serverVersion: session.version, origin: session.origin,
     substitutions: (metadata.substitutions as Record<string, string> | undefined) ?? {}, substitutionDetails: (metadata.substitutionDetails as Workout["substitutionDetails"] | undefined) ?? undefined, notes: (metadata.notes as string[] | undefined) ?? [], provenance: (metadata.provenance as Workout["provenance"] | undefined) ?? undefined, recoveryEvidence: (metadata.recoveryEvidence as Workout["recoveryEvidence"] | undefined) ?? undefined,
     sets: sets.map(item => ({ id: String(item.id), exerciseId: String(item.exercise_id), exerciseName: String(item.exercise_name), weight: Number(item.weight ?? 0), reps: Number(item.reps ?? 0), kind: item.kind as LoggedSet["kind"], rir: item.rir == null ? undefined : Number(item.rir), createdAt: String(item.created_at ?? new Date().toISOString()), ...(item.side ? { side: String(item.side) } : {}), ...(item.feedback ? { feedback: String(item.feedback) } : {}) })),
     ...(cardio ? { cardio: { modality: cardio.modality as Cardio["modality"], duration: Number(cardio.duration ?? 0), completedAt: cardio.completed_at ? String(cardio.completed_at) : undefined, settings: { ...((cardio.actual_settings as Record<string, number | string> | null) ?? {}) } } } : {}),
@@ -131,9 +131,9 @@ export async function completeWorkout(client: SupabaseClient, userId: string, wo
   if (error) fail(error.message, "complete_session", error.code); if (!data) fail("Session is already completed or has changed", "complete_session", "WORKOUT_CONFLICT"); return data;
 }
 
-export async function updateWorkoutSession(client: SupabaseClient, userId: string, workoutId: string, changes: { name?: string; metadata?: Record<string, unknown>; expectedVersion?: number }) {
+export async function updateWorkoutSession(client: SupabaseClient, userId: string, workoutId: string, changes: { name?: string; metadata?: Record<string, unknown>; completedAt?: string; status?: "active" | "completed"; expectedVersion?: number }) {
   const nextVersion = (changes.expectedVersion ?? 1) + 1;
-  let query = client.from("workout_sessions").update({ ...(changes.name === undefined ? {} : { name: changes.name }), ...(changes.metadata === undefined ? {} : { metadata: changes.metadata }), version: nextVersion, updated_at: new Date().toISOString() }).eq("id", workoutId).eq("user_id", userId);
+  let query = client.from("workout_sessions").update({ ...(changes.name === undefined ? {} : { name: changes.name }), ...(changes.metadata === undefined ? {} : { metadata: changes.metadata }), ...(changes.status === undefined ? {} : { status: changes.status }), ...(changes.completedAt === undefined ? {} : { completed_at: changes.completedAt }), version: nextVersion, updated_at: new Date().toISOString() }).eq("id", workoutId).eq("user_id", userId);
   if (changes.expectedVersion !== undefined) query = query.eq("version", changes.expectedVersion);
   const { data, error } = await query.select().maybeSingle();
   if (error) fail(error.message, "update_session", error.code); if (!data) fail("Session has changed or does not exist", "update_session", "WORKOUT_CONFLICT"); return data;

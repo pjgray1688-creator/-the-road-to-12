@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import { adherenceSummary, canCompleteWorkout, endWorkoutEarly, planMissedSessionSalvage, sessionOutcome } from "../lib/session-outcomes";
 import type { PlannedSession } from "../lib/domain";
 import type { Workout } from "../lib/types";
@@ -26,4 +27,29 @@ test("missed-session salvage is a bounded approval-only proposal", () => {
   assert.equal(proposal?.requiresApproval, true);
   assert.ok((proposal?.additions.length ?? 0) <= 2);
   assert.equal(planMissedSessionSalvage(session("missed"), [], [], { goal: "muscle_gain", experience: "intermediate", daysPerWeek: 4, sessionMinutes: 60, environment: "full_gym", limitations: [], includeCardio: false }), undefined);
+});
+
+test("consumer UI exposes explicit missed and partial actions", () => {
+  const dashboard = fs.readFileSync("components/missed-session-action.tsx", "utf8");
+  const workout = fs.readFileSync("components/training-app.tsx", "utf8");
+  assert.match(dashboard, /Mark session missed/);
+  assert.match(dashboard, /window\.confirm/);
+  assert.match(dashboard, /status: "missed"/);
+  assert.match(dashboard, /Review missed work/);
+  assert.match(dashboard, /Apply modest changes/);
+  assert.match(workout, /End workout early/);
+  assert.match(workout, /marked Partial/);
+  assert.match(workout, /endServerWorkoutEarly/);
+  assert.match(workout, /clearActiveWorkout\(\)/);
+});
+
+test("partial outcome is persisted in server metadata without changing schema status", () => {
+  const route = fs.readFileSync("app/api/workouts/[id]/route.ts", "utf8");
+  const repository = fs.readFileSync("lib/workout-repository.ts", "utf8");
+  const sync = fs.readFileSync("lib/workout-sync.ts", "utf8");
+  assert.match(route, /body\.outcome === "partial"/);
+  assert.match(route, /outcome: "partial"/);
+  assert.match(route, /status: partial \? "completed"/);
+  assert.match(repository, /metadata\.outcome === "partial"/);
+  assert.match(sync, /outcome: "partial"/);
 });

@@ -67,6 +67,9 @@ export async function completeServerWorkout(workout: Workout) {
   const payload = await responseJson(await fetch(`/api/workouts/${workout.id}/complete`, { method: "PATCH", credentials: "same-origin", headers: { "content-type": "application/json" }, body: JSON.stringify({ expectedVersion: workout.serverVersion, completedAt: workout.completedAt }) }));
   return payload.session;
 }
+export async function endServerWorkoutEarly(workout: Workout) {
+  return responseJson(await fetch(`/api/workouts/${workout.id}`, { method: "PATCH", credentials: "same-origin", headers: { "content-type": "application/json" }, body: JSON.stringify({ outcome: "partial", completedAt: workout.completedAt, expectedVersion: workout.serverVersion }) }));
+}
 export async function discardServerWorkout(workout: Workout) {
   const response = await fetch(`/api/workouts/${workout.id}/discard`, { method: "DELETE", credentials: "same-origin" });
   if (response.status === 404) return { discarded: workout.id, alreadyAbsent: true };

@@ -16,7 +16,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   const { id } = await context.params;
   const body = await request.json().catch(() => ({}));
   try {
-    return NextResponse.json({ session: await updateWorkoutSession(client, user.id, id, { name: typeof body.name === "string" ? body.name : undefined, metadata: body.metadata && typeof body.metadata === "object" ? body.metadata : undefined, expectedVersion: typeof body.expectedVersion === "number" ? body.expectedVersion : undefined }) });
+    const partial = body.outcome === "partial";
+    return NextResponse.json({ session: await updateWorkoutSession(client, user.id, id, { name: typeof body.name === "string" ? body.name : undefined, metadata: body.metadata && typeof body.metadata === "object" ? { ...body.metadata, ...(partial ? { outcome: "partial" } : {}) } : partial ? { outcome: "partial" } : undefined, status: partial ? "completed" : undefined, completedAt: partial && typeof body.completedAt === "string" ? body.completedAt : undefined, expectedVersion: typeof body.expectedVersion === "number" ? body.expectedVersion : undefined }) });
   } catch (error) { const code = (error as { code?: string }).code; return NextResponse.json({ error: code === "WORKOUT_CONFLICT" ? "Workout changed on another device" : "Unable to update workout", code }, { status: code === "WORKOUT_CONFLICT" ? 409 : 500 }); }
 }
 
