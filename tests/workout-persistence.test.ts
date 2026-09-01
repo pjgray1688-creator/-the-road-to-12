@@ -183,5 +183,6 @@ test("active workout entry normalizes incomplete server collections before rende
   const source = fs.readFileSync("components/training-app.tsx", "utf8");
   assert.match(source, /normalizeWorkout\(await createOrResumeServerWorkout/);
   assert.match(source, /sets: Array\.isArray\(workout\.sets\)/);
-  assert.match(source, /substitutions: workout\.substitutions \?\?/);
+  assert.match(source, /const substitutions = workout\.substitutions \?\?/);
+  assert.match(source, /substitutionDetails/);
 });

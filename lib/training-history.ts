@@ -12,6 +12,11 @@ export function completedWorkouts(workouts: Workout[]) {
   return [...selected.values()].sort((a, b) => (b.completedAt ?? b.startedAt).localeCompare(a.completedAt ?? a.startedAt));
 }
 export function workingSets(workout: Workout): LoggedSet[] { return workout.sets.filter(set => set.kind === "working"); }
+/** Canonical progression evidence: only working sets from completed, non-test sessions. */
+export function progressionHistoryForExercise(exerciseId: string, workouts: Workout[]) {
+  return completedWorkouts(workouts)
+    .flatMap(workout => workingSets(workout).filter(set => set.exerciseId === exerciseId).map(set => ({ ...set, workoutId: workout.id, completedAt: workout.completedAt ?? workout.startedAt })));
+}
 export type HistoryExerciseGroup = { exerciseId: string; exerciseName: string; sets: LoggedSet[]; unilateral: boolean };
 const unilateralName = /(lateral raise|single[- ]arm|single[- ]leg|bulgarian split|unilateral)/i;
 function sideOf(name: string) { const match = name.match(/(?:\s|[-—])(left|right|l|r)$/i); return match?.[1]?.toLowerCase().startsWith("l") ? "left" : match?.[1] ? "right" : undefined; }
