@@ -179,3 +179,9 @@ test("Home uses server canonical state rather than a local active-session shortc
   assert.match(shell, /setActive\(workouts\.find/);
   assert.doesNotMatch(shell, /loadActiveWorkout/);
 });
+test("active workout entry normalizes incomplete server collections before rendering", () => {
+  const source = fs.readFileSync("components/training-app.tsx", "utf8");
+  assert.match(source, /normalizeWorkout\(await createOrResumeServerWorkout/);
+  assert.match(source, /sets: Array\.isArray\(workout\.sets\)/);
+  assert.match(source, /substitutions: workout\.substitutions \?\?/);
+});
