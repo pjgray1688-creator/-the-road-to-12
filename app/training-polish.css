@@ -201,9 +201,10 @@ h1 em, .day, .topline button, .text-button, .plan-row b, .coach-callout span { c
 }
 
 .app-shell { width: 100%; min-height: 100svh; }
+.module-page, .account-page { display: flex; flex-direction: column; gap: var(--card-gap); }
 main.legal-page { display: flex; flex-direction: column; }
 .home-screen, .legal-page, .account-page { gap: var(--card-gap); }
-.page-header { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-lg); margin: 0 0 var(--section-gap); }
+.page-header { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-lg); margin: 0; }
 .page-header h1 { font-size: var(--type-page-title); line-height: 1; overflow-wrap: anywhere; margin-top: var(--space-xs); }
 .page-header-description { color: var(--text-secondary); font-size: var(--type-body); line-height: 1.45; margin-top: var(--space-sm); max-width: 42ch; }
 .back-button { display: inline-flex; align-items: center; gap: 5px; min-height: 44px; color: var(--text-secondary)!important; text-decoration: none!important; font-size: 14px; font-weight: 650; border-radius: 999px; padding: 4px 10px 4px 2px; margin-top: var(--space-md); }
