@@ -1,4 +1,7 @@
 -- R12 Club foundation (manual review only; not executed by this change).
+-- Creating the first organisation and its first owner is intentionally a trusted
+-- server/service-role bootstrap operation. There is no authenticated INSERT
+-- policy on club_organisations and ownership cannot be bootstrapped from a client.
 create table if not exists public.club_organisations (
   id uuid primary key default gen_random_uuid(), name text not null, slug text not null unique,
   active boolean not null default true, created_at timestamptz not null default now()
@@ -107,6 +110,50 @@ as $$
   );
 $$;
 
+create or replace function public.club_can_assign_membership_holder(target_membership_id uuid, target_user_id uuid, allowed_roles text[])
+returns boolean
+language sql
+stable
+security definer
+set search_path = pg_catalog, public
+as $$
+  select exists (
+    select 1
+    from public.club_memberships membership
+    join public.club_members actor
+      on actor.organisation_id = membership.organisation_id
+    join public.club_members target
+      on target.organisation_id = membership.organisation_id
+     and target.user_id = target_user_id
+     and target.active
+    where membership.id = target_membership_id
+      and actor.user_id = auth.uid()
+      and actor.active
+      and actor.role = any (allowed_roles)
+  );
+$$;
+
+create or replace function public.club_can_assign_grant(target_organisation_id uuid, target_user_id uuid, allowed_roles text[])
+returns boolean
+language sql
+stable
+security definer
+set search_path = pg_catalog, public
+as $$
+  select exists (
+    select 1
+    from public.club_members actor
+    join public.club_members target
+      on target.organisation_id = actor.organisation_id
+     and target.user_id = target_user_id
+     and target.active
+    where actor.organisation_id = target_organisation_id
+      and actor.user_id = auth.uid()
+      and actor.active
+      and actor.role = any (allowed_roles)
+  );
+$$;
+
 create or replace function public.club_has_grant_role(target_grant_id uuid, allowed_roles text[])
 returns boolean
 language sql
@@ -149,11 +196,15 @@ $$;
 revoke all on function public.club_has_active_role(uuid, text[]) from public;
 revoke all on function public.club_is_membership_holder(uuid) from public;
 revoke all on function public.club_has_membership_role(uuid, text[]) from public;
+revoke all on function public.club_can_assign_membership_holder(uuid, uuid, text[]) from public;
+revoke all on function public.club_can_assign_grant(uuid, uuid, text[]) from public;
 revoke all on function public.club_has_grant_role(uuid, text[]) from public;
 revoke all on function public.club_can_record_grant_usage(uuid, uuid, text[]) from public;
 grant execute on function public.club_has_active_role(uuid, text[]) to authenticated;
 grant execute on function public.club_is_membership_holder(uuid) to authenticated;
 grant execute on function public.club_has_membership_role(uuid, text[]) to authenticated;
+grant execute on function public.club_can_assign_membership_holder(uuid, uuid, text[]) to authenticated;
+grant execute on function public.club_can_assign_grant(uuid, uuid, text[]) to authenticated;
 grant execute on function public.club_has_grant_role(uuid, text[]) to authenticated;
 grant execute on function public.club_can_record_grant_usage(uuid, uuid, text[]) to authenticated;
 
@@ -179,13 +230,20 @@ create policy club_members_self_select on public.club_members for select to auth
   using (user_id = auth.uid());
 create policy club_members_staff_select on public.club_members for select to authenticated
   using (public.club_has_active_role(organisation_id, array['gym_staff','gym_admin','owner']));
+create policy club_members_owner_insert on public.club_members for insert to authenticated
+  with check (public.club_has_active_role(organisation_id, array['owner']));
 create policy club_members_admin_insert on public.club_members for insert to authenticated
-  with check (public.club_has_active_role(organisation_id, array['gym_admin','owner']));
+  with check (role <> 'owner' and public.club_has_active_role(organisation_id, array['gym_admin']));
+create policy club_members_owner_update on public.club_members for update to authenticated
+  using (public.club_has_active_role(organisation_id, array['owner']))
+  with check (public.club_has_active_role(organisation_id, array['owner']));
 create policy club_members_admin_update on public.club_members for update to authenticated
-  using (public.club_has_active_role(organisation_id, array['gym_admin','owner']))
-  with check (public.club_has_active_role(organisation_id, array['gym_admin','owner']));
+  using (role <> 'owner' and public.club_has_active_role(organisation_id, array['gym_admin']))
+  with check (role <> 'owner' and public.club_has_active_role(organisation_id, array['gym_admin']));
+create policy club_members_owner_delete on public.club_members for delete to authenticated
+  using (public.club_has_active_role(organisation_id, array['owner']));
 create policy club_members_admin_delete on public.club_members for delete to authenticated
-  using (public.club_has_active_role(organisation_id, array['gym_admin','owner']));
+  using (role <> 'owner' and public.club_has_active_role(organisation_id, array['gym_admin']));
 
 create policy club_products_member_select on public.club_products for select to authenticated
   using (public.club_has_active_role(organisation_id, array['member','trainer','gym_staff','gym_admin','owner','guest']));
@@ -214,7 +272,7 @@ create policy club_holders_self_select on public.club_membership_holders for sel
 create policy club_holders_staff_select on public.club_membership_holders for select to authenticated
   using (public.club_has_membership_role(membership_id, array['gym_staff','gym_admin','owner']));
 create policy club_holders_admin_insert on public.club_membership_holders for insert to authenticated
-  with check (public.club_has_membership_role(membership_id, array['gym_admin','owner']));
+  with check (public.club_can_assign_membership_holder(membership_id, user_id, array['gym_admin','owner']));
 create policy club_holders_admin_delete on public.club_membership_holders for delete to authenticated
   using (public.club_has_membership_role(membership_id, array['gym_admin','owner']));
 
@@ -223,10 +281,10 @@ create policy club_grants_self_select on public.club_entitlement_grants for sele
 create policy club_grants_staff_select on public.club_entitlement_grants for select to authenticated
   using (public.club_has_active_role(organisation_id, array['gym_staff','gym_admin','owner']));
 create policy club_grants_admin_insert on public.club_entitlement_grants for insert to authenticated
-  with check (public.club_has_active_role(organisation_id, array['gym_admin','owner']));
+  with check (public.club_can_assign_grant(organisation_id, user_id, array['gym_admin','owner']));
 create policy club_grants_admin_update on public.club_entitlement_grants for update to authenticated
   using (public.club_has_active_role(organisation_id, array['gym_admin','owner']))
-  with check (public.club_has_active_role(organisation_id, array['gym_admin','owner']));
+  with check (public.club_can_assign_grant(organisation_id, user_id, array['gym_admin','owner']));
 create policy club_grants_admin_delete on public.club_entitlement_grants for delete to authenticated
   using (public.club_has_active_role(organisation_id, array['gym_admin','owner']));
 

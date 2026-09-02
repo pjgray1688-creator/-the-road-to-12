@@ -25,11 +25,30 @@ test("Club member relationships and benefits are read-only to their subject", ()
 });
 
 test("Club administration is organisation-scoped and trainers are not administrators", () => {
-  assert.match(clubMigration, /create policy club_members_admin_update[^;]+club_has_active_role\(organisation_id, array\['gym_admin','owner'\]\)[^;]+with check/is);
+  assert.match(clubMigration, /create policy club_members_admin_update[^;]+using \(role <> 'owner' and public\.club_has_active_role\(organisation_id, array\['gym_admin'\]\)\)[^;]+with check \(role <> 'owner'/is);
   assert.match(clubMigration, /create policy club_usage_staff_insert[^;]+club_can_record_grant_usage\(grant_id, user_id, array\['gym_staff','gym_admin','owner'\]\)/is);
   assert.doesNotMatch(clubMigration, /array\[[^\]]*'trainer'[^\]]*\][^;]*(?:insert|update|delete)/is);
   assert.match(clubMigration, /security definer\s+set search_path = pg_catalog, public/is);
   assert.match(clubMigration, /revoke all on function public\.club_has_active_role\(uuid, text\[\]\) from public;/i);
+});
+
+test("Club owners are protected from gym-admin insertion, updates and deletion", () => {
+  assert.match(clubMigration, /create policy club_members_admin_insert[^;]+with check \(role <> 'owner'[^;]+array\['gym_admin'\]/is);
+  assert.match(clubMigration, /create policy club_members_admin_delete[^;]+using \(role <> 'owner'[^;]+array\['gym_admin'\]/is);
+  for (const action of ["insert", "update", "delete"]) {
+    assert.match(clubMigration, new RegExp(`create policy club_members_owner_${action}[^;]+array\\['owner'\\]`, "is"));
+  }
+});
+
+test("Club holder and grant writes require an active target member in the organisation", () => {
+  assert.match(clubMigration, /create policy club_holders_admin_insert[^;]+club_can_assign_membership_holder\(membership_id, user_id/is);
+  assert.match(clubMigration, /create policy club_grants_admin_insert[^;]+club_can_assign_grant\(organisation_id, user_id/is);
+  assert.match(clubMigration, /create policy club_grants_admin_update[^;]+club_can_assign_grant\(organisation_id, user_id/is);
+});
+
+test("Club bootstrap is explicitly restricted to a trusted server or service role", () => {
+  assert.match(clubMigration, /first organisation and its first owner[^.]+trusted\s+-- server\/service-role bootstrap operation/is);
+  assert.doesNotMatch(clubMigration, /create policy club_org[^;]+for insert/is);
 });
 
 test("Club foreign keys prevent cross-organisation and cross-user relationship mismatches", () => {
