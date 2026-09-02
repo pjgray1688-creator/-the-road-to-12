@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import { canAccess, canAccessGym, canConsume, clubAcceptanceFixtures, consumeAllowance, isValidAt, periodKey, remainingAllowance, resolveEntitlements, type EntitlementGrant, type EntitlementUsage } from "../lib/club";
 import { MemoryClubRepository, madhouseFixture } from "../lib/club-repository";
@@ -13,3 +14,26 @@ test("couples membership can grant two independent account holders", () => { con
 test("memory repository is idempotent and organisation scoped", async () => { const repository = new MemoryClubRepository(); const products = await repository.listProducts(madhouseFixture.id); assert.equal(products.length, 12); const { id: _id, ...productWithoutId } = products[0]; const created = await repository.createProduct({ ...productWithoutId, name: "Gym Day Pass" }); assert.equal(created.id, products[0].id); assert.equal((await repository.listProducts("other-org")).length, 0); });
 test("manual assignment materialises product benefits for every holder", async () => { const repository = new MemoryClubRepository(); const product = (await repository.listProducts(madhouseFixture.id)).find(item => item.name === "Couples Membership")!; const result = await repository.assignProduct({ organisationId: madhouseFixture.id, productId: product.id, userId: "u1", holderUserIds: ["u1", "u2"], source: "founding", validity: { startsAt: "2026-01-01" } }); assert.equal(result.membership.holderUserIds.length, 2); assert.equal(result.grants.filter(item => item.entitlementKey === "gym_access").length, 2); });
 test("organisation themes are constrained and inactive organisations fall back to R12", () => { const themed = resolveOrganisationTheme({ ...madhouseFixture, branding: { coBranding: "co_branded", primaryAccent: "#123456", secondaryAccent: "not-a-colour" } }); assert.equal(themed.primaryAccent, "#123456"); assert.equal(themed.secondaryAccent, "#c084fc"); assert.equal(resolveOrganisationTheme({ ...madhouseFixture, active: false }).coBranding, "r12"); assert.equal(themed.platform, "R12"); });
+
+const clubMigration = readFileSync(new URL("../supabase/migrations/2026-09-03-club-foundation.sql", import.meta.url), "utf8");
+
+test("Club member relationships and benefits are read-only to their subject", () => {
+  for (const policy of ["club_members_self_select", "club_holders_self_select", "club_grants_self_select", "club_usage_self_select"]) {
+    assert.match(clubMigration, new RegExp(`create policy ${policy}[^;]+for select`, "s"));
+  }
+  assert.doesNotMatch(clubMigration, /create policy club_(?:members|holders|grants|usage)_self\b[^;]*for all/is);
+});
+
+test("Club administration is organisation-scoped and trainers are not administrators", () => {
+  assert.match(clubMigration, /create policy club_members_admin_update[^;]+club_has_active_role\(organisation_id, array\['gym_admin','owner'\]\)[^;]+with check/is);
+  assert.match(clubMigration, /create policy club_usage_staff_insert[^;]+club_can_record_grant_usage\(grant_id, user_id, array\['gym_staff','gym_admin','owner'\]\)/is);
+  assert.doesNotMatch(clubMigration, /array\[[^\]]*'trainer'[^\]]*\][^;]*(?:insert|update|delete)/is);
+  assert.match(clubMigration, /security definer\s+set search_path = pg_catalog, public/is);
+  assert.match(clubMigration, /revoke all on function public\.club_has_active_role\(uuid, text\[\]\) from public;/i);
+});
+
+test("Club foreign keys prevent cross-organisation and cross-user relationship mismatches", () => {
+  assert.match(clubMigration, /foreign key \(product_id, organisation_id\) references public\.club_products\(id, organisation_id\)/i);
+  assert.match(clubMigration, /foreign key \(membership_id, organisation_id\) references public\.club_memberships\(id, organisation_id\)/i);
+  assert.match(clubMigration, /foreign key \(grant_id, user_id\) references public\.club_entitlement_grants\(id, user_id\) on delete cascade/i);
+});
