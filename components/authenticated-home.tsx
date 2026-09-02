@@ -17,6 +17,6 @@ export function AuthenticatedHome() {
     return () => listener.subscription.unsubscribe();
   }, []);
   if (state === "loading") return <main className="shell auth-splash" aria-busy="true"><BrandLockup /><p className="eyebrow">{brand.name}</p></main>;
-  if (state === "signed_out") return <main className="shell auth-welcome"><BrandLockup /><p className="eyebrow">{brand.name}</p><h1>Training, nutrition and recovery — built around you.</h1><p>One place to train, eat, recover and track progress with your Coach.</p><div className="welcome-glimpse" aria-label="App capabilities"><span>Adaptive training</span><span>Readiness</span><span>Progress</span></div><div className="auth-welcome-actions"><Link className="primary big" href="/account">Get started</Link><Link className="secondary big" href="/account">Sign in</Link></div></main>;
+  if (state === "signed_out") return <main className="shell auth-welcome"><BrandLockup /><p className="eyebrow">{brand.name}</p><h1>Training, nutrition and recovery — built around you.</h1><p>One place to train, eat, recover and track progress with your Coach.</p><div className="welcome-glimpse" aria-label="App capabilities"><span>Adaptive training</span><span>Readiness</span><span>Progress</span></div><div className="auth-welcome-actions"><Link className="primary big" href="/account?mode=signUp">Get started</Link><Link className="secondary big" href="/account?mode=signIn">Sign in</Link></div></main>;
   return <HomeShell />;
 }

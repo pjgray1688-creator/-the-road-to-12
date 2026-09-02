@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { DashboardFoundation } from "./dashboard-foundation";
 import { TrainingApp } from "./training-app";
 import { activeWeek } from "@/lib/active-programme";
@@ -44,6 +45,7 @@ function RecoverySheet({ onClose }: { onClose: () => void }) {
 }
 
 export function HomeShell() {
+  const router = useRouter();
   const [timezone] = useState(() => typeof window === "undefined" ? "Europe/London" : (Intl.DateTimeFormat().resolvedOptions().timeZone || "Europe/London"));
   const [completed, setCompleted] = useState<Workout | undefined>();
   const [active, setActive] = useState<Workout | undefined>();
@@ -54,6 +56,7 @@ export function HomeShell() {
   const [coachOpen, setCoachOpen] = useState(false);
   const [recoveryOpen, setRecoveryOpen] = useState(false);
   const [, setProgrammeHydrated] = useState(0);
+  const [onboardingChecked, setOnboardingChecked] = useState(false);
   const hydrateServer = useCallback(async () => {
     try {
       let workouts = await fetchServerWorkouts();
@@ -67,10 +70,10 @@ export function HomeShell() {
       setResolved(true);
     } catch { setServerResolved(false); }
   }, [serverResolved, timezone]);
-  useEffect(() => { void fetch("/api/training-profile").then(response => response.ok ? response.json() : undefined).then(result => { if (result?.training_profile) { const data = loadData(); saveData({ ...data, trainingProfile: result.training_profile, ...(result.generated_programme ? { generatedProgramme: result.generated_programme } : {}), ...(typeof result.active_programme_id === "string" ? { activeProgrammeId: result.active_programme_id } : {}) }); setProgrammeHydrated(value => value + 1); } }).catch(() => undefined); void fetch("/api/training-state", { credentials: "same-origin" }).then(response => response.ok ? response.json() : undefined).then(result => { if (!result) return; const data = loadData(); saveData({ ...data, sessionStatusOverrides: result.sessionStatusOverrides ?? data.sessionStatusOverrides, salvageAdjustments: result.salvageAdjustments ?? data.salvageAdjustments }); setProgrammeHydrated(value => value + 1); }).catch(() => undefined); }, []);
+  useEffect(() => { void fetch("/api/training-profile").then(response => response.ok ? response.json() : undefined).then(result => { const legacy = result?.active_programme_id === "legacy-personal-programme"; if (!result?.training_profile || (!result?.generated_programme && !legacy) || (typeof result.active_programme_id !== "string" && !legacy)) { router.replace("/onboarding"); return; } const data = loadData(); saveData({ ...data, trainingProfile: result.training_profile, ...(result.generated_programme ? { generatedProgramme: result.generated_programme } : {}), activeProgrammeId: result.active_programme_id ?? "legacy-personal-programme" }); setProgrammeHydrated(value => value + 1); setOnboardingChecked(true); }).catch(() => setOnboardingChecked(true)); void fetch("/api/training-state", { credentials: "same-origin" }).then(response => response.ok ? response.json() : undefined).then(result => { if (!result) return; const data = loadData(); saveData({ ...data, sessionStatusOverrides: result.sessionStatusOverrides ?? data.sessionStatusOverrides, salvageAdjustments: result.salvageAdjustments ?? data.salvageAdjustments }); setProgrammeHydrated(value => value + 1); }).catch(() => undefined); }, [router]);
   useEffect(() => { const frame = window.requestAnimationFrame(() => void hydrateServer()); const onFocus = () => void hydrateServer(); const onWorkoutsUpdated = () => void hydrateServer(); window.addEventListener("focus", onFocus); window.addEventListener("workouts-updated", onWorkoutsUpdated); return () => { window.cancelAnimationFrame(frame); window.removeEventListener("focus", onFocus); window.removeEventListener("workouts-updated", onWorkoutsUpdated); }; }, [hydrateServer]);
   const summary = useMemo(() => { if (!completed) return undefined; const working = completed.sets.filter(set => set.kind === "working"); return { sets: working.length, cardio: completed.cardio?.duration }; }, [completed]);
-  if (!resolved || !serverResolved) return <main className="shell home-screen" aria-busy="true"><section className="card dashboard"><span className="eyebrow">{brand.name}</span><p>Loading today&apos;s plan…</p></section></main>;
+  if (!onboardingChecked || !resolved || !serverResolved) return <main className="shell home-screen" aria-busy="true"><section className="card dashboard"><span className="eyebrow">{brand.name}</span><p>Loading today&apos;s plan…</p></section></main>;
   if (resumeRequested && active) return <WorkoutErrorBoundary workout={active} phase="active" onHome={(current) => { setResumeRequested(false); if (current) setActive(current); }}><TrainingApp resumeWorkout={active} workoutHistory={serverWorkouts} onMinimize={() => setResumeRequested(false)} onDiscard={() => { setResumeRequested(false); setActive(undefined); void hydrateServer(); }} /></WorkoutErrorBoundary>;
   if (!completed && active) return <main className="shell home-screen"><DashboardFoundation workoutHistory={serverWorkouts} /><section className="card dashboard post-workout active-workout-card"><span className="eyebrow">WORKOUT IN PROGRESS</span><h2>{active.name}</h2><p>Your logged sets are saved. Resume when you&apos;re ready.</p><button className="primary big" onClick={() => setResumeRequested(true)}>Resume workout →</button></section><AppNav /></main>;
   if (!completed && !active && serverWorkouts.length === 0 && loadData().workouts.length === 0 && !loadData().generatedProgramme) return <main className="shell home-screen"><DashboardFoundation workoutHistory={serverWorkouts} /><section className="card dashboard"><span className="eyebrow">YOUR STARTING POINT</span><h2>Build your programme</h2><p>Answer a few quick questions and we&apos;ll shape your first training block.</p><a className="primary big" href="/onboarding">Build my programme <span>→</span></a></section><AppNav /></main>;
