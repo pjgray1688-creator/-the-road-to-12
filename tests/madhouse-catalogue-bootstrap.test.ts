@@ -94,6 +94,7 @@ test("bootstrap is disabled by default and route retains layered owner authentic
   assert.equal(catalogueBootstrapEnabled(undefined), false); assert.equal(catalogueBootstrapEnabled("false"), false); assert.equal(catalogueBootstrapEnabled("true"), true);
   const route = readFileSync(new URL("../app/api/club/internal/catalogue-bootstrap/route.ts", import.meta.url), "utf8"); const source = readFileSync(new URL("../lib/madhouse-catalogue.ts", import.meta.url), "utf8");
   assert.match(route, /export async function POST/); assert.match(route, /if \(!catalogueBootstrapEnabled\(\)\)[^;]+404/); assert.match(route, /supabase\.auth\.getUser\(\)/); assert.match(route, /member\.userId === user\.id[\s\S]+member\.role === "owner"/); assert.match(route, /confirmation[^;]+MADHOUSE_CATALOGUE_BOOTSTRAP_CONFIRMATION/);
+  assert.match(route, /body\?\.mode !== "create_missing"/); assert.match(route, /repository\.listMembers[\s\S]+reconcileMadhouseCatalogue\(repository\)/);
   assert.doesNotMatch(route + source, /SUPABASE_SERVICE_ROLE_KEY|club_assign_product|assignProduct\(/); assert.doesNotMatch(route, /db8c0932-ec65-40c7-b054-05b820078e5c/);
   assert.doesNotMatch(source, /\.from\(|\.insert\(|\.upsert\(/); assert.match(source, /repository\.createProduct\(createInput\)/);
 });
