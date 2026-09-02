@@ -70,3 +70,12 @@ export const exercisesForSession = (exerciseIds: string[], overrides: Record<str
   return exerciseIds.map(id => { const exercise = catalog.get(id); if (!exercise) throw new Error(`Unresolved prescribed exercise: ${id}`); const resolved = { ...exercise, ...overrides[id] }; return { ...resolved, name: canonicalExerciseName(resolved.name) }; });
 };
 export const parseRange = (target: string) => { const values = target.match(/\d+/g)?.map(Number) ?? [0, 0]; return { low: values[values.length - 2] ?? values[0], high: values[values.length - 1] ?? values[0] }; };
+export function firstIncompleteWorkoutCursor(exercises: Exercise[], sets: import("./types").LoggedSet[]) {
+  for (let index = 0; index < exercises.length; index += 1) {
+    const exercise = exercises[index];
+    const logged = sets.filter(set => set.exerciseId === exercise.id);
+    const working = logged.filter(set => set.kind === "working");
+    if (working.length < exercise.sets) return { index, kind: working.length || logged.length ? "working" as const : "warmup" as const, workingCompleted: working.length, loggedPreparation: logged.filter(set => set.kind !== "working").length };
+  }
+  return { index: exercises.length, kind: "complete" as const, workingCompleted: 0, loggedPreparation: 0 };
+}
