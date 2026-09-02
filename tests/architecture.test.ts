@@ -64,6 +64,16 @@ test("workout launch carries the canonical dated occurrence identity", () => {
   assert.match(player, /scheduledOccurrenceId/);
   assert.match(player, /resolveTodayOccurrence/);
 });
+test("R12 branding uses supplied PWA assets and ordered auth credentials", () => {
+  const manifest = fs.readFileSync("app/manifest.ts", "utf8");
+  const account = fs.readFileSync("app/account/page.tsx", "utf8");
+  assert.match(manifest, /icon-192\.png/);
+  assert.match(manifest, /icon-512\.png/);
+  assert.match(account, /autoComplete="username"/);
+  assert.match(account, /autoComplete=\{authMode === "signUp" \? "new-password" : "current-password"\}/);
+  assert.ok(fs.existsSync("public/apple-touch-icon.png"));
+  assert.ok(fs.existsSync("public/favicon-32.png"));
+});
 test("Training current-week view renders canonical dated occurrences", () => {
   const training = fs.readFileSync("app/training/page.tsx", "utf8");
   assert.match(training, /resolveWeekSchedule/);

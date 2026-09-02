@@ -5,12 +5,14 @@ import "./presentation.css";
 import "./adaptive-controls.css";
 import "./legal.css";
 import "./training-polish.css";
+import { brand } from "@/lib/brand";
 
 export const metadata: Metadata = {
-  title: "The Road to 12%",
+  title: brand.name,
   description: "Focused training, intelligently progressed.",
   manifest: "/manifest.webmanifest",
-  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "Road to 12%" },
+  icons: { icon: [{ url: "/favicon-32.png", sizes: "32x32", type: "image/png" }, { url: "/favicon-48.png", sizes: "48x48", type: "image/png" }], apple: "/apple-touch-icon.png" },
+  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: brand.name },
 };
 export const viewport: Viewport = { themeColor: "#070a0d", width: "device-width", initialScale: 1, viewportFit: "cover" };
 
