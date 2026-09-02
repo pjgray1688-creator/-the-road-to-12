@@ -2,6 +2,8 @@ import { redirect } from "next/navigation";
 import { serverSupabase } from "@/lib/supabase-server";
 import { AppNav } from "@/components/app-nav";
 import { AppShell, NavigationRow, Surface } from "@/components/ui";
+import { madhouseFixture, clubRepository } from "@/lib/club-repository";
+import { resolveOrganisationTheme } from "@/lib/club";
 
 /** Club remains capability-gated until the reviewed migration is applied. */
 export default async function ClubPage() {
@@ -9,6 +11,7 @@ export default async function ClubPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/account?mode=signIn");
   let authorised = false; let organisationName = "R12 Club";
+  if (process.env.NODE_ENV !== "production") { const repository = clubRepository(); const organisation = (await repository.listOrganisations()).find(item => item.id === madhouseFixture.id); if (organisation) { authorised = true; organisationName = resolveOrganisationTheme(organisation).organisationName; } }
   if (process.env.R12_CLUB_SCHEMA_ENABLED === "true") {
     const { data: member } = await supabase.from("club_members").select("role, organisation_id, club_organisations(name)").eq("user_id", user.id).eq("active", true).in("role", ["gym_staff", "gym_admin", "owner"]).maybeSingle();
     authorised = Boolean(member);

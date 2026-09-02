@@ -3,15 +3,22 @@
 export type ClubRole = "member" | "trainer" | "gym_staff" | "gym_admin" | "owner" | "guest";
 export type GrantSource = "purchase" | "subscription" | "staff_assignment" | "promotion" | "migration" | "founding";
 export type Validity = { startsAt: string; endsAt?: string };
-export type Organisation = { id: string; name: string; slug: string; active: boolean };
+export type OrganisationBranding = { displayName?: string; logoSrc?: string; logoDarkSrc?: string; logoLightSrc?: string; primaryAccent?: string; secondaryAccent?: string; coBranding: "r12" | "co_branded"; backgroundSrc?: string; };
+export type Organisation = { id: string; name: string; slug: string; active: boolean; branding?: OrganisationBranding };
 export type OrganisationLocation = { id: string; organisationId: string; name: string; active: boolean };
 export type OrganisationMember = { id: string; organisationId: string; userId: string; role: ClubRole; active: boolean };
-export type ClubProduct = { id: string; organisationId: string; name: string; kind: "membership" | "class" | "pt" | "transformation"; priceMinor: number; currency: string; billing: "one_off" | "recurring" | "manual"; durationDays?: number; sellable: boolean; archivedAt?: string };
+export type ClubProduct = { id: string; organisationId: string; name: string; kind: "membership" | "class" | "pt" | "transformation"; priceMinor: number; currency: string; billing: "one_off" | "recurring" | "manual"; durationDays?: number; sellable: boolean; archivedAt?: string; entitlements?: ProductEntitlement[] };
 export type EntitlementDefinition = { key: string; label: string; kind: "boolean" | "scoped_access" | "allowance" | "discount"; defaultScope?: "organisation" | "location" };
 export type ProductEntitlement = { productId: string; entitlementKey: string; scope: "organisation" | "locations" | "future_locations"; locationIds?: string[]; allowance?: { quantity: number; period: "week" | "month" | "block" }; discount?: { percent: number; period?: "month"; maxUses?: number } };
 export type Membership = { id: string; organisationId: string; productId: string; billingGroupId?: string; status: "active" | "paused" | "expired" | "cancelled"; validity: Validity; source: GrantSource; holderUserIds: string[] };
 export type EntitlementGrant = { id: string; userId: string; organisationId: string; membershipId?: string; entitlementKey: string; scope: "organisation" | "locations" | "future_locations"; locationIds?: string[]; validity: Validity; source: GrantSource; allowance?: { quantity: number; period: "week" | "month" | "block" }; discount?: { percent: number; period?: "month"; maxUses?: number } };
 export type EntitlementUsage = { id: string; grantId: string; userId: string; periodKey: string; quantity: number; reference?: string; createdAt: string };
+
+const safeColour = (value: string | undefined, fallback: string) => value && /^#[0-9a-f]{6}$/i.test(value) ? value : fallback;
+export function resolveOrganisationTheme(organisation: Organisation | undefined) {
+  const branding = organisation?.active ? organisation.branding : undefined;
+  return { platform: "R12", organisationName: branding?.displayName ?? organisation?.name ?? "R12 Club", coBranding: branding?.coBranding ?? "r12", logoSrc: branding?.logoSrc, primaryAccent: safeColour(branding?.primaryAccent, "#a855f7"), secondaryAccent: safeColour(branding?.secondaryAccent, "#c084fc"), backgroundSrc: branding?.backgroundSrc } as const;
+}
 
 const timestamp = (value: string | Date) => new Date(value).getTime();
 export function isValidAt(validity: Validity, at: string | Date): boolean { const point = timestamp(at); return point >= timestamp(validity.startsAt) && (validity.endsAt === undefined || point < timestamp(validity.endsAt)); }
