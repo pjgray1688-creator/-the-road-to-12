@@ -1,13 +1,14 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { AvailabilitySettings } from "@/components/availability-settings";
+import { BrandLockup } from "@/components/brand-lockup";
 
 export function AppShell({ children, className = "" }: { children: ReactNode; className?: string }) {
   return <main className={`app-shell ${className}`.trim()}>{children}</main>;
 }
 
 export function PageHeader({ eyebrow, title, description, children }: { eyebrow?: string; title: string; description?: string; children?: ReactNode }) {
-  return <header className="page-header"><div>{eyebrow && <p className="eyebrow">{eyebrow}</p>}<h1>{title}</h1>{description && <p className="page-header-description">{description}</p>}</div>{children}{title === "Training" && <AvailabilitySettings />}</header>;
+  return <header className="page-header"><div className="page-header-identity"><BrandLockup compact /><div>{eyebrow && <p className="eyebrow">{eyebrow}</p>}<h1>{title}</h1>{description && <p className="page-header-description">{description}</p>}</div></div>{children}{title === "Training" && <AvailabilitySettings />}</header>;
 }
 
 export function BackButton({ href = "/", children = "Back" }: { href?: string; children?: ReactNode }) {

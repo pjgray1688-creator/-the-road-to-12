@@ -221,6 +221,12 @@ h1 em, .day, .topline button, .text-button, .plan-row b, .coach-callout span { c
 .primary:focus-visible, .secondary:focus-visible, .tertiary-button:focus-visible, .text-button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--color-accent-strong); outline-offset: 2px; }
 .modal section { background: var(--color-surface); border: 1px solid var(--color-border); }
 .app-nav { padding-bottom: env(safe-area-inset-bottom); }
+.page-header-identity { display: flex; align-items: flex-start; gap: var(--space-md); min-width: 0; }
+.page-header-identity > div:last-child { min-width: 0; }
+.page-header-identity .brand-lockup.compact { margin-top: 1px; }
+.page-header-identity h1 { font-weight: 780; }
+.surface, .card { background: linear-gradient(145deg, rgba(19,20,28,.96), rgba(12,13,18,.96)); box-shadow: 0 12px 30px rgba(0,0,0,.18); }
+.surface .eyebrow, .card .eyebrow { color: rgba(169,171,184,.82); }
 
 /* Landing composition follows the supplied R12 reference: a quiet black field,
    one confident typographic statement, and a single clear action pair. */
