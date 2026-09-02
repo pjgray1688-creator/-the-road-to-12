@@ -27,6 +27,8 @@ export type TrainingProfile = {
   competitiveStatus?: "recreational" | "competitive" | "none";
   trainingAgeYears?: number;
   accessibility?: { seatedOnly?: boolean; reducedStandingTolerance?: boolean; limitedMobility?: boolean; impactConstraint?: boolean; balanceSupport?: boolean; limbLimitations?: string[] };
+  availabilityMode?: "fixed_days" | "flexible_week" | "variable_week" | "rotating_pattern" | "work_away";
+  availableDays?: number[];
 };
 
 export const defaultTrainingProfile: TrainingProfile = { goal: "general_fitness", experience: "beginner", daysPerWeek: 3, sessionMinutes: 60, environment: "full_gym", limitations: [], dislikedExercises: [], includeCardio: true, cardioPreference: "walking" };

@@ -12,6 +12,7 @@ import { loadActiveWorkout, loadData, saveTrainingProfile } from "@/lib/storage"
 import { activeWorkoutsFromPayload } from "@/lib/programme-activation";
 import { legacyProgrammeSnapshot } from "@/lib/legacy-programme";
 import type { GeneratedProgramme } from "@/lib/programme-generator";
+import { AvailabilitySettings } from "@/components/availability-settings";
 
 export default function TrainingPage() {
   const [workouts, setWorkouts] = useState<Workout[]>([]);
