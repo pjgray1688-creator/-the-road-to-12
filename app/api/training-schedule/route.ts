@@ -1,0 +1,23 @@
+import { NextResponse } from "next/server";
+import { serverSupabase } from "@/lib/supabase-server";
+import { SCHEDULE_PERSISTENCE_ENABLED, serializeOverride, type AvailabilityOverrideRecord, type OccurrenceAdjustmentRecord, type OccurrenceOutcomeRecord } from "@/lib/scheduling-persistence";
+
+const unavailable = () => NextResponse.json({ error: "Server scheduling sync is not enabled yet." }, { status: 503 });
+export async function GET(request: Request) {
+  if (!SCHEDULE_PERSISTENCE_ENABLED) return unavailable();
+  const supabase = await serverSupabase(); const { data: { user } } = await supabase.auth.getUser(); if (!user) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+  const url = new URL(request.url); const start = url.searchParams.get("start"); const end = url.searchParams.get("end");
+  const overrides = await supabase.from("training_availability_overrides").select("*").eq("user_id", user.id).order("start_date");
+  let outcomesQuery = supabase.from("training_occurrence_outcomes").select("*").eq("user_id", user.id); if (start) outcomesQuery = outcomesQuery.gte("scheduled_date", start); if (end) outcomesQuery = outcomesQuery.lte("scheduled_date", end);
+  let adjustmentsQuery = supabase.from("training_occurrence_adjustments").select("*").eq("user_id", user.id); if (start) adjustmentsQuery = adjustmentsQuery.gte("scheduled_date", start); if (end) adjustmentsQuery = adjustmentsQuery.lte("scheduled_date", end);
+  const [outcomes, adjustments] = await Promise.all([outcomesQuery, adjustmentsQuery]); if (overrides.error || outcomes.error || adjustments.error) return NextResponse.json({ error: "Scheduling state unavailable" }, { status: 500 }); return NextResponse.json({ overrides: overrides.data ?? [], outcomes: outcomes.data ?? [], adjustments: adjustments.data ?? [] });
+}
+export async function POST(request: Request) {
+  if (!SCHEDULE_PERSISTENCE_ENABLED) return unavailable();
+  const supabase = await serverSupabase(); const { data: { user } } = await supabase.auth.getUser(); if (!user) return NextResponse.json({ error: "Authentication required" }, { status: 401 }); const body = await request.json().catch(() => ({}));
+  if (body.action === "save_override" && body.override) { const override = body.override as AvailabilityOverrideRecord; const { data, error } = await supabase.from("training_availability_overrides").upsert({ ...serializeOverride(override), user_id: user.id, id: override.id }, { onConflict: "user_id,start_date,end_date" }).select("*").single(); if (error) return NextResponse.json({ error: "Availability could not be saved" }, { status: 500 }); return NextResponse.json({ override: data }); }
+  if (body.action === "save_outcome" && body.outcome) { const outcome = body.outcome as OccurrenceOutcomeRecord; const { data, error } = await supabase.from("training_occurrence_outcomes").upsert({ user_id: user.id, programme_id: outcome.programmeId ?? null, session_template_id: outcome.sessionTemplateId, occurrence_id: outcome.occurrenceId, scheduled_date: outcome.scheduledDate, outcome: outcome.outcome, reason: outcome.reason ?? null, original_occurrence_id: outcome.originalOccurrenceId ?? null, original_scheduled_date: outcome.originalScheduledDate ?? null, new_scheduled_date: outcome.newScheduledDate ?? null, source: outcome.source ?? "user" }, { onConflict: "user_id,occurrence_id" }).select("*").single(); if (error) return NextResponse.json({ error: "Session outcome could not be saved" }, { status: 500 }); return NextResponse.json({ outcome: data }); }
+  if (body.action === "save_adjustment" && body.adjustment) { const adjustment = body.adjustment as OccurrenceAdjustmentRecord; const { data, error } = await supabase.from("training_occurrence_adjustments").upsert({ user_id: user.id, programme_id: adjustment.programmeId ?? null, occurrence_id: adjustment.occurrenceId, scheduled_date: adjustment.scheduledDate, adjustment: adjustment.adjustment, source: adjustment.source ?? "coach", idempotency_key: adjustment.idempotencyKey ?? `${adjustment.occurrenceId}:${JSON.stringify(adjustment.adjustment)}` }, { onConflict: "user_id,idempotency_key" }).select("*").single(); if (error) return NextResponse.json({ error: "Current-week adjustment could not be saved" }, { status: 500 }); return NextResponse.json({ adjustment: data }); }
+  if (body.action === "delete_override" && typeof body.id === "string") { const { error } = await supabase.from("training_availability_overrides").delete().eq("user_id", user.id).eq("id", body.id); if (error) return NextResponse.json({ error: "Availability could not be cleared" }, { status: 500 }); return NextResponse.json({ ok: true }); }
+  return NextResponse.json({ error: "Invalid scheduling action" }, { status: 400 });
+}
