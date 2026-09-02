@@ -93,7 +93,8 @@ test("current-week salvage is consumed by the active workout itinerary", () => {
   const action = fs.readFileSync("components/missed-session-action.tsx", "utf8");
   assert.match(active, /salvageAdjustments/);
   assert.match(active, /exerciseIds\.push/);
-  assert.match(action, /source: today\.session\.id/);
+  assert.match(action, /source: reviewSession\.id/);
+  assert.match(action, /scheduledDate/);
   assert.match(action, /Current-week option only/);
 });
 

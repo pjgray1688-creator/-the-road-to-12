@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { activeWeek } from "@/lib/active-programme";
 import { planMissedSessionSalvage, type SalvageProposal } from "@/lib/session-outcomes";
-import { resolveToday } from "@/lib/schedule";
+import { occurrenceDateForDay, occurrenceKey, resolveToday } from "@/lib/schedule";
 import { loadActiveWorkout, loadData, saveData } from "@/lib/storage";
 import { defaultTrainingProfile } from "@/lib/training-profile";
 import { allExercises } from "@/lib/workout";
@@ -15,21 +15,25 @@ export function MissedSessionAction() {
   const timezone = data.timezone ?? (typeof window === "undefined" ? "Europe/London" : Intl.DateTimeFormat().resolvedOptions().timeZone || "Europe/London");
   const today = resolveToday(activeWeek(), timezone);
   if ((!data.generatedProgramme && !data.trainingProfile) || today.session.status === "rest" || loadActiveWorkout()) return null;
-  const status = data.sessionStatusOverrides?.[today.session.id]?.status;
+  const overrides = data.sessionStatusOverrides ?? {};
+  const priorMiss = activeWeek().filter(item => item.status !== "rest" && item.day <= today.day).map(item => ({ session: item, date: occurrenceDateForDay(new Date(`${today.date}T12:00:00Z`), timezone, item.day) })).reverse().find(item => overrides[occurrenceKey(item.session.id, item.date)]?.status === "missed" || (overrides[item.session.id]?.status === "missed" && item.session.day < today.day));
+  const reviewSession = priorMiss?.session ?? today.session;
+  const reviewDate = priorMiss?.date ?? today.date;
+  const status = overrides[occurrenceKey(today.session.id, today.date)]?.status ?? (today.session.id === reviewSession.id ? overrides[today.session.id]?.status : undefined) ?? (priorMiss ? "missed" : undefined);
   const plan = (reasonOverride?: string) => {
     const recovery = data.recoverySnapshots?.filter(item => item.source === "whoop" && item.date === today.date).sort((a, b) => `${a.date}${a.providerTimestamp ?? ""}`.localeCompare(`${b.date}${b.providerTimestamp ?? ""}`)).at(-1);
-    const reason = reasonOverride ?? data.sessionStatusOverrides?.[today.session.id]?.note;
-    return planMissedSessionSalvage(today.session, activeWeek().filter(item => item.day > today.day && item.status === "planned"), data.workouts, data.trainingProfile ?? defaultTrainingProfile, recovery, reason);
+    const reason = reasonOverride ?? overrides[occurrenceKey(reviewSession.id, reviewDate)]?.note ?? overrides[reviewSession.id]?.note;
+    return planMissedSessionSalvage(reviewSession, activeWeek().filter(item => item.day > reviewSession.day && item.status === "planned"), data.workouts, data.trainingProfile ?? defaultTrainingProfile, recovery, reason);
   };
   const review = () => setSalvage(plan());
   const saveMissed = (reason?: string) => {
-    const next = { ...data, sessionStatusOverrides: { ...(data.sessionStatusOverrides ?? {}), [today.session.id]: { status: "missed" as const, note: reason } } };
+    const next = { ...data, sessionStatusOverrides: { ...(data.sessionStatusOverrides ?? {}), [occurrenceKey(today.session.id, today.date)]: { status: "missed" as const, note: reason } } };
     saveData(next); setData(next); setReasonOpen(false); setConfirmOpen(false); setSalvage(plan(reason));
   };
   const apply = () => {
     if (!salvage) return;
     const existing = data.salvageAdjustments ?? [];
-    const additions = salvage.additions.map(addition => ({ ...addition, source: today.session.id })).filter(addition => !existing.some(item => item.source === addition.source && item.sessionId === addition.sessionId && item.exerciseId === addition.exerciseId));
+    const additions = salvage.additions.map(addition => ({ ...addition, source: reviewSession.id, scheduledDate: occurrenceDateForDay(new Date(`${reviewDate}T12:00:00Z`), timezone, activeWeek().find(item => item.id === addition.sessionId)?.day ?? today.day) })).filter(addition => !existing.some(item => item.source === addition.source && item.sessionId === addition.sessionId && item.scheduledDate === addition.scheduledDate && item.exerciseId === addition.exerciseId));
     const next = { ...data, salvageAdjustments: [...existing, ...additions] };
     saveData(next); setData(next); setSalvage(null);
   };
