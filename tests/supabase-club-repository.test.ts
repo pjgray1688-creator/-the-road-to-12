@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { MemoryClubRepository, selectClubRepository } from "../lib/club-repository";
-import { SupabaseClubRepository, mapClassBooking, mapClassSession, mapCustomer, mapOrganisation, mapProduct, mapServiceTransaction } from "../lib/supabase-club-repository";
+import { SupabaseClubRepository, mapClassAvailability, mapClassBooking, mapClassSession, mapCustomer, mapOrganisation, mapProduct, mapServiceTransaction } from "../lib/supabase-club-repository";
 import { resolveOrganisationTheme, type ClubProduct } from "../lib/club";
 
 type Result = { data: unknown; error: { code?: string; message?: string } | null };
@@ -112,6 +112,8 @@ test("Supabase operational rows map provider-neutral customer, session, booking 
   assert.equal(mapClassBooking({ id: "b", organisation_id: "o", session_id: "s", customer_id: "c", status: "confirmed", booked_at: "a", attendance_state: "pending", created_at: "a", updated_at: "a" }).attendanceState, "pending");
   const transaction = mapServiceTransaction({ id: "x", organisation_id: "o", location_id: "l", service_id: "v", quantity: 1, unit_price_minor: 500, currency: "GBP", payment_status: "paid", payment_method: "wallet", fulfilment_status: "pending", occurred_at: "a", created_at: "a", updated_at: "a" });
   assert.equal(transaction.paymentStatus, "paid"); assert.equal(transaction.fulfilmentStatus, "pending");
+  assert.deepEqual(mapClassAvailability({ session_id: "s", capacity: 18, confirmed_count: 14, spaces_remaining: 4, waitlisted_count: 2, is_full: false }), { sessionId: "s", capacity: 18, confirmedCount: 14, spacesRemaining: 4, waitlistedCount: 2, isFull: false });
+  assert.deepEqual(mapClassAvailability({ session_id: "u", capacity: null, confirmed_count: 30, spaces_remaining: null, waitlisted_count: 0, is_full: false }), { sessionId: "u", confirmedCount: 30, waitlistedCount: 0, isFull: false });
 });
 
 test("Supabase operational reads use RLS tables and all mutations use purpose-specific RPCs", async () => {
@@ -143,4 +145,11 @@ test("Supabase class, booking and service mutations never issue direct table wri
   await repository.updateServiceTransaction("transaction", { paymentStatus: "paid", fulfilmentStatus: "fulfilled" });
   assert.deepEqual(fake.rpcCalls.map(call => call.name), ["club_save_class_type", "club_save_class_session", "club_create_class_booking", "club_cancel_class_booking", "club_set_booking_attendance", "club_save_service", "club_create_service_transaction", "club_update_service_transaction"]);
   assert.equal(fake.tableCalls.length, 0);
+});
+
+test("Supabase availability uses only the aggregate RPC and exposes no booking rows", async () => {
+  const fake = fakeClient({ rpcs: { club_get_class_availability: { data: { session_id: "session", capacity: 18, confirmed_count: 14, spaces_remaining: 4, waitlisted_count: 1, is_full: false }, error: null } } });
+  const availability = await new SupabaseClubRepository(fake.client).getClassAvailability("session");
+  assert.deepEqual(availability, { sessionId: "session", capacity: 18, confirmedCount: 14, spacesRemaining: 4, waitlistedCount: 1, isFull: false });
+  assert.deepEqual(fake.rpcCalls, [{ name: "club_get_class_availability", args: { p_session_id: "session" } }]); assert.equal(fake.tableCalls.length, 0);
 });

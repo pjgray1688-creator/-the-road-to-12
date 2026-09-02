@@ -10,6 +10,7 @@ export type ClubClassSession = {
   startsAt: string; endsAt: string; capacity?: number; bookingOpensAt?: string; bookingClosesAt?: string; cancellationClosesAt?: string;
   visibility: ClubClassSessionVisibility; status: ClubClassSessionStatus; recurrenceMetadata?: Record<string, unknown>; createdAt: string; updatedAt: string;
 };
+export type ClubClassAvailability = { sessionId: string; capacity?: number; confirmedCount: number; spacesRemaining?: number; waitlistedCount: number; isFull: boolean };
 
 export type ClubBookingStatus = "confirmed" | "cancelled" | "waitlisted";
 export type ClubAttendanceState = "pending" | "checked_in" | "attended" | "no_show";

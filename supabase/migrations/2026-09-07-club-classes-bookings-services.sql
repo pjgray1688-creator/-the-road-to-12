@@ -289,6 +289,36 @@ begin
   return to_jsonb(v_row);
 end; $$;
 
+create or replace function public.club_get_class_availability(p_session_id uuid)
+returns jsonb language plpgsql stable security definer set search_path = pg_catalog, public as $$
+declare
+  v_session public.club_class_sessions%rowtype;
+  v_confirmed_count integer;
+  v_waitlisted_count integer;
+begin
+  select * into v_session from public.club_class_sessions where id=p_session_id;
+  if not found then raise exception 'Class session not found' using errcode='P0002'; end if;
+  if auth.uid() is null or not (
+    public.club_has_active_role(v_session.organisation_id,array['gym_staff','gym_admin','owner'])
+    or v_session.host_user_id=auth.uid()
+    or (v_session.visibility='public' and public.club_has_customer_access(v_session.organisation_id))
+    or (v_session.visibility='members_only' and public.club_has_active_role(v_session.organisation_id,array['member','trainer','gym_staff','gym_admin','owner']))
+  ) then raise exception 'Class availability is not permitted' using errcode='42501'; end if;
+  select
+    count(*) filter (where status='confirmed'),
+    count(*) filter (where status='waitlisted')
+  into v_confirmed_count,v_waitlisted_count
+  from public.club_class_bookings where session_id=v_session.id;
+  return jsonb_build_object(
+    'session_id',v_session.id,
+    'capacity',v_session.capacity,
+    'confirmed_count',v_confirmed_count,
+    'spaces_remaining',case when v_session.capacity is null then null else greatest(v_session.capacity-v_confirmed_count,0) end,
+    'waitlisted_count',v_waitlisted_count,
+    'is_full',v_session.capacity is not null and v_confirmed_count>=v_session.capacity
+  );
+end; $$;
+
 create or replace function public.club_cancel_class_booking(p_booking_id uuid)
 returns jsonb language plpgsql security definer set search_path = pg_catalog, public as $$
 declare v_row public.club_class_bookings%rowtype; v_customer public.club_customers%rowtype; v_session public.club_class_sessions%rowtype; v_staff boolean;
@@ -371,6 +401,7 @@ revoke all on function public.club_save_class_session(uuid,uuid,uuid,uuid,uuid,t
 revoke all on function public.club_create_customer(uuid,uuid,text,text,text,text) from public;
 revoke all on function public.club_link_customer_user(uuid,uuid) from public;
 revoke all on function public.club_create_class_booking(uuid,uuid,text) from public;
+revoke all on function public.club_get_class_availability(uuid) from public;
 revoke all on function public.club_cancel_class_booking(uuid) from public;
 revoke all on function public.club_set_booking_attendance(uuid,text) from public;
 revoke all on function public.club_save_service(uuid,uuid,uuid,text,text,text,integer,integer,text,boolean) from public;
@@ -382,6 +413,7 @@ grant execute on function public.club_save_class_session(uuid,uuid,uuid,uuid,uui
 grant execute on function public.club_create_customer(uuid,uuid,text,text,text,text) to authenticated;
 grant execute on function public.club_link_customer_user(uuid,uuid) to authenticated;
 grant execute on function public.club_create_class_booking(uuid,uuid,text) to authenticated;
+grant execute on function public.club_get_class_availability(uuid) to authenticated;
 grant execute on function public.club_cancel_class_booking(uuid) to authenticated;
 grant execute on function public.club_set_booking_attendance(uuid,text) to authenticated;
 grant execute on function public.club_save_service(uuid,uuid,uuid,text,text,text,integer,integer,text,boolean) to authenticated;
