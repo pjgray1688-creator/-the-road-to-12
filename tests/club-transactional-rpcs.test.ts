@@ -70,7 +70,7 @@ test("assignment supports open and fixed validity, known sources, archived rejec
 
 test("current Golden Ticket and Transformation definitions remain materialisable per holder", async () => {
   const repository = new MemoryClubRepository();
-  const products = await repository.listProducts(madhouseFixture.id);
+  const products = await repository.listProducts(madhouseFixture.id, true);
   const golden = products.find(product => product.name === "Golden Ticket Founding Membership")!;
   const transformation = products.find(product => product.name === "Transformation Gold")!;
   assert.ok(golden.entitlements?.some(item => item.scope === "future_locations"));

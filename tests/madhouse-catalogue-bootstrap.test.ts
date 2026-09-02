@@ -35,7 +35,8 @@ test("membership, transformation and PT catalogue benefits retain exact semantic
 });
 
 test("Golden Ticket and Couples definitions remain assignment-ready without assigning holders", () => {
-  const golden = byName("Golden Ticket Founding Membership"); assert.equal(golden.durationDays, undefined); assert.equal(entitlement(golden, "gym_access")?.scope, "future_locations"); assert.deepEqual(entitlement(golden, "discount")?.discount, { percent: 20, period: "month", maxUses: 1 });
+  const golden = byName("Golden Ticket Founding Membership"); assert.equal(golden.sellable, false); assert.equal(golden.durationDays, undefined); assert.equal(entitlement(golden, "gym_access")?.scope, "future_locations"); assert.deepEqual(entitlement(golden, "discount")?.discount, { percent: 20, period: "month", maxUses: 1 });
+  assert.equal(madhouseCatalogue.filter(product => product !== golden).every(product => product.sellable), true);
   const couples = byName("Couples Membership"); assert.equal(couples.kind, "membership"); assert.equal(couples.billing, "recurring"); assert.equal(entitlement(couples, "gym_access")?.scope, "future_locations");
 });
 
@@ -68,6 +69,15 @@ test("catalogue drift and duplicate exact names are reported without overwrite",
   const repository = new CatalogueRepository([drifted, duplicate, { ...duplicate, id: "duplicate-b" }]); const results = await reconcileMadhouseCatalogue(repository);
   assert.deepEqual(results.find(result => result.name === "Gym Day Pass"), { name: "Gym Day Pass", status: "drift_detected", detail: "catalogue_difference" });
   assert.deepEqual(results.find(result => result.name === "Week Pass"), { name: "Week Pass", status: "drift_detected", detail: "duplicate_exact_name" }); assert.equal(repository.updates, 0);
+});
+
+test("a sellable production Golden Ticket is drift while every other catalogue product still matches", async () => {
+  const existing = madhouseCatalogue.map((definition, index) => materialiseCatalogueProduct(definition, MADHOUSE_PRODUCTION_ORGANISATION_ID, `existing-${index}`));
+  existing.find(product => product.name === "Golden Ticket Founding Membership")!.sellable = true;
+  const repository = new CatalogueRepository(existing); const results = await reconcileMadhouseCatalogue(repository);
+  assert.deepEqual(results.find(result => result.name === "Golden Ticket Founding Membership"), { name: "Golden Ticket Founding Membership", status: "drift_detected", detail: "catalogue_difference" });
+  assert.equal(results.filter(result => result.name !== "Golden Ticket Founding Membership").every(result => result.status === "already_matching"), true);
+  assert.equal(repository.creates.length, 0); assert.equal(repository.updates, 0); assert.equal(repository.assignments, 0);
 });
 
 test("create authorization failures are reported safely and do not fall back to assignments", async () => {

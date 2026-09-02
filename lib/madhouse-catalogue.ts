@@ -29,7 +29,7 @@ export const madhouseCatalogue: readonly CatalogueProduct[] = [
   { name: "Transformation Gold", kind: "transformation", priceMinor: 52500, currency: "GBP", billing: "one_off", durationDays: 70, sellable: true, entitlements: transformation(3) },
   { name: "Single PT Session", kind: "pt", priceMinor: 3000, currency: "GBP", billing: "one_off", sellable: true, entitlements: [{ entitlementKey: "pt_session_credit", scope: "organisation", allowance: { quantity: 1, period: "block" } }] },
   { name: "10 PT Session Block", kind: "pt", priceMinor: 20000, currency: "GBP", billing: "one_off", sellable: true, entitlements: [{ entitlementKey: "pt_session_credit", scope: "organisation", allowance: { quantity: 10, period: "block" } }] },
-  { name: "Golden Ticket Founding Membership", kind: "membership", priceMinor: 50000, currency: "GBP", billing: "one_off", sellable: true, entitlements: [gymAccess, { entitlementKey: "discount", scope: "organisation", discount: { percent: 20, period: "month", maxUses: 1 } }] },
+  { name: "Golden Ticket Founding Membership", kind: "membership", priceMinor: 50000, currency: "GBP", billing: "one_off", sellable: false, entitlements: [gymAccess, { entitlementKey: "discount", scope: "organisation", discount: { percent: 20, period: "month", maxUses: 1 } }] },
 ] as const;
 
 // £3 member and £5 non-member class purchases are deliberately excluded: they

@@ -40,7 +40,7 @@ test("product entitlement RLS is member-readable and admin-write-only within an 
 
 test("current product benefit shapes are representable and materialise independently per holder", async () => {
   const repository = new MemoryClubRepository();
-  const products = await repository.listProducts(madhouseFixture.id);
+  const products = await repository.listProducts(madhouseFixture.id, true);
   const byName = (name: string) => products.find(product => product.name === name)!;
   const golden = byName("Golden Ticket Founding Membership").entitlements!;
   assert.ok(golden.some(item => item.entitlementKey === "gym_access" && item.scope === "future_locations"));
