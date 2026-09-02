@@ -179,6 +179,49 @@ h1 em, .day, .topline button, .text-button, .plan-row b, .coach-callout span { c
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto!important; transition-duration: .01ms!important; animation-duration: .01ms!important; } }
 @media (min-width: 700px) { .shell { padding-left: 28px; padding-right: 28px; } .readiness-rings { max-width: 360px; } }
 
+/* R12 shared visual foundation. Keep these semantic tokens cross-product so future
+   Training, Progress, Recovery, Nutrition and Account surfaces share one rhythm. */
+:root {
+  --color-bg: var(--surface-0);
+  --color-surface: var(--surface-1);
+  --color-surface-elevated: var(--surface-2);
+  --color-surface-interactive: var(--surface-3);
+  --color-border: var(--separator);
+  --color-text: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-tertiary);
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-bright);
+  --space-page: 20px;
+  --space-section: 20px;
+  --space-card: 14px;
+  --radius-surface: var(--radius-md);
+}
+
+/* Legacy aliases intentionally point at the same premium palette; this prevents
+   older routes from reintroducing the former lime/grey visual system. */
+:root { --bg: var(--color-bg); --panel: var(--color-surface); --panel2: var(--color-surface-interactive); --text: var(--color-text); --muted: var(--color-text-secondary); --line: var(--color-border); --lime: var(--color-accent-strong); }
+
+.shell, .legal-page { padding-left: var(--space-page); padding-right: var(--space-page); }
+.module-page, .account-page, .home-screen { gap: var(--space-section); }
+.surface, .card { border-radius: var(--radius-surface); border-color: var(--color-border); }
+.surface + .surface, .card + .card { margin-top: 0; }
+.page-stack, .section-stack, .card-stack { display: flex; flex-direction: column; gap: var(--space-section); }
+.section-stack { gap: var(--space-lg); }
+.card-stack { gap: var(--space-card); }
+.brand-lockup.compact { width: 42px; height: 42px; filter: drop-shadow(0 6px 16px rgba(168,85,247,.18)); }
+.brand-lockup.compact img { width: 42px; height: 42px; object-fit: contain; }
+.brand-mark { width: 42px; height: 42px; background: transparent url('/icons/icon-64.png') center / contain no-repeat; color: transparent; border-radius: 11px; clip-path: none; }
+.legal-page header > div > .eyebrow { display: none; }
+.loading-surface { display: flex; align-items: center; gap: var(--space-md); }
+.loading-surface .brand-lockup.compact { flex: 0 0 auto; }
+.primary, .secondary, .danger { box-shadow: none; }
+.secondary { background: var(--color-surface-interactive); }
+.tertiary-button, .text-button { color: var(--color-accent-strong); }
+.primary:focus-visible, .secondary:focus-visible, .tertiary-button:focus-visible, .text-button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--color-accent-strong); outline-offset: 2px; }
+.modal section { background: var(--color-surface); border: 1px solid var(--color-border); }
+.app-nav { padding-bottom: env(safe-area-inset-bottom); }
+
 /* Shared product geometry: one rhythm for every module, from training to future nutrition. */
 :root {
   --space-xs: 6px;
