@@ -24,8 +24,8 @@ export function Surface({ children, className = "" }: { children: ReactNode; cla
 }
 
 export function NavigationRow({ href, label, detail, children, onClick }: { href?: string; label: string; detail?: string; children?: ReactNode; onClick?: () => void }) {
-  const content = <><span><strong>{label}</strong>{detail && <small>{detail}</small>}</span>{children ?? <b aria-hidden="true">›</b>}</>;
-  return href ? <Link className="navigation-row" href={href}>{content}</Link> : <button className="navigation-row" type="button" onClick={onClick}>{content}</button>;
+  const content = <><span><strong>{label}</strong>{detail && <small>{detail}</small>}</span>{children ?? (href || onClick ? <b aria-hidden="true">›</b> : null)}</>;
+  return href ? <Link className="navigation-row" href={href}>{content}</Link> : onClick ? <button className="navigation-row" type="button" onClick={onClick}>{content}</button> : <div className="navigation-row">{content}</div>;
 }
 
 export function MetricCard({ label, value, detail }: { label: string; value: ReactNode; detail?: ReactNode }) {
