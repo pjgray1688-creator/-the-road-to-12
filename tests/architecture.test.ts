@@ -78,7 +78,10 @@ test("Training current-week view renders canonical dated occurrences", () => {
   const training = fs.readFileSync("app/training/page.tsx", "utf8");
   assert.match(training, /resolveWeekSchedule/);
   assert.match(training, /occurrence\.occurrenceId/);
+  assert.doesNotMatch(training, /<AvailabilitySettings \/>/);
 });
+test("fresh app state invalidates stale service-worker shell without clearing user data", () => { const sw = fs.readFileSync("public/sw.js", "utf8"); assert.match(sw, /r12-shell-v2/); assert.match(sw, /skipWaiting/); assert.match(sw, /clients\.claim/); });
+test("training state mutations have authenticated durable persistence", () => { const source = fs.readFileSync("components/missed-session-action.tsx", "utf8"); const api = fs.readFileSync("app/api/training-state/route.ts", "utf8"); assert.match(source, /fetch\("\/api\/training-state"/); assert.match(api, /auth\.getUser/); assert.match(api, /_trainingState/); });
 
 test("Account and onboarding preserve mobile-safe, non-destructive programme navigation", () => {
   const accountCss = fs.readFileSync("app/training-polish.css", "utf8");
