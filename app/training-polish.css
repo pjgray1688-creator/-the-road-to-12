@@ -74,6 +74,8 @@ h1 em, .day, .topline button, .text-button, .plan-row b, .coach-callout span { c
 
 .readiness-card { background: linear-gradient(145deg, rgba(28,20,37,.96), rgba(16,17,22,.96)); border-color: rgba(168,85,247,.28); }
 .coach-greeting { display: block; font-size: 22px; font-weight: 700; letter-spacing: -.35px; margin-bottom: 16px; }
+.today-greeting { margin: 0 0 var(--space-4); }
+.today-greeting h1 { font-size: var(--type-page-title); line-height: 1.05; }
 .readiness-advice { margin: 14px 0 0; color: var(--text-primary)!important; font-weight: 650; }
 .readiness-rings { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 16px 0 12px; }
 .readiness-metric { min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 13px 6px; border: 1px solid var(--separator); border-radius: 50%; aspect-ratio: 1; justify-content: center; background: radial-gradient(circle, rgba(168,85,247,.18), rgba(10,11,15,.9) 68%); }
