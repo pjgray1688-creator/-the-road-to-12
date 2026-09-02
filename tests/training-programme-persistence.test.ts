@@ -102,7 +102,7 @@ test("programme action sheet keeps inactive actions above the mobile navigation"
   assert.match(source, /!selectedProgramme\.isLegacy && selectedProgramme\.id !== active\.id/);
   assert.match(source, /Delete programme/);
   assert.match(styles, /\.programme-action-modal\s*\{[^}]*z-index:\s*30/);
-  assert.match(styles, /\.programme-action-sheet\s*\{[^}]*max-height:\s*min\(70svh,\s*520px\)/);
+  assert.match(styles, /\.programme-action-sheet\s*\{[^}]*max-height:\s*min\(76svh,\s*560px\)/);
   assert.match(styles, /\.programme-action-sheet\s*\{[^}]*overflow-y:\s*auto/);
   assert.match(styles, /\.programme-action-sheet\s*\{[^}]*safe-area-inset-bottom/);
 });

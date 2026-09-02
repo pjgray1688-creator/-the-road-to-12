@@ -31,7 +31,7 @@ export function formatLogicalHistorySet(sets: LoggedSet[]) {
   if (left.weight === right.weight && left.reps === right.reps && left.rir === right.rir) return `${left.weight} kg × ${left.reps} / side${left.rir === undefined ? "" : ` · ${left.rir} RIR`}`;
   return `L ${left.weight} kg × ${left.reps}${left.rir === undefined ? "" : ` · ${left.rir} RIR`} · R ${right.weight} kg × ${right.reps}${right.rir === undefined ? "" : ` · ${right.rir} RIR`}`;
 }
-function baseExerciseName(name: string) { return name.replace(/\s*(?:[-—]\s*)?(?:left|right|l|r)$/i, "").trim(); }
+function baseExerciseName(name: string) { const cleaned = name.replace(/\s*(?:[-—]\s*)?(?:left|right|l|r)$/i, "").trim(); if (/^hoist\s+roc-it\s+leg extension$/i.test(cleaned)) return "Leg Extension"; if (/^hoist\s+roc-it\s+row$/i.test(cleaned)) return "Seated Machine Row"; return cleaned; }
 export function historyExerciseGroups(workout: Workout): HistoryExerciseGroup[] {
   const source = workingSets(workout);
   const groups = new Map<string, LoggedSet[]>();

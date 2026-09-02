@@ -156,9 +156,9 @@ h1 em, .day, .topline button, .text-button, .plan-row b, .coach-callout span { c
 .guide-empty { color: var(--text-secondary); line-height: 1.5; }
 .conversation { min-height: 54px; display: flex; align-items: center; }
 .conversation small { color: var(--text-tertiary); }
-.modal section { max-height: 90svh; overflow-y: auto; }
+.modal section { max-height: min(90svh, calc(100dvh - env(safe-area-inset-top))); overflow-y: auto; padding-bottom: calc(var(--space-xl) + 72px + env(safe-area-inset-bottom)); }
 .programme-action-modal { z-index: 30; }
-.programme-action-sheet { max-height: min(70svh, 520px); overflow-y: auto; padding-bottom: calc(28px + env(safe-area-inset-bottom)); }
+.programme-action-sheet { max-height: min(76svh, 560px); overflow-y: auto; padding-bottom: calc(var(--space-xl) + 72px + env(safe-area-inset-bottom)); }
 .session-exception { display: flex; align-items: baseline; justify-content: flex-start; flex-wrap: wrap; gap: 4px 8px; margin: 12px 0 20px; color: var(--text-tertiary); font-size: 13px; }
 .session-exception .text-button { font-size: 13px; }
 .session-exception span { white-space: nowrap; }
