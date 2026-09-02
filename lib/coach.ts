@@ -35,11 +35,16 @@ export function resolveDiscoveryLoad(exercise: Exercise, raw: number, discoveryC
 export function calibrationLoad(exercise: Exercise, current: number, signal: CalibrationSignal, discoveryCount = 0, experience: "beginner" | "intermediate" | "experienced" = "intermediate") {
   const category = progressionProfile(exercise).category;
   const heavy = category === "heavy_plate_compound" || category === "heavy_machine_compound";
+  const rowOrPull = /row|pulldown|pull[- ]?up|pullover/i.test(`${exercise.id} ${exercise.name}`);
+  const dumbbellIsolation = category === "dumbbell_isolation";
   const multiplier = experience === "beginner" ? .7 : experience === "experienced" ? 1.15 : 1;
-  const base = heavy ? ({ very_easy: 40, easy: 25, getting_close: 10, hard: 0, too_hard: -10 }[signal]) : ({ very_easy: 12, easy: 8, getting_close: 4, hard: 0, too_hard: -4 }[signal]);
+  const base = heavy ? ({ very_easy: rowOrPull ? 7.5 : 40, easy: rowOrPull ? 5 : 25, getting_close: rowOrPull ? 2.5 : 10, hard: 0, too_hard: -10 }[signal]) : ({ very_easy: dumbbellIsolation ? 2 : 12, easy: dumbbellIsolation ? 2 : 8, getting_close: dumbbellIsolation ? 2 : 4, hard: 0, too_hard: -4 }[signal]);
   const fatigueDiscount = discoveryCount >= 2 ? .8 : 1;
   const delta = Math.round(base * multiplier * fatigueDiscount);
-  return delta < 0 ? snapAvailableLoad(Math.max(0, current + delta), exercise, "down") : resolveDiscoveryLoad(exercise, Math.max(0, current + delta), discoveryCount);
+  if (delta < 0) return snapAvailableLoad(Math.max(0, current + delta), exercise, "down");
+  const target = Math.max(0, current + delta);
+  if (rowOrPull) return snapAvailableLoad(target, exercise, "up");
+  return resolveDiscoveryLoad(exercise, target, discoveryCount);
 }
 export type SessionAssessment = "progress" | "hold" | "reduce" | "very_easy";
 export function assessWorkingSession(exercise: Exercise, sets: LoggedSet[]): SessionAssessment {

@@ -1,6 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { assessWorkingSession, calibrationConfidence, calibrationLoad, calibrationSignal, cardioRecommendation, effortSignal, evaluateSet, initialCoachPlan, nextExerciseRecommendation, practicalLoad, resolveDiscoveryLoad, restFor, startingPrescription, workingWeight } from "../lib/coach";
+
+test("easy calibration uses movement-aware increments", () => {
+  const row = { id: "barbell-row", name: "Barbell Row", target: "4 × 8", sets: 4, restSeconds: 120, purpose: "strength" as const, equipment: "barbell" as const, defaultWorkingWeight: 80 };
+  const curl = { id: "incline-db-curl", name: "Incline Dumbbell Curl", target: "3 × 8–12", sets: 3, restSeconds: 75, purpose: "isolation" as const, equipment: "dumbbell" as const, defaultWorkingWeight: 10 };
+  assert.ok(calibrationLoad(row, 80, "easy") <= 87.5);
+  assert.ok(calibrationLoad(curl, 8, "easy") <= 10);
+  assert.ok(calibrationLoad({ ...curl, id: "hammer-curl", name: "Hammer Curl", defaultWorkingWeight: 12 }, 12, "very_easy") <= 14);
+});
 import { formatWhoopExport } from "../components/whoop-export";
 import type { LoggedSet, Workout } from "../lib/types";
 import { exercisesForSession, mondayExercises } from "../lib/workout";
