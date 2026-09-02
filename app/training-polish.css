@@ -222,6 +222,26 @@ h1 em, .day, .topline button, .text-button, .plan-row b, .coach-callout span { c
 .modal section { background: var(--color-surface); border: 1px solid var(--color-border); }
 .app-nav { padding-bottom: env(safe-area-inset-bottom); }
 
+/* Landing composition follows the supplied R12 reference: a quiet black field,
+   one confident typographic statement, and a single clear action pair. */
+.auth-welcome { position: relative; isolation: isolate; overflow: hidden; align-items: stretch; text-align: left; justify-content: flex-start; padding-top: calc(52px + env(safe-area-inset-top)); padding-bottom: calc(34px + env(safe-area-inset-bottom)); }
+.auth-welcome::before { content: ""; position: absolute; z-index: -1; width: 120vw; height: 62vh; left: -10vw; top: 28vh; background: radial-gradient(ellipse, rgba(132,58,237,.23), transparent 66%); pointer-events: none; }
+.auth-welcome .brand-lockup { margin: 0 0 12vh; align-self: center; }
+.auth-welcome .brand-lockup img { width: 132px; height: 132px; }
+.landing-kicker { color: var(--accent-bright); font-size: 11px; font-weight: 800; letter-spacing: .16em; margin-bottom: var(--space-md); }
+.auth-welcome h1 { font-size: clamp(42px, 12vw, 66px); line-height: .98; letter-spacing: -2.8px; max-width: 11ch; }
+.auth-welcome h1 em { color: var(--accent-bright); font-style: normal; }
+.auth-welcome > p:not(.landing-kicker):not(.landing-note) { max-width: 34ch; margin-top: var(--space-lg); color: var(--text-secondary); font-size: 17px; line-height: 1.45; }
+.welcome-glimpse { margin-top: var(--space-xl); }
+.welcome-glimpse span { background: transparent; border-color: rgba(255,255,255,.14); }
+.auth-welcome-actions { display: grid; gap: 10px; margin-top: var(--space-xl); }
+.auth-welcome-actions a { width: 100%; }
+.auth-welcome-actions .primary { background: linear-gradient(100deg, #9942f2, #b668ff); box-shadow: 0 12px 30px rgba(145,57,231,.28); }
+.landing-note { margin-top: auto; padding-top: var(--space-2xl); text-align: center; color: var(--text-tertiary); font-size: 12px; }
+.loading-indicator { width: 28px; height: 3px; border-radius: 999px; background: linear-gradient(90deg, transparent, var(--accent-bright), transparent); animation: loading-sweep 1.2s ease-in-out infinite; }
+@keyframes loading-sweep { 0%,100% { opacity: .25; transform: scaleX(.55); } 50% { opacity: 1; transform: scaleX(1); } }
+@media (prefers-reduced-motion: reduce) { .loading-indicator { animation: none; opacity: .7; } }
+
 /* Shared product geometry: one rhythm for every module, from training to future nutrition. */
 :root {
   --space-xs: 6px;
