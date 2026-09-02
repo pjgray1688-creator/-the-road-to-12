@@ -12,6 +12,7 @@ import type { Workout } from "@/lib/types";
 import { NavigationRow, ProgressBar } from "@/components/ui";
 import { ProgrammeCoachActions } from "@/components/programme-coach-actions";
 import { legacyProgrammeSnapshot } from "@/lib/legacy-programme";
+import { resolveWeekSchedule, resolveTodayOccurrence } from "@/lib/schedule-resolver";
 
 type WhoopState = { configured?: boolean; connected?: boolean; lastSyncAt?: string; latest?: RecoverySnapshot | null; error?: string };
 export function DashboardFoundation({ workoutHistory }: { workoutHistory?: Workout[] } = {}) {
@@ -28,7 +29,7 @@ export function DashboardFoundation({ workoutHistory }: { workoutHistory?: Worko
   const [timezone] = useState(() => data.timezone ?? (typeof window === "undefined" ? "Europe/London" : (Intl.DateTimeFormat().resolvedOptions().timeZone || "Europe/London")));
   const now = new Date();
   const localToday = localDateParts(now, timezone);
-  const generated = loadGeneratedProgramme(); const programmeWeek = generated?.week ?? currentWeek; const programmeBlock = generated?.block ?? currentBlock; const programmeName = generated?.name ?? "Strength + Fat Loss"; const today = resolveToday(programmeWeek, timezone, now);
+  const generated = loadGeneratedProgramme(); const programmeWeek = generated?.week ?? currentWeek; const programmeBlock = generated?.block ?? currentBlock; const programmeName = generated?.name ?? "Strength + Fat Loss"; const productSchedule = resolveWeekSchedule(programmeWeek, data, timezone, now); const todayOccurrence = resolveTodayOccurrence(programmeWeek, data, timezone, now); const today = { ...localToday, session: todayOccurrence?.session ?? resolveToday(programmeWeek, timezone, now).session };
   const localSnapshot = useMemo(() => latestWhoopSnapshot(data.recoverySnapshots ?? [], localToday.date)?.record, [data.recoverySnapshots, localToday.date]);
   const recoverySnapshot = whoop.latest ?? localSnapshot;
   const isToday = recoverySnapshot?.date === localToday.date;
