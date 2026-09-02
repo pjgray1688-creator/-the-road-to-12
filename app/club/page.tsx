@@ -2,24 +2,20 @@ import { redirect } from "next/navigation";
 import { serverSupabase } from "@/lib/supabase-server";
 import { AppNav } from "@/components/app-nav";
 import { AppShell, NavigationRow, Surface } from "@/components/ui";
-import { madhouseFixture, memoryClubRepository } from "@/lib/club-repository";
+import { clubRepository } from "@/lib/club-repository";
 import { resolveOrganisationTheme } from "@/lib/club";
 
-/** Club remains capability-gated until the reviewed migration is applied. */
+/** Club remains explicitly capability-gated even though its schema is installed. */
 export default async function ClubPage() {
   const supabase = await serverSupabase();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/account?mode=signIn");
-  let authorised = false; let organisationName = "R12 Club";
-  const localRepository = process.env.NODE_ENV !== "production" ? memoryClubRepository() : undefined;
-  if (localRepository) { const organisation = (await localRepository.listOrganisations()).find(item => item.id === madhouseFixture.id); if (organisation) { authorised = true; organisationName = resolveOrganisationTheme(organisation).organisationName; } }
-  if (process.env.R12_CLUB_SCHEMA_ENABLED === "true") {
-    const { data: member } = await supabase.from("club_members").select("role, organisation_id, club_organisations(name)").eq("user_id", user.id).eq("active", true).in("role", ["gym_staff", "gym_admin", "owner"]).maybeSingle();
-    authorised = Boolean(member);
-    const organisation = Array.isArray(member?.club_organisations) ? member.club_organisations[0] : member?.club_organisations;
-    if (organisation && typeof organisation === "object" && "name" in organisation && typeof organisation.name === "string") organisationName = organisation.name;
-  }
+  let repository; try { repository = clubRepository(supabase); } catch { repository = undefined; }
+  if (!repository) return <AppShell className="module-page club-page"><Surface><span className="eyebrow">R12 CLUB</span><h1>Club access</h1><p className="muted">Your account does not have club-management access yet.</p></Surface><AppNav /></AppShell>;
+  const organisations = await repository.listOrganisations(); let selectedOrganisation: (typeof organisations)[number] | undefined = organisations[0]; let members = [] as Awaited<ReturnType<typeof repository.listMembers>>;
+  if (process.env.NODE_ENV === "production") { const memberSets = await Promise.all(organisations.map(organisation => repository.listMembers(organisation.id))); const organisationIndex = memberSets.findIndex(items => items.some(member => member.userId === user.id && ["gym_staff", "gym_admin", "owner"].includes(member.role))); selectedOrganisation = organisationIndex >= 0 ? organisations[organisationIndex] : undefined; members = organisationIndex >= 0 ? memberSets[organisationIndex] : []; } else if (selectedOrganisation) members = await repository.listMembers(selectedOrganisation.id);
+  const authorised = Boolean(selectedOrganisation); const organisationName = resolveOrganisationTheme(selectedOrganisation).organisationName;
   if (!authorised) return <AppShell className="module-page club-page"><Surface><span className="eyebrow">R12 CLUB</span><h1>Club access</h1><p className="muted">Your account does not have club-management access yet.</p></Surface><AppNav /></AppShell>;
-  const products = localRepository ? await localRepository.listProducts(madhouseFixture.id) : []; const locations = localRepository ? await localRepository.listLocations(madhouseFixture.id) : [];
-  return <AppShell className="module-page club-page"><header className="page-header"><div><p className="eyebrow">R12 CLUB</p><h1>{organisationName}</h1><p className="page-header-description">Local fixture workspace · production data remains disabled.</p></div></header><Surface><span className="eyebrow">OVERVIEW</span><NavigationRow label="Members" detail="No fixture members created" /><NavigationRow label="Memberships" detail="Assignments are available through the repository" /><NavigationRow label="Products" detail={`${products.length} Madhouse fixture products`} /><NavigationRow label="Locations" detail={`${locations.length} configured locations`} /></Surface><Surface><span className="eyebrow">LOCATIONS</span>{locations.map(location => <NavigationRow key={location.id} label={location.name} detail={location.active ? "Active location" : "Inactive location"} />)}</Surface><Surface><span className="eyebrow">PRODUCTS</span>{products.map(product => <NavigationRow key={product.id} label={product.name} detail={`£${(product.priceMinor / 100).toFixed(2)} · ${product.sellable ? "Sellable" : "Archived"}`} />)}</Surface><AppNav /></AppShell>;
+  const [products, locations] = await Promise.all([repository.listProducts(selectedOrganisation!.id), repository.listLocations(selectedOrganisation!.id)]);
+  return <AppShell className="module-page club-page"><header className="page-header"><div><p className="eyebrow">R12 CLUB</p><h1>{organisationName}</h1><p className="page-header-description">{process.env.NODE_ENV === "production" ? "Organisation workspace" : "Local fixture workspace"}</p></div></header><Surface><span className="eyebrow">OVERVIEW</span><NavigationRow label="Members" detail={`${members.length} organisation members`} /><NavigationRow label="Memberships" detail="Assignments are available through the repository" /><NavigationRow label="Products" detail={`${products.length} configured products`} /><NavigationRow label="Locations" detail={`${locations.length} configured locations`} /></Surface><Surface><span className="eyebrow">LOCATIONS</span>{locations.map(location => <NavigationRow key={location.id} label={location.name} detail={location.active ? "Active location" : "Inactive location"} />)}</Surface><Surface><span className="eyebrow">PRODUCTS</span>{products.map(product => <NavigationRow key={product.id} label={product.name} detail={`£${(product.priceMinor / 100).toFixed(2)} · ${product.sellable ? "Sellable" : "Archived"}`} />)}</Surface><AppNav /></AppShell>;
 }
