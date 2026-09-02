@@ -3,6 +3,7 @@ import { useState } from "react";
 import { activeWeek } from "@/lib/active-programme";
 import { planMissedSessionSalvage, type SalvageProposal } from "@/lib/session-outcomes";
 import { occurrenceDateForDay, occurrenceKey, resolveToday } from "@/lib/schedule";
+import { resolveWeekSchedule } from "@/lib/schedule-resolver";
 import { loadActiveWorkout, loadData, saveData } from "@/lib/storage";
 import { defaultTrainingProfile } from "@/lib/training-profile";
 import { allExercises } from "@/lib/workout";
@@ -16,14 +17,17 @@ export function MissedSessionAction() {
   const today = resolveToday(activeWeek(), timezone);
   if ((!data.generatedProgramme && !data.trainingProfile) || today.session.status === "rest" || loadActiveWorkout()) return null;
   const overrides = data.sessionStatusOverrides ?? {};
-  const priorMiss = activeWeek().filter(item => item.status !== "rest" && item.day <= today.day).map(item => ({ session: item, date: occurrenceDateForDay(new Date(`${today.date}T12:00:00Z`), timezone, item.day) })).reverse().find(item => overrides[occurrenceKey(item.session.id, item.date)]?.status === "missed" || (overrides[item.session.id]?.status === "missed" && item.session.day < today.day));
+  const canonicalWeek = resolveWeekSchedule(activeWeek(), data, timezone, new Date(`${today.date}T12:00:00Z`));
+  const priorMiss = canonicalWeek.occurrences.filter(item => item.scheduledDate <= today.date).map(item => ({ session: item.session, date: item.scheduledDate })).reverse().find(item => overrides[occurrenceKey(item.session.id, item.date)]?.status === "missed" || (overrides[item.session.id]?.status === "missed" && item.session.day < today.day));
   const reviewSession = priorMiss?.session ?? today.session;
   const reviewDate = priorMiss?.date ?? today.date;
   const status = overrides[occurrenceKey(today.session.id, today.date)]?.status ?? (today.session.id === reviewSession.id ? overrides[today.session.id]?.status : undefined) ?? (priorMiss ? "missed" : undefined);
   const plan = (reasonOverride?: string) => {
     const recovery = data.recoverySnapshots?.filter(item => item.source === "whoop" && item.date === today.date).sort((a, b) => `${a.date}${a.providerTimestamp ?? ""}`.localeCompare(`${b.date}${b.providerTimestamp ?? ""}`)).at(-1);
     const reason = reasonOverride ?? overrides[occurrenceKey(reviewSession.id, reviewDate)]?.note ?? overrides[reviewSession.id]?.note;
-    return planMissedSessionSalvage(reviewSession, activeWeek().filter(item => item.day > reviewSession.day && item.status === "planned"), data.workouts, data.trainingProfile ?? defaultTrainingProfile, recovery, reason);
+    const canonical = resolveWeekSchedule(activeWeek(), data, timezone, new Date(`${reviewDate}T12:00:00Z`));
+    const remaining = canonical.occurrences.filter(item => item.scheduledDate > reviewDate && item.session.status === "planned").map(item => ({ ...item.session, scheduledDate: item.scheduledDate, occurrenceId: item.occurrenceId }));
+    return planMissedSessionSalvage(reviewSession, remaining, data.workouts, data.trainingProfile ?? defaultTrainingProfile, recovery, reason);
   };
   const review = () => setSalvage(plan());
   const saveMissed = (reason?: string) => {
@@ -33,7 +37,7 @@ export function MissedSessionAction() {
   const apply = () => {
     if (!salvage) return;
     const existing = data.salvageAdjustments ?? [];
-    const additions = salvage.additions.map(addition => ({ ...addition, source: reviewSession.id, scheduledDate: occurrenceDateForDay(new Date(`${reviewDate}T12:00:00Z`), timezone, activeWeek().find(item => item.id === addition.sessionId)?.day ?? today.day) })).filter(addition => !existing.some(item => item.source === addition.source && item.sessionId === addition.sessionId && item.scheduledDate === addition.scheduledDate && item.exerciseId === addition.exerciseId));
+    const additions = salvage.additions.map(addition => ({ ...addition, source: reviewSession.id, scheduledDate: addition.scheduledDate ?? occurrenceDateForDay(new Date(`${reviewDate}T12:00:00Z`), timezone, activeWeek().find(item => item.id === addition.sessionId)?.day ?? today.day) })).filter(addition => !existing.some(item => item.source === addition.source && item.sessionId === addition.sessionId && item.scheduledDate === addition.scheduledDate && item.exerciseId === addition.exerciseId));
     const next = { ...data, salvageAdjustments: [...existing, ...additions] };
     saveData(next); setData(next); setSalvage(null);
   };

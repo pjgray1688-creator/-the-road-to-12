@@ -59,6 +59,17 @@ test("generated programme metadata is shared by Dashboard and workout player", (
   assert.match(player, /resolveToday\(currentWeek/);
 });
 
+test("workout launch carries the canonical dated occurrence identity", () => {
+  const player = fs.readFileSync("components/training-app.tsx", "utf8");
+  assert.match(player, /scheduledOccurrenceId/);
+  assert.match(player, /resolveTodayOccurrence/);
+});
+test("Training current-week view renders canonical dated occurrences", () => {
+  const training = fs.readFileSync("app/training/page.tsx", "utf8");
+  assert.match(training, /resolveWeekSchedule/);
+  assert.match(training, /occurrence\.occurrenceId/);
+});
+
 test("Account and onboarding preserve mobile-safe, non-destructive programme navigation", () => {
   const accountCss = fs.readFileSync("app/training-polish.css", "utf8");
   const onboarding = fs.readFileSync("app/onboarding/page.tsx", "utf8");

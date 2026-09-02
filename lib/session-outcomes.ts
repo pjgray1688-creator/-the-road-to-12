@@ -13,14 +13,15 @@ export function canCompleteWorkout(workout: Pick<Workout, "sets" | "cardio">) { 
 export function endWorkoutEarly(workout: Workout): Workout { return { ...workout, status: "partial", outcome: "partial", completedAt: new Date().toISOString() }; }
 export function markPlannedSessionMissed(session: PlannedSession, reason?: string): PlannedSession { return { ...session, status: "missed", reason: reason as PlannedSession["reason"] }; }
 export type AdherenceSummary = { planned: number; completed: number; partial: number; missed: number };
-export function adherenceSummary(sessions: PlannedSession[], workouts: Workout[], overrides: Record<string, { status: SessionStatus }> = {}): AdherenceSummary {
+type DatedSession = { session: PlannedSession; occurrenceId: string; scheduledDate: string; status?: SessionStatus | "unavailable" | "rescheduled" | "rest" };
+export function adherenceSummary(sessions: PlannedSession[] | DatedSession[], workouts: Workout[], overrides: Record<string, { status: SessionStatus }> = {}): AdherenceSummary {
   const result: AdherenceSummary = { planned: 0, completed: 0, partial: 0, missed: 0 };
-  for (const session of sessions) { const workout = workouts.find(w => w.plannedSessionId === session.id && sessionOutcome(w) !== "discarded"); const status = overrides[session.id]?.status ?? session.status; if (status === "missed") result.missed++; else if (workout && sessionOutcome(workout) === "partial") result.partial++; else if (workout && sessionOutcome(workout) === "completed") result.completed++; else result.planned++; }
+  for (const entry of sessions) { const dated = "session" in entry; const session = dated ? entry.session : entry; const key = dated ? entry.occurrenceId : session.id; const workout = workouts.find(w => sessionOutcome(w) !== "discarded" && w.plannedSessionId === session.id && (!dated || w.scheduledDate === entry.scheduledDate)); const status = overrides[key]?.status ?? (dated ? entry.status : session.status); if (status === "missed") result.missed++; else if (workout && sessionOutcome(workout) === "partial") result.partial++; else if (workout && sessionOutcome(workout) === "completed") result.completed++; else if (!['unavailable', 'rest'].includes(status as string)) result.planned++; }
   return result;
 }
 export type SalvageEvidenceCode = "MISSED_SESSION" | "PARTIAL_SESSION" | "RECOVERY" | "WEEKLY_VOLUME" | "FATIGUE" | "EXERCISE_ROLE" | "PROGRAMME_PRIORITY" | "SCHEDULE_CONSTRAINT" | "COMPATIBLE_EXPOSURE" | "NO_COMPATIBLE_SLOT";
 export type SalvageEvidence = { code: SalvageEvidenceCode; detail: string };
-export type SalvageProposal = { title: string; detail: string; additions: Array<{ sessionId: string; exerciseId: string; sets: number }>; notRecovered?: string[]; evidence: SalvageEvidence[]; requiresApproval: true };
+export type SalvageProposal = { title: string; detail: string; additions: Array<{ sessionId: string; exerciseId: string; sets: number; scheduledDate?: string; occurrenceId?: string }>; notRecovered?: string[]; evidence: SalvageEvidence[]; requiresApproval: true };
 const keyForMuscle = (muscle: string) => ({ lats: "back_width", "upper back": "back_thickness", "front delts": "shoulders", "lateral delts": "shoulders", "rear delts": "shoulders", biceps: "arms", triceps: "arms", abs: "core" }[muscle] ?? muscle);
 const reasonText = (reason?: string) => reason?.toLowerCase() ?? "";
 export function planMissedSessionSalvage(missed: PlannedSession, remaining: PlannedSession[], workouts: Workout[], profile: import("./training-profile").TrainingProfile, recovery?: RecoverySnapshot, missedReason?: string): SalvageProposal {
@@ -59,7 +60,7 @@ export function planMissedSessionSalvage(missed: PlannedSession, remaining: Plan
   for (const match of candidate.matches) {
     const key = keyForMuscle(match.item.taxonomy.muscles[0]);
     if (additions.length >= limit || used.has(match.candidate.exercise.id) || (volumes[key] ?? 0) >= cap) continue;
-    used.add(match.candidate.exercise.id); additions.push({ sessionId: candidate.session.id, exerciseId: match.candidate.exercise.id, sets: 1 });
+    used.add(match.candidate.exercise.id); const occurrence = candidate.session as PlannedSession & { scheduledDate?: string; occurrenceId?: string }; additions.push({ sessionId: candidate.session.id, exerciseId: match.candidate.exercise.id, sets: 1, ...(occurrence.scheduledDate ? { scheduledDate: occurrence.scheduledDate } : {}), ...(occurrence.occurrenceId ? { occurrenceId: occurrence.occurrenceId } : {}) });
   }
   if (!additions.length) {
     evidence.push({ code: "WEEKLY_VOLUME", detail: "Remaining exposure is already at the planned upper boundary." });

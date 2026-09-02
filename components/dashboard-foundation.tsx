@@ -33,7 +33,7 @@ export function DashboardFoundation({ workoutHistory }: { workoutHistory?: Worko
   const localSnapshot = useMemo(() => latestWhoopSnapshot(data.recoverySnapshots ?? [], localToday.date)?.record, [data.recoverySnapshots, localToday.date]);
   const recoverySnapshot = whoop.latest ?? localSnapshot;
   const isToday = recoverySnapshot?.date === localToday.date;
-  const programmeSummary = programmeSnapshot(programmeName, programmeBlock, programmeWeek, workoutHistory ?? data.workouts, Boolean(generated));
+  const programmeSummary = programmeSnapshot(programmeName, programmeBlock, programmeWeek, workoutHistory ?? data.workouts, Boolean(generated), productSchedule.occurrences);
   const snapshot = { ...programmeSummary, ...(recoverySnapshot ?? {}) };
   const completedInBlock = generated ? programmeSummary.completedSessions : uniqueCompletedSessionCount(workoutHistory ?? data.workouts, programmeBlock.startDate, programmeBlock.endDate, timezone);
   const applySnapshots = (snapshots: RecoverySnapshot[]) => { if (!snapshots.length) return; const byId = new Map((data.recoverySnapshots ?? []).map(item => [item.id, item])); snapshots.forEach(item => byId.set(item.id, item)); const next = { ...data, recoverySnapshots: [...byId.values()] }; saveData(next); setData(next); setWhoop(value => ({ ...value, latest: snapshots.at(-1) })); };
