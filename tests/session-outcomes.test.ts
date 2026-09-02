@@ -5,6 +5,8 @@ import { adherenceSummary, canCompleteWorkout, endWorkoutEarly, planMissedSessio
 import type { PlannedSession } from "../lib/domain";
 import { currentWeek } from "../lib/domain";
 import type { Workout } from "../lib/types";
+import { taxonomyForExercise } from "../lib/programming-v2";
+import { allExercises } from "../lib/workout";
 
 const session = (id: string, name = id): PlannedSession => ({ id, day: 1, name, status: "planned", exerciseIds: ["leg-press", "hamstring-curl"] });
 const workout = (id: string, status: Workout["status"] = "completed"): Workout => ({ id, name: id, plannedSessionId: id, startedAt: "2026-09-01T10:00:00Z", completedAt: status === "completed" ? "2026-09-01T11:00:00Z" : undefined, status, sets: [{ id: `${id}-set`, exerciseId: "leg-press", exerciseName: "Leg Press", weight: 80, reps: 8, kind: "working", createdAt: "2026-09-01T10:30:00Z", rir: 2 }], substitutions: {}, notes: [] });
@@ -27,15 +29,45 @@ test("missed-session salvage is a bounded approval-only proposal", () => {
   assert.ok(proposal);
   assert.equal(proposal?.requiresApproval, true);
   assert.ok((proposal?.additions.length ?? 0) <= 2);
-  assert.equal(planMissedSessionSalvage(session("missed"), [], [], { goal: "muscle_gain", experience: "intermediate", daysPerWeek: 4, sessionMinutes: 60, environment: "full_gym", limitations: [], includeCardio: false }), undefined);
+  assert.equal(planMissedSessionSalvage(session("missed"), [], [], { goal: "muscle_gain", experience: "intermediate", daysPerWeek: 4, sessionMinutes: 60, environment: "full_gym", limitations: [], includeCardio: false }).additions.length, 0);
 });
 
 test("Original Heavy Lower review produces a real proposal or explicit no-salvage result", () => {
   const missed = currentWeek.find(item => item.id === "tue")!;
   const later = currentWeek.filter(item => item.day > missed.day && item.status === "planned");
   const result = planMissedSessionSalvage(missed, later, [], { goal: "general_fitness", experience: "experienced", daysPerWeek: 5, sessionMinutes: 90, environment: "full_gym", limitations: [], includeCardio: false });
-  assert.ok(result === undefined || result.title.length > 0);
-  if (result) assert.match(result.detail, /missed|add/i);
+  assert.ok(result.title.length > 0);
+  assert.match(result.detail, /missed|add|compatible|volume/i);
+});
+
+test("salvage evaluates the whole week and ranks later compatible exposure", () => {
+  const missed = currentWeek.find(item => item.id === "tue")!;
+  const remaining = currentWeek.filter(item => item.day > missed.day && item.status === "planned");
+  const result = planMissedSessionSalvage(missed, remaining, [], { goal: "general_fitness", experience: "experienced", daysPerWeek: 5, sessionMinutes: 90, environment: "full_gym", limitations: [], includeCardio: false });
+  assert.ok(result.additions.length > 0);
+  assert.ok(result.additions.every(item => item.sessionId === "sat"));
+  assert.ok(result.evidence.some(item => item.code === "COMPATIBLE_EXPOSURE"));
+  assert.ok(result.notRecovered?.some(name => /trap-bar/i.test(name)));
+});
+
+test("recovery and missed reason constrain later salvage without blanket blocking it", () => {
+  const missed = currentWeek.find(item => item.id === "tue")!;
+  const remaining = currentWeek.filter(item => item.day > missed.day && item.status === "planned");
+  const profile = { goal: "general_fitness" as const, experience: "experienced" as const, daysPerWeek: 5 as const, sessionMinutes: 90 as const, environment: "full_gym" as const, limitations: [], includeCardio: false };
+  const recovery = planMissedSessionSalvage(missed, remaining, [], profile, { id: "r", date: "2026-09-02", origin: "real", source: "whoop", recoveryScore: 19 }, "Recovery / fatigue");
+  const work = planMissedSessionSalvage(missed, remaining, [], profile, { id: "r", date: "2026-09-02", origin: "real", source: "whoop", recoveryScore: 19 }, "Work / time");
+  assert.ok(recovery.additions.length > 0);
+  assert.ok(recovery.additions.length <= work.additions.length);
+  assert.ok(recovery.evidence.some(item => item.code === "RECOVERY"));
+});
+
+test("pain reason prevents blind redistribution and taxonomy maps ROC-IT extension", () => {
+  const missed = currentWeek.find(item => item.id === "tue")!;
+  const remaining = currentWeek.filter(item => item.day > missed.day && item.status === "planned");
+  const result = planMissedSessionSalvage(missed, remaining, [], { goal: "general_fitness", experience: "experienced", daysPerWeek: 5, sessionMinutes: 90, environment: "full_gym", limitations: [], includeCardio: false }, undefined, "Pain / injury");
+  assert.equal(result.additions.length, 0);
+  const extension = allExercises().find(item => item.id === "hoist-roc-it-leg-extension")!;
+  assert.deepEqual(taxonomyForExercise(extension).muscles, ["quads"]);
 });
 
 test("consumer UI exposes explicit missed and partial actions", () => {
@@ -48,7 +80,7 @@ test("consumer UI exposes explicit missed and partial actions", () => {
   assert.doesNotMatch(dashboard, /window\.(confirm|prompt|alert)/);
   assert.match(dashboard, /programme-action-modal/);
   assert.match(dashboard, /Why did you miss it/);
-  assert.match(dashboard, /No catch-up recommended/);
+  assert.match(dashboard, /planMissedSessionSalvage[\s\S]*recovery[\s\S]*reason/);
   assert.match(workout, /START WORKOUT[\s\S]*MissedSessionAction/);
   assert.match(workout, /End workout early/);
   assert.match(workout, /marked Partial/);
