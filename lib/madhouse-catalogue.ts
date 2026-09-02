@@ -55,7 +55,7 @@ export function catalogueProductMatches(existing: ClubProduct, expected: Catalog
 
 /** Exact organisation + product name is the only installed stable reconciliation key.
  * Run deliberately and serially; a future unique product code is recommended. */
-export async function reconcileMadhouseCatalogue(repository: ClubRepository, organisationId = MADHOUSE_PRODUCTION_ORGANISATION_ID): Promise<CatalogueBootstrapResult[]> {
+export async function reconcileMadhouseCatalogue(repository: Pick<ClubRepository, "listProducts" | "createProduct">, organisationId = MADHOUSE_PRODUCTION_ORGANISATION_ID): Promise<CatalogueBootstrapResult[]> {
   const existing = await repository.listProducts(organisationId, true); const results: CatalogueBootstrapResult[] = [];
   for (const definition of madhouseCatalogue) {
     const matches = existing.filter(product => product.name === definition.name);

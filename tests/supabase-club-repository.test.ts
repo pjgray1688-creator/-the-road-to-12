@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { MemoryClubRepository, selectClubRepository } from "../lib/club-repository";
-import { SupabaseClubRepository, mapOrganisation, mapProduct } from "../lib/supabase-club-repository";
+import { SupabaseClubRepository, mapClassBooking, mapClassSession, mapCustomer, mapOrganisation, mapProduct, mapServiceTransaction } from "../lib/supabase-club-repository";
 import { resolveOrganisationTheme, type ClubProduct } from "../lib/club";
 
 type Result = { data: unknown; error: { code?: string; message?: string } | null };
@@ -104,4 +104,43 @@ test("Club page uses the repository boundary and contains no direct Club table q
   const page = readFileSync(new URL("../app/club/page.tsx", import.meta.url), "utf8"); const repository = readFileSync(new URL("../lib/supabase-club-repository.ts", import.meta.url), "utf8");
   assert.doesNotMatch(page, /\.from\(["']club_/); assert.match(page, /clubRepository\(supabase\)/); assert.doesNotMatch(repository, /SUPABASE_SERVICE_ROLE_KEY|madhouseFixture/);
   assert.doesNotMatch(repository, /\.from\("club_(?:products|product_entitlements|memberships|membership_holders|entitlement_grants)"\)\.(?:insert|update|delete|upsert)/);
+});
+
+test("Supabase operational rows map provider-neutral customer, session, booking and transaction contracts", () => {
+  assert.equal(mapCustomer({ id: "c", organisation_id: "o", user_id: null, display_name: "Guest", status: "guest", created_at: "a", updated_at: "b" }).userId, undefined);
+  assert.equal(mapClassSession({ id: "s", organisation_id: "o", location_id: "l", class_type_id: "t", starts_at: "a", ends_at: "b", visibility: "public", status: "scheduled", recurrence_metadata: { series: "future" }, created_at: "a", updated_at: "a" }).recurrenceMetadata?.series, "future");
+  assert.equal(mapClassBooking({ id: "b", organisation_id: "o", session_id: "s", customer_id: "c", status: "confirmed", booked_at: "a", attendance_state: "pending", created_at: "a", updated_at: "a" }).attendanceState, "pending");
+  const transaction = mapServiceTransaction({ id: "x", organisation_id: "o", location_id: "l", service_id: "v", quantity: 1, unit_price_minor: 500, currency: "GBP", payment_status: "paid", payment_method: "wallet", fulfilment_status: "pending", occurred_at: "a", created_at: "a", updated_at: "a" });
+  assert.equal(transaction.paymentStatus, "paid"); assert.equal(transaction.fulfilmentStatus, "pending");
+});
+
+test("Supabase operational reads use RLS tables and all mutations use purpose-specific RPCs", async () => {
+  const row = { id: "c", organisation_id: "o", user_id: null, display_name: "Guest", status: "guest", created_at: "a", updated_at: "a" };
+  const fake = fakeClient({ tables: { club_customers: [{ data: [row], error: null }], club_class_types: [{ data: [], error: null }], club_class_sessions: [{ data: [], error: null }], club_class_bookings: [{ data: [], error: null }], club_services: [{ data: [], error: null }], club_service_transactions: [{ data: [], error: null }] }, rpcs: { club_create_customer: { data: row, error: null }, club_link_customer_user: { data: { ...row, user_id: "u" }, error: null } } });
+  const repository = new SupabaseClubRepository(fake.client);
+  assert.equal((await repository.listCustomers("o"))[0].displayName, "Guest"); await repository.listClassTypes("o"); await repository.listClassSessions("o"); await repository.listClassBookings("o"); await repository.listServices("o"); await repository.listServiceTransactions("o");
+  await repository.createCustomer({ organisationId: "o", displayName: "Guest", status: "guest" }); await repository.linkCustomerUser("c", "u");
+  assert.deepEqual(fake.tableCalls, ["club_customers", "club_class_types", "club_class_sessions", "club_class_bookings", "club_services", "club_service_transactions"]);
+  assert.deepEqual(fake.rpcCalls.map(call => call.name), ["club_create_customer", "club_link_customer_user"]);
+});
+
+test("Supabase class, booking and service mutations never issue direct table writes", async () => {
+  const timestamps = { created_at: "2026-10-01T09:00:00Z", updated_at: "2026-10-01T09:00:00Z" };
+  const classType = { id: "type", organisation_id: "org", name: "Mobility", description: null, default_duration_minutes: 45, default_capacity: 2, active: true, ...timestamps };
+  const session = { id: "session", organisation_id: "org", location_id: "loc", class_type_id: "type", host_user_id: "trainer", title: null, starts_at: "2026-10-02T10:00:00Z", ends_at: "2026-10-02T10:45:00Z", capacity: 2, booking_opens_at: null, booking_closes_at: null, cancellation_closes_at: null, visibility: "public", status: "scheduled", recurrence_metadata: null, ...timestamps };
+  const booking = { id: "booking", organisation_id: "org", session_id: "session", customer_id: "customer", status: "confirmed", booked_at: timestamps.created_at, cancelled_at: null, attendance_state: "pending", entitlement_usage_id: null, payment_reference: null, ...timestamps };
+  const service = { id: "service", organisation_id: "org", location_id: null, name: "Facility service", description: null, category: "facility", duration_minutes: 15, price_minor: 500, currency: "GBP", active: true, ...timestamps };
+  const transaction = { id: "transaction", organisation_id: "org", location_id: "loc", service_id: "service", customer_id: "customer", staff_user_id: "staff", quantity: 1, unit_price_minor: 500, currency: "GBP", payment_status: "pending", payment_method: "manual", payment_reference: null, fulfilment_status: "pending", external_fulfilment_reference: null, occurred_at: timestamps.created_at, metadata: null, ...timestamps };
+  const fake = fakeClient({ rpcs: {
+    club_save_class_type: { data: classType, error: null }, club_save_class_session: { data: session, error: null }, club_create_class_booking: { data: booking, error: null }, club_cancel_class_booking: { data: { ...booking, status: "cancelled", cancelled_at: timestamps.updated_at }, error: null }, club_set_booking_attendance: { data: { ...booking, attendance_state: "checked_in" }, error: null }, club_save_service: { data: service, error: null }, club_create_service_transaction: { data: transaction, error: null }, club_update_service_transaction: { data: { ...transaction, payment_status: "paid", fulfilment_status: "fulfilled" }, error: null },
+  } });
+  const repository = new SupabaseClubRepository(fake.client);
+  await repository.saveClassType({ organisationId: "org", name: "Mobility", defaultDurationMinutes: 45, defaultCapacity: 2, active: true });
+  await repository.saveClassSession({ organisationId: "org", locationId: "loc", classTypeId: "type", hostUserId: "trainer", startsAt: session.starts_at, endsAt: session.ends_at, capacity: 2, visibility: "public", status: "scheduled" });
+  await repository.createClassBooking({ sessionId: "session", customerId: "customer" }); await repository.cancelClassBooking("booking"); await repository.setBookingAttendance("booking", "checked_in");
+  await repository.saveService({ organisationId: "org", name: "Facility service", category: "facility", durationMinutes: 15, priceMinor: 500, currency: "GBP", active: true });
+  await repository.createServiceTransaction({ organisationId: "org", locationId: "loc", serviceId: "service", customerId: "customer", quantity: 1, unitPriceMinor: 500, currency: "GBP", paymentStatus: "pending", paymentMethod: "manual", fulfilmentStatus: "pending", occurredAt: timestamps.created_at });
+  await repository.updateServiceTransaction("transaction", { paymentStatus: "paid", fulfilmentStatus: "fulfilled" });
+  assert.deepEqual(fake.rpcCalls.map(call => call.name), ["club_save_class_type", "club_save_class_session", "club_create_class_booking", "club_cancel_class_booking", "club_set_booking_attendance", "club_save_service", "club_create_service_transaction", "club_update_service_transaction"]);
+  assert.equal(fake.tableCalls.length, 0);
 });

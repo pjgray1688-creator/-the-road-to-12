@@ -40,7 +40,7 @@ test("Golden Ticket and Couples definitions remain assignment-ready without assi
   const couples = byName("Couples Membership"); assert.equal(couples.kind, "membership"); assert.equal(couples.billing, "recurring"); assert.equal(entitlement(couples, "gym_access")?.scope, "future_locations");
 });
 
-class CatalogueRepository implements ClubRepository {
+class CatalogueRepository implements Pick<ClubRepository, "listProducts" | "createProduct"> {
   creates: Array<Omit<ClubProduct, "id">> = []; updates = 0; assignments = 0;
   constructor(public products: ClubProduct[] = [], private readonly rejectCreates = false) {}
   async listOrganisations() { return []; } async listLocations() { return []; } async listMembers() { return []; }
