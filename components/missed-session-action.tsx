@@ -10,11 +10,11 @@ import { allExercises } from "@/lib/workout";
 
 const exerciseName = (id: string) => allExercises().find(item => item.id === id)?.name ?? "compatible accessory work";
 
-export function MissedSessionAction() {
+export function MissedSessionAction({ occurrence }: { occurrence?: ReturnType<typeof resolveToday> } = {}) {
   const [data, setData] = useState(() => loadData());
   const [salvage, setSalvage] = useState<SalvageProposal | null>(null); const [confirmOpen, setConfirmOpen] = useState(false); const [reasonOpen, setReasonOpen] = useState(false);
   const timezone = data.timezone ?? (typeof window === "undefined" ? "Europe/London" : Intl.DateTimeFormat().resolvedOptions().timeZone || "Europe/London");
-  const today = resolveToday(activeWeek(), timezone);
+  const today = occurrence ?? resolveToday(activeWeek(), timezone);
   if ((!data.generatedProgramme && !data.trainingProfile) || today.session.status === "rest" || loadActiveWorkout()) return null;
   const overrides = data.sessionStatusOverrides ?? {};
   const canonicalWeek = resolveWeekSchedule(activeWeek(), data, timezone, new Date(`${today.date}T12:00:00Z`));
