@@ -1,6 +1,6 @@
 import type { RecoverySnapshot } from "./domain";
 
-export type RecoveryGuidance = { band: "low" | "caution" | "moderate" | "good" | "strong" | "unknown"; message: string; todayScore?: number; yesterdayScore?: number; trend?: "improving" | "declining" | "steady" };
+export type RecoveryGuidance = { band: "low" | "caution" | "moderate" | "good" | "strong" | "subjective" | "unknown"; message: string; todayScore?: number; yesterdayScore?: number; trend?: "improving" | "declining" | "steady" };
 
 const previousDate = (date: string) => { const value = new Date(`${date}T12:00:00Z`); value.setUTCDate(value.getUTCDate() - 1); return value.toISOString().slice(0, 10); };
 
@@ -9,7 +9,13 @@ export function recoveryGuidance(snapshots: RecoverySnapshot[], today: string, e
   const records = snapshots.filter(item => item.source === "whoop" && item.recoveryScore !== undefined).sort((a, b) => `${a.date}${a.providerTimestamp ?? ""}`.localeCompare(`${b.date}${b.providerTimestamp ?? ""}`));
   const current = explicit?.recoveryScore !== undefined ? explicit : records.find(item => item.date === today);
   const score = current?.recoveryScore;
-  if (score === undefined) return { band: "unknown", message: "No recovery score is available today. Use your planned effort and adjust by feel." };
+  if (score === undefined) {
+    const checkIn = snapshots.find(item => item.source === "manual" && item.date === today && item.userReported);
+    if (checkIn && ((checkIn.fatigue ?? 0) >= 4 || (checkIn.soreness ?? 0) >= 5)) return { band: "subjective", message: "Your check-in suggests higher fatigue today. Keep training easy and adjust by feel." };
+    if (checkIn && ((checkIn.energy ?? 5) <= 2 || (checkIn.sleepQuality ?? 5) <= 2)) return { band: "subjective", message: "Your check-in suggests limited readiness today. Keep effort conservative." };
+    if (checkIn) return { band: "subjective", message: "Your check-in looks steady today. Use your planned effort and adjust by feel." };
+    return { band: "unknown", message: "No recovery score is available today. Use your planned effort and adjust by feel." };
+  }
   const yesterdayScore = records.find(item => item.date === previousDate(today))?.recoveryScore;
   const prior = records.filter(item => item.date < today).slice(-3).map(item => item.recoveryScore!).filter(value => value !== undefined);
   const baseline = yesterdayScore ?? (prior.length ? prior.reduce((sum, value) => sum + value, 0) / prior.length : undefined);

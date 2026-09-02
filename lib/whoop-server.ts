@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
+export { normalizeWhoopHealthData } from "./health-data";
 
 export const WHOOP_SCOPES = ["offline", "read:recovery", "read:sleep", "read:cycles", "read:workout"];
 export type StoredToken = { accessToken: string; refreshToken?: string; expiresAt: number; scopes: string[] };
