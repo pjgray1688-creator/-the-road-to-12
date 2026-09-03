@@ -52,3 +52,11 @@ test("membership administration exposes linking and fixed-term handling", () => 
   assert.match(assignment, /Fixed term/);
   assert.match(assignment, /Recurring membership/);
 });
+
+test("operations directory and customer profile support unlinked people", () => {
+  const directory = readFileSync("components/club-members-directory.tsx", "utf8");
+  const page = readFileSync("app/club/members/customer/[customerId]/page.tsx", "utf8");
+  assert.match(directory, /No R12 account linked/);
+  assert.match(directory, /customer\/\$\{encodeURIComponent\(customer.id\)\}/);
+  assert.match(page, /ClubMembershipAssignment/);
+});

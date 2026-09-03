@@ -11,7 +11,7 @@ test("member onboarding is repository-backed and avoids fabricated accounts", ()
   assert.match(component, /People without an R12 account are recorded as guests/);
   assert.match(component, /assignMembershipAction/);
   assert.match(actions, /createCustomer/);
-  assert.match(actions, /club_assign_product|assignProduct/);
+  assert.match(actions, /assignMembership|assignProduct/);
   assert.match(actions, /gym_admin.*owner/);
 });
 
