@@ -3,6 +3,7 @@
 .brand-lockup.compact { display: inline-grid; margin: 0; }
 .brand-mark { background: transparent url('/icons/icon-64.png') center / contain no-repeat; color: transparent; clip-path: none; border-radius: 10px; }
 .club-profile-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.club-profile-grid>section:last-child{grid-column:1/-1}@media(max-width:700px){.club-profile-grid{grid-template-columns:1fr}.club-profile-grid>section:last-child{grid-column:auto}}
+.club-stock-grid{display:grid;gap:8px}.club-stock-row{display:grid;grid-template-columns:minmax(220px,1.5fr) repeat(2,minmax(120px,1fr)) auto;gap:14px;align-items:center;padding:14px 16px;border:1px solid var(--club-border,#2b263a);border-radius:10px;background:var(--club-surface,#101118)}.club-stock-row>div,.club-stock-row>span{display:grid;gap:4px}.club-stock-row small{color:var(--muted);font-size:12px}.club-stock-row b{font-size:18px}.club-stock-row button{min-height:38px}.club-stock-grid+.muted{padding:16px 0}@media(max-width:760px){.club-stock-row{grid-template-columns:1fr 1fr}.club-stock-row>div{grid-column:1/-1}.club-stock-row button{grid-column:1/-1}}
 
 /* Shared Club operational language: tenant accents are deliberately limited to identity surfaces. */
 .club-page{--club-accent:var(--r12-purple);--club-accent-soft:var(--r12-purple-soft);--club-surface:#101118;--club-surface-raised:#171522;--club-border:#2b263a;max-width:1180px;margin-inline:auto;padding-inline:clamp(16px,3vw,34px)}

@@ -105,6 +105,16 @@ test("memory cash settlement is full-only, idempotent and records stock sale mov
   await assert.rejects(() => repository.recordCashPayment(other.id, 1000, "cash-1"), /idempotency_conflict/);
 });
 
+test("stock balances are venue-scoped and unknown until a movement is recorded", async () => {
+  const repository = new MemoryClubRepository();
+  repository.commerceProducts.push({ id: "stock-balance", organisationId: "org-madhouse", name: "Creatine", active: true, stockTracked: true, sellPriceMinor: 1500, currency: "GBP", createdAt: "2026-01-01", updatedAt: "2026-01-01" });
+  assert.deepEqual(await repository.listStockBalances("org-madhouse", "loc-rotherham"), []);
+  await repository.adjustInventory({ organisationId: "org-madhouse", locationId: "loc-rotherham", productId: "stock-balance", movementType: "delivery", quantityDelta: 7, reason: "Opening stock", idempotencyKey: "opening-1" });
+  const rotherham = await repository.listStockBalances("org-madhouse", "loc-rotherham");
+  assert.equal(rotherham[0]?.onHand, 7); assert.equal(rotherham[0]?.availableToSell, 7);
+  assert.deepEqual(await repository.listStockBalances("org-madhouse", "loc-carlton"), []);
+});
+
 test("memory order replays preserve caller/customer ownership and reject key collisions", async () => {
   const repository = new MemoryClubRepository();
   repository.commerceProducts.push({ id: "retail-3", organisationId: "org-madhouse", name: "Water", active: true, stockTracked: false, sellPriceMinor: 100, currency: "GBP", createdAt: "2026-01-01", updatedAt: "2026-01-01" });
