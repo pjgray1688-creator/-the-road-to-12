@@ -17,12 +17,16 @@ export async function reconcileCashAction(input: { organisationId: string; decla
   try { const value = await context(input.organisationId); if (!value || !["gym_staff", "gym_admin", "owner"].includes(value.member.role) || !(await value.repository.hasCapability(value.organisation.id, value.userId, "cash.reconcile"))) return { ok: false, error: "You don’t have permission to reconcile cash." }; const declaration = await value.repository.reconcileCash(input.declarationId, input.status, input.notes, input.discrepancyMinor); await value.repository.appendAuditEvent({ organisationId: value.organisation.id, action: input.status === "confirmed" ? "cash.declaration_confirmed" : input.status === "discrepancy" ? "cash.discrepancy_recorded" : "cash.declaration_rejected", targetType: "cash_declaration", targetId: declaration.id, reason: input.notes }); revalidatePath("/club/shop"); revalidatePath("/club/reception"); return { ok: true }; } catch (error) { console.error("[club-shop] cash reconciliation failed", { operation: "reconcile_cash" }); return { ok: false, error: "Cash declaration couldn’t be updated." }; }
 }
 
-export async function adjustStockAction(input: { organisationId: string; locationId: string; productId: string; quantityDelta: number; reason: string }): Promise<{ ok: true } | { ok: false; error: string }> {
+export async function adjustStockAction(input: { organisationId: string; locationId: string; productId: string; quantityDelta?: number; countedQuantity?: number; reason: string }): Promise<{ ok: true } | { ok: false; error: string }> {
   try {
     const value = await context(input.organisationId);
     if (!value || !["gym_staff", "gym_admin", "owner"].includes(value.member.role) || !(await value.repository.hasCapability(value.organisation.id, value.userId, "inventory.adjust"))) return { ok: false, error: "You don’t have permission to adjust stock." };
-    if (!Number.isInteger(input.quantityDelta) || input.quantityDelta === 0 || !input.locationId || !input.productId || !input.reason.trim()) return { ok: false, error: "Enter a quantity and reason for this stock movement." };
-    await value.repository.adjustInventory({ organisationId: value.organisation.id, locationId: input.locationId, productId: input.productId, movementType: "manual_adjustment", quantityDelta: input.quantityDelta, reason: input.reason.trim(), idempotencyKey: crypto.randomUUID() });
+    const counted = input.countedQuantity !== undefined;
+    const countedQuantity = input.countedQuantity;
+    if ((!counted && (!Number.isInteger(input.quantityDelta) || input.quantityDelta === 0)) || (counted && (countedQuantity === undefined || !Number.isInteger(countedQuantity) || countedQuantity < 0)) || !input.locationId || !input.productId || !input.reason.trim()) return { ok: false, error: "Enter a valid stock quantity and reason." };
+    let quantityDelta = input.quantityDelta ?? 0;
+    if (counted) { const current = (await value.repository.listStockBalances(value.organisation.id, input.locationId)).find(item => item.productId === input.productId)?.onHand; quantityDelta = input.countedQuantity! - (current ?? 0); if (quantityDelta === 0) return { ok: true }; }
+    await value.repository.adjustInventory({ organisationId: value.organisation.id, locationId: input.locationId, productId: input.productId, movementType: counted ? "stocktake_adjustment" : "manual_adjustment", quantityDelta, reason: input.reason.trim(), idempotencyKey: crypto.randomUUID() });
     await value.repository.appendAuditEvent({ organisationId: value.organisation.id, action: "inventory.adjusted", targetType: "commerce_product", targetId: input.productId, reason: input.reason.trim() });
     revalidatePath("/club/shop");
     return { ok: true };
