@@ -14,6 +14,9 @@ test("induction migration is additive, disabled by default and organisation scop
   assert.match(migration, /revoke all on public\.club_induction_policies[^;]+from public, anon, authenticated/i);
   assert.match(migration, /appointment_extension_enabled/i);
   assert.match(migration, /requires_reacknowledgement/i);
+  assert.match(migration, /unique \(id, organisation_id\)/i);
+  assert.match(migration, /foreign key \(policy_id, organisation_id\) references public\.club_induction_policies\(id, organisation_id\)/i);
+  assert.match(migration, /foreign key \(version_id, organisation_id\) references public\.club_induction_versions\(id, organisation_id\)/i);
 });
 
 test("induction state and access integration use authoritative RPC boundaries", () => {
@@ -32,6 +35,8 @@ test("induction state and access integration use authoritative RPC boundaries", 
   assert.match(migration, /set search_path=pg_catalog,public/i);
   assert.match(migration, /revoke all on function public\.club_get_member_induction_state/i);
   assert.match(migration, /grant execute on function public\.club_get_member_induction_state[^;]+to authenticated/i);
+  assert.match(migration, /revoke all on function public\.club_check_member_location_access_base[^;]+from public,anon,authenticated/i);
+  assert.doesNotMatch(migration, /grant execute on function public\.club_check_member_location_access_base/i);
 });
 
 test("induction lifecycle keeps completion and appointment state auditable", () => {
@@ -41,6 +46,12 @@ test("induction lifecycle keeps completion and appointment state auditable", () 
   assert.match(migration, /unique index if not exists club_induction_bookings_one_active_idx/i);
   assert.match(migration, /verified_by uuid references auth\.users/i);
   assert.match(migration, /p_status not in \('completed','cancelled','no_show'\)/i);
+  assert.match(migration, /'available_routes',v_available_routes/i);
+  assert.match(migration, /v_route:=v_completion\.route/i);
+  assert.match(migration, /v_anchor:=greatest\(coalesce\(v_anchor,p_at\),v_version\.effective_at\)/i);
+  assert.match(migration, /if not found then return jsonb_build_object\('policy'/i);
+  assert.match(migration, /v\.effective_at<=now()/i);
+  assert.match(migration, /v_access:=public\.check_member_location_access_base|v_access:=public\.club_check_member_location_access_base/i);
 });
 
 test("memory repository keeps induction disabled until configured", async () => {
