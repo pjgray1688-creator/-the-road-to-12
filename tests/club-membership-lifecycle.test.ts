@@ -21,6 +21,13 @@ test("membership lifecycle RPCs are protected and linking materialises grants", 
   assert.match(migration, /p_customer_id is not null and v_customer\.user_id is null then insert/);
   assert.match(migration, /v_customer\.user_id is not null/);
   assert.match(migration, /already contains that user|existing\.user_id=p_user_id/);
+  assert.match(migration, /p_customer_id is not null and v_customer\.user_id is null/);
+});
+
+test("couples membership keeps one membership with multiple user holders", () => {
+  const source = readFileSync("lib/club-repository.ts", "utf8");
+  assert.match(source, /holderUserIds\.flatMap/);
+  assert.match(migration, /unnest\(v_users\)/);
 });
 
 test("onboarding does not require an account before recording membership", () => {
