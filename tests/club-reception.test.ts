@@ -16,7 +16,7 @@ test("reception route is operationally protected and keeps organisation context"
   const source = readFileSync("app/club/reception/page.tsx", "utf8");
   assert.match(source, /resolveClubOperationalContext/);
   assert.match(source, /isClubStaffRole\(context\.role\)/);
-  assert.match(source, /searchParams\)\?\.org/);
+  assert.match(source, /params\?\.org/);
   assert.match(source, /listCashDeclarations\(context\.organisation\.id, "declared"\)/);
   assert.match(source, /reception_load/);
   assert.match(source, /Reception couldn’t be loaded/);

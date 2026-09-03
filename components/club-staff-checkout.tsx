@@ -3,8 +3,8 @@ import { useState, useTransition } from "react";
 import type { ClubCommerceProduct } from "@/lib/club-commerce";
 import type { ClubCustomer } from "@/lib/club-operations";
 import { staffCashSaleAction } from "@/app/club/shop/actions";
-export function ClubStaffCheckout({ organisationId, products, locations, customers, canRecordCash }: { organisationId: string; products: ClubCommerceProduct[]; locations: { id: string; name: string; active: boolean }[]; customers: ClubCustomer[]; canRecordCash: boolean }) {
-  const [productId, setProductId] = useState(products[0]?.id ?? ""); const [locationId, setLocationId] = useState(locations.find(item => item.active)?.id ?? ""); const [customerId, setCustomerId] = useState(""); const [quantity, setQuantity] = useState(1); const [message, setMessage] = useState<string>(); const [pending, startTransition] = useTransition();
+export function ClubStaffCheckout({ organisationId, products, locations, customers, canRecordCash, currentLocationId }: { organisationId: string; products: ClubCommerceProduct[]; locations: { id: string; name: string; active: boolean }[]; customers: ClubCustomer[]; canRecordCash: boolean; currentLocationId?: string }) {
+  const [productId, setProductId] = useState(products[0]?.id ?? ""); const [locationId, setLocationId] = useState(currentLocationId ?? locations.find(item => item.active)?.id ?? ""); const [customerId, setCustomerId] = useState(""); const [quantity, setQuantity] = useState(1); const [message, setMessage] = useState<string>(); const [pending, startTransition] = useTransition();
   const submit = () => startTransition(async () => { const result = await staffCashSaleAction({ organisationId, productId, locationId, quantity, customerId: customerId || undefined }); setMessage(result.ok ? "Cash sale recorded." : result.error); if (result.ok) setQuantity(1); });
   if (!canRecordCash) return null;
   if (!products.length) return <section><span className="eyebrow">RECEPTION CHECKOUT</span><p className="muted" style={{ marginTop: 12 }}>No sellable products configured.</p></section>;
