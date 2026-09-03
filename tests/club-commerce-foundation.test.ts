@@ -139,3 +139,14 @@ test("memory commercial ledgers keep money and service units separate", async ()
   assert.equal(usage.quantityDelta, -6); assert.equal(usage.balanceAfter, 94);
   await assert.rejects(() => repository.spendServiceCredit({ accountId: grant.accountId, quantity: 95, idempotencyKey: "use-2" }), /service_credit_insufficient/);
 });
+
+test("cash verification, service-credit replay and promotion target boundaries are explicit", () => {
+  const migration = readFileSync(new URL("../supabase/migrations/2026-09-09-club-cash-credits-promotions.sql", import.meta.url), "utf8");
+  assert.match(migration, /awaiting_cash_verification/); assert.match(migration, /cash_disputed/); assert.match(migration, /club_promotion_targets/);
+  assert.match(migration, /p_order_id is null/); assert.match(migration, /v_order\.currency<>p_currency/); assert.match(migration, /Idempotency key conflict/);
+  assert.match(migration, /club_record_cash_payment[\s\S]*awaiting_cash_verification/); assert.match(migration, /club_spend_balance[\s\S]*awaiting_cash_verification/);
+  assert.match(migration, /v_account\.unit<>p_unit/); assert.match(migration, /v_existing\.quantity_delta<>-p_quantity/);
+  assert.match(migration, /club_save_promotion_targets/); assert.match(migration, /club_redeem_promotion/); assert.match(migration, /Active promotion requires an effect/);
+  assert.match(migration, /Invalid percentage effect/); assert.match(migration, /Invalid fixed effect/); assert.match(migration, /Invalid waiver effect/); assert.match(migration, /Invalid service credit effect/);
+  assert.match(migration, /grant execute on function[\s\S]*to authenticated/);
+});
