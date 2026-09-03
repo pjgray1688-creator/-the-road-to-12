@@ -24,7 +24,8 @@ export async function assignMembershipAction(input: { organisationId: string; pr
       const customers = await context.repository.listCustomers(context.organisation.id);
       if (!customers.some(customer => customer.id === input.customerId)) return { ok: false, error: "Choose a person from this organisation." };
     }
-    const result = await context.repository.assignMembership({ organisationId: context.organisation.id, productId: product.id, customerId: input.customerId, holderUserIds: holders, source: "staff_assignment", validity: { startsAt: new Date(input.startsAt).toISOString(), ...(input.endsAt ? { endsAt: new Date(input.endsAt).toISOString() } : {}) }, idempotencyKey: input.idempotencyKey ?? crypto.randomUUID() });
+    const start = new Date(input.startsAt); const derivedEnd = !input.endsAt && product.durationDays ? new Date(start.getTime() + product.durationDays * 86400000).toISOString() : input.endsAt ? new Date(input.endsAt).toISOString() : undefined;
+    const result = await context.repository.assignMembership({ organisationId: context.organisation.id, productId: product.id, customerId: input.customerId, holderUserIds: holders, source: "staff_assignment", validity: { startsAt: start.toISOString(), ...(derivedEnd ? { endsAt: derivedEnd } : {}) }, idempotencyKey: input.idempotencyKey ?? crypto.randomUUID() });
     revalidatePath(`/club/members?org=${encodeURIComponent(context.organisation.id)}`);
     if (holders[0]) revalidatePath(`/club/members/${encodeURIComponent(holders[0])}?org=${encodeURIComponent(context.organisation.id)}`);
     return { ok: true, membershipId: result.membership.id };
@@ -32,6 +33,10 @@ export async function assignMembershipAction(input: { organisationId: string; pr
     console.error("[club-members] membership assignment failed", { operation: "assign_membership", code: error instanceof Error && "code" in error ? error.code : undefined });
     return { ok: false, error: "Membership couldn’t be assigned." };
   }
+}
+
+export async function linkClubCustomerAction(input: { organisationId: string; customerId: string; userId: string }): Promise<{ ok: boolean; error?: string }> {
+  try { const supabase = await serverSupabase(); const { data: { user } } = await supabase.auth.getUser(); if (!user) return { ok: false, error: "Sign in to link an account." }; const context = await resolveClubOperationalContext(supabase, user.id, input.organisationId); if (!context || !["gym_staff", "gym_admin", "owner"].includes(context.role)) return { ok: false, error: "You don’t have permission to link accounts." }; await context.repository.linkCustomerUser(input.customerId, input.userId); revalidatePath(`/club/members?org=${encodeURIComponent(context.organisation.id)}`); return { ok: true }; } catch { return { ok: false, error: "That account could not be linked." }; }
 }
 
 export async function endMembershipAction(input: { organisationId: string; membershipId: string; effectiveAt?: string; status?: "cancelled" | "expired" }): Promise<ActionResult> {

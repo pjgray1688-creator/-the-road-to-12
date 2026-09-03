@@ -43,3 +43,12 @@ test("onboarding does not require an account before recording membership", () =>
   assert.doesNotMatch(source, /before assigning a membership/);
   assert.match(source, /membership can be recorded now/);
 });
+
+test("membership administration exposes linking and fixed-term handling", () => {
+  const actions = readFileSync("app/club/members/actions.ts", "utf8");
+  const assignment = readFileSync("components/club-membership-assignment.tsx", "utf8");
+  assert.match(actions, /linkClubCustomerAction/);
+  assert.match(actions, /product\.durationDays/);
+  assert.match(assignment, /Fixed term/);
+  assert.match(assignment, /Recurring membership/);
+});
