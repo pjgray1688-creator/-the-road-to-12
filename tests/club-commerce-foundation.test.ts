@@ -31,6 +31,14 @@ test("balance credit is staff-controlled and preserves an auditable actor", () =
   assert.doesNotMatch(functionBody, /p_user_id is distinct from auth\.uid/);
 });
 
+test("settlement RPCs require full pending orders and balance sales mirror cash stock movements", () => {
+  const cash = migration.slice(migration.indexOf("create or replace function public.club_record_cash_payment"), migration.indexOf("create or replace function public.club_credit_balance"));
+  const balance = migration.slice(migration.indexOf("create or replace function public.club_spend_balance"), migration.indexOf("create or replace function public.club_adjust_inventory"));
+  for (const body of [cash, balance]) { assert.match(body, /v_order\.status<>'pending_payment'/); assert.match(body, /for v_order_item in select \* from public\.club_order_items/); assert.match(body, /movement_type,quantity_delta,order_id,actor_user_id,idempotency_key/); }
+  assert.match(balance, /p_amount_minor<>v_order\.total_minor/); assert.match(balance, /method,external_reference,amount_minor/); assert.match(balance, /p_idempotency_key\|\|':'\|\|v_order_item\.id/);
+  assert.match(cash, /external_reference=p_idempotency_key/);
+});
+
 test("other commerce RPCs retain their trust boundaries", () => {
   const order = migration.slice(migration.indexOf("create or replace function public.club_create_commerce_order"), migration.indexOf("create or replace function public.club_record_cash_payment"));
   const cash = migration.slice(migration.indexOf("create or replace function public.club_record_cash_payment"), migration.indexOf("create or replace function public.club_credit_balance"));
@@ -63,6 +71,26 @@ test("balance spending is organisation-scoped and cannot overspend", async () =>
   const account = await repository.creditBalance({ organisationId: "org-madhouse", userId: "user-1", currency: "GBP", amountMinor: 1850, actorRole: "gym_staff" });
   assert.equal(account.balanceAfterMinor, 1850);
   repository.commerceProducts.push({ id: "retail-2", organisationId: "org-madhouse", name: "Shake", active: true, stockTracked: false, sellPriceMinor: 2000, currency: "GBP", createdAt: "2026-01-01", updatedAt: "2026-01-01" });
-  const order = await repository.createCommerceOrder({ organisationId: "org-madhouse", channel: "member_app", currency: "GBP", items: [{ productId: "retail-2", quantity: 1 }] });
-  await assert.rejects(() => repository.spendBalance(order.id, 2000, "spend-1"), /insufficient_balance/);
+  const order = await repository.createCommerceOrder({ organisationId: "org-madhouse", userId: "user-1", channel: "member_app", currency: "GBP", items: [{ productId: "retail-2", quantity: 1 }] });
+  await assert.rejects(() => repository.spendBalance(order.id, 1, "spend-wrong"), /balance_amount_invalid/);
+  assert.equal(repository.balanceAccounts[0].balanceMinor, 1850); assert.equal(repository.orders[0].status, "pending_payment");
+  await assert.rejects(() => repository.spendBalance(order.id, 2000, "spend-insufficient"), /insufficient_balance/);
+  assert.equal(repository.balanceAccounts[0].balanceMinor, 1850); assert.equal(repository.orders[0].status, "pending_payment");
+  await repository.creditBalance({ organisationId: "org-madhouse", userId: "user-1", currency: "GBP", amountMinor: 150, actorRole: "gym_staff" });
+  const settled = await repository.spendBalance(order.id, 2000, "spend-correct");
+  assert.equal(settled.amountDeltaMinor, -2000); assert.equal(repository.orders[0].status, "paid");
+  assert.equal(repository.stockMovements.length, 0);
+  await assert.rejects(() => repository.spendBalance(order.id, 2000, "spend-other"), /order_not_awaiting_settlement/);
+});
+
+test("memory cash settlement is full-only, idempotent and records stock sale movements", async () => {
+  const repository = new MemoryClubRepository();
+  repository.commerceProducts.push({ id: "stock-1", organisationId: "org-madhouse", name: "Drink", active: true, stockTracked: true, sellPriceMinor: 500, currency: "GBP", createdAt: "2026-01-01", updatedAt: "2026-01-01" });
+  const order = await repository.createCommerceOrder({ organisationId: "org-madhouse", locationId: "loc-carlton", channel: "quick_sale", currency: "GBP", items: [{ productId: "stock-1", quantity: 2 }] });
+  await assert.rejects(() => repository.recordCashPayment(order.id, 1), /payment_amount_invalid/);
+  assert.equal(order.status, "pending_payment");
+  const payment = await repository.recordCashPayment(order.id, 1000, "cash-1");
+  assert.equal(payment.method, "cash"); assert.equal(repository.stockMovements.length, 1); assert.equal(repository.stockMovements[0].quantityDelta, -2);
+  assert.equal(await repository.recordCashPayment(order.id, 1000, "cash-1"), payment);
+  await assert.rejects(() => repository.recordCashPayment(order.id, 1000, "cash-2"), /order_not_awaiting_settlement/);
 });

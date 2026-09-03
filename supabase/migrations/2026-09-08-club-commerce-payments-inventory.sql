@@ -172,6 +172,7 @@ begin
   if auth.uid() is null or not public.club_has_active_role(v_order.organisation_id,array['gym_staff','gym_admin','owner']) then raise exception 'Cash settlement is not permitted' using errcode='42501'; end if;
   if p_amount_minor<0 or p_amount_minor<>v_order.total_minor then raise exception 'Payment amount must settle the order total' using errcode='22023'; end if;
   if p_idempotency_key is not null then select * into v_existing from public.club_payments where organisation_id=v_order.organisation_id and external_reference=p_idempotency_key; if found then return to_jsonb(v_existing); end if; end if;
+  if v_order.status<>'pending_payment' then raise exception 'Order is not awaiting settlement' using errcode='22023'; end if;
   insert into public.club_payments(order_id,organisation_id,method,external_reference,amount_minor,currency,status) values(v_order.id,v_order.organisation_id,'cash',p_idempotency_key,p_amount_minor,v_order.currency,'paid') returning * into v_payment;
   update public.club_orders set status='paid',updated_at=now() where id=v_order.id returning * into v_order;
   for v_order_item in select * from public.club_order_items where order_id=v_order.id and stock_tracked loop
@@ -197,16 +198,21 @@ end; $$;
 
 create or replace function public.club_spend_balance(p_order_id uuid,p_amount_minor integer,p_idempotency_key text)
 returns jsonb language plpgsql security definer set search_path=pg_catalog,public as $$
-declare v_order public.club_orders%rowtype; v_account public.club_balance_accounts%rowtype; v_balance integer; v_entry public.club_balance_entries%rowtype; v_existing public.club_balance_entries%rowtype;
+declare v_order public.club_orders%rowtype; v_account public.club_balance_accounts%rowtype; v_balance integer; v_entry public.club_balance_entries%rowtype; v_existing public.club_balance_entries%rowtype; v_order_item public.club_order_items%rowtype;
 begin
   select * into v_order from public.club_orders where id=p_order_id for update; if not found then raise exception 'Order not found' using errcode='P0002'; end if;
   if auth.uid() is null or v_order.user_id is distinct from auth.uid() then raise exception 'Balance spend is not permitted' using errcode='42501'; end if;
-  if p_amount_minor<=0 or p_idempotency_key is null then raise exception 'Invalid balance spend' using errcode='22023'; end if;
   select * into v_existing from public.club_balance_entries where organisation_id=v_order.organisation_id and idempotency_key=p_idempotency_key; if found then return to_jsonb(v_existing); end if;
+  if p_amount_minor<=0 or p_idempotency_key is null or p_amount_minor<>v_order.total_minor then raise exception 'Balance settlement must equal the order total' using errcode='22023'; end if;
+  if v_order.status<>'pending_payment' then raise exception 'Order is not awaiting settlement' using errcode='22023'; end if;
   select * into v_account from public.club_balance_accounts where organisation_id=v_order.organisation_id and user_id=auth.uid() for update; if not found then raise exception 'Balance account not found' using errcode='P0002'; end if;
   v_balance:=coalesce((select sum(amount_delta_minor) from public.club_balance_entries where account_id=v_account.id),0); if v_balance<p_amount_minor then raise exception 'Insufficient organisation balance' using errcode='22023'; end if;
   insert into public.club_balance_entries(account_id,organisation_id,entry_type,amount_delta_minor,balance_after_minor,order_id,actor_user_id,idempotency_key) values(v_account.id,v_order.organisation_id,'purchase',-p_amount_minor,v_balance-p_amount_minor,v_order.id,auth.uid(),p_idempotency_key) returning * into v_entry;
-  insert into public.club_payments(order_id,organisation_id,method,amount_minor,currency,status) values(v_order.id,v_order.organisation_id,'balance',p_amount_minor,v_order.currency,'paid'); update public.club_orders set status='paid',updated_at=now() where id=v_order.id;
+  insert into public.club_payments(order_id,organisation_id,method,external_reference,amount_minor,currency,status) values(v_order.id,v_order.organisation_id,'balance',p_idempotency_key,p_amount_minor,v_order.currency,'paid');
+  for v_order_item in select * from public.club_order_items where order_id=v_order.id and stock_tracked loop
+    insert into public.club_stock_movements(organisation_id,location_id,product_id,movement_type,quantity_delta,order_id,actor_user_id,idempotency_key) values(v_order.organisation_id,v_order.location_id,v_order_item.product_id,'sale',-v_order_item.quantity,v_order.id,auth.uid(),p_idempotency_key||':'||v_order_item.id::text);
+  end loop;
+  update public.club_orders set status='paid',updated_at=now() where id=v_order.id;
   return to_jsonb(v_entry);
 end; $$;
 
