@@ -117,3 +117,25 @@ test("memory order replays preserve caller/customer ownership and reject key col
   const staffOrder = await repository.createCommerceOrder({ organisationId: "org-madhouse", customerId: "customer-b", channel: "staff_checkout", currency: "GBP", items: [{ productId: "retail-3", quantity: 1 }], idempotencyKey: "staff-key" });
   assert.equal(staffOrder.customerId, "customer-b");
 });
+
+test("cash, service-credit, initial-charge and promotion foundation is additive and hardened", () => {
+  const migration = readFileSync("supabase/migrations/2026-09-09-club-cash-credits-promotions.sql", "utf8");
+  for (const table of ["club_cash_declarations", "club_service_credit_accounts", "club_service_credit_entries", "club_membership_initial_charges", "club_promotions", "club_promotion_effects", "club_promotion_redemptions"]) assert.match(migration, new RegExp(`create table public\\.${table}`));
+  for (const fn of ["club_declare_cash_payment", "club_reconcile_cash_declaration", "club_grant_service_credit", "club_spend_service_credit", "club_save_membership_initial_charge", "club_save_promotion"]) assert.match(migration, new RegExp(`function public\\.${fn}`));
+  assert.match(migration, /alter table public\.club_cash_declarations enable row level security/);
+  assert.match(migration, /revoke all on table[\s\S]*from public, anon, authenticated/);
+  assert.match(migration, /grant execute on function[\s\S]*to authenticated/);
+  assert.match(migration, /p_user_id is distinct from auth\.uid\(\)/);
+  assert.match(migration, /club_stock_movements[\s\S]*'sale'/);
+  assert.match(migration, /quantity_delta integer not null check \(quantity_delta <> 0\)/);
+  assert.match(migration, /percentage_basis_points integer[\s\S]*between 1 and 10000/);
+});
+
+test("memory commercial ledgers keep money and service units separate", async () => {
+  const repository = new MemoryClubRepository();
+  const grant = await repository.grantServiceCredit({ organisationId: "org-madhouse", userId: "user-1", creditKey: "sunbed", unit: "minute", quantity: 100, idempotencyKey: "grant-1" });
+  assert.equal(grant.quantityDelta, 100); assert.equal(grant.balanceAfter, 100); assert.equal(repository.balanceAccounts.length, 0);
+  const usage = await repository.spendServiceCredit({ accountId: grant.accountId, quantity: 6, idempotencyKey: "use-1" });
+  assert.equal(usage.quantityDelta, -6); assert.equal(usage.balanceAfter, 94);
+  await assert.rejects(() => repository.spendServiceCredit({ accountId: grant.accountId, quantity: 95, idempotencyKey: "use-2" }), /service_credit_insufficient/);
+});
