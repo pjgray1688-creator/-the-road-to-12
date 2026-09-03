@@ -1,0 +1,19 @@
+# Import-ready review data only. Not runtime seed data; do not execute automatically.
+# Prices are organisation-wide GBP selling prices. Stock and uncertain identifiers remain blank.
+name,category,price,barcode,sku,stockTracked,active,notes
+Creatine Gummies,Creatine,15.00,5056555207376,,true,true,"Applied Nutrition; Blackcurrant Millions; 80 gummies (verified candidate)"
+D3K2 — 4 Month Supply,Health & Wellness,20.00,,,true,true,"Brand/barcode require confirmation"
+Shilajit,Health & Wellness,20.00,,,true,true,"Brand/barcode require confirmation"
+Lion’s Mane,Health & Wellness,20.00,,,true,true,"Brand/barcode require confirmation"
+Zinc & Magnesium,Health & Wellness,20.00,,,true,true,"Brand/barcode require confirmation"
+Test Boost,Health & Wellness,20.00,,,true,true,"Brand/barcode require confirmation"
+Ashwagandha,Health & Wellness,20.00,,,true,true,"Brand/barcode require confirmation"
+Cream of Rice,Food / Nutrition,15.00,,,true,true,"Brand/barcode require confirmation"
+Collagen,Health & Wellness,, , ,true,false,"2 for £20 promotion; single-item price unknown; manual review required"
+Glutamine,Amino Acids,20.00,,,true,true,"Brand/barcode require confirmation"
+Super Greens,Health & Wellness,20.00,,,true,true,"Do not equate with Critical Greens without owner confirmation"
+Creatine — 100 Servings,Creatine,22.00,,,true,true,"Brand/barcode require confirmation"
+EAA,Amino Acids,24.00,,,true,true,"Brand/barcode require confirmation"
+Pre-Workout,Pre-Workout,24.00,,,true,true,"Brand/barcode require confirmation"
+Mass Gainer — 2 kg,Protein,30.00,,,true,true,"Reflex Instant Mass Heavyweight family is strongly identified"
+Whey Isolate — 1 kg,Protein,30.00,,,true,true,"24 g protein per scoop; do not equate with Diet Whey"

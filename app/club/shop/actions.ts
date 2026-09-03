@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { serverSupabase } from "@/lib/supabase-server";
 import { resolveClubOrganisationContext } from "@/lib/club-server-context";
 import { parseMinorUnits } from "@/lib/club-money";
+import { normalizeBarcode, OpenFoodFactsBarcodeProvider } from "@/lib/club-barcode";
 
 type Result = { ok: true; status: string; orderId: string } | { ok: false; error: string };
 async function context(organisationId: string) { const client = await serverSupabase(); const { data: { user } } = await client.auth.getUser(); if (!user) return undefined; const resolved = await resolveClubOrganisationContext(client, user.id, organisationId); return resolved ? { ...resolved, userId: user.id } : undefined; }
@@ -44,3 +45,5 @@ export async function saveCatalogueProductAction(input: { organisationId: string
     revalidatePath("/club/shop"); return { ok: true, productName: product.name };
   } catch (error) { console.error("[club-shop] catalogue save failed", { operation: "save_commerce_product" }); return { ok: false, error: "Product couldn’t be saved." }; }
 }
+
+export async function lookupBarcodeAction(barcode: string) { const normalized = normalizeBarcode(barcode); if (!normalized) return { ok: false as const, error: "Enter an 8–14 digit barcode." }; const candidate = await new OpenFoodFactsBarcodeProvider().lookup(normalized); return candidate ? { ok: true as const, candidate } : { ok: false as const, error: "Couldn’t identify this product online. You can still add it manually." }; }
