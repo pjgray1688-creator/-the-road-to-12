@@ -1,12 +1,12 @@
 -- Guest-capable membership lifecycle. Manual review only; never execute from the app.
 alter table public.club_membership_holders add column if not exists id uuid default gen_random_uuid();
 alter table public.club_membership_holders add column if not exists organisation_id uuid;
-alter table public.club_membership_holders alter column user_id drop not null;
 alter table public.club_membership_holders add column if not exists customer_id uuid;
 update public.club_membership_holders h set organisation_id = m.organisation_id from public.club_memberships m where m.id = h.membership_id and h.organisation_id is null;
 update public.club_membership_holders set id = gen_random_uuid() where id is null;
 alter table public.club_membership_holders alter column organisation_id set not null;
 alter table public.club_membership_holders drop constraint if exists club_membership_holders_pkey;
+alter table public.club_membership_holders alter column user_id drop not null;
 alter table public.club_membership_holders add constraint club_membership_holders_pkey primary key (id);
 alter table public.club_membership_holders add constraint club_membership_holders_identity_chk check (num_nonnulls(user_id, customer_id) = 1);
 alter table public.club_membership_holders add constraint club_membership_holders_membership_org_fk foreign key (membership_id, organisation_id) references public.club_memberships(id, organisation_id) on delete cascade;

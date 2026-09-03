@@ -12,6 +12,14 @@ test("guest membership migration supports customer holders and safe same-org key
   assert.match(migration, /club_end_membership/);
 });
 
+test("holder primary key is replaced before user_id becomes nullable", () => {
+  const drop = migration.indexOf("drop constraint if exists club_membership_holders_pkey");
+  const nullable = migration.indexOf("alter column user_id drop not null");
+  const newPrimary = migration.indexOf("add constraint club_membership_holders_pkey primary key (id)");
+  assert.ok(drop >= 0 && drop < nullable);
+  assert.ok(nullable < newPrimary);
+});
+
 test("membership lifecycle RPCs are protected and linking materialises grants", () => {
   assert.match(migration, /revoke all on function public\.club_assign_membership[^;]+from public,anon/i);
   assert.match(migration, /grant execute on function public\.club_assign_membership[^;]+to authenticated/i);
