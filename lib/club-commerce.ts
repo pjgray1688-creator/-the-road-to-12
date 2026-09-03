@@ -1,0 +1,17 @@
+/** Provider-neutral commerce, settlement, balance and inventory contracts. */
+export type ClubCommerceChannel = "member_app" | "staff_checkout" | "quick_sale" | "web" | "other";
+export type ClubCommerceOrderStatus = "draft" | "pending_payment" | "paid" | "fulfilled" | "cancelled" | "refunded";
+export type ClubCommercePaymentMethod = "card" | "wallet" | "direct_debit" | "cash" | "bank_transfer" | "balance" | "complimentary" | "other";
+export type ClubCommercePaymentStatus = "pending" | "paid" | "failed" | "refunded" | "partially_refunded" | "cancelled";
+export type ClubCommerceMovementType = "sale" | "delivery" | "transfer_in" | "transfer_out" | "return" | "waste" | "damage" | "complimentary" | "stocktake_adjustment" | "manual_adjustment";
+export type ClubCommerceProduct = { id: string; organisationId: string; sku?: string; barcode?: string; name: string; description?: string; category?: string; active: boolean; stockTracked: boolean; sellPriceMinor: number; costPriceMinor?: number; currency: string; taxCode?: string; supplierReference?: string; media?: Record<string, unknown>; createdAt: string; updatedAt: string };
+export type SaveClubCommerceProductInput = Omit<ClubCommerceProduct, "id" | "createdAt" | "updatedAt"> & { id?: string };
+export type ClubPaymentAccount = { id: string; organisationId: string; provider: string; purpose: string; capabilities: string[]; externalAccountReference?: string; status: string; createdAt: string; updatedAt: string };
+export type ClubOrderItem = { id: string; orderId: string; productId: string; productName: string; sku?: string; quantity: number; unitPriceMinor: number; lineTotalMinor: number; stockTracked: boolean };
+export type ClubOrder = { id: string; organisationId: string; locationId?: string; customerId?: string; userId?: string; channel: ClubCommerceChannel; status: ClubCommerceOrderStatus; currency: string; subtotalMinor: number; discountMinor: number; totalMinor: number; createdBy?: string; idempotencyKey?: string; items: ClubOrderItem[]; createdAt: string; updatedAt: string };
+export type ClubPayment = { id: string; orderId: string; organisationId: string; paymentAccountId?: string; method: ClubCommercePaymentMethod; externalReference?: string; amountMinor: number; currency: string; status: ClubCommercePaymentStatus; createdAt: string; updatedAt: string };
+export type ClubRefund = { id: string; paymentId: string; orderId: string; organisationId: string; amountMinor: number; reason?: string; externalReference?: string; createdBy?: string; createdAt: string };
+export type ClubStockMovement = { id: string; organisationId: string; locationId: string; productId: string; movementType: ClubCommerceMovementType; quantityDelta: number; orderId?: string; reason?: string; actorUserId?: string; idempotencyKey?: string; occurredAt: string };
+export type ClubBalanceAccount = { id: string; organisationId: string; customerId?: string; userId?: string; currency: string; status: "active" | "suspended" | "closed"; balanceMinor: number };
+export type ClubBalanceEntry = { id: string; accountId: string; organisationId: string; entryType: "top_up" | "purchase" | "refund" | "manual_credit" | "manual_debit" | "promotional_credit" | "expiry" | "adjustment"; amountDeltaMinor: number; balanceAfterMinor: number; orderId?: string; paymentId?: string; actorUserId?: string; reason?: string; idempotencyKey?: string; createdAt: string };
+export type ClubStocktakeVariance = { expectedQuantity: number; countedQuantity: number; variance: number };
