@@ -13,6 +13,9 @@ export type ClubOrganisationContext = {
   availableContexts?: Array<Pick<ClubOrganisationContext, "organisation" | "role">>;
 };
 
+/** Only serialisable organisation/role data may cross into client navigation. */
+export function toClubNavContexts(contexts: ClubOrganisationContext[]) { return contexts.map(context => ({ organisation: context.organisation, role: context.role })); }
+
 /** Resolve only organisations where the signed-in user has an active membership. */
 export async function listClubOrganisationContexts(client: SupabaseClient, userId: string) {
   const repository = clubRepository(client);
@@ -29,7 +32,7 @@ export async function listClubOrganisationContexts(client: SupabaseClient, userI
 export async function resolveClubOrganisationContext(client: SupabaseClient, userId: string, organisationId?: string) {
   const contexts = await listClubOrganisationContexts(client, userId);
   const selected = organisationId ? contexts.find(context => context.organisation.id === organisationId) : contexts.length === 1 ? contexts[0] : undefined;
-  return selected ? { ...selected, availableContexts: contexts.map(context => ({ organisation: context.organisation, role: context.role })) } : undefined;
+  return selected ? { ...selected, availableContexts: toClubNavContexts(contexts) } : undefined;
 }
 
 export async function resolveClubOperationalContext(client: SupabaseClient, userId: string, organisationId?: string) {
