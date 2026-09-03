@@ -6,6 +6,11 @@ import { mapOrganisation } from "../lib/supabase-club-repository";
 const migration = readFileSync(new URL("../supabase/migrations/2026-09-10-club-membership-access.sql", import.meta.url), "utf8");
 
 test("membership access migration uses one authoritative evaluator and fixed validity windows", () => {
+  assert.equal((migration.match(/create or replace function public\.club_evaluate_member_access/gi) ?? []).length, 1);
+  assert.equal((migration.match(/create or replace function public\.club_check_member_location_access/gi) ?? []).length, 1);
+  assert.equal((migration.match(/create or replace function public\.club_get_member_operational_profile/gi) ?? []).length, 1);
+  assert.equal((migration.match(/create or replace function public\.club_list_member_summaries/gi) ?? []).length, 1);
+  assert.equal((migration.match(/create or replace function public\.club_set_member_home_location/gi) ?? []).length, 1);
   assert.match(migration, /create or replace function public\.club_evaluate_member_access/i);
   assert.match(migration, /m\.status='active' and m\.starts_at<=p_at and \(m\.ends_at is null or m\.ends_at>p_at\)/i);
   assert.match(migration, /g\.starts_at<=p_at and \(g\.ends_at is null or g\.ends_at>p_at\)/i);
@@ -15,7 +20,7 @@ test("membership access migration uses one authoritative evaluator and fixed val
 test("membership access migration distinguishes snapshot and future location policies", () => {
   assert.match(migration, /assignment-time snapshots/i);
   assert.match(migration, /scope='future_locations'/i);
-  assert.match(migration, /p_location_id=any\(v_ids\)/i);
+  assert.match(migration, /p_location_id=any\(g\.location_ids\)/i);
   assert.match(migration, /location_not_included/i);
 });
 
