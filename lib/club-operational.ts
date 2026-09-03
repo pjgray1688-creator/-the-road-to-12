@@ -2,6 +2,7 @@ import type { EntitlementGrant, EntitlementUsage, Membership, OrganisationMember
 import type { ClubBalanceAccount, ClubOrder } from "./club-commerce";
 import type { ClubCashDeclaration, ClubServiceCreditAccount, ClubServiceCreditEntry } from "./club-commercial-rules";
 import type { ClubClassBooking, ClubClassSession, ClubService } from "./club-operations";
+import type { ClubInductionRead } from "./club-induction";
 
 export type ClubMemberSummary = OrganisationMember & {
   displayName: string;
@@ -34,6 +35,7 @@ export type ClubMemberOperationalRead = {
   entitlements: Array<{ id: string; entitlementKey: string; scope: string; locationIds?: string[]; startsAt: string; endsAt?: string; source: string; allowance?: { quantity: number; period: string }; discount?: { percent: number; period?: string; maxUses?: number } }>;
   serviceCredits: Array<{ id: string; creditKey: string; unit: string; status: string; balanceQuantity: number }>;
   access?: { state: "active" | "needs_attention" | "unavailable"; reason?: string; policy?: string; permittedLocationIds?: string[] | null; membershipId?: string; source?: string; validFrom?: string; validUntil?: string };
+  induction?: ClubInductionRead;
 };
 export type ClubMemberSummaryRead = { id: string; organisationId: string; userId: string; role: "member" | "trainer" | "gym_staff" | "gym_admin" | "owner" | "guest"; active: boolean; displayName: string; email?: string; membershipName?: string; membershipStatus?: string; membershipEndsAt?: string; homeLocation?: { id: string; name: string }; accessState: "active" | "needs_attention" | "unavailable" };
 export type ClubLocationAccessResult = { allowed: boolean; organisationId: string; locationId: string; membershipId?: string; source?: string; validFrom?: string; validUntil?: string; accessPolicy?: string; reason?: "no_membership" | "membership_inactive" | "membership_not_started" | "membership_expired" | "gym_access_missing" | "location_inactive" | "location_not_included" };
