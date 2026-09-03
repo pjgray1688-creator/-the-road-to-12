@@ -6,7 +6,7 @@ test("Club shop keeps payment paths behind repository actions", () => {
   const actions = readFileSync(new URL("../app/club/shop/actions.ts", import.meta.url), "utf8");
   const component = readFileSync(new URL("../components/club-shop.tsx", import.meta.url), "utf8");
   assert.match(actions, /createCommerceOrder/); assert.match(actions, /spendBalance/); assert.match(actions, /declareCash/); assert.match(actions, /recordCashPayment/); assert.match(actions, /reconcileCash/);
-  assert.doesNotMatch(component, /from\(["']club_/); assert.match(component, /Awaiting cash verification/); assert.match(component, /Card \/ online payment coming shortly/);
+  assert.doesNotMatch(component, /from\(["']club_/); assert.match(component, /Awaiting cash verification/); assert.match(component, /External payment not connected/);
 });
 
 test("Club shop presents factual order states without fake provider success", () => {
