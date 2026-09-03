@@ -34,6 +34,7 @@ test("barcode identity preserves leading zeroes and lookup remains candidate-onl
 
 test("Madhouse preparation keeps Collagen out of a false ten-pound unit price", () => {
   const csv = readFileSync(new URL("../docs/madhouse-catalogue-demo.csv", import.meta.url), "utf8");
+  assert.doesNotMatch(csv, /^#/m);
   assert.match(csv, /Creatine Gummies,Creatine,15\.00,5056555207376/);
   assert.match(csv, /Collagen,Health & Wellness,,/);
   assert.doesNotMatch(csv, /Collagen[^\n]*10\.00/);
