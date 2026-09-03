@@ -29,6 +29,7 @@ test("barcode identity preserves leading zeroes and lookup remains candidate-onl
   assert.match(action, /OpenFoodFactsBarcodeProvider/);
   assert.match(action, /Couldn’t identify this product online/);
   assert.doesNotMatch(action.slice(action.indexOf("lookupBarcodeAction")), /saveCommerceProduct/);
+  assert.match(component, /Look up product/);
 });
 
 test("Madhouse preparation keeps Collagen out of a false ten-pound unit price", () => {
