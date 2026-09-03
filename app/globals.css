@@ -3,3 +3,11 @@
 .brand-lockup.compact { display: inline-grid; margin: 0; }
 .brand-mark { background: transparent url('/icons/icon-64.png') center / contain no-repeat; color: transparent; clip-path: none; border-radius: 10px; }
 .club-profile-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.club-profile-grid>section:last-child{grid-column:1/-1}@media(max-width:700px){.club-profile-grid{grid-template-columns:1fr}.club-profile-grid>section:last-child{grid-column:auto}}
+
+/* Shared Club operational language: tenant accents are deliberately limited to identity surfaces. */
+.club-page{--club-accent:var(--r12-purple);--club-accent-soft:var(--r12-purple-soft);--club-surface:#101118;--club-surface-raised:#171522;--club-border:#2b263a;max-width:1180px;margin-inline:auto;padding-inline:clamp(16px,3vw,34px)}
+.club-page section,.club-page .card{border-color:var(--club-border);border-radius:var(--club-radius);background:var(--club-surface)}
+.club-page button,.club-page input,.club-page select{transition:background var(--club-motion),border-color var(--club-motion),transform var(--club-motion),box-shadow var(--club-motion)}
+.club-page button:focus-visible,.club-page a:focus-visible,.club-page input:focus-visible,.club-page select:focus-visible{outline:2px solid var(--club-accent-soft);outline-offset:2px}
+.club-page .primary{background:var(--club-accent);color:#fff}.club-page .secondary{background:var(--club-surface-raised);border-color:var(--club-border)}
+@media (prefers-reduced-motion: reduce){.club-page *{scroll-behavior:auto!important;transition-duration:0.01ms!important;animation-duration:0.01ms!important}}
