@@ -7,6 +7,7 @@ import { resolveClubOperationalContext } from "@/lib/club-server-context";
 import { resolveOrganisationTheme } from "@/lib/club";
 import type { ClubRole, OrganisationLocation, OrganisationMember } from "@/lib/club";
 import type { ClubClassAvailability, ClubClassSession, ClubClassType } from "@/lib/club-operations";
+import { ClubSectionNav } from "@/components/club-shell";
 
 const londonDay = (value = new Date()) => new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/London", year: "numeric", month: "2-digit", day: "2-digit" }).format(value);
 
@@ -18,8 +19,8 @@ function LoadError() {
   return <AppShell className="module-page club-classes-page"><PageHeader eyebrow="R12 CLUB" title="Classes" description="Timetable and class management." /><EmptyState title="Classes couldn’t be loaded.">Try again shortly. No class information has been changed.</EmptyState><BackButton href="/club">Back to Club</BackButton><AppNav /></AppShell>;
 }
 
-function LoadedClasses({ theme, classTypes, sessions, locations, members, availability, role, userId, today }: { theme: ReturnType<typeof resolveOrganisationTheme>; classTypes: ClubClassType[]; sessions: ClubClassSession[]; locations: OrganisationLocation[]; members: OrganisationMember[]; availability: Record<string, ClubClassAvailability | null>; role: ClubRole; userId: string; today: string }) {
-  return <AppShell className="module-page club-classes-page"><PageHeader eyebrow="R12 CLUB · CLASSES" title={theme.organisationName} description="Classes, capacity and timetable management." /><ClubClassesWorkspace classTypes={classTypes} sessions={sessions} locations={locations} members={members} availability={availability} role={role} currentUserId={userId} today={today} accent={theme.primaryAccent} /><BackButton href="/club">Back to Club</BackButton><AppNav /></AppShell>;
+function LoadedClasses({ theme, organisation, classTypes, sessions, locations, members, availability, role, userId, today, contexts }: { theme: ReturnType<typeof resolveOrganisationTheme>; organisation: import("@/lib/club").Organisation; classTypes: ClubClassType[]; sessions: ClubClassSession[]; locations: OrganisationLocation[]; members: OrganisationMember[]; availability: Record<string, ClubClassAvailability | null>; role: ClubRole; userId: string; today: string; contexts?: Array<{ organisation: import("@/lib/club").Organisation; role: ClubRole }> }) {
+  return <AppShell className="module-page club-classes-page"><PageHeader eyebrow="R12 CLUB · CLASSES" title={theme.organisationName} description="Classes, capacity and timetable management." /><ClubSectionNav organisation={organisation} role={role} contexts={contexts} /><ClubClassesWorkspace classTypes={classTypes} sessions={sessions} locations={locations} members={members} availability={availability} role={role} currentUserId={userId} today={today} accent={theme.primaryAccent} /><BackButton href={`/club?org=${encodeURIComponent(organisation.id)}`}>Back to Club</BackButton><AppNav /></AppShell>;
 }
 
 async function loadClasses(supabase: Awaited<ReturnType<typeof serverSupabase>>, userId: string, organisationId?: string) {
@@ -44,5 +45,5 @@ export default async function ClubClassesPage({ searchParams }: { searchParams?:
     failed = true;
   }
   if (failed || !loaded) return failed ? <LoadError /> : <AccessRequired />;
-  return <LoadedClasses theme={loaded.theme} classTypes={loaded.classTypes} sessions={loaded.visibleSessions} locations={loaded.locations} members={loaded.context.members} availability={loaded.availability} role={loaded.context.role} userId={user.id} today={loaded.today} />;
+  return <LoadedClasses theme={loaded.theme} organisation={loaded.context.organisation} classTypes={loaded.classTypes} sessions={loaded.visibleSessions} locations={loaded.locations} members={loaded.context.members} availability={loaded.availability} role={loaded.context.role} userId={user.id} today={loaded.today} contexts={loaded.context.availableContexts} />;
 }

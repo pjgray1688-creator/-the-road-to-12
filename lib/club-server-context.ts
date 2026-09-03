@@ -10,6 +10,7 @@ export type ClubOrganisationContext = {
   members: OrganisationMember[];
   member: OrganisationMember;
   role: ClubRole;
+  availableContexts?: Array<Pick<ClubOrganisationContext, "organisation" | "role">>;
 };
 
 /** Resolve only organisations where the signed-in user has an active membership. */
@@ -27,8 +28,8 @@ export async function listClubOrganisationContexts(client: SupabaseClient, userI
 /** An explicit organisation is required when a user belongs to more than one. */
 export async function resolveClubOrganisationContext(client: SupabaseClient, userId: string, organisationId?: string) {
   const contexts = await listClubOrganisationContexts(client, userId);
-  if (organisationId) return contexts.find(context => context.organisation.id === organisationId);
-  return contexts.length === 1 ? contexts[0] : undefined;
+  const selected = organisationId ? contexts.find(context => context.organisation.id === organisationId) : contexts.length === 1 ? contexts[0] : undefined;
+  return selected ? { ...selected, availableContexts: contexts.map(context => ({ organisation: context.organisation, role: context.role })) } : undefined;
 }
 
 export async function resolveClubOperationalContext(client: SupabaseClient, userId: string, organisationId?: string) {
