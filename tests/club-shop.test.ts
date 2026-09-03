@@ -20,4 +20,5 @@ test("shop actions require explicit organisation context and discrepancy details
   const checkout = readFileSync(new URL("../components/club-staff-checkout.tsx", import.meta.url), "utf8");
   assert.match(actions, /input\.organisationId/); assert.match(actions, /context\(input\.organisationId\)/); assert.match(actions, /Number\.isInteger\(input\.quantity\)/);
   assert.match(actions, /discrepancyMinor/); assert.match(checkout, /customerId/); assert.match(checkout, /Walk-in sale/); assert.match(checkout, /organisationId/);
+  assert.match(actions, /payments\.record_cash/); assert.match(actions, /cash\.reconcile/); assert.match(actions, /payment\.cash_recorded/);
 });
