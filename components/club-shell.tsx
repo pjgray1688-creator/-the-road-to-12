@@ -18,7 +18,7 @@ export function ClubSectionNav({ organisation, role, contexts = [] }: { organisa
   const links = operational ? [
     ["Overview", `/club${query}`], ["Members", `/club/members${query}`], ["Classes", `/club/classes${query}`],
     ["Reception", `/club/shop${query}`], ["Services", `/club/services${query}`], ["Locations", `/club/locations${query}`],
-    ...(admin ? [["Induction", `/club/induction${query}`]] : []),
+    ...(admin ? [["Induction", `/club/induction${query}`], ["Staff", `/club/staff${query}`]] : []),
   ] : role === "trainer" ? [["Classes", `/club/classes${query}`]] : [["Classes", `/club/classes${query}`], ["Shop", `/club/shop${query}`]];
   return <nav className={styles.nav} aria-label="Club navigation"><div className={styles.identity}><BrandLockup compact /><div><span className="eyebrow">CLUB</span><strong>{organisation.name}</strong></div><span className={styles.role}>{labelRole(role)}</span></div><div className={styles.links}>{links.map(([label, href]) => { const hrefPath = href.split("?")[0]; const active = hrefPath === "/club" ? pathname === "/club" : pathname.startsWith(hrefPath); return <Link href={href} key={href} aria-current={active ? "page" : undefined} className={active ? styles.active : undefined}>{label}</Link>; })}</div>{contexts.length > 1 ? <label className={styles.switcher}>Organisation<select aria-label="Choose organisation" defaultValue={organisation.id} onChange={event => router.push(`/club?org=${encodeURIComponent(event.target.value)}`)}>{contexts.map(context => <option key={context.organisation.id} value={context.organisation.id}>{context.organisation.name}</option>)}</select></label> : null}</nav>;
 }

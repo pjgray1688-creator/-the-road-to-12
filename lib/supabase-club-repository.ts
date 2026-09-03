@@ -118,6 +118,7 @@ const productRpcArguments = (product: Omit<ClubProduct, "id"> | ClubProduct) => 
 
 export class SupabaseClubRepository implements ClubRepository {
   constructor(private readonly client: SupabaseClient) {}
+  async appendAuditEvent(input: { organisationId: string; action: string; targetType?: string; targetId?: string; reason?: string }) { const { error } = await this.client.rpc("club_append_audit_event", { p_organisation_id: input.organisationId, p_action: input.action, p_target_type: input.targetType ?? null, p_target_id: input.targetId ?? null, p_location_id: null, p_reason: input.reason ?? null, p_metadata: {} }); if (error) safeError("append_audit_event", error); }
 
   async listOrganisations() { const { data, error } = await this.client.from("club_organisations").select("*").order("name"); if (error) safeError("list_organisations", error); return rows(data).map(mapOrganisation); }
   async listLocations(organisationId: string) { const { data, error } = await this.client.from("club_locations").select("*").eq("organisation_id", organisationId).order("name"); if (error) safeError("list_locations", error); return rows(data).map(mapLocation); }

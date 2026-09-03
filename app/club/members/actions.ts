@@ -26,6 +26,7 @@ export async function assignMembershipAction(input: { organisationId: string; pr
     }
     const start = new Date(input.startsAt); const derivedEnd = !input.endsAt && product.durationDays ? new Date(start.getTime() + product.durationDays * 86400000).toISOString() : input.endsAt ? new Date(input.endsAt).toISOString() : undefined;
     const result = await context.repository.assignMembership({ organisationId: context.organisation.id, productId: product.id, customerId: input.customerId, holderUserIds: holders, source: "staff_assignment", validity: { startsAt: start.toISOString(), ...(derivedEnd ? { endsAt: derivedEnd } : {}) }, idempotencyKey: input.idempotencyKey ?? crypto.randomUUID() });
+    await context.repository.appendAuditEvent({ organisationId: context.organisation.id, action: "membership.assigned", targetType: "membership", targetId: result.membership.id });
     revalidatePath(`/club/members?org=${encodeURIComponent(context.organisation.id)}`);
     if (holders[0]) revalidatePath(`/club/members/${encodeURIComponent(holders[0])}?org=${encodeURIComponent(context.organisation.id)}`);
     return { ok: true, membershipId: result.membership.id };
@@ -46,6 +47,7 @@ export async function endMembershipAction(input: { organisationId: string; membe
     const context = await resolveClubOperationalContext(supabase, user.id, input.organisationId);
     if (!context || !["gym_admin", "owner"].includes(context.role)) return { ok: false, error: "You don’t have permission to end memberships." };
     const membership = await context.repository.endMembership({ organisationId: context.organisation.id, membershipId: input.membershipId, effectiveAt: input.effectiveAt, status: input.status });
+    await context.repository.appendAuditEvent({ organisationId: context.organisation.id, action: "membership.end_requested", targetType: "membership", targetId: membership.id });
     revalidatePath(`/club/members?org=${encodeURIComponent(context.organisation.id)}`);
     return { ok: true, membershipId: membership.id };
   } catch (error) { console.error("[club-members] membership end failed", { operation: "end_membership" }); return { ok: false, error: "Membership couldn’t be ended." }; }
