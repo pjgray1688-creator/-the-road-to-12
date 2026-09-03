@@ -26,6 +26,24 @@ export type ClubMemberOperationalProfile = {
   serviceCreditEntries: ClubServiceCreditEntry[];
 };
 
+export type ClubMemberOperationalRead = {
+  member: { id: string; organisationId: string; userId: string; role: string; active: boolean };
+  homeLocation?: { id: string; name: string; active?: boolean };
+  customer?: { id: string; displayName: string; email?: string; phone?: string; status?: string };
+  memberships: Array<{ id: string; productId: string; productName?: string; status: string; startsAt: string; endsAt?: string; source: string; holderUserIds: string[] }>;
+  entitlements: Array<{ id: string; entitlementKey: string; scope: string; locationIds?: string[]; startsAt: string; endsAt?: string; source: string; allowance?: { quantity: number; period: string }; discount?: { percent: number; period?: string; maxUses?: number } }>;
+  serviceCredits: Array<{ id: string; creditKey: string; unit: string; status: string; balanceQuantity: number }>;
+};
+export type ClubMemberSummaryRead = { id: string; organisationId: string; userId: string; role: "member" | "trainer" | "gym_staff" | "gym_admin" | "owner" | "guest"; active: boolean; displayName: string; email?: string; membershipName?: string; membershipStatus?: string; membershipEndsAt?: string; homeLocation?: { id: string; name: string }; accessState: "active" | "needs_attention" | "unavailable" };
+export type ClubLocationAccessResult = { allowed: boolean; organisationId: string; locationId: string; membershipId?: string; source?: string; validFrom?: string; validUntil?: string; accessPolicy?: string; reason?: "no_membership" | "membership_inactive" | "membership_not_started" | "membership_expired" | "gym_access_missing" | "location_inactive" | "location_not_included" };
+export type ClubLocationHint = { locationId?: string; confidence?: "high" | "medium" | "low" };
+export function resolveClubLocation(explicitLocationId: string | undefined, detected: ClubLocationHint | undefined, homeLocationId: string | undefined, permittedLocationIds: string[]) {
+  const permitted = new Set(permittedLocationIds);
+  if (explicitLocationId && permitted.has(explicitLocationId)) return explicitLocationId;
+  if (detected?.locationId && detected.confidence !== "low" && permitted.has(detected.locationId)) return detected.locationId;
+  return homeLocationId && permitted.has(homeLocationId) ? homeLocationId : permittedLocationIds.length === 1 ? permittedLocationIds[0] : undefined;
+}
+
 export type ClubDashboardSummary = {
   activeMemberCount: number;
   cashAwaitingVerification: number;
