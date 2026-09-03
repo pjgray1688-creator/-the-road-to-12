@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { BrandLockup } from "@/components/brand-lockup";
 import type { ClubRole, Organisation } from "@/lib/club";
 import styles from "./club-shell.module.css";
 
@@ -18,5 +19,5 @@ export function ClubSectionNav({ organisation, role, contexts = [] }: { organisa
     ["Reception", `/club/shop${query}`], ["Services", `/club/services${query}`], ["Locations", `/club/locations${query}`],
     ...(admin ? [["Induction", `/club/induction${query}`]] : []),
   ] : role === "trainer" ? [["Classes", `/club/classes${query}`]] : [["Classes", `/club/classes${query}`], ["Shop", `/club/shop${query}`]];
-  return <nav className={styles.nav} aria-label="Club navigation"><div className={styles.identity}><span className={styles.mark} aria-hidden="true">12</span><div><span className="eyebrow">R12 CLUB</span><strong>{organisation.name}</strong></div><span className={styles.role}>{labelRole(role)}</span></div><div className={styles.links}>{links.map(([label, href]) => <Link href={href} key={href}>{label}</Link>)}</div>{contexts.length > 1 ? <label className={styles.switcher}>Organisation<select aria-label="Choose organisation" defaultValue={organisation.id} onChange={event => router.push(`/club?org=${encodeURIComponent(event.target.value)}`)}>{contexts.map(context => <option key={context.organisation.id} value={context.organisation.id}>{context.organisation.name}</option>)}</select></label> : null}</nav>;
+  return <nav className={styles.nav} aria-label="Club navigation"><div className={styles.identity}><BrandLockup compact /><div><span className="eyebrow">CLUB</span><strong>{organisation.name}</strong></div><span className={styles.role}>{labelRole(role)}</span></div><div className={styles.links}>{links.map(([label, href]) => <Link href={href} key={href}>{label}</Link>)}</div>{contexts.length > 1 ? <label className={styles.switcher}>Organisation<select aria-label="Choose organisation" defaultValue={organisation.id} onChange={event => router.push(`/club?org=${encodeURIComponent(event.target.value)}`)}>{contexts.map(context => <option key={context.organisation.id} value={context.organisation.id}>{context.organisation.name}</option>)}</select></label> : null}</nav>;
 }

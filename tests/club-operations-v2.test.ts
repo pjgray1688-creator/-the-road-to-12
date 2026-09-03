@@ -12,6 +12,22 @@ test("Club operations keeps organisation context explicit and switchable", () =>
   assert.doesNotMatch(context, /contexts\[0\].*organisationId/);
   assert.match(shell, /Choose organisation/);
   assert.match(shell, /router\.push\(`\/club\?org=/);
+  assert.match(shell, /contexts\.length > 1/);
+  assert.match(shell, /BrandLockup compact/);
+  assert.doesNotMatch(shell, />12<|className=\{styles\.mark\}/);
+});
+
+test("Locations management is protected at the route boundary", () => {
+  const locations = read("app/club/locations/page.tsx");
+  assert.match(locations, /isClubStaffRole\(context\.role\)/);
+});
+
+test("Club navigation keeps management areas away from member and trainer roles", () => {
+  const shell = read("components/club-shell.tsx");
+  assert.match(shell, /role === "trainer"/);
+  assert.match(shell, /\["Classes"/);
+  assert.doesNotMatch(shell, /role === "trainer"[^]*Locations/);
+  assert.doesNotMatch(shell, /role === "member"[^]*Members/);
 });
 
 test("Club V2 surfaces are role-aware and organisation-scoped", () => {
