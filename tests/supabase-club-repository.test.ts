@@ -102,7 +102,7 @@ test("fixed assignment validity and safe repository errors are mapped without ra
 
 test("Club page uses the repository boundary and contains no direct Club table queries", () => {
   const page = readFileSync(new URL("../app/club/page.tsx", import.meta.url), "utf8"); const repository = readFileSync(new URL("../lib/supabase-club-repository.ts", import.meta.url), "utf8");
-  assert.doesNotMatch(page, /\.from\(["']club_/); assert.match(page, /clubRepository\(supabase\)/); assert.doesNotMatch(repository, /SUPABASE_SERVICE_ROLE_KEY|madhouseFixture/);
+  assert.doesNotMatch(page, /\.from\(["']club_/); assert.match(page, /listClubOrganisationContexts\(supabase, user\.id\)/); assert.doesNotMatch(repository, /SUPABASE_SERVICE_ROLE_KEY|madhouseFixture/);
   assert.doesNotMatch(repository, /\.from\("club_(?:products|product_entitlements|memberships|membership_holders|entitlement_grants)"\)\.(?:insert|update|delete|upsert)/);
 });
 

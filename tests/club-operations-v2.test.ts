@@ -17,6 +17,12 @@ test("Club operations keeps organisation context explicit and switchable", () =>
   assert.doesNotMatch(shell, />12<|className=\{styles\.mark\}/);
 });
 
+test("Club overview resolves its repository exactly once through the organisation context", () => {
+  const overview = read("app/club/page.tsx");
+  assert.doesNotMatch(overview, /clubRepository\(supabase\)/);
+  assert.match(overview, /listClubOrganisationContexts\(supabase, user\.id\)/);
+});
+
 test("Locations management is protected at the route boundary", () => {
   const locations = read("app/club/locations/page.tsx");
   assert.match(locations, /isClubStaffRole\(context\.role\)/);
@@ -64,4 +70,10 @@ test("protected Club writes remain server/repository actions", () => {
   for (const path of ["components/club-shop.tsx", "components/club-staff-checkout.tsx", "components/club-classes.tsx"]) {
     assert.doesNotMatch(read(path), /\.from\(['"]club_/);
   }
+});
+
+test("member navigation is not rendered inside Club while remaining app-scoped", () => {
+  const nav = read("components/app-nav.tsx");
+  assert.match(nav, /pathname\.startsWith\("\/club"\)/);
+  assert.match(nav, /Today/);
 });
