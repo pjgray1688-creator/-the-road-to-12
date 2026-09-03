@@ -9,7 +9,7 @@ type ClubContextOption = { organisation: Organisation; role: ClubRole };
 
 const labelRole = (role: ClubRole) => ({ gym_staff: "Staff", gym_admin: "Admin", owner: "Owner", trainer: "Trainer", member: "Member", guest: "Guest" }[role] ?? role);
 
-export function ClubSectionNav({ organisation, role, contexts = [], locations = [], locationId }: { organisation: Organisation; role: ClubRole; contexts?: ClubContextOption[]; locations?: Array<{ id: string; name: string; active: boolean }>; locationId?: string }) {
+export function ClubSectionNav({ organisation, role, contexts = [], locations = [], locationId, branding = false }: { organisation: Organisation; role: ClubRole; contexts?: ClubContextOption[]; locations?: Array<{ id: string; name: string; active: boolean }>; locationId?: string; branding?: boolean }) {
   const router = useRouter();
   const pathname = usePathname();
   const query = (nextLocationId = locationId) => `?org=${encodeURIComponent(organisation.id)}${nextLocationId ? `&location=${encodeURIComponent(nextLocationId)}` : ""}`;
