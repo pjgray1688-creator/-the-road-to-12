@@ -23,6 +23,24 @@ test("payments and balances remain separate, provider-neutral and organisation-b
   assert.match(migration, /not a transferable universal R12 wallet/); assert.match(migration, /R12 consumer subscriptions use a separate platform-revenue domain/);
 });
 
+test("balance credit is staff-controlled and preserves an auditable actor", () => {
+  const functionBody = migration.slice(migration.indexOf("create or replace function public.club_credit_balance"), migration.indexOf("create or replace function public.club_spend_balance"));
+  assert.match(functionBody, /v_staff:=public\.club_has_active_role\(p_organisation_id,array\['gym_staff','gym_admin','owner'\]\)/);
+  assert.match(functionBody, /if not v_staff then raise exception 'Balance credit is not permitted' using errcode='42501'/);
+  assert.match(functionBody, /auth\.uid\(\)/);
+  assert.doesNotMatch(functionBody, /p_user_id is distinct from auth\.uid/);
+});
+
+test("other commerce RPCs retain their trust boundaries", () => {
+  const order = migration.slice(migration.indexOf("create or replace function public.club_create_commerce_order"), migration.indexOf("create or replace function public.club_record_cash_payment"));
+  const cash = migration.slice(migration.indexOf("create or replace function public.club_record_cash_payment"), migration.indexOf("create or replace function public.club_credit_balance"));
+  const spend = migration.slice(migration.indexOf("create or replace function public.club_spend_balance"), migration.indexOf("create or replace function public.club_adjust_inventory"));
+  const inventory = migration.slice(migration.indexOf("create or replace function public.club_adjust_inventory"), migration.indexOf("revoke all privileges on table"));
+  const catalogue = migration.slice(migration.indexOf("create or replace function public.club_save_commerce_product"), migration.indexOf("create or replace function public.club_create_commerce_order"));
+  assert.match(order, /auth\.uid\(\) is null/); assert.match(cash, /gym_staff','gym_admin','owner/); assert.match(spend, /v_order\.user_id is distinct from auth\.uid/); assert.match(inventory, /gym_staff','gym_admin','owner/); assert.match(catalogue, /gym_admin','owner/);
+  assert.doesNotMatch(cash, /p_user_id|p_customer_id/); assert.doesNotMatch(inventory, /p_user_id/);
+});
+
 test("commerce RLS is read-scoped and aggregate mutation is RPC-only", () => {
   for (const table of ["club_payment_accounts", "club_commerce_products", "club_inventory", "club_orders", "club_order_items", "club_payments", "club_refunds", "club_stock_movements", "club_balance_accounts", "club_balance_entries", "club_stocktakes"]) assert.match(migration, new RegExp(`alter table public\\.${table} enable row level security`));
   assert.match(migration, /revoke all privileges on table[\s\S]+from public,anon,authenticated/);
@@ -41,7 +59,8 @@ test("memory repository keeps commerce operations deterministic and money exact"
 
 test("balance spending is organisation-scoped and cannot overspend", async () => {
   const repository = new MemoryClubRepository();
-  const account = await repository.creditBalance({ organisationId: "org-madhouse", userId: "user-1", currency: "GBP", amountMinor: 1850 });
+  await assert.rejects(() => repository.creditBalance({ organisationId: "org-madhouse", userId: "user-1", currency: "GBP", amountMinor: 1850 }), /balance_credit_forbidden/);
+  const account = await repository.creditBalance({ organisationId: "org-madhouse", userId: "user-1", currency: "GBP", amountMinor: 1850, actorRole: "gym_staff" });
   assert.equal(account.balanceAfterMinor, 1850);
   repository.commerceProducts.push({ id: "retail-2", organisationId: "org-madhouse", name: "Shake", active: true, stockTracked: false, sellPriceMinor: 2000, currency: "GBP", createdAt: "2026-01-01", updatedAt: "2026-01-01" });
   const order = await repository.createCommerceOrder({ organisationId: "org-madhouse", channel: "member_app", currency: "GBP", items: [{ productId: "retail-2", quantity: 1 }] });

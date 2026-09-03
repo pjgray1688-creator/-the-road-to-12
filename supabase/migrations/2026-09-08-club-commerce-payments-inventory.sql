@@ -185,7 +185,7 @@ returns jsonb language plpgsql security definer set search_path=pg_catalog,publi
 declare v_account public.club_balance_accounts%rowtype; v_entry public.club_balance_entries%rowtype; v_existing public.club_balance_entries%rowtype; v_staff boolean;
 begin
   if auth.uid() is null then raise exception 'Authentication required' using errcode='42501'; end if; v_staff:=public.club_has_active_role(p_organisation_id,array['gym_staff','gym_admin','owner']);
-  if not v_staff and p_user_id is distinct from auth.uid() then raise exception 'Balance credit is not permitted' using errcode='42501'; end if;
+  if not v_staff then raise exception 'Balance credit is not permitted' using errcode='42501'; end if;
   if p_amount_minor<=0 or p_currency !~ '^[A-Z]{3}$' or p_entry_type not in ('top_up','manual_credit','promotional_credit','refund') then raise exception 'Invalid balance credit' using errcode='22023'; end if;
   if p_idempotency_key is not null then select * into v_existing from public.club_balance_entries where organisation_id=p_organisation_id and idempotency_key=p_idempotency_key; if found then return to_jsonb(v_existing); end if; end if;
   select * into v_account from public.club_balance_accounts where organisation_id=p_organisation_id and ((p_customer_id is not null and customer_id=p_customer_id) or (p_user_id is not null and user_id=p_user_id)) for update;
