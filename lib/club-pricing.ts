@@ -24,8 +24,9 @@ export function pricingMath(costMinor: number, sellMinor: number, vatRatePercent
   const feeMinor = Math.round(sellMinor * feePercent / 100);
   const netRevenueMinor = sellMinor - feeMinor;
   const profitMinor = exVat - costMinor;
-  const profitAfterFeeMinor = netRevenueMinor - costMinor;
-  return { sellMinor, exVatMinor: exVat, feeMinor, netRevenueMinor, costMinor, profitMinor, profitAfterFeeMinor, markupPercent: costMinor ? profitMinor / costMinor * 100 : undefined, marginPercent: exVat ? profitMinor / exVat * 100 : undefined, marginAfterFeePercent: netRevenueMinor ? profitAfterFeeMinor / netRevenueMinor * 100 : undefined };
+  const profitAfterFeeMinor = exVat - feeMinor - costMinor;
+  const netRevenueExVatMinor = exVat - feeMinor;
+  return { sellMinor, exVatMinor: exVat, feeMinor, netRevenueMinor, netRevenueExVatMinor, costMinor, profitMinor, profitAfterFeeMinor, markupPercent: costMinor ? profitMinor / costMinor * 100 : undefined, marginPercent: exVat ? profitMinor / exVat * 100 : undefined, marginAfterFeePercent: netRevenueExVatMinor ? profitAfterFeeMinor / netRevenueExVatMinor * 100 : undefined };
 }
 
 export function recommendedPriceMinor(costMinor: number, target: PricingTarget, rounding: RoundingMode = "exact", vatRatePercent = 0, feePercent = 0) {
