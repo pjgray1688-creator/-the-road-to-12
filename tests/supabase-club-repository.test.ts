@@ -32,10 +32,10 @@ const definitionRows = [
 ];
 const rpcProduct = { product: productRow, entitlements: definitionRows };
 
-test("Club repository selection is fail-closed in production and uses memory outside production", () => {
+test("Club repository selection uses Supabase in production when configured and keeps an explicit kill-switch", () => {
   const fake = fakeClient();
-  assert.throws(() => selectClubRepository({ client: fake.client, nodeEnv: "production", schemaEnabled: undefined }), (error: unknown) => error instanceof Error && error.message === "Club data is unavailable");
-  assert.equal(fake.tableCalls.length, 0);
+  assert.ok(selectClubRepository({ client: fake.client, nodeEnv: "production", schemaEnabled: undefined }) instanceof SupabaseClubRepository);
+  assert.throws(() => selectClubRepository({ client: fake.client, nodeEnv: "production", schemaEnabled: "false" }), (error: unknown) => error instanceof Error && error.message === "Club data is unavailable");
   assert.ok(selectClubRepository({ nodeEnv: "test" }) instanceof MemoryClubRepository);
   assert.ok(selectClubRepository({ client: fake.client, nodeEnv: "production", schemaEnabled: "true" }) instanceof SupabaseClubRepository);
 });

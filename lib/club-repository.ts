@@ -106,7 +106,11 @@ let memoryInstance: MemoryClubRepository | undefined;
 export function memoryClubRepository(): MemoryClubRepository { if (!memoryInstance) memoryInstance = new MemoryClubRepository(); return memoryInstance; }
 export function selectClubRepository(options: { client?: SupabaseClient; nodeEnv?: string; schemaEnabled?: string }): ClubRepository {
   if (options.nodeEnv !== "production") return memoryClubRepository();
-  if (options.schemaEnabled !== "true" || !options.client) { const error = new Error("Club data is unavailable") as ClubRepositoryError; error.code = "UNAVAILABLE"; error.operation = "select_repository"; throw error; }
+  // Production uses the Supabase repository whenever a server client exists. The
+  // flag remains an explicit kill-switch for staged rollbacks, but an unset flag
+  // must not make an otherwise configured Club deployment fail at repository
+  // selection (which previously caused /club/reception to return a 500).
+  if (options.schemaEnabled === "false" || !options.client) { const error = new Error("Club data is unavailable") as ClubRepositoryError; error.code = "UNAVAILABLE"; error.operation = "select_repository"; throw error; }
   return new SupabaseClubRepository(options.client);
 }
 export function clubRepository(client?: SupabaseClient): ClubRepository { return selectClubRepository({ client, nodeEnv: process.env.NODE_ENV, schemaEnabled: process.env.R12_CLUB_SCHEMA_ENABLED }); }

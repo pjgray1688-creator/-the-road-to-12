@@ -18,6 +18,8 @@ test("reception route is operationally protected and keeps organisation context"
   assert.match(source, /isClubStaffRole\(context\.role\)/);
   assert.match(source, /searchParams\)\?\.org/);
   assert.match(source, /listCashDeclarations\(context\.organisation\.id, "declared"\)/);
+  assert.match(source, /reception_load/);
+  assert.match(source, /Reception couldn’t be loaded/);
 });
 
 test("customer creation and account linking use the audit boundary", () => {
