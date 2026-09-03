@@ -37,7 +37,7 @@ export async function assignMembershipAction(input: { organisationId: string; pr
 }
 
 export async function linkClubCustomerAction(input: { organisationId: string; customerId: string; userId: string }): Promise<{ ok: boolean; error?: string }> {
-  try { const supabase = await serverSupabase(); const { data: { user } } = await supabase.auth.getUser(); if (!user) return { ok: false, error: "Sign in to link an account." }; const context = await resolveClubOperationalContext(supabase, user.id, input.organisationId); if (!context || !["gym_staff", "gym_admin", "owner"].includes(context.role)) return { ok: false, error: "You don’t have permission to link accounts." }; await context.repository.linkCustomerUser(input.customerId, input.userId); revalidatePath(`/club/members?org=${encodeURIComponent(context.organisation.id)}`); return { ok: true }; } catch { return { ok: false, error: "That account could not be linked." }; }
+  try { const supabase = await serverSupabase(); const { data: { user } } = await supabase.auth.getUser(); if (!user) return { ok: false, error: "Sign in to link an account." }; const context = await resolveClubOperationalContext(supabase, user.id, input.organisationId); if (!context || !["gym_staff", "gym_admin", "owner"].includes(context.role)) return { ok: false, error: "You don’t have permission to link accounts." }; await context.repository.linkCustomerUser(input.customerId, input.userId); await context.repository.appendAuditEvent({ organisationId: context.organisation.id, action: "customer.account_linked", targetType: "customer", targetId: input.customerId }); revalidatePath(`/club/members?org=${encodeURIComponent(context.organisation.id)}`); revalidatePath(`/club/members/customer/${encodeURIComponent(input.customerId)}?org=${encodeURIComponent(context.organisation.id)}`); return { ok: true }; } catch { return { ok: false, error: "That account could not be linked." }; }
 }
 
 export async function endMembershipAction(input: { organisationId: string; membershipId: string; effectiveAt?: string; status?: "cancelled" | "expired" }): Promise<ActionResult> {
@@ -65,6 +65,7 @@ export async function createClubCustomerAction(input: { organisationId: string; 
     const existing = await context.repository.listCustomers(context.organisation.id);
     if (existing.some(customer => customer.email && input.email && customer.email.toLowerCase() === input.email.toLowerCase())) return { ok: false, error: "A person with that email is already in this organisation." };
     const customer = await context.repository.createCustomer({ organisationId: context.organisation.id, displayName, ...(input.email?.trim() ? { email: input.email.trim() } : {}), ...(input.phone?.trim() ? { phone: input.phone.trim() } : {}), status: "guest" });
+    await context.repository.appendAuditEvent({ organisationId: context.organisation.id, action: "person.created", targetType: "customer", targetId: customer.id });
     revalidatePath(`/club/members?org=${encodeURIComponent(context.organisation.id)}`);
     return { ok: true, customerId: customer.id };
   } catch (error) {
