@@ -1,0 +1,5 @@
+import type { ClubInventoryReceipt } from "@/lib/club-commerce";
+
+export function ClubDeliveryHistory({ receipts, locations }: { receipts: ClubInventoryReceipt[]; locations: { id: string; name: string }[] }) {
+  return <section className="club-delivery-history" aria-label="Delivery history"><div className="section-heading"><div><span className="eyebrow">DELIVERIES</span><h2>Recent deliveries</h2></div></div>{receipts.length ? <div className="club-stock-grid">{receipts.map(receipt => <article className="club-stock-row" key={receipt.id}><div><strong>{new Date(receipt.receivedAt).toLocaleDateString("en-GB")}</strong><small>{locations.find(location => location.id === receipt.locationId)?.name ?? "Location"}</small></div><span><b>{receipt.supplierName ?? "Supplier not recorded"}</b><small>{receipt.supplierReference ?? "No reference"}</small></span><span><small>Received by {receipt.receivedBy}</small></span></article>)}</div> : <p className="muted">No deliveries have been received yet.</p>}</section>;
+}

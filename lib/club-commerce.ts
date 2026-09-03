@@ -16,3 +16,5 @@ export type ClubStockBalance = { organisationId: string; locationId: string; pro
 export type ClubBalanceAccount = { id: string; organisationId: string; customerId?: string; userId?: string; currency: string; status: "active" | "suspended" | "closed"; balanceMinor: number };
 export type ClubBalanceEntry = { id: string; accountId: string; organisationId: string; entryType: "top_up" | "purchase" | "refund" | "manual_credit" | "manual_debit" | "promotional_credit" | "expiry" | "adjustment"; amountDeltaMinor: number; balanceAfterMinor: number; orderId?: string; paymentId?: string; actorUserId?: string; reason?: string; idempotencyKey?: string; createdAt: string };
 export type ClubStocktakeVariance = { expectedQuantity: number; countedQuantity: number; variance: number };
+export type ClubInventoryReceipt = { id: string; organisationId: string; locationId: string; supplierName?: string; supplierReference?: string; receivedAt: string; receivedBy: string; notes?: string; createdAt: string };
+export type ClubInventoryReceiptLineInput = { productId: string; quantityReceived: number; unitCostMinor?: number; vatRatePercent?: number; notes?: string };
