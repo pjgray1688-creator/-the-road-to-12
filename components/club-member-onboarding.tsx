@@ -9,7 +9,7 @@ import styles from "./club-members-directory.module.css";
 
 const membershipProducts = (products: ClubProduct[]) => products.filter(product => product.kind === "membership" && !product.archivedAt);
 
-export function ClubMemberOnboarding({ organisationId, customers, products, role }: { organisationId: string; customers: ClubCustomer[]; products: ClubProduct[]; role: ClubRole }) {
+export function ClubMemberOnboarding({ organisationId, customers, products, role, canAssign: canAssignOverride }: { organisationId: string; customers: ClubCustomer[]; products: ClubProduct[]; role: ClubRole; canAssign?: boolean }) {
   const [open, setOpen] = useState(false);
   const [existingId, setExistingId] = useState("");
   const [name, setName] = useState("");
@@ -22,7 +22,7 @@ export function ClubMemberOnboarding({ organisationId, customers, products, role
   const [pending, startTransition] = useTransition();
   const selected = customers.find(customer => customer.id === existingId);
   const linkedUserId = selected?.userId;
-  const canAssign = role === "gym_admin" || role === "owner";
+  const canAssign = canAssignOverride ?? (role === "gym_admin" || role === "owner");
   const reset = () => { setOpen(false); setExistingId(""); setName(""); setEmail(""); setProductId(""); setAdditionalHolderIds([]); setEndsAt(""); setMessage(undefined); };
   const submit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
