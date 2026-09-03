@@ -35,12 +35,12 @@ export async function adjustStockAction(input: { organisationId: string; locatio
   } catch (error) { console.error("[club-shop] stock adjustment failed", { operation: "adjust_inventory" }); return { ok: false, error: "Stock couldn’t be updated." }; }
 }
 
-export async function saveCatalogueProductAction(input: { organisationId: string; id?: string; name: string; category?: string; price: string; barcode?: string; sku?: string; stockTracked: boolean; active: boolean; mediaUrl?: string }): Promise<{ ok: true; productName: string } | { ok: false; error: string }> {
+export async function saveCatalogueProductAction(input: { organisationId: string; id?: string; name: string; category?: string; price: string; costPrice?: string; barcode?: string; sku?: string; stockTracked: boolean; active: boolean; mediaUrl?: string }): Promise<{ ok: true; productName: string } | { ok: false; error: string }> {
   try {
-    const value = await context(input.organisationId); const priceMinor = parseMinorUnits(input.price);
+    const value = await context(input.organisationId); const priceMinor = parseMinorUnits(input.price); const costPriceMinor = input.costPrice?.trim() ? parseMinorUnits(input.costPrice) : undefined;
     if (!value || !["gym_admin", "owner"].includes(value.member.role)) return { ok: false, error: "Catalogue editing is limited to Club administrators." };
-    if (!input.name.trim() || priceMinor === undefined) return { ok: false, error: "Enter a product name and a valid GBP price." };
-    const product = await value.repository.saveCommerceProduct({ id: input.id, organisationId: value.organisation.id, name: input.name.trim(), category: input.category?.trim() || undefined, sellPriceMinor: priceMinor, currency: "GBP", barcode: input.barcode?.trim() || undefined, sku: input.sku?.trim() || undefined, stockTracked: input.stockTracked, active: input.active, ...(input.mediaUrl?.trim() ? { media: { url: input.mediaUrl.trim() } } : {}) });
+    if (!input.name.trim() || priceMinor === undefined || costPriceMinor === undefined && input.costPrice?.trim()) return { ok: false, error: "Enter a product name and valid GBP prices." };
+    const product = await value.repository.saveCommerceProduct({ id: input.id, organisationId: value.organisation.id, name: input.name.trim(), category: input.category?.trim() || undefined, sellPriceMinor: priceMinor, ...(costPriceMinor !== undefined ? { costPriceMinor } : {}), currency: "GBP", barcode: input.barcode?.trim() || undefined, sku: input.sku?.trim() || undefined, stockTracked: input.stockTracked, active: input.active, ...(input.mediaUrl?.trim() ? { media: { url: input.mediaUrl.trim() } } : {}) });
     await value.repository.appendAuditEvent({ organisationId: value.organisation.id, action: input.id ? "catalogue.product_updated" : "catalogue.product_created", targetType: "commerce_product", targetId: product.id });
     revalidatePath("/club/shop"); return { ok: true, productName: product.name };
   } catch (error) { console.error("[club-shop] catalogue save failed", { operation: "save_commerce_product" }); return { ok: false, error: "Product couldn’t be saved." }; }
