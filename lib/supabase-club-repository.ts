@@ -167,6 +167,21 @@ export class SupabaseClubRepository implements ClubRepository {
     return { membership, grants: rows(result.grants).map(mapGrant) };
   }
 
+  async assignMembership(input: { organisationId: string; productId: string; customerId?: string; holderUserIds?: string[]; source: GrantSource; validity: { startsAt: string; endsAt?: string }; idempotencyKey: string }) {
+    const { data, error } = await this.client.rpc("club_assign_membership", { p_organisation_id: input.organisationId, p_product_id: input.productId, p_customer_id: input.customerId ?? null, p_holder_user_ids: input.holderUserIds ?? [], p_starts_at: input.validity.startsAt, p_ends_at: input.validity.endsAt ?? null, p_source: input.source, p_idempotency_key: input.idempotencyKey });
+    if (error) safeError("assign_membership", error, error.code === "42501" ? "FORBIDDEN" : error.code === "23505" ? "INVALID" : "FAILED");
+    const result = row(data); const m = row(result.membership); const status = String(m.status) as Membership["status"]; const source = String(m.source) as GrantSource;
+    if (!membershipStatuses.includes(status) || !sources.includes(source)) safeError("map_membership", undefined, "INVALID");
+    const holders = rows(result.holders); return { membership: { id: String(m.id), organisationId: String(m.organisation_id), productId: String(m.product_id), status, validity: { startsAt: String(m.starts_at), ...(m.ends_at ? { endsAt: String(m.ends_at) } : {}) }, source, holderUserIds: holders.filter(h => h.user_id).map(h => String(h.user_id)), holderCustomerIds: holders.filter(h => h.customer_id).map(h => String(h.customer_id)), ...(optionalString(m.assignment_idempotency_key) ? { assignmentIdempotencyKey: String(m.assignment_idempotency_key) } : {}) }, grants: rows(result.grants).map(mapGrant) };
+  }
+
+  async endMembership(input: { organisationId: string; membershipId: string; effectiveAt?: string; status?: "cancelled" | "expired" }) {
+    const { data, error } = await this.client.rpc("club_end_membership", { p_organisation_id: input.organisationId, p_membership_id: input.membershipId, p_effective_at: input.effectiveAt ?? null, p_status: input.status ?? "cancelled", p_reason: null });
+    if (error) safeError("end_membership", error, error.code === "42501" ? "FORBIDDEN" : error.code === "P0002" ? "NOT_FOUND" : "FAILED");
+    const m = row(data); const status = String(m.status) as Membership["status"]; if (!membershipStatuses.includes(status)) safeError("map_membership", undefined, "INVALID");
+    return { id: String(m.id), organisationId: String(m.organisation_id), productId: String(m.product_id), status, validity: { startsAt: String(m.starts_at), ...(m.ends_at ? { endsAt: String(m.ends_at) } : {}) }, source: String(m.source) as GrantSource, holderUserIds: [], ...(optionalString(m.ended_at) ? { endedAt: String(m.ended_at) } : {}), ...(optionalString(m.ended_by) ? { endedBy: String(m.ended_by) } : {}) };
+  }
+
   async listCustomers(organisationId: string) { const { data, error } = await this.client.from("club_customers").select("*").eq("organisation_id", organisationId).order("created_at"); if (error) safeError("list_customers", error); return rows(data).map(mapCustomer); }
   async createCustomer(input: CreateClubCustomerInput) { const { data, error } = await this.client.rpc("club_create_customer", { p_organisation_id: input.organisationId, p_user_id: input.userId ?? null, p_display_name: input.displayName, p_email: input.email ?? null, p_phone: input.phone ?? null, p_status: input.status }); if (error) safeError("create_customer", error, error.code === "42501" ? "FORBIDDEN" : "FAILED"); return mapCustomer(data); }
   async linkCustomerUser(customerId: string, userId: string) { const { data, error } = await this.client.rpc("club_link_customer_user", { p_customer_id: customerId, p_user_id: userId }); if (error) safeError("link_customer_user", error, error.code === "42501" ? "FORBIDDEN" : "FAILED"); return mapCustomer(data); }

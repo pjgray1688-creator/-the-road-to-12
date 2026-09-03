@@ -7,6 +7,7 @@ import { serverSupabase } from "@/lib/supabase-server";
 import { resolveClubOrganisationContext, isClubStaffRole } from "@/lib/club-server-context";
 import { entitlementLabel, orderStateLabel } from "@/lib/club-operational";
 import { ClubMembershipAssignment } from "@/components/club-membership-assignment";
+import { ClubMembershipEnd } from "@/components/club-membership-end";
 
 const membershipLabel = (status: string) => status.replace(/_/g, " ").replace(/\b\w/g, letter => letter.toUpperCase());
 const accessReason = (reason?: string) => ({ membership_not_started: "Membership has not started", membership_expired: "Membership has expired", membership_inactive: "Membership is inactive", gym_access_missing: "No gym access benefit is currently active", location_not_included: "This location is not included", location_inactive: "Location is inactive" }[reason ?? ""] ?? reason?.replace(/_/g, " "));
