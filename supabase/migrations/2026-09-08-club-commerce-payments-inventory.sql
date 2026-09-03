@@ -142,9 +142,16 @@ begin
   v_staff:=public.club_has_active_role(p_organisation_id,array['gym_staff','gym_admin','owner']);
   if not v_staff and p_channel not in ('member_app','web') then raise exception 'Order channel is not permitted' using errcode='42501'; end if;
   if p_channel not in ('member_app','staff_checkout','quick_sale','web','other') or p_currency !~ '^[A-Z]{3}$' or jsonb_typeof(p_items)<>'array' or jsonb_array_length(p_items)=0 then raise exception 'Invalid order input' using errcode='22023'; end if;
-  if p_idempotency_key is not null then select * into v_existing from public.club_orders where organisation_id=p_organisation_id and idempotency_key=p_idempotency_key; if found then return jsonb_build_object('order',to_jsonb(v_existing),'items',coalesce((select jsonb_agg(to_jsonb(i)) from public.club_order_items i where i.order_id=v_existing.id),'[]'::jsonb),'replayed',true); end if; end if;
   if p_location_id is not null and not exists(select 1 from public.club_locations where id=p_location_id and organisation_id=p_organisation_id and active) then raise exception 'Location is unavailable' using errcode='22023'; end if;
   if p_customer_id is not null and not exists(select 1 from public.club_customers where id=p_customer_id and organisation_id=p_organisation_id) then raise exception 'Customer is not in organisation' using errcode='22023'; end if;
+  if not v_staff and p_customer_id is not null and not exists(select 1 from public.club_customers where id=p_customer_id and organisation_id=p_organisation_id and user_id=auth.uid()) then raise exception 'Customer is not associated with caller' using errcode='42501'; end if;
+  if p_idempotency_key is not null then
+    select * into v_existing from public.club_orders where organisation_id=p_organisation_id and idempotency_key=p_idempotency_key;
+    if found then
+      if (not v_staff and v_existing.user_id is distinct from auth.uid()) or v_existing.customer_id is distinct from p_customer_id or v_existing.location_id is distinct from p_location_id or v_existing.channel<>p_channel or v_existing.currency<>p_currency then raise exception 'Idempotency key conflict' using errcode='23505'; end if;
+      return jsonb_build_object('order',to_jsonb(v_existing),'items',coalesce((select jsonb_agg(to_jsonb(i)) from public.club_order_items i where i.order_id=v_existing.id),'[]'::jsonb),'replayed',true);
+    end if;
+  end if;
   for v_item in select * from jsonb_array_elements(p_items) loop
     v_qty:=(v_item->>'quantity')::integer; if v_qty is null or v_qty<=0 then raise exception 'Invalid order quantity' using errcode='22023'; end if;
     select * into v_product from public.club_commerce_products where id=(v_item->>'product_id')::uuid and organisation_id=p_organisation_id and active for update;
@@ -171,7 +178,7 @@ begin
   select * into v_order from public.club_orders where id=p_order_id for update; if not found then raise exception 'Order not found' using errcode='P0002'; end if;
   if auth.uid() is null or not public.club_has_active_role(v_order.organisation_id,array['gym_staff','gym_admin','owner']) then raise exception 'Cash settlement is not permitted' using errcode='42501'; end if;
   if p_amount_minor<0 or p_amount_minor<>v_order.total_minor then raise exception 'Payment amount must settle the order total' using errcode='22023'; end if;
-  if p_idempotency_key is not null then select * into v_existing from public.club_payments where organisation_id=v_order.organisation_id and external_reference=p_idempotency_key; if found then return to_jsonb(v_existing); end if; end if;
+  if p_idempotency_key is not null then select * into v_existing from public.club_payments where organisation_id=v_order.organisation_id and external_reference=p_idempotency_key; if found then if v_existing.order_id<>v_order.id then raise exception 'Idempotency key conflict' using errcode='23505'; end if; return to_jsonb(v_existing); end if; end if;
   if v_order.status<>'pending_payment' then raise exception 'Order is not awaiting settlement' using errcode='22023'; end if;
   insert into public.club_payments(order_id,organisation_id,method,external_reference,amount_minor,currency,status) values(v_order.id,v_order.organisation_id,'cash',p_idempotency_key,p_amount_minor,v_order.currency,'paid') returning * into v_payment;
   update public.club_orders set status='paid',updated_at=now() where id=v_order.id returning * into v_order;
@@ -202,10 +209,11 @@ declare v_order public.club_orders%rowtype; v_account public.club_balance_accoun
 begin
   select * into v_order from public.club_orders where id=p_order_id for update; if not found then raise exception 'Order not found' using errcode='P0002'; end if;
   if auth.uid() is null or v_order.user_id is distinct from auth.uid() then raise exception 'Balance spend is not permitted' using errcode='42501'; end if;
-  select * into v_existing from public.club_balance_entries where organisation_id=v_order.organisation_id and idempotency_key=p_idempotency_key; if found then return to_jsonb(v_existing); end if;
+  select * into v_account from public.club_balance_accounts where organisation_id=v_order.organisation_id and user_id=auth.uid() for update; if not found then raise exception 'Balance account not found' using errcode='P0002'; end if;
+  if p_idempotency_key is not null then select * into v_existing from public.club_balance_entries where organisation_id=v_order.organisation_id and idempotency_key=p_idempotency_key; if found then if v_existing.order_id is distinct from v_order.id or v_existing.account_id<>v_account.id or v_existing.entry_type<>'purchase' then raise exception 'Idempotency key conflict' using errcode='23505'; end if; return to_jsonb(v_existing); end if; end if;
+  if p_idempotency_key is not null and exists(select 1 from public.club_payments where organisation_id=v_order.organisation_id and external_reference=p_idempotency_key) then raise exception 'Idempotency key conflict' using errcode='23505'; end if;
   if p_amount_minor<=0 or p_idempotency_key is null or p_amount_minor<>v_order.total_minor then raise exception 'Balance settlement must equal the order total' using errcode='22023'; end if;
   if v_order.status<>'pending_payment' then raise exception 'Order is not awaiting settlement' using errcode='22023'; end if;
-  select * into v_account from public.club_balance_accounts where organisation_id=v_order.organisation_id and user_id=auth.uid() for update; if not found then raise exception 'Balance account not found' using errcode='P0002'; end if;
   v_balance:=coalesce((select sum(amount_delta_minor) from public.club_balance_entries where account_id=v_account.id),0); if v_balance<p_amount_minor then raise exception 'Insufficient organisation balance' using errcode='22023'; end if;
   insert into public.club_balance_entries(account_id,organisation_id,entry_type,amount_delta_minor,balance_after_minor,order_id,actor_user_id,idempotency_key) values(v_account.id,v_order.organisation_id,'purchase',-p_amount_minor,v_balance-p_amount_minor,v_order.id,auth.uid(),p_idempotency_key) returning * into v_entry;
   insert into public.club_payments(order_id,organisation_id,method,external_reference,amount_minor,currency,status) values(v_order.id,v_order.organisation_id,'balance',p_idempotency_key,p_amount_minor,v_order.currency,'paid');

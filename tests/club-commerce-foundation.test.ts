@@ -39,6 +39,14 @@ test("settlement RPCs require full pending orders and balance sales mirror cash 
   assert.match(cash, /external_reference=p_idempotency_key/);
 });
 
+test("idempotent replays are bound to the original order, caller and customer", () => {
+  const order = migration.slice(migration.indexOf("create or replace function public.club_create_commerce_order"), migration.indexOf("create or replace function public.club_record_cash_payment"));
+  const cash = migration.slice(migration.indexOf("create or replace function public.club_record_cash_payment"), migration.indexOf("create or replace function public.club_credit_balance"));
+  const spend = migration.slice(migration.indexOf("create or replace function public.club_spend_balance"), migration.indexOf("create or replace function public.club_adjust_inventory"));
+  assert.match(order, /v_existing\.user_id is distinct from auth\.uid\(\)/); assert.match(order, /v_existing\.customer_id is distinct from p_customer_id/); assert.match(order, /Customer is not associated with caller/); assert.match(order, /Idempotency key conflict/);
+  assert.match(cash, /v_existing\.order_id<>v_order\.id/); assert.match(spend, /v_existing\.order_id is distinct from v_order\.id/); assert.match(spend, /v_existing\.account_id<>v_account\.id/); assert.match(spend, /v_existing\.entry_type<>'purchase'/);
+});
+
 test("other commerce RPCs retain their trust boundaries", () => {
   const order = migration.slice(migration.indexOf("create or replace function public.club_create_commerce_order"), migration.indexOf("create or replace function public.club_record_cash_payment"));
   const cash = migration.slice(migration.indexOf("create or replace function public.club_record_cash_payment"), migration.indexOf("create or replace function public.club_credit_balance"));
@@ -93,4 +101,19 @@ test("memory cash settlement is full-only, idempotent and records stock sale mov
   assert.equal(payment.method, "cash"); assert.equal(repository.stockMovements.length, 1); assert.equal(repository.stockMovements[0].quantityDelta, -2);
   assert.equal(await repository.recordCashPayment(order.id, 1000, "cash-1"), payment);
   await assert.rejects(() => repository.recordCashPayment(order.id, 1000, "cash-2"), /order_not_awaiting_settlement/);
+  const other = await repository.createCommerceOrder({ organisationId: "org-madhouse", locationId: "loc-carlton", channel: "quick_sale", currency: "GBP", items: [{ productId: "stock-1", quantity: 2 }] });
+  await assert.rejects(() => repository.recordCashPayment(other.id, 1000, "cash-1"), /idempotency_conflict/);
+});
+
+test("memory order replays preserve caller/customer ownership and reject key collisions", async () => {
+  const repository = new MemoryClubRepository();
+  repository.commerceProducts.push({ id: "retail-3", organisationId: "org-madhouse", name: "Water", active: true, stockTracked: false, sellPriceMinor: 100, currency: "GBP", createdAt: "2026-01-01", updatedAt: "2026-01-01" });
+  repository.customers.push({ id: "customer-a", organisationId: "org-madhouse", userId: "user-a", displayName: "A", status: "member", createdAt: "2026-01-01", updatedAt: "2026-01-01" });
+  repository.customers.push({ id: "customer-b", organisationId: "org-madhouse", userId: "user-b", displayName: "B", status: "member", createdAt: "2026-01-01", updatedAt: "2026-01-01" });
+  const first = await repository.createCommerceOrder({ organisationId: "org-madhouse", userId: "user-a", customerId: "customer-a", channel: "member_app", currency: "GBP", items: [{ productId: "retail-3", quantity: 1 }], idempotencyKey: "order-key" });
+  assert.equal(await repository.createCommerceOrder({ organisationId: "org-madhouse", userId: "user-a", customerId: "customer-a", channel: "member_app", currency: "GBP", items: [{ productId: "retail-3", quantity: 1 }], idempotencyKey: "order-key" }), first);
+  await assert.rejects(() => repository.createCommerceOrder({ organisationId: "org-madhouse", userId: "user-b", customerId: "customer-b", channel: "member_app", currency: "GBP", items: [{ productId: "retail-3", quantity: 1 }], idempotencyKey: "order-key" }), /idempotency_conflict/);
+  await assert.rejects(() => repository.createCommerceOrder({ organisationId: "org-madhouse", userId: "user-b", customerId: "customer-a", channel: "member_app", currency: "GBP", items: [{ productId: "retail-3", quantity: 1 }] }), /customer_not_owned/);
+  const staffOrder = await repository.createCommerceOrder({ organisationId: "org-madhouse", customerId: "customer-b", channel: "staff_checkout", currency: "GBP", items: [{ productId: "retail-3", quantity: 1 }], idempotencyKey: "staff-key" });
+  assert.equal(staffOrder.customerId, "customer-b");
 });
