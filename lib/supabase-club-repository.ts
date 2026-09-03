@@ -6,6 +6,7 @@ import type { ClubLocationAccessResult, ClubMemberOperationalRead, ClubMemberSum
 import type { ClubBalanceAccount, ClubBalanceEntry, ClubCommerceProduct, ClubOrder, ClubOrderItem, ClubPayment, ClubStockMovement, SaveClubCommerceProductInput } from "./club-commerce";
 import type { ClubCashDeclaration, ClubMembershipInitialCharge, ClubPromotion, ClubPromotionEffect, ClubPromotionRedemption, ClubPromotionTarget, ClubServiceCreditEntry } from "./club-commercial-rules";
 import type { ClubInductionBooking, ClubInductionRead, ClubInductionRequirement, ClubInductionPolicy, SaveClubInductionPolicyInput, SaveClubInductionVersionInput } from "./club-induction";
+import type { ClubCapability } from "./club-capabilities";
 
 type Row = Record<string, unknown>;
 type SupabaseFailure = { message?: string; code?: string };
@@ -118,6 +119,7 @@ const productRpcArguments = (product: Omit<ClubProduct, "id"> | ClubProduct) => 
 
 export class SupabaseClubRepository implements ClubRepository {
   constructor(private readonly client: SupabaseClient) {}
+  async hasCapability(organisationId: string, userId: string, capability: ClubCapability) { const { data, error } = await this.client.rpc("club_capability_allowed", { p_organisation_id: organisationId, p_user_id: userId, p_capability: capability }); if (error) safeError("club_capability_allowed", error, error.code === "42501" ? "FORBIDDEN" : "FAILED"); return data === true; }
   async appendAuditEvent(input: { organisationId: string; action: string; targetType?: string; targetId?: string; reason?: string }) { const { error } = await this.client.rpc("club_append_audit_event", { p_organisation_id: input.organisationId, p_action: input.action, p_target_type: input.targetType ?? null, p_target_id: input.targetId ?? null, p_location_id: null, p_reason: input.reason ?? null, p_metadata: {} }); if (error && process.env.NODE_ENV !== "test") console.warn("[club-repository] audit trail unavailable", { code: error.code, operation: input.action }); }
 
   async listOrganisations() { const { data, error } = await this.client.from("club_organisations").select("*").order("name"); if (error) safeError("list_organisations", error); return rows(data).map(mapOrganisation); }
