@@ -1,22 +1,40 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { clubRepository } from "./club-repository";
-import type { ClubRole } from "./club";
+import { clubRepository, type ClubRepository } from "./club-repository";
+import type { ClubRole, Organisation, OrganisationMember } from "./club";
 
 const operationalRoles: ClubRole[] = ["trainer", "gym_staff", "gym_admin", "owner"];
 
-export async function resolveClubOperationalContext(client: SupabaseClient, userId: string) {
+export type ClubOrganisationContext = {
+  repository: ClubRepository;
+  organisation: Organisation;
+  members: OrganisationMember[];
+  member: OrganisationMember;
+  role: ClubRole;
+};
+
+/** Resolve only organisations where the signed-in user has an active membership. */
+export async function listClubOrganisationContexts(client: SupabaseClient, userId: string) {
   const repository = clubRepository(client);
   const organisations = await repository.listOrganisations();
-  if (process.env.NODE_ENV !== "production") {
-    const organisation = organisations[0];
-    if (!organisation) return undefined;
+  const contexts = await Promise.all(organisations.map(async organisation => {
     const members = await repository.listMembers(organisation.id);
-    const member = members.find(item => item.userId === userId && item.active && operationalRoles.includes(item.role));
-    return { repository, organisation, members, role: member?.role ?? "owner" as ClubRole };
-  }
-  const memberSets = await Promise.all(organisations.map(organisation => repository.listMembers(organisation.id)));
-  const index = memberSets.findIndex(members => members.some(member => member.userId === userId && member.active && operationalRoles.includes(member.role)));
-  if (index < 0) return undefined;
-  const members = memberSets[index]; const member = members.find(item => item.userId === userId && item.active && operationalRoles.includes(item.role));
-  return member ? { repository, organisation: organisations[index], members, role: member.role } : undefined;
+    const member = members.find(item => item.userId === userId && item.active);
+    return member ? { repository, organisation, members, member, role: member.role } satisfies ClubOrganisationContext : undefined;
+  }));
+  return contexts.filter((context): context is ClubOrganisationContext => Boolean(context));
 }
+
+/** An explicit organisation is required when a user belongs to more than one. */
+export async function resolveClubOrganisationContext(client: SupabaseClient, userId: string, organisationId?: string) {
+  const contexts = await listClubOrganisationContexts(client, userId);
+  if (organisationId) return contexts.find(context => context.organisation.id === organisationId);
+  return contexts.length === 1 ? contexts[0] : undefined;
+}
+
+export async function resolveClubOperationalContext(client: SupabaseClient, userId: string, organisationId?: string) {
+  const context = await resolveClubOrganisationContext(client, userId, organisationId);
+  return context && operationalRoles.includes(context.role) ? context : undefined;
+}
+
+export function isClubOperationalRole(role: ClubRole) { return operationalRoles.includes(role); }
+export function isClubStaffRole(role: ClubRole) { return role === "gym_staff" || role === "gym_admin" || role === "owner"; }

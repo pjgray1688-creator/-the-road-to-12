@@ -22,8 +22,8 @@ function LoadedClasses({ theme, classTypes, sessions, locations, members, availa
   return <AppShell className="module-page club-classes-page"><PageHeader eyebrow="R12 CLUB · CLASSES" title={theme.organisationName} description="Classes, capacity and timetable management." /><ClubClassesWorkspace classTypes={classTypes} sessions={sessions} locations={locations} members={members} availability={availability} role={role} currentUserId={userId} today={today} accent={theme.primaryAccent} /><BackButton href="/club">Back to Club</BackButton><AppNav /></AppShell>;
 }
 
-async function loadClasses(supabase: Awaited<ReturnType<typeof serverSupabase>>, userId: string) {
-  const context = await resolveClubOperationalContext(supabase, userId);
+async function loadClasses(supabase: Awaited<ReturnType<typeof serverSupabase>>, userId: string, organisationId?: string) {
+  const context = await resolveClubOperationalContext(supabase, userId, organisationId);
   if (!context) return null;
   const [classTypes, locations, sessions] = await Promise.all([context.repository.listClassTypes(context.organisation.id), context.repository.listLocations(context.organisation.id), context.repository.listClassSessions(context.organisation.id)]);
   const today = londonDay(); const visibleSessions = sessions.filter(session => londonDay(new Date(session.startsAt)) >= today).sort((a, b) => a.startsAt.localeCompare(b.startsAt));
@@ -32,13 +32,13 @@ async function loadClasses(supabase: Awaited<ReturnType<typeof serverSupabase>>,
   return { context, classTypes, locations, visibleSessions, today, availability, theme: resolveOrganisationTheme(context.organisation) };
 }
 
-export default async function ClubClassesPage() {
+export default async function ClubClassesPage({ searchParams }: { searchParams?: Promise<{ org?: string }> }) {
   const supabase = await serverSupabase(); const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/account?mode=signIn");
   let loaded: Awaited<ReturnType<typeof loadClasses>> | undefined;
   let failed = false;
   try {
-    loaded = await loadClasses(supabase, user.id);
+    loaded = await loadClasses(supabase, user.id, (await searchParams)?.org);
   } catch (error) {
     console.error("[club-classes] timetable load failed", { operation: error instanceof Error && "operation" in error ? error.operation : "load_classes" });
     failed = true;

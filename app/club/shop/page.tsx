@@ -1,25 +1,24 @@
 import { redirect } from "next/navigation";
 import { serverSupabase } from "@/lib/supabase-server";
-import { clubRepository } from "@/lib/club-repository";
 import { resolveOrganisationTheme } from "@/lib/club";
+import { resolveClubOrganisationContext } from "@/lib/club-server-context";
 import { AppNav } from "@/components/app-nav";
 import { AppShell, BackButton, EmptyState, PageHeader } from "@/components/ui";
 import { ClubShop } from "@/components/club-shop";
 import { ClubStaffCheckout } from "@/components/club-staff-checkout";
 
-async function loadShop(client: Awaited<ReturnType<typeof serverSupabase>>, userId: string) {
-  const repository = clubRepository(client); const organisations = await repository.listOrganisations();
-  for (const organisation of organisations) {
-    const members = await repository.listMembers(organisation.id); const member = members.find(item => item.userId === userId && item.active); if (!member) continue;
-    const [products, locations, balance, orders, declarations, customers] = await Promise.all([repository.listCommerceProducts(organisation.id), repository.listLocations(organisation.id), repository.getBalanceAccount(organisation.id, userId), repository.listOrders(organisation.id), ["gym_staff", "gym_admin", "owner"].includes(member.role) ? repository.listCashDeclarations(organisation.id, "declared") : Promise.resolve([]), ["gym_staff", "gym_admin", "owner"].includes(member.role) ? repository.listCustomers(organisation.id) : Promise.resolve([])]);
-    return { organisation, products, locations, balance, orders, declarations, customers, staff: ["gym_staff", "gym_admin", "owner"].includes(member.role) };
-  }
-  return undefined;
+async function loadShop(client: Awaited<ReturnType<typeof serverSupabase>>, userId: string, organisationId?: string) {
+  const context = await resolveClubOrganisationContext(client, userId, organisationId);
+  if (!context) return undefined;
+  const { repository, organisation, member } = context;
+  const staff = ["gym_staff", "gym_admin", "owner"].includes(member.role);
+  const [products, locations, balance, orders, declarations, customers] = await Promise.all([repository.listCommerceProducts(organisation.id), repository.listLocations(organisation.id), repository.getBalanceAccount(organisation.id, userId), repository.listOrders(organisation.id), staff ? repository.listCashDeclarations(organisation.id, "declared") : Promise.resolve([]), staff ? repository.listCustomers(organisation.id) : Promise.resolve([])]);
+  return { organisation, products, locations, balance, orders, declarations, customers, staff };
 }
 
-export default async function ClubShopPage() {
+export default async function ClubShopPage({ searchParams }: { searchParams?: Promise<{ org?: string }> }) {
   const client = await serverSupabase(); const { data: { user } } = await client.auth.getUser(); if (!user) redirect("/account?mode=signIn");
-  let loaded; try { loaded = await loadShop(client, user.id); } catch { loaded = "error" as const; }
+  const params = await searchParams; let loaded; try { loaded = await loadShop(client, user.id, params?.org); } catch { loaded = "error" as const; }
   if (loaded === "error") return <AppShell className="module-page club-shop-page"><PageHeader eyebrow="R12 CLUB" title="Shop" description="Commerce is temporarily unavailable." /><EmptyState title="Shop couldn’t be loaded.">Try again shortly.</EmptyState><BackButton href="/club">Back to Club</BackButton><AppNav /></AppShell>;
   if (!loaded) return <AppShell className="module-page club-shop-page"><PageHeader eyebrow="R12 CLUB" title="Shop" description="Organisation commerce." /><EmptyState title="Club access required">Your account is not linked to an active Club organisation.</EmptyState><BackButton href="/club">Back to Club</BackButton><AppNav /></AppShell>;
   const theme = resolveOrganisationTheme(loaded.organisation);
