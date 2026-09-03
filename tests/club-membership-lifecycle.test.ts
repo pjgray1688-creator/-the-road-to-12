@@ -17,6 +17,10 @@ test("membership lifecycle RPCs are protected and linking materialises grants", 
   assert.match(migration, /grant execute on function public\.club_assign_membership[^;]+to authenticated/i);
   assert.match(migration, /club_link_customer_user/);
   assert.match(migration, /club_entitlement_grants/);
+  assert.match(migration, /end_requested_at/);
+  assert.match(migration, /p_customer_id is not null and v_customer\.user_id is null then insert/);
+  assert.match(migration, /v_customer\.user_id is not null/);
+  assert.match(migration, /already contains that user|existing\.user_id=p_user_id/);
 });
 
 test("onboarding does not require an account before recording membership", () => {
