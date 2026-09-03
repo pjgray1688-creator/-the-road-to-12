@@ -127,6 +127,43 @@ end; $$;
 revoke all on function public.club_get_member_operational_profile(uuid,uuid),public.club_list_member_summaries(uuid),public.club_check_member_location_access(uuid,uuid,uuid,timestamptz),public.club_set_member_home_location(uuid,uuid,uuid) from public;
 grant execute on function public.club_get_member_operational_profile(uuid,uuid),public.club_list_member_summaries(uuid),public.club_check_member_location_access(uuid,uuid,uuid,timestamptz),public.club_set_member_home_location(uuid,uuid,uuid) to authenticated;
 
+-- Final aggregate evaluator: every currently valid authoritative grant is
+-- considered.  This prevents one grant from masking another location/source.
+create or replace function public.club_evaluate_member_access(p_organisation_id uuid,p_user_id uuid,p_at timestamptz default now())
+returns jsonb language plpgsql security definer set search_path=pg_catalog,public as $$
+declare v_has_membership boolean; v_has_future boolean; v_has_expired boolean; v_policy_future boolean:=false; v_has_valid boolean:=false; v_org_wide boolean:=false; v_locations uuid[]:='{}'; v_grant record; v_policy text; v_active_location boolean;
+begin
+  if auth.uid() is null or (auth.uid()<>p_user_id and not public.club_has_active_role(p_organisation_id,array['gym_staff','gym_admin','owner'])) then raise exception 'Location eligibility is not permitted' using errcode='42501'; end if;
+  select exists(select 1 from public.club_memberships m join public.club_membership_holders h on h.membership_id=m.id and h.user_id=p_user_id where m.organisation_id=p_organisation_id), exists(select 1 from public.club_memberships m join public.club_membership_holders h on h.membership_id=m.id and h.user_id=p_user_id where m.organisation_id=p_organisation_id and m.starts_at>p_at), exists(select 1 from public.club_memberships m join public.club_membership_holders h on h.membership_id=m.id and h.user_id=p_user_id where m.organisation_id=p_organisation_id and m.ends_at is not null and m.ends_at<=p_at) into v_has_membership,v_has_future,v_has_expired;
+  for v_grant in select g.* from public.club_entitlement_grants g where g.organisation_id=p_organisation_id and g.user_id=p_user_id and g.entitlement_key='gym_access' and g.starts_at<=p_at and (g.ends_at is null or g.ends_at>p_at) and (g.membership_id is null or exists(select 1 from public.club_memberships m join public.club_membership_holders h on h.membership_id=m.id and h.user_id=p_user_id where m.id=g.membership_id and m.organisation_id=p_organisation_id and m.status='active' and m.starts_at<=p_at and (m.ends_at is null or m.ends_at>p_at))) order by (g.scope='future_locations') desc,(g.scope='organisation' and coalesce(array_length(g.location_ids,1),0)=0) desc,g.ends_at nulls last,g.starts_at desc,g.id loop
+    v_has_valid:=true;
+    if v_grant.scope='future_locations' then v_policy_future:=true; elsif v_grant.scope='organisation' and coalesce(array_length(v_grant.location_ids,1),0)=0 then v_org_wide:=true; else v_locations:=v_locations||coalesce(v_grant.location_ids,'{}'); end if;
+  end loop;
+  select exists(select 1 from public.club_locations l where l.organisation_id=p_organisation_id and l.active and (v_policy_future or v_org_wide or l.id=any(v_locations))) into v_active_location;
+  v_policy:=case when v_policy_future then 'future_locations' when v_org_wide then 'organisation' when coalesce(array_length(v_locations,1),0)>0 then 'locations' else null end;
+  return jsonb_build_object('state',case when v_has_valid and v_active_location then 'active' when v_has_membership and exists(select 1 from public.club_memberships m join public.club_membership_holders h on h.membership_id=m.id and h.user_id=p_user_id where m.organisation_id=p_organisation_id and m.status='active') then 'needs_attention' else 'unavailable' end,'reason',case when not v_has_membership and not v_has_valid then 'no_membership' when v_has_future and not exists(select 1 from public.club_memberships m join public.club_membership_holders h on h.membership_id=m.id and h.user_id=p_user_id where m.organisation_id=p_organisation_id and m.status='active' and m.starts_at<=p_at and (m.ends_at is null or m.ends_at>p_at)) then 'membership_not_started' when v_has_expired and not v_has_valid then 'membership_expired' when v_has_membership and not exists(select 1 from public.club_memberships m join public.club_membership_holders h on h.membership_id=m.id and h.user_id=p_user_id where m.organisation_id=p_organisation_id and m.status='active' and m.starts_at<=p_at and (m.ends_at is null or m.ends_at>p_at)) then 'membership_inactive' when not v_has_valid then 'gym_access_missing' else null end,'policy',v_policy,'permitted_location_ids',case when v_policy_future or v_org_wide then null else to_jsonb(v_locations) end,'has_valid_grant',v_has_valid);
+end; $$;
+
+-- Location checks select the exact grant that authorised the request and use
+-- its metadata, rather than re-querying by scope after the decision.
+create or replace function public.club_check_member_location_access(p_organisation_id uuid,p_user_id uuid,p_location_id uuid,p_at timestamptz default now())
+returns jsonb language plpgsql security definer set search_path=pg_catalog,public as $$
+declare v_location public.club_locations%rowtype; v_grant public.club_entitlement_grants%rowtype; v_access jsonb;
+begin
+  if auth.uid() is null then raise exception 'Club authentication required' using errcode='42501'; end if;
+  if auth.uid()<>p_user_id and not public.club_has_active_role(p_organisation_id,array['gym_staff','gym_admin','owner']) then raise exception 'Location eligibility is not permitted' using errcode='42501'; end if;
+  select * into v_location from public.club_locations where id=p_location_id and organisation_id=p_organisation_id;
+  if not found or not v_location.active then return jsonb_build_object('allowed',false,'organisation_id',p_organisation_id,'location_id',p_location_id,'reason','location_inactive'); end if;
+  select g.* into v_grant from public.club_entitlement_grants g where g.organisation_id=p_organisation_id and g.user_id=p_user_id and g.entitlement_key='gym_access' and g.starts_at<=p_at and (g.ends_at is null or g.ends_at>p_at) and (g.membership_id is null or exists(select 1 from public.club_memberships m join public.club_membership_holders h on h.membership_id=m.id and h.user_id=p_user_id where m.id=g.membership_id and m.organisation_id=p_organisation_id and m.status='active' and m.starts_at<=p_at and (m.ends_at is null or m.ends_at>p_at))) and (g.scope='future_locations' or (g.scope='organisation' and (coalesce(array_length(g.location_ids,1),0)=0 or p_location_id=any(g.location_ids))) or (g.scope='locations' and p_location_id=any(g.location_ids))) order by (g.scope='future_locations') desc,(g.scope='organisation' and coalesce(array_length(g.location_ids,1),0)=0) desc,g.ends_at nulls last,g.starts_at desc,g.id limit 1;
+  if found then return jsonb_build_object('allowed',true,'organisation_id',p_organisation_id,'location_id',p_location_id,'membership_id',v_grant.membership_id,'source',v_grant.source,'valid_from',v_grant.starts_at,'valid_until',v_grant.ends_at,'access_policy',v_grant.scope); end if;
+  v_access:=public.club_evaluate_member_access(p_organisation_id,p_user_id,p_at);
+  if (v_access->>'has_valid_grant')::boolean then return jsonb_build_object('allowed',false,'organisation_id',p_organisation_id,'location_id',p_location_id,'reason','location_not_included'); end if;
+  return jsonb_build_object('allowed',false,'organisation_id',p_organisation_id,'location_id',p_location_id,'reason',coalesce(v_access->>'reason','gym_access_missing'));
+end; $$;
+
+revoke all on function public.club_evaluate_member_access(uuid,uuid,timestamptz) from public, authenticated;
+grant execute on function public.club_get_member_operational_profile(uuid,uuid),public.club_list_member_summaries(uuid),public.club_check_member_location_access(uuid,uuid,uuid,timestamptz),public.club_set_member_home_location(uuid,uuid,uuid) to authenticated;
+
 -- Canonical access evaluation used by eligibility and operational summaries.
 -- `locations`/`organisation` grants with a non-empty location_ids array are
 -- assignment-time snapshots; `future_locations` remains dynamically expansive.

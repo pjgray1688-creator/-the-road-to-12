@@ -19,6 +19,16 @@ test("membership access migration distinguishes snapshot and future location pol
   assert.match(migration, /location_not_included/i);
 });
 
+test("membership access evaluates every valid grant and returns the winning grant", () => {
+  assert.match(migration, /for v_grant in select g\.\* from public\.club_entitlement_grants/i);
+  assert.match(migration, /v_locations:=v_locations\|\|coalesce\(v_grant\.location_ids/i);
+  assert.match(migration, /p_location_id=any\(g\.location_ids\)/i);
+  assert.match(migration, /order by \(g\.scope='future_locations'\)/i);
+  assert.match(migration, /v_grant\.membership_id,'source',v_grant\.source,'valid_from',v_grant\.starts_at,'valid_until',v_grant\.ends_at,'access_policy',v_grant\.scope/i);
+  assert.match(migration, /'has_valid_grant',v_has_valid/i);
+  assert.match(migration, /'location_not_included'/i);
+});
+
 test("membership access RPCs preserve hardened execution boundaries", () => {
   assert.match(migration, /set search_path=pg_catalog,public/i);
   assert.match(migration, /revoke all on function public\.club_get_member_operational_profile/i);
