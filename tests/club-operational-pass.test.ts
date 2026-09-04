@@ -1,0 +1,8 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { parseMemberCsv } from "../lib/club-member-import";
+import { parseSupplierCsv, paymentMethodEligible } from "../lib/club-supplier";
+
+test("supplier import preserves leading-zero barcodes, separates availability, and detects duplicates", () => { const result = parseSupplierCsv('supplier_sku,barcode,brand,product_name,availability\nSUP-1,00506547313426,Applied Nutrition,Creatine,72\nSUP-1,00506547313426,Applied Nutrition,Creatine,72', "Supplier"); assert.equal(result.rows[0].barcode, "00506547313426"); assert.equal(result.rows[0].availability, "72"); assert.deepEqual(result.duplicates, [3]); });
+test("member import matches deterministic identity fields without creating auth data", () => { const result = parseMemberCsv('legacy_member_reference,email,first_name,last_name,payment_method\nM-1,Peter@example.com,Peter,Gray,Direct Debit\nM-1,Peter@example.com,Peter,Gray,Direct Debit'); assert.equal(result.rows[0].legacyReference, "M-1"); assert.equal(result.rows[0].email, "peter@example.com"); assert.deepEqual(result.duplicateKeys, ["legacy:M-1"]); assert.equal("password" in result.rows[0], false); });
+test("payment eligibility is configuration-driven and does not imply provider approval", () => { const rule = { configured: true, enabledChannels: ["member_app"], currency: "GBP", minimumMinor: 5000 }; assert.equal(paymentMethodEligible(rule, { amountMinor: 4999, channel: "member_app", currency: "GBP" }), false); assert.equal(paymentMethodEligible(rule, { amountMinor: 5000, channel: "member_app", currency: "GBP" }), true); assert.equal(paymentMethodEligible({ ...rule, configured: false }, { amountMinor: 5000, channel: "member_app", currency: "GBP" }), false); });
