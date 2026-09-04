@@ -22,3 +22,14 @@ test("shop actions require explicit organisation context and discrepancy details
   assert.match(actions, /discrepancyMinor/); assert.match(checkout, /customerId/); assert.match(checkout, /Walk-in sale/); assert.match(checkout, /organisationId/);
   assert.match(actions, /payments\.record_cash/); assert.match(actions, /cash\.reconcile/); assert.match(actions, /payment\.cash_recorded/);
 });
+
+test("member cash declarations defer stock effects until staff confirmation", () => {
+  const migration = readFileSync(new URL("../supabase/migrations/2026-09-21-club-cash-settlement-safety.sql", import.meta.url), "utf8");
+  const declaration = migration.slice(0, migration.indexOf("create or replace function public.club_reconcile_cash_declaration"));
+  const reconcile = migration.slice(migration.indexOf("create or replace function public.club_reconcile_cash_declaration"));
+  assert.doesNotMatch(declaration, /club_stock_movements/);
+  assert.match(declaration, /awaiting_cash_verification/);
+  assert.match(reconcile, /p_status='confirmed'/);
+  assert.match(reconcile, /cash-confirmed:/);
+  assert.match(reconcile, /p_status='rejected'|cash_disputed/);
+});
