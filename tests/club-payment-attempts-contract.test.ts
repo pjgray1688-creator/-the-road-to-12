@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { settlementEffects, settlementEffectsForOutcome } from "../lib/club-settlement";
 
 const sql = readFileSync("supabase/migrations/2026-09-27-club-payment-attempts-split-tender.sql", "utf8");
 
@@ -43,4 +44,35 @@ test("trusted capture and failure paths are durable and exactly-once", () => {
   assert.match(sql, /commerce_order_item_id/);
   assert.match(sql, /club_commerce_products_service_fk/);
   assert.match(sql, /grant execute on function public\.club_capture_payment_attempt\(uuid,text\) to service_role/);
+});
+
+test("all successful tender paths share mixed-fulfilment effects", () => {
+  const lines = [
+    { orderItemId: "stock", quantity: 2, stockTracked: true },
+    { orderItemId: "supplier", quantity: 1, supplierOrderForCollection: true },
+    { orderItemId: "service", quantity: 1, serviceId: "svc" },
+  ];
+  const expected = settlementEffects(lines);
+  for (const tender of ["balance", "cash", "external", "split"] as const) {
+    assert.deepEqual(settlementEffectsForOutcome("paid", lines), expected, tender);
+  }
+  assert.equal(expected.filter((effect) => effect.kind === "stock_sale").length, 1);
+  assert.equal(expected.filter((effect) => effect.kind === "supplier_demand").length, 1);
+  assert.equal(expected.filter((effect) => effect.kind === "service_entitlement").length, 1);
+});
+
+test("failed, cancelled and repeated settlement produce no duplicate effects", () => {
+  const lines = [{ orderItemId: "x", quantity: 1, stockTracked: true, supplierOrderForCollection: true, serviceId: "svc" }];
+  assert.deepEqual(settlementEffectsForOutcome("failed", lines), []);
+  assert.deepEqual(settlementEffectsForOutcome("cancelled", lines), []);
+  const first = settlementEffects(lines);
+  assert.deepEqual(settlementEffects(lines, new Set(first.map((effect) => effect.key))), []);
+});
+
+test("migration routes each paid settlement boundary through shared finalisation", () => {
+  assert.match(sql, /create or replace function public\.club_finalize_paid_order/);
+  assert.match(sql, /perform public\.club_finalize_paid_order\(o\.id,auth\.uid\(\)\)/);
+  assert.match(sql, /perform public\.club_finalize_paid_order\(o\.id,null\)/);
+  assert.match(sql, /fulfilment_status,commerce_order_item_id,metadata\)\s*values\([^;]+,'pending',v_item\.id/s);
+  assert.match(sql, /revoke all on function public\.club_capture_payment_attempt\(uuid,text\) from public,anon,authenticated/);
 });

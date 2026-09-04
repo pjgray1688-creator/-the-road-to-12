@@ -207,3 +207,155 @@ from public.club_payment_attempts a where a.id=p_attempt_id and a.user_id=auth.u
 $$;
 revoke all on function public.club_get_payment_attempt(uuid) from public,anon;
 grant execute on function public.club_get_payment_attempt(uuid) to authenticated;
+
+-- Shared paid-order finalisation. Every successful tender path must call this
+-- primitive after marking the order paid. Its idempotency keys and the
+-- commerce-order-item unique service index make retries safe.
+create or replace function public.club_finalize_paid_order(p_order_id uuid, p_actor_user_id uuid default null)
+returns void language plpgsql security definer set search_path=pg_catalog,public as $$
+declare
+  v_order public.club_orders%rowtype;
+  v_item public.club_order_items%rowtype;
+  v_product public.club_commerce_products%rowtype;
+  v_customer uuid;
+begin
+  select * into v_order from public.club_orders where id=p_order_id for update;
+  if not found or v_order.status <> 'paid' then
+    raise exception 'Paid order is required for finalisation' using errcode='22023';
+  end if;
+  for v_item in select * from public.club_order_items where order_id=v_order.id order by id loop
+    if v_item.stock_tracked then
+      insert into public.club_stock_movements(organisation_id,location_id,product_id,movement_type,quantity_delta,order_id,actor_user_id,idempotency_key)
+      values(v_order.organisation_id,v_order.location_id,v_item.product_id,'sale',-v_item.quantity,v_order.id,p_actor_user_id,'order-finalise:'||v_item.id::text)
+      on conflict (organisation_id,idempotency_key) do nothing;
+    end if;
+    select * into v_product from public.club_commerce_products where id=v_item.product_id and organisation_id=v_order.organisation_id;
+    if v_product.service_id is not null then
+      if v_order.location_id is null then raise exception 'Service order requires a location' using errcode='22023'; end if;
+      v_customer:=v_order.customer_id;
+      if v_customer is null and v_order.user_id is not null then
+        select id into v_customer from public.club_customers where organisation_id=v_order.organisation_id and user_id=v_order.user_id limit 1;
+      end if;
+      insert into public.club_service_transactions(organisation_id,location_id,service_id,customer_id,staff_user_id,quantity,unit_price_minor,currency,payment_status,payment_method,payment_reference,fulfilment_status,commerce_order_item_id,metadata)
+      values(v_order.organisation_id,v_order.location_id,v_product.service_id,v_customer,p_actor_user_id,v_item.quantity,v_item.unit_price_minor,v_order.currency,'paid','commerce',v_order.id::text,'pending',v_item.id,jsonb_build_object('commerce_order_id',v_order.id))
+      on conflict (commerce_order_item_id) do nothing;
+    end if;
+  end loop;
+  perform public.club_create_supplier_demand_for_order(v_order.id);
+end; $$;
+revoke all on function public.club_finalize_paid_order(uuid,uuid) from public,anon,authenticated;
+
+-- Final provider capture delegates all fulfilment effects to the shared
+-- primitive. It remains callable only by the trusted service role.
+create or replace function public.club_capture_payment_attempt(p_attempt_id uuid,p_provider_reference text)
+returns jsonb language plpgsql security definer set search_path=pg_catalog,public as $$
+declare a public.club_payment_attempts%rowtype; h public.club_balance_holds%rowtype; o public.club_orders%rowtype; account public.club_balance_accounts%rowtype; entry public.club_balance_entries%rowtype; method text;
+begin
+  if nullif(btrim(p_provider_reference),'') is null then raise exception 'Provider reference is required' using errcode='22023'; end if;
+  select * into a from public.club_payment_attempts where id=p_attempt_id for update;
+  if not found then raise exception 'Payment attempt not found' using errcode='P0002'; end if;
+  if a.status='paid' then return jsonb_build_object('status','paid','attempt',to_jsonb(a)); end if;
+  if a.status in ('failed','cancelled') or a.external_amount_minor<=0 or a.external_method is null then raise exception 'Payment attempt cannot be captured' using errcode='22023'; end if;
+  select * into o from public.club_orders where id=a.order_id and organisation_id=a.organisation_id for update;
+  if not found or o.status<>'pending_payment' then raise exception 'Order is not payable' using errcode='22023'; end if;
+  select * into h from public.club_balance_holds where payment_attempt_id=a.id and organisation_id=a.organisation_id for update;
+  if h.id is not null then
+    if h.status<>'held' then raise exception 'Balance hold is not available' using errcode='22023'; end if;
+    select * into account from public.club_balance_accounts where id=h.account_id and organisation_id=a.organisation_id for update;
+    insert into public.club_balance_entries(account_id,organisation_id,entry_type,amount_delta_minor,balance_after_minor,order_id,idempotency_key,reason)
+    values(account.id,a.organisation_id,'purchase',-h.amount_minor,coalesce((select sum(amount_delta_minor) from public.club_balance_entries where account_id=account.id),0)-h.amount_minor,o.id,a.id::text||':balance','Split payment Balance capture') returning * into entry;
+    update public.club_balance_holds set status='captured',updated_at=now() where id=h.id;
+    insert into public.club_payments(order_id,organisation_id,method,external_reference,amount_minor,currency,status,metadata)
+    values(o.id,a.organisation_id,'balance',a.id::text||':balance',h.amount_minor,o.currency,'paid',jsonb_build_object('payment_attempt_id',a.id,'tender','madhouse_balance'));
+  end if;
+  method:=case when a.external_method='card' then 'card' else 'other' end;
+  insert into public.club_payments(order_id,organisation_id,method,external_reference,amount_minor,currency,status,metadata)
+  values(o.id,a.organisation_id,method,p_provider_reference,a.external_amount_minor,o.currency,'paid',jsonb_build_object('provider',a.external_method,'payment_attempt_id',a.id,'tender','external'));
+  update public.club_payment_attempts set status='paid',provider_reference=p_provider_reference,updated_at=now() where id=a.id returning * into a;
+  update public.club_orders set status='paid',updated_at=now() where id=o.id;
+  perform public.club_finalize_paid_order(o.id,null);
+  return jsonb_build_object('status','paid','attempt',to_jsonb(a),'balance_entry',case when entry.id is null then null else to_jsonb(entry) end);
+end; $$;
+revoke all on function public.club_capture_payment_attempt(uuid,text) from public,anon,authenticated;
+grant execute on function public.club_capture_payment_attempt(uuid,text) to service_role;
+
+-- Cash verification is also a paid-order boundary; retain the declaration
+-- safety checks while routing confirmed orders through shared finalisation.
+create or replace function public.club_reconcile_cash_declaration(p_declaration_id uuid,p_status text,p_notes text,p_discrepancy_minor integer)
+returns jsonb language plpgsql security definer set search_path=pg_catalog,public as $$
+declare v_row public.club_cash_declarations%rowtype; v_order public.club_orders%rowtype;
+begin
+  select * into v_row from public.club_cash_declarations where id=p_declaration_id for update;
+  if not found or not public.club_has_active_role(v_row.organisation_id,array['gym_staff','gym_admin','owner']) then raise exception 'Cash reconciliation is not permitted' using errcode='42501'; end if;
+  if v_row.status<> 'declared' then if v_row.status=p_status then return to_jsonb(v_row); else raise exception 'Cash declaration decision conflicts' using errcode='23505'; end if; end if;
+  if p_status not in ('confirmed','rejected','discrepancy') then raise exception 'Cash declaration is not reconcilable' using errcode='22023'; end if;
+  if v_row.purpose='commerce_order' then
+    select * into v_order from public.club_orders where id=v_row.order_id and organisation_id=v_row.organisation_id for update;
+    if p_status='confirmed' then
+      if not found or v_order.status<>'awaiting_cash_verification' then raise exception 'Order is not awaiting cash confirmation' using errcode='22023'; end if;
+      insert into public.club_payments(order_id,organisation_id,method,amount_minor,currency,status,external_reference) values(v_order.id,v_order.organisation_id,'cash',v_order.total_minor,v_order.currency,'paid',coalesce(v_row.idempotency_key,v_row.id::text)) on conflict do nothing;
+      update public.club_orders set status='paid',updated_at=now() where id=v_order.id;
+      perform public.club_finalize_paid_order(v_order.id,auth.uid());
+    elsif found and v_order.status='awaiting_cash_verification' then update public.club_orders set status='cash_disputed',updated_at=now() where id=v_order.id; end if;
+  end if;
+  update public.club_cash_declarations set status=p_status,confirmed_at=now(),confirmed_by=auth.uid(),notes=p_notes,discrepancy_minor=p_discrepancy_minor,updated_at=now() where id=v_row.id returning * into v_row;
+  return to_jsonb(v_row);
+end; $$;
+
+-- Existing direct settlement RPCs use the same finalisation boundary.
+create or replace function public.club_record_cash_payment(p_order_id uuid,p_amount_minor integer,p_idempotency_key text)
+returns jsonb language plpgsql security definer set search_path=pg_catalog,public as $$
+declare o public.club_orders%rowtype; p public.club_payments%rowtype; existing public.club_payments%rowtype;
+begin
+  select * into o from public.club_orders where id=p_order_id for update;
+  if not found then raise exception 'Order not found' using errcode='P0002'; end if;
+  if auth.uid() is null or not public.club_has_active_role(o.organisation_id,array['gym_staff','gym_admin','owner']) then raise exception 'Cash settlement is not permitted' using errcode='42501'; end if;
+  if o.status in ('awaiting_cash_verification','cash_disputed') then raise exception 'Order requires cash declaration resolution' using errcode='22023'; end if;
+  if p_amount_minor<>o.total_minor or p_amount_minor<0 or o.status<>'pending_payment' then raise exception 'Order is not eligible for cash settlement' using errcode='22023'; end if;
+  select * into existing from public.club_payments where organisation_id=o.organisation_id and external_reference=p_idempotency_key and order_id=o.id;
+  if found then return to_jsonb(existing); end if;
+  insert into public.club_payments(order_id,organisation_id,method,external_reference,amount_minor,currency,status) values(o.id,o.organisation_id,'cash',p_idempotency_key,p_amount_minor,o.currency,'paid') returning * into p;
+  update public.club_orders set status='paid',updated_at=now() where id=o.id;
+  perform public.club_finalize_paid_order(o.id,auth.uid());
+  return to_jsonb(p);
+end; $$;
+
+create or replace function public.club_spend_balance(p_order_id uuid,p_amount_minor integer,p_idempotency_key text)
+returns jsonb language plpgsql security definer set search_path=pg_catalog,public as $$
+declare o public.club_orders%rowtype; a public.club_balance_accounts%rowtype; e public.club_balance_entries%rowtype; prior public.club_balance_entries%rowtype; b integer;
+begin
+  select * into o from public.club_orders where id=p_order_id for update;
+  if not found or auth.uid() is null or o.user_id is distinct from auth.uid() then raise exception 'Balance spend is not permitted' using errcode='42501'; end if;
+  if o.status in ('awaiting_cash_verification','cash_disputed') then raise exception 'Order requires cash declaration resolution' using errcode='22023'; end if;
+  select * into a from public.club_balance_accounts where organisation_id=o.organisation_id and user_id=auth.uid() for update;
+  if not found then raise exception 'Balance account not found' using errcode='P0002'; end if;
+  select * into prior from public.club_balance_entries where organisation_id=o.organisation_id and idempotency_key=p_idempotency_key;
+  if found then return to_jsonb(prior); end if;
+  if p_amount_minor<=0 or p_amount_minor<>o.total_minor or o.status<>'pending_payment' then raise exception 'Balance settlement is not eligible' using errcode='22023'; end if;
+  b:=coalesce((select sum(amount_delta_minor) from public.club_balance_entries where account_id=a.id),0);
+  if b<p_amount_minor then raise exception 'Insufficient organisation balance' using errcode='22023'; end if;
+  insert into public.club_balance_entries(account_id,organisation_id,entry_type,amount_delta_minor,balance_after_minor,order_id,actor_user_id,idempotency_key) values(a.id,o.organisation_id,'purchase',-p_amount_minor,b-p_amount_minor,o.id,auth.uid(),p_idempotency_key) returning * into e;
+  insert into public.club_payments(order_id,organisation_id,method,external_reference,amount_minor,currency,status) values(o.id,o.organisation_id,'balance',p_idempotency_key,p_amount_minor,o.currency,'paid');
+  update public.club_orders set status='paid',updated_at=now() where id=o.id;
+  perform public.club_finalize_paid_order(o.id,auth.uid());
+  return to_jsonb(e);
+end; $$;
+
+create or replace function public.club_staff_spend_balance(p_order_id uuid,p_amount_minor integer,p_idempotency_key text)
+returns jsonb language plpgsql security definer set search_path=pg_catalog,public as $$
+declare o public.club_orders%rowtype; a public.club_balance_accounts%rowtype; e public.club_balance_entries%rowtype; prior public.club_balance_entries%rowtype; b integer;
+begin
+  select * into o from public.club_orders where id=p_order_id for update;
+  if not found or auth.uid() is null or not public.club_capability_allowed(o.organisation_id,auth.uid(),'payments.record_cash') then raise exception 'Balance sale is not permitted' using errcode='42501'; end if;
+  if o.customer_id is null or o.status<>'pending_payment' or p_amount_minor<>o.total_minor or p_amount_minor<=0 then raise exception 'Order is not eligible for balance payment' using errcode='22023'; end if;
+  select * into a from public.club_balance_accounts where organisation_id=o.organisation_id and customer_id=o.customer_id for update;
+  if not found then raise exception 'Balance account not found' using errcode='P0002'; end if;
+  select * into prior from public.club_balance_entries where organisation_id=o.organisation_id and idempotency_key=p_idempotency_key;
+  if found then return to_jsonb(prior); end if;
+  b:=coalesce((select sum(amount_delta_minor) from public.club_balance_entries where account_id=a.id),0); if b<p_amount_minor then raise exception 'Insufficient organisation balance' using errcode='22023'; end if;
+  insert into public.club_balance_entries(account_id,organisation_id,entry_type,amount_delta_minor,balance_after_minor,order_id,actor_user_id,idempotency_key) values(a.id,o.organisation_id,'purchase',-p_amount_minor,b-p_amount_minor,o.id,auth.uid(),p_idempotency_key) returning * into e;
+  insert into public.club_payments(order_id,organisation_id,method,external_reference,amount_minor,currency,status) values(o.id,o.organisation_id,'balance',p_idempotency_key,p_amount_minor,o.currency,'paid');
+  update public.club_orders set status='paid',updated_at=now() where id=o.id;
+  perform public.club_finalize_paid_order(o.id,auth.uid());
+  return to_jsonb(e);
+end; $$;
