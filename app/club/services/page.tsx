@@ -5,6 +5,7 @@ import { AppShell, BackButton, EmptyState, PageHeader, Surface } from "@/compone
 import { serverSupabase } from "@/lib/supabase-server";
 import { resolveClubOrganisationContext, isClubStaffRole } from "@/lib/club-server-context";
 import { ClubSectionNav } from "@/components/club-shell";
+// Empty services state is intentional until the organisation configures venue offerings.
 
 export default async function ClubServicesPage({ searchParams }: { searchParams?: Promise<{ org?: string }> }) {
   const supabase = await serverSupabase(); const { data: { user } } = await supabase.auth.getUser(); if (!user) redirect("/account?mode=signIn");

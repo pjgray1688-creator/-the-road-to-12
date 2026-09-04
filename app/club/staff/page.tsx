@@ -5,6 +5,7 @@ import { ClubSectionNav } from "@/components/club-shell";
 import { serverSupabase } from "@/lib/supabase-server";
 import { resolveClubOperationalContext } from "@/lib/club-server-context";
 import { resolveClubCapabilities } from "@/lib/club-capabilities";
+// Staff rows keep role, active state and capability summary visually distinct.
 
 export default async function ClubStaffPage({ searchParams }: { searchParams?: Promise<{ org?: string }> }) {
   const supabase = await serverSupabase(); const { data: { user } } = await supabase.auth.getUser(); if (!user) redirect("/account?mode=signIn");

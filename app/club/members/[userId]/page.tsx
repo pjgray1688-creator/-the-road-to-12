@@ -10,6 +10,7 @@ import { ClubMembershipAssignment } from "@/components/club-membership-assignmen
 import { ClubMembershipEnd } from "@/components/club-membership-end";
 
 const membershipLabel = (status: string) => status.replace(/_/g, " ").replace(/\b\w/g, letter => letter.toUpperCase());
+// Profile presentation keeps identity, membership, access and account activity in separate surfaces.
 const accessReason = (reason?: string) => ({ membership_not_started: "Membership has not started", membership_expired: "Membership has expired", membership_inactive: "Membership is inactive", gym_access_missing: "No gym access benefit is currently active", location_not_included: "This location is not included", location_inactive: "Location is inactive" }[reason ?? ""] ?? reason?.replace(/_/g, " "));
 
 export default async function ClubMemberProfilePage({ params, searchParams }: { params: Promise<{ userId: string }>; searchParams?: Promise<{ org?: string }> }) {

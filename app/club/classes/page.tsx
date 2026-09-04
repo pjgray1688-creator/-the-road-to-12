@@ -8,6 +8,7 @@ import { resolveOrganisationTheme } from "@/lib/club";
 import type { ClubRole, OrganisationLocation, OrganisationMember } from "@/lib/club";
 import type { ClubClassAvailability, ClubClassSession, ClubClassType } from "@/lib/club-operations";
 import { ClubSectionNav } from "@/components/club-shell";
+// The workspace presents reusable class types separately from scheduled sessions.
 
 const londonDay = (value = new Date()) => new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/London", year: "numeric", month: "2-digit", day: "2-digit" }).format(value);
 

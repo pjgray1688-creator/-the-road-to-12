@@ -14,6 +14,7 @@ import { ClubCatalogueImport } from "@/components/club-catalogue-import";
 import { ClubDeliveryHistory } from "@/components/club-delivery-history";
 
 async function loadShop(client: Awaited<ReturnType<typeof serverSupabase>>, userId: string, organisationId?: string, locationId?: string) {
+  // View-specific rendering keeps customer checkout separate from stock, catalogue and cash operations.
   const context = await resolveClubOrganisationContext(client, userId, organisationId);
   if (!context) return undefined;
   const { repository, organisation, member } = context;
