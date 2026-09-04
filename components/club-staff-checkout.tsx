@@ -7,7 +7,7 @@ import { staffCashSaleAction } from "@/app/club/shop/actions";
 export function filterStaffCheckoutProducts(products: ClubCommerceProduct[], query: string) {
   const needle = query.trim().toLocaleLowerCase();
   if (!needle) return products;
-  return products.filter(product => [product.name, product.brand, product.category, product.sku, product.barcode].some(value => value?.toLocaleLowerCase().includes(needle)));
+  return products.filter(product => [product.name, product.brand, product.category, product.sku, product.barcode, product.description].some(value => value?.toLocaleLowerCase().includes(needle)));
 }
 
 export function ClubStaffCheckout({ organisationId, products, locations, customers, canRecordCash, currentLocationId }: { organisationId: string; products: ClubCommerceProduct[]; locations: { id: string; name: string; active: boolean }[]; customers: ClubCustomer[]; canRecordCash: boolean; currentLocationId?: string }) {
