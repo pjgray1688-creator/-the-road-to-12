@@ -1,12 +1,12 @@
 -- Supplier catalogue and order-to-collection domain. Review and execute in a controlled environment.
 create table if not exists public.club_suppliers (
-  id uuid primary key default gen_random_uuid(), organisation_id uuid not null references public.organisations(id) on delete cascade,
+  id uuid primary key default gen_random_uuid(), organisation_id uuid not null references public.club_organisations(id) on delete cascade,
   name text not null, active boolean not null default true, ordering_config jsonb not null default '{}'::jsonb,
   delivery_config jsonb not null default '{}'::jsonb, created_at timestamptz not null default now(), updated_at timestamptz not null default now()
 );
 create unique index if not exists club_suppliers_org_name_uq on public.club_suppliers(organisation_id, lower(name));
 create table if not exists public.club_supplier_products (
-  id uuid primary key default gen_random_uuid(), organisation_id uuid not null references public.organisations(id) on delete cascade,
+  id uuid primary key default gen_random_uuid(), organisation_id uuid not null references public.club_organisations(id) on delete cascade,
   supplier_id uuid not null references public.club_suppliers(id) on delete cascade, club_product_id uuid references public.club_commerce_products(id) on delete set null, supplier_sku text, barcode text, brand text,
   name text not null, variant text, size text, description text, category text, wholesale_cost_minor integer, supplied_vat_rate numeric,
   supplier_rrp_minor integer, supplier_availability integer, image_url text, supplier_url text, discontinued boolean not null default false,
@@ -17,13 +17,13 @@ create table if not exists public.club_supplier_products (
 create unique index if not exists club_supplier_products_sku_uq on public.club_supplier_products(organisation_id,supplier_id,supplier_sku) where supplier_sku is not null;
 -- Barcodes identify canonical Club products; multiple suppliers may offer one barcode.
 create table if not exists public.club_supplier_import_batches (
-  id uuid primary key default gen_random_uuid(), organisation_id uuid not null references public.organisations(id) on delete cascade,
+  id uuid primary key default gen_random_uuid(), organisation_id uuid not null references public.club_organisations(id) on delete cascade,
   supplier_id uuid not null references public.club_suppliers(id) on delete cascade, file_name text not null, imported_by uuid not null,
   row_count integer not null default 0, created_count integer not null default 0, updated_count integer not null default 0,
   skipped_count integer not null default 0, invalid_count integer not null default 0, conflict_count integer not null default 0, created_at timestamptz not null default now()
 );
 create table if not exists public.club_supplier_demand (
-  id uuid primary key default gen_random_uuid(), organisation_id uuid not null references public.organisations(id) on delete cascade,
+  id uuid primary key default gen_random_uuid(), organisation_id uuid not null references public.club_organisations(id) on delete cascade,
   supplier_id uuid not null references public.club_suppliers(id), supplier_product_id uuid not null references public.club_supplier_products(id),
   order_id uuid not null references public.club_orders(id) on delete restrict, order_item_id uuid references public.club_order_items(id) on delete restrict, user_id uuid, collection_location_id uuid references public.club_locations(id) on delete restrict,
   quantity_required integer not null check (quantity_required > 0), quantity_received integer not null default 0 check (quantity_received >= 0),
@@ -33,12 +33,67 @@ create table if not exists public.club_supplier_demand (
 );
 create unique index if not exists club_supplier_demand_order_item_uq on public.club_supplier_demand(order_item_id) where order_item_id is not null;
 create table if not exists public.club_notification_events (
-  id uuid primary key default gen_random_uuid(), organisation_id uuid not null references public.organisations(id) on delete cascade,
+  id uuid primary key default gen_random_uuid(), organisation_id uuid not null references public.club_organisations(id) on delete cascade,
   user_id uuid not null, event_type text not null, order_id uuid, state text not null default 'queued', payload jsonb not null default '{}'::jsonb,
   scheduled_at timestamptz, attempted_at timestamptz, provider text, provider_reference text, created_at timestamptz not null default now(),
   constraint club_notification_events_state_ck check (state in ('queued','sent','delivered','failed','retrying','manual_review'))
 );
 create unique index if not exists club_notification_ready_once_uq on public.club_notification_events(order_id,event_type) where event_type='order_ready_for_collection';
+create table if not exists public.club_supplier_order_batches (
+ id uuid primary key default gen_random_uuid(), organisation_id uuid not null references public.club_organisations(id) on delete cascade,
+ supplier_id uuid not null references public.club_suppliers(id) on delete restrict, status text not null default 'draft' check (status in ('draft','ordered')),
+ reference text not null unique, created_by uuid not null references auth.users(id), created_at timestamptz not null default now(),
+ ordered_by uuid references auth.users(id), ordered_at timestamptz, exported_at timestamptz, notes text, updated_at timestamptz not null default now()
+);
+create table if not exists public.club_supplier_order_batch_lines (
+ id uuid primary key default gen_random_uuid(), batch_id uuid not null references public.club_supplier_order_batches(id) on delete restrict,
+ supplier_product_id uuid not null references public.club_supplier_products(id) on delete restrict, quantity_ordered integer not null check(quantity_ordered>0),
+ created_at timestamptz not null default now(), unique(batch_id,supplier_product_id)
+);
+alter table public.club_supplier_demand add column if not exists batch_id uuid references public.club_supplier_order_batches(id) on delete restrict;
+alter table public.club_supplier_order_batch_lines enable row level security; alter table public.club_supplier_order_batches enable row level security;
+revoke all on public.club_supplier_order_batches,public.club_supplier_order_batch_lines from anon,authenticated;
+
+create or replace function public.club_create_supplier_order_batch(p_organisation_id uuid,p_supplier_id uuid)
+returns jsonb language plpgsql security definer set search_path=pg_catalog,public as $$
+declare v_batch public.club_supplier_order_batches%rowtype; v_d record; v_line record; v_ref text;
+begin
+ if auth.uid() is null or not public.club_capability_allowed(p_organisation_id,auth.uid(),'supplier.orders_manage') then raise exception 'Supplier ordering is not permitted' using errcode='42501'; end if;
+ if not exists(select 1 from public.club_suppliers where id=p_supplier_id and organisation_id=p_organisation_id and active) then raise exception 'Supplier not found' using errcode='P0002'; end if;
+ v_ref := 'SUP-'||to_char(now(),'YYYYMMDD')||'-'||lpad((select count(*)+1 from public.club_supplier_order_batches where organisation_id=p_organisation_id)::text,3,'0');
+ insert into public.club_supplier_order_batches(organisation_id,supplier_id,reference,created_by) values(p_organisation_id,p_supplier_id,v_ref,auth.uid()) returning * into v_batch;
+ for v_line in select supplier_product_id,sum(quantity_required)::integer quantity from public.club_supplier_demand where organisation_id=p_organisation_id and supplier_id=p_supplier_id and status='outstanding' and batch_id is null group by supplier_product_id loop
+   insert into public.club_supplier_order_batch_lines(batch_id,supplier_product_id,quantity_ordered) values(v_batch.id,v_line.supplier_product_id,v_line.quantity);
+   update public.club_supplier_demand set batch_id=v_batch.id,updated_at=now() where organisation_id=p_organisation_id and supplier_id=p_supplier_id and supplier_product_id=v_line.supplier_product_id and status='outstanding' and batch_id is null;
+ end loop;
+ if not exists(select 1 from public.club_supplier_order_batch_lines where batch_id=v_batch.id) then delete from public.club_supplier_order_batches where id=v_batch.id; raise exception 'No outstanding supplier demand' using errcode='P0002'; end if;
+ return to_jsonb(v_batch);
+end; $$;
+revoke all on function public.club_create_supplier_order_batch(uuid,uuid) from public,anon; grant execute on function public.club_create_supplier_order_batch(uuid,uuid) to authenticated;
+-- Replace the batching body with row locking so concurrent staff clicks cannot
+-- claim the same outstanding demand into two batches.
+create or replace function public.club_create_supplier_order_batch(p_organisation_id uuid,p_supplier_id uuid) returns jsonb language plpgsql security definer set search_path=pg_catalog,public as $$ declare b public.club_supplier_order_batches%rowtype; l record; ref text; begin if not public.club_capability_allowed(p_organisation_id,auth.uid(),'supplier.orders_manage') then raise exception 'Supplier ordering is not permitted' using errcode='42501'; end if; perform 1 from public.club_supplier_demand where organisation_id=p_organisation_id and supplier_id=p_supplier_id and status='outstanding' and batch_id is null for update; if not found then raise exception 'No outstanding supplier demand' using errcode='P0002'; end if; ref:='SUP-'||to_char(now(),'YYYYMMDD')||'-'||lpad((select count(*)+1 from public.club_supplier_order_batches where organisation_id=p_organisation_id)::text,3,'0'); insert into public.club_supplier_order_batches(organisation_id,supplier_id,reference,created_by) values(p_organisation_id,p_supplier_id,ref,auth.uid()) returning * into b; for l in select supplier_product_id,sum(quantity_required)::integer quantity from public.club_supplier_demand where organisation_id=p_organisation_id and supplier_id=p_supplier_id and status='outstanding' and batch_id is null group by supplier_product_id loop insert into public.club_supplier_order_batch_lines(batch_id,supplier_product_id,quantity_ordered) values(b.id,l.supplier_product_id,l.quantity); update public.club_supplier_demand set batch_id=b.id,updated_at=now() where organisation_id=p_organisation_id and supplier_id=p_supplier_id and status='outstanding' and batch_id is null and supplier_product_id=l.supplier_product_id; end loop; return to_jsonb(b); end; $$;
+revoke all on function public.club_create_supplier_order_batch(uuid,uuid) from public,anon; grant execute on function public.club_create_supplier_order_batch(uuid,uuid) to authenticated;
+
+create or replace function public.club_list_supplier_order_batches(p_organisation_id uuid)
+returns jsonb language sql security definer set search_path=pg_catalog,public as $$
+select coalesce(jsonb_agg(jsonb_build_object('id',b.id,'reference',b.reference,'supplier',s.name,'status',b.status,'created_at',b.created_at,'ordered_at',b.ordered_at,'lines',(select count(*) from public.club_supplier_order_batch_lines bl where bl.batch_id=b.id),'units',(select coalesce(sum(bl.quantity_ordered),0) from public.club_supplier_order_batch_lines bl where bl.batch_id=b.id)) order by b.created_at desc),'[]'::jsonb) from public.club_supplier_order_batches b join public.club_suppliers s on s.id=b.supplier_id where b.organisation_id=p_organisation_id and public.club_capability_allowed(p_organisation_id,auth.uid(),'supplier.orders_manage');
+$$;
+revoke all on function public.club_list_supplier_order_batches(uuid) from public,anon; grant execute on function public.club_list_supplier_order_batches(uuid) to authenticated;
+
+create or replace function public.club_mark_supplier_ordered(p_organisation_id uuid,p_batch_id uuid)
+returns jsonb language plpgsql security definer set search_path=pg_catalog,public as $$
+declare v_batch public.club_supplier_order_batches%rowtype;
+begin
+ if auth.uid() is null or not public.club_capability_allowed(p_organisation_id,auth.uid(),'supplier.orders_manage') then raise exception 'Supplier ordering is not permitted' using errcode='42501'; end if;
+ select * into v_batch from public.club_supplier_order_batches where id=p_batch_id and organisation_id=p_organisation_id for update;
+ if not found then raise exception 'Supplier order not found' using errcode='P0002'; end if;
+ if v_batch.status='ordered' then return to_jsonb(v_batch); end if;
+ update public.club_supplier_order_batches set status='ordered',ordered_by=auth.uid(),ordered_at=now(),updated_at=now() where id=p_batch_id returning * into v_batch;
+ update public.club_supplier_demand set status='ordered',ordered_at=v_batch.ordered_at,updated_at=now() where batch_id=p_batch_id and status='outstanding';
+ return to_jsonb(v_batch);
+end; $$;
+revoke all on function public.club_mark_supplier_ordered(uuid,uuid) from public,anon; grant execute on function public.club_mark_supplier_ordered(uuid,uuid) to authenticated;
 alter table public.club_suppliers enable row level security; alter table public.club_supplier_products enable row level security;
 alter table public.club_supplier_import_batches enable row level security; alter table public.club_supplier_demand enable row level security; alter table public.club_notification_events enable row level security;
 -- Access is intentionally via capability-checked server functions; no browser table grants are added here.
@@ -81,8 +136,7 @@ begin
   end loop;
   return 1;
 end; $$;
-revoke all on function public.club_create_supplier_demand_for_order(uuid) from public,anon;
-grant execute on function public.club_create_supplier_demand_for_order(uuid) to authenticated;
+revoke all on function public.club_create_supplier_demand_for_order(uuid) from public,anon,authenticated;
 create or replace function public.club_after_payment_supplier_demand() returns trigger language plpgsql security definer set search_path=pg_catalog,public as $$ begin if new.status='paid' then perform public.club_create_supplier_demand_for_order(new.order_id); end if; return new; end; $$;
 drop trigger if exists club_payments_supplier_demand on public.club_payments;
 create trigger club_payments_supplier_demand after insert or update of status on public.club_payments for each row execute function public.club_after_payment_supplier_demand();
@@ -95,3 +149,37 @@ where d.organisation_id=p_organisation_id and public.club_capability_allowed(p_o
 $$;
 revoke all on function public.club_list_supplier_demand(uuid) from public,anon;
 grant execute on function public.club_list_supplier_demand(uuid) to authenticated;
+-- Include supplier_id for trusted batch creation while retaining the human name.
+create or replace function public.club_list_supplier_demand(p_organisation_id uuid) returns jsonb language sql security definer set search_path=pg_catalog,public as $$ select coalesce(jsonb_agg(jsonb_build_object('id',d.id,'supplier_id',d.supplier_id,'supplier',s.name,'supplier_sku',sp.supplier_sku,'barcode',sp.barcode,'product',coalesce(cp.name,sp.name),'brand',coalesce(cp.brand,sp.brand),'variant',sp.variant,'quantity_required',d.quantity_required,'quantity_received',d.quantity_received,'quantity_allocated',d.quantity_allocated,'status',d.status,'order_reference',left(d.order_id::text,8),'collection_location',l.name) order by s.name,sp.name),'[]'::jsonb) from public.club_supplier_demand d join public.club_suppliers s on s.id=d.supplier_id join public.club_supplier_products sp on sp.id=d.supplier_product_id left join public.club_commerce_products cp on cp.id=sp.club_product_id left join public.club_locations l on l.id=d.collection_location_id where d.organisation_id=p_organisation_id and public.club_capability_allowed(p_organisation_id,auth.uid(),'supplier.orders_manage'); $$;
+revoke all on function public.club_list_supplier_demand(uuid) from public,anon; grant execute on function public.club_list_supplier_demand(uuid) to authenticated;
+
+create table if not exists public.club_supplier_order_batches (id uuid primary key default gen_random_uuid(), organisation_id uuid not null references public.club_organisations(id) on delete cascade, supplier_id uuid not null references public.club_suppliers(id) on delete restrict, status text not null default 'draft' check(status in ('draft','ordered')), reference text not null unique, created_by uuid not null references auth.users(id), created_at timestamptz not null default now(), ordered_by uuid references auth.users(id), ordered_at timestamptz, updated_at timestamptz not null default now());
+create table if not exists public.club_supplier_order_batch_lines (id uuid primary key default gen_random_uuid(), batch_id uuid not null references public.club_supplier_order_batches(id) on delete restrict, supplier_product_id uuid not null references public.club_supplier_products(id) on delete restrict, quantity_ordered integer not null check(quantity_ordered>0), unique(batch_id,supplier_product_id));
+alter table public.club_supplier_demand add column if not exists batch_id uuid references public.club_supplier_order_batches(id) on delete restrict;
+alter table public.club_supplier_order_batches enable row level security; alter table public.club_supplier_order_batch_lines enable row level security;
+revoke all on public.club_supplier_order_batches,public.club_supplier_order_batch_lines from anon,authenticated;
+
+create or replace function public.club_create_supplier_order_batch(p_organisation_id uuid,p_supplier_id uuid) returns jsonb language plpgsql security definer set search_path=pg_catalog,public as $$
+declare b public.club_supplier_order_batches%rowtype; l record; ref text;
+begin
+ if not public.club_capability_allowed(p_organisation_id,auth.uid(),'supplier.orders_manage') then raise exception 'Supplier ordering is not permitted' using errcode='42501'; end if;
+ if not exists(select 1 from public.club_suppliers where id=p_supplier_id and organisation_id=p_organisation_id and active) then raise exception 'Supplier not found' using errcode='P0002'; end if;
+ ref:='SUP-'||to_char(now(),'YYYYMMDD')||'-'||lpad((select count(*)+1 from public.club_supplier_order_batches where organisation_id=p_organisation_id)::text,3,'0');
+ insert into public.club_supplier_order_batches(organisation_id,supplier_id,reference,created_by) values(p_organisation_id,p_supplier_id,ref,auth.uid()) returning * into b;
+ for l in select supplier_product_id,sum(quantity_required)::integer quantity from public.club_supplier_demand where organisation_id=p_organisation_id and supplier_id=p_supplier_id and status='outstanding' and batch_id is null group by supplier_product_id loop
+  insert into public.club_supplier_order_batch_lines(batch_id,supplier_product_id,quantity_ordered) values(b.id,l.supplier_product_id,l.quantity);
+  update public.club_supplier_demand set batch_id=b.id,updated_at=now() where organisation_id=p_organisation_id and supplier_id=p_supplier_id and status='outstanding' and batch_id is null and supplier_product_id=l.supplier_product_id;
+ end loop;
+ if not exists(select 1 from public.club_supplier_order_batch_lines where batch_id=b.id) then delete from public.club_supplier_order_batches where id=b.id; raise exception 'No outstanding supplier demand' using errcode='P0002'; end if;
+ return to_jsonb(b);
+end; $$;
+revoke all on function public.club_create_supplier_order_batch(uuid,uuid) from public,anon; grant execute on function public.club_create_supplier_order_batch(uuid,uuid) to authenticated;
+
+create or replace function public.club_list_supplier_order_batches(p_organisation_id uuid) returns jsonb language sql security definer set search_path=pg_catalog,public as $$ select coalesce(jsonb_agg(jsonb_build_object('id',b.id,'reference',b.reference,'supplier',s.name,'status',b.status,'created_at',b.created_at,'ordered_at',b.ordered_at,'lines',(select count(*) from public.club_supplier_order_batch_lines x where x.batch_id=b.id),'units',(select coalesce(sum(x.quantity_ordered),0) from public.club_supplier_order_batch_lines x where x.batch_id=b.id)) order by b.created_at desc),'[]'::jsonb) from public.club_supplier_order_batches b join public.club_suppliers s on s.id=b.supplier_id where b.organisation_id=p_organisation_id and public.club_capability_allowed(p_organisation_id,auth.uid(),'supplier.orders_manage'); $$;
+revoke all on function public.club_list_supplier_order_batches(uuid) from public,anon; grant execute on function public.club_list_supplier_order_batches(uuid) to authenticated;
+
+create or replace function public.club_mark_supplier_ordered(p_organisation_id uuid,p_batch_id uuid) returns jsonb language plpgsql security definer set search_path=pg_catalog,public as $$ declare b public.club_supplier_order_batches%rowtype; begin if not public.club_capability_allowed(p_organisation_id,auth.uid(),'supplier.orders_manage') then raise exception 'Supplier ordering is not permitted' using errcode='42501'; end if; select * into b from public.club_supplier_order_batches where id=p_batch_id and organisation_id=p_organisation_id for update; if not found then raise exception 'Supplier order not found' using errcode='P0002'; end if; if b.status='ordered' then return to_jsonb(b); end if; update public.club_supplier_order_batches set status='ordered',ordered_by=auth.uid(),ordered_at=now(),updated_at=now() where id=p_batch_id returning * into b; update public.club_supplier_demand set status='ordered',ordered_at=b.ordered_at,updated_at=now() where batch_id=p_batch_id and status='outstanding'; return to_jsonb(b); end; $$;
+revoke all on function public.club_mark_supplier_ordered(uuid,uuid) from public,anon; grant execute on function public.club_mark_supplier_ordered(uuid,uuid) to authenticated;
+
+create or replace function public.club_get_supplier_order_batch(p_organisation_id uuid,p_batch_id uuid) returns jsonb language sql security definer set search_path=pg_catalog,public as $$ select jsonb_build_object('batch',to_jsonb(b),'supplier',s.name,'lines',coalesce((select jsonb_agg(jsonb_build_object('supplier_sku',sp.supplier_sku,'barcode',sp.barcode,'brand',sp.brand,'product',sp.name,'variant',sp.variant,'size',sp.size,'quantity',bl.quantity_ordered) order by sp.name) from public.club_supplier_order_batch_lines bl join public.club_supplier_products sp on sp.id=bl.supplier_product_id where bl.batch_id=b.id),'[]'::jsonb)) from public.club_supplier_order_batches b join public.club_suppliers s on s.id=b.supplier_id where b.id=p_batch_id and b.organisation_id=p_organisation_id and public.club_capability_allowed(p_organisation_id,auth.uid(),'supplier.orders_manage'); $$;
+revoke all on function public.club_get_supplier_order_batch(uuid,uuid) from public,anon; grant execute on function public.club_get_supplier_order_batch(uuid,uuid) to authenticated;
