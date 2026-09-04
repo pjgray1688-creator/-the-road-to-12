@@ -3,6 +3,8 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import { parseMinorUnits } from "../lib/club-money";
 import { normalizeBarcode } from "../lib/club-barcode";
+import { filterStaffCheckoutProducts } from "../components/club-staff-checkout";
+import { mapCommerceProduct } from "../lib/supabase-club-repository";
 
 const component = readFileSync(new URL("../components/club-catalogue.tsx", import.meta.url), "utf8");
 const action = readFileSync(new URL("../app/club/shop/actions.ts", import.meta.url), "utf8");
@@ -38,4 +40,18 @@ test("Madhouse preparation keeps Collagen out of a false ten-pound unit price", 
   assert.match(csv, /Creatine Gummies,Creatine,15\.00,5056555207376/);
   assert.match(csv, /Collagen,Health & Wellness,,/);
   assert.doesNotMatch(csv, /Collagen[^\n]*10\.00/);
+});
+
+test("staff checkout filters the catalogue by name, brand, SKU, barcode and category", () => {
+  const products = [{ id: "1", organisationId: "o", name: "Creatine Gummies", brand: "Applied Nutrition", sku: "CG-1", barcode: "00505655207376", category: "Supplements", active: true, stockTracked: true, sellPriceMinor: 1500, currency: "GBP", createdAt: "", updatedAt: "" }];
+  assert.equal(filterStaffCheckoutProducts(products, "applied").length, 1);
+  assert.equal(filterStaffCheckoutProducts(products, "005056").length, 1);
+  assert.equal(filterStaffCheckoutProducts(products, "supplements").length, 1);
+  assert.equal(filterStaffCheckoutProducts(products, "unknown").length, 0);
+});
+
+test("commerce product mapping preserves optional brand and media", () => {
+  const product = mapCommerceProduct({ id: "p", organisation_id: "o", name: "Creatine Gummies", brand: "Applied Nutrition", active: true, stock_tracked: true, sell_price_minor: 1500, currency: "GBP", media: { url: "/products/creatine.png" }, created_at: "", updated_at: "" });
+  assert.equal(product.brand, "Applied Nutrition");
+  assert.deepEqual(product.media, { url: "/products/creatine.png" });
 });
