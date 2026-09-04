@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { reminderKey, shelfCheckEligible, stockRemovalEffect } from "../lib/club-shelf-operations";
+import { discountAmount, reminderAllowed, reminderKey, shelfCheckEligible, stockRemovalEffect } from "../lib/club-shelf-operations";
 
 const sql = readFileSync("supabase/migrations/2026-09-29-club-shelf-removals-discounts.sql", "utf8");
 const now = new Date("2026-09-10T12:00:00Z");
@@ -17,14 +17,27 @@ test("shelf ageing prompts a physical check but never infers pickup", () => {
 
 test("reminders and removals are auditable and idempotent", () => {
   assert.equal(reminderKey("order"), reminderKey("order"));
+  const first = new Date("2026-09-10T12:00:00Z");
+  assert.equal(reminderAllowed(first, new Date("2026-09-10T13:00:00Z")), false);
+  assert.equal(reminderAllowed(first, new Date("2026-09-11T12:00:00Z")), true);
+  assert.equal(discountAmount("comp", 1250, 1, 1), 1250);
+  assert.throws(() => discountAmount("percentage", 1250));
+  assert.throws(() => discountAmount("fixed", 1250));
   assert.deepEqual(stockRemovalEffect(2, "staff_consumption"), { quantityDelta: -2, reason: "staff_consumption" });
   assert.match(sql, /club_notification_events/);
-  assert.match(sql, /club_collection_reminder_once_uq/);
+  assert.match(sql, /club_collection_reminder_events/);
+  assert.match(sql, /created_at>=now\(\)-interval '24 hours'/);
+  assert.match(sql, /already_recorded/);
   assert.match(sql, /unique\(organisation_id,idempotency_key\)/);
   assert.match(sql, /stock_removal:/);
   assert.match(sql, /commerce\.pricing_manage/);
   assert.match(sql, /discount_minor/);
   assert.match(sql, /discount exceeds order value/i);
+  assert.match(sql, /when p_kind='fixed' then p_value_minor else o\.subtotal_minor/);
+  assert.match(sql, /Invalid percentage discount/);
+  assert.match(sql, /Invalid fixed discount/);
+  assert.match(sql, /cost_unit_minor,actor_user_id/);
+  assert.match(sql, /commerce\.stock_remove/);
 });
 
 test("customer allocations remain separate from free stock and require shelf confirmation", () => {
