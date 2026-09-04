@@ -42,3 +42,14 @@ test("migration order is explicit and dependencies precede supplier functions", 
   assert.ok(supplier.indexOf("create table if not exists public.club_supplier_order_counters") < supplier.indexOf("create or replace function public.club_create_supplier_order_batch"));
   assert.ok(capabilities.includes("alter table public.club_staff_permission_overrides"));
 });
+
+test("member fulfilment aggregates per order before building JSON", () => {
+  const start = supplier.indexOf("create or replace function public.club_list_member_supplier_fulfilment");
+  const fn = supplier.slice(start, supplier.indexOf("revoke all on function public.club_list_member_supplier_fulfilment", start));
+  assert.match(fn, /with per_order as/i);
+  assert.match(fn, /group by d\.order_id/i);
+  assert.match(fn, /jsonb_agg\(jsonb_build_object\('order_id',order_id,'status',status,'ready_at',ready_at\)/i);
+  assert.doesNotMatch(fn, /jsonb_build_object\([\s\S]*bool_and[\s\S]*jsonb_agg/i);
+  assert.match(fn, /auth\.uid\(\)=p_user_id/);
+  for (const status of ["collected", "ready_for_collection", "awaiting_delivery", "order_confirmed"]) assert.match(fn, new RegExp(status));
+});

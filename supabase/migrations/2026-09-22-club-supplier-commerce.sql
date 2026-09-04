@@ -165,7 +165,19 @@ revoke all on function public.club_confirm_collection(uuid,uuid) from public,ano
 
 create or replace function public.club_list_member_supplier_fulfilment(p_organisation_id uuid,p_user_id uuid)
 returns jsonb language sql security definer set search_path=pg_catalog,public as $$
-select coalesce(jsonb_agg(jsonb_build_object('order_id',d.order_id,'status',case when bool_and(d.status='collected') then 'collected' when bool_and(d.status in ('ready_for_collection','collected')) then 'ready_for_collection' when bool_or(d.status='ordered') then 'awaiting_delivery' else 'order_confirmed' end,'ready_at',max(d.ready_at)) order by max(d.created_at) desc),'[]'::jsonb)
-from public.club_supplier_demand d where d.organisation_id=p_organisation_id and d.user_id=p_user_id and auth.uid()=p_user_id group by d.order_id;
+with per_order as (
+  select d.order_id,
+    case when bool_and(d.status='collected') then 'collected'
+         when bool_and(d.status in ('ready_for_collection','collected')) then 'ready_for_collection'
+         when bool_or(d.status='ordered') then 'awaiting_delivery'
+         else 'order_confirmed' end as status,
+    max(d.ready_at) as ready_at,
+    max(d.created_at) as created_at
+  from public.club_supplier_demand d
+  where d.organisation_id=p_organisation_id and d.user_id=p_user_id and auth.uid()=p_user_id
+  group by d.order_id
+)
+select coalesce(jsonb_agg(jsonb_build_object('order_id',order_id,'status',status,'ready_at',ready_at) order by created_at desc),'[]'::jsonb)
+from per_order;
 $$;
 revoke all on function public.club_list_member_supplier_fulfilment(uuid,uuid) from public,anon; grant execute on function public.club_list_member_supplier_fulfilment(uuid,uuid) to authenticated;
