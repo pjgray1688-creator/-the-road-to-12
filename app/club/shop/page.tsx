@@ -12,6 +12,7 @@ import { ClubSectionNav } from "@/components/club-shell";
 import { ClubShopTabs } from "@/components/club-shop-tabs";
 import { ClubCatalogueImport } from "@/components/club-catalogue-import";
 import { ClubDeliveryHistory } from "@/components/club-delivery-history";
+import { ClubBalanceTopUp } from "@/components/club-balance-top-up";
 
 async function loadShop(client: Awaited<ReturnType<typeof serverSupabase>>, userId: string, organisationId?: string, locationId?: string) {
   const context = await resolveClubOrganisationContext(client, userId, organisationId);
