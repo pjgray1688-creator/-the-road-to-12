@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { evaluateBillingState, lifecycleNotificationKey } from "../lib/club-billing-policy";
+import { billingPeriodKey, nextBillingDate } from "../lib/club-billing-periods";
 
 const sql = readFileSync("supabase/migrations/2026-09-28-club-membership-billing-dunning.sql", "utf8");
 
@@ -32,4 +33,28 @@ test("membership billing supports provider-managed and R12-requested retries wit
   assert.match(sql, /strategy text not null check \(strategy in \('provider_managed','r12_requested'\)\)/);
   assert.match(sql, /result is null or result in \('pending','succeeded','failed','unavailable','cancelled'\)/);
   assert.match(sql, /provider credentials|historical payments are fabricated/i);
+});
+
+test("arrangements produce immutable, deterministic billing periods", () => {
+  const september = new Date("2026-09-30T09:00:00Z");
+  const october = nextBillingDate(september, "monthly");
+  assert.equal(october?.toISOString(), "2026-10-30T09:00:00.000Z");
+  assert.notEqual(billingPeriodKey(september), billingPeriodKey(october!));
+  assert.equal(nextBillingDate(september, "quarterly")?.toISOString(), "2026-12-30T09:00:00.000Z");
+  assert.equal(nextBillingDate(september, "annual")?.toISOString(), "2027-09-30T09:00:00.000Z");
+  assert.equal(nextBillingDate(september, "other"), null);
+  assert.equal(nextBillingDate(new Date("2026-01-31T09:00:00Z"), "monthly")?.toISOString(), "2026-02-28T09:00:00.000Z");
+  assert.match(sql, /club_membership_billing_arrangements/);
+  assert.match(sql, /unique \(organisation_id, membership_id\)/);
+  assert.match(sql, /unique \(arrangement_id, period_key\)/);
+  assert.match(sql, /on conflict \(arrangement_id,period_key\) do nothing/);
+  assert.match(sql, /club_next_membership_billing_due/);
+});
+
+test("payment recovery targets one obligation and advances its arrangement once", () => {
+  assert.match(sql, /where id=o\.id/);
+  assert.match(sql, /where id=a\.id/);
+  assert.match(sql, /last_successful_payment_at/);
+  assert.match(sql, /provider_event_key/);
+  assert.match(sql, /foreign key \(obligation_id, organisation_id\)/);
 });

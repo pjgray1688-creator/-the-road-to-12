@@ -14,9 +14,22 @@ create table if not exists public.club_membership_billing_policies (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.club_membership_billing_arrangements (
+  id uuid primary key default gen_random_uuid(), organisation_id uuid not null references public.club_organisations(id) on delete cascade,
+  membership_id uuid not null, user_id uuid not null references auth.users(id) on delete restrict, customer_id uuid,
+  provider_type text, payment_method_family text not null default 'other' check (payment_method_family in ('direct_debit','recurring_card','other')),
+  provider_customer_reference text, provider_subscription_reference text, amount_minor integer not null check (amount_minor > 0), currency text not null check (currency ~ '^[A-Z]{3}$'),
+  frequency text not null default 'monthly' check (frequency in ('weekly','monthly','quarterly','annual','other')), next_due_at timestamptz not null,
+  state text not null default 'active' check (state in ('active','cancelled')), last_successful_payment_at timestamptz, created_at timestamptz not null default now(), updated_at timestamptz not null default now(),
+  unique (id, organisation_id), unique (organisation_id, membership_id),
+  foreign key (membership_id, organisation_id) references public.club_memberships(id, organisation_id) on delete restrict,
+  foreign key (customer_id, organisation_id) references public.club_customers(id, organisation_id) on delete set null
+);
+
 create table if not exists public.club_membership_billing_obligations (
   id uuid primary key default gen_random_uuid(),
   organisation_id uuid not null references public.club_organisations(id) on delete cascade,
+  arrangement_id uuid,
   membership_id uuid not null,
   user_id uuid not null references auth.users(id) on delete restrict,
   customer_id uuid,
@@ -28,6 +41,7 @@ create table if not exists public.club_membership_billing_obligations (
   currency text not null check (currency ~ '^[A-Z]{3}$'),
   frequency text not null default 'monthly' check (frequency in ('weekly','monthly','quarterly','annual','other')),
   next_due_at timestamptz not null,
+  period_key text not null,
   state text not null default 'upcoming' check (state in ('upcoming','due','payment_pending','paid','failed','grace','retry_scheduled','recovered','overdue','waived','cancelled')),
   last_paid_at timestamptz,
   last_payment_reference text,
@@ -37,10 +51,11 @@ create table if not exists public.club_membership_billing_obligations (
   cancelled_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
+  unique (arrangement_id, period_key),
   unique (id, organisation_id),
-  unique (organisation_id, membership_id),
   foreign key (membership_id, organisation_id) references public.club_memberships(id, organisation_id) on delete restrict,
-  foreign key (customer_id, organisation_id) references public.club_customers(id, organisation_id) on delete set null
+  foreign key (customer_id, organisation_id) references public.club_customers(id, organisation_id) on delete set null,
+  foreign key (arrangement_id, organisation_id) references public.club_membership_billing_arrangements(id, organisation_id) on delete restrict
 );
 
 create table if not exists public.club_membership_billing_payments (
@@ -98,6 +113,7 @@ create table if not exists public.club_membership_payment_access_suspensions (
 create index if not exists club_billing_obligations_due_idx on public.club_membership_billing_obligations(organisation_id,state,next_due_at);
 create index if not exists club_billing_notifications_obligation_idx on public.club_membership_billing_notifications(organisation_id,obligation_id,created_at desc);
 alter table public.club_membership_billing_policies enable row level security;
+alter table public.club_membership_billing_arrangements enable row level security;
 alter table public.club_membership_billing_obligations enable row level security;
 alter table public.club_membership_billing_payments enable row level security;
 alter table public.club_membership_billing_retries enable row level security;
@@ -105,26 +121,46 @@ alter table public.club_membership_billing_late_fees enable row level security;
 alter table public.club_membership_billing_notifications enable row level security;
 alter table public.club_membership_billing_provider_events enable row level security;
 alter table public.club_membership_payment_access_suspensions enable row level security;
-revoke all on table public.club_membership_billing_policies,public.club_membership_billing_obligations,public.club_membership_billing_payments,public.club_membership_billing_retries,public.club_membership_billing_late_fees,public.club_membership_billing_notifications,public.club_membership_billing_provider_events,public.club_membership_payment_access_suspensions from public,anon,authenticated;
+revoke all on table public.club_membership_billing_policies,public.club_membership_billing_arrangements,public.club_membership_billing_obligations,public.club_membership_billing_payments,public.club_membership_billing_retries,public.club_membership_billing_late_fees,public.club_membership_billing_notifications,public.club_membership_billing_provider_events,public.club_membership_payment_access_suspensions from public,anon,authenticated;
+
+create or replace function public.club_next_membership_billing_due(p_due_at timestamptz,p_frequency text)
+returns timestamptz language plpgsql immutable as $$
+declare months integer; target date; day integer; last_day integer;
+begin
+  if p_frequency='weekly' then return p_due_at + interval '7 days'; end if;
+  if p_frequency='annual' then return p_due_at + interval '1 year'; end if;
+  if p_frequency not in ('monthly','quarterly') then return null; end if;
+  months:=case when p_frequency='monthly' then 1 else 3 end;
+  day:=extract(day from p_due_at)::integer;
+  target:=(date_trunc('month',p_due_at)::date + (months||' months')::interval)::date;
+  last_day:=extract(day from (date_trunc('month',target::timestamp)+interval '1 month - 1 day'))::integer;
+  return target + (least(day,last_day)-1) * interval '1 day' + (p_due_at-date_trunc('day',p_due_at));
+end;
+$$;
 
 create or replace function public.club_enrol_membership_billing(p_organisation_id uuid,p_membership_id uuid,p_user_id uuid,p_customer_id uuid,p_provider_type text,p_payment_method_family text,p_amount_minor integer,p_currency text,p_frequency text,p_next_due_at timestamptz,p_provider_customer_reference text,p_provider_subscription_reference text)
 returns jsonb language plpgsql security definer set search_path=pg_catalog,public as $$
-declare m public.club_memberships%rowtype; o public.club_membership_billing_obligations%rowtype;
+declare m public.club_memberships%rowtype; a public.club_membership_billing_arrangements%rowtype; o public.club_membership_billing_obligations%rowtype; period text;
 begin
   if auth.uid() is null or not public.club_capability_allowed(p_organisation_id,auth.uid(),'payments.take') then raise exception 'Billing administration is not permitted' using errcode='42501'; end if;
   select * into m from public.club_memberships where id=p_membership_id and organisation_id=p_organisation_id for share;
   if not found or not exists(select 1 from public.club_membership_holders where membership_id=m.id and user_id=p_user_id) then raise exception 'Membership billing identity is invalid' using errcode='22023'; end if;
   if p_amount_minor<=0 or p_currency !~ '^[A-Z]{3}$' or p_payment_method_family not in ('direct_debit','recurring_card','other') or p_frequency not in ('weekly','monthly','quarterly','annual','other') or p_next_due_at is null then raise exception 'Invalid billing obligation' using errcode='22023'; end if;
-  insert into public.club_membership_billing_obligations(organisation_id,membership_id,user_id,customer_id,provider_type,payment_method_family,amount_minor,currency,frequency,next_due_at,provider_customer_reference,provider_subscription_reference)
+  insert into public.club_membership_billing_arrangements(organisation_id,membership_id,user_id,customer_id,provider_type,payment_method_family,amount_minor,currency,frequency,next_due_at,provider_customer_reference,provider_subscription_reference)
   values(p_organisation_id,p_membership_id,p_user_id,p_customer_id,p_provider_type,p_payment_method_family,p_amount_minor,p_currency,p_frequency,p_next_due_at,p_provider_customer_reference,p_provider_subscription_reference)
-  on conflict (organisation_id,membership_id) do update set user_id=excluded.user_id,customer_id=excluded.customer_id,provider_type=excluded.provider_type,payment_method_family=excluded.payment_method_family,amount_minor=excluded.amount_minor,currency=excluded.currency,frequency=excluded.frequency,next_due_at=excluded.next_due_at,provider_customer_reference=excluded.provider_customer_reference,provider_subscription_reference=excluded.provider_subscription_reference,updated_at=now()
-  returning * into o;
-  return to_jsonb(o);
+  on conflict (organisation_id,membership_id) do update set user_id=excluded.user_id,customer_id=excluded.customer_id,provider_type=excluded.provider_type,payment_method_family=excluded.payment_method_family,amount_minor=excluded.amount_minor,currency=excluded.currency,frequency=excluded.frequency,next_due_at=excluded.next_due_at,provider_customer_reference=excluded.provider_customer_reference,provider_subscription_reference=excluded.provider_subscription_reference,state='active',updated_at=now()
+  returning * into a;
+  period:=to_char(p_next_due_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"');
+  insert into public.club_membership_billing_obligations(organisation_id,arrangement_id,membership_id,user_id,customer_id,provider_type,payment_method_family,amount_minor,currency,frequency,next_due_at,period_key)
+  values(p_organisation_id,a.id,p_membership_id,p_user_id,p_customer_id,p_provider_type,p_payment_method_family,p_amount_minor,p_currency,p_frequency,p_next_due_at,period)
+  on conflict (arrangement_id,period_key) do nothing returning * into o;
+  if o.id is null then select * into o from public.club_membership_billing_obligations where arrangement_id=a.id and period_key=period; end if;
+  return jsonb_build_object('arrangement',to_jsonb(a),'obligation',to_jsonb(o));
 end; $$;
 
 create or replace function public.club_ingest_membership_payment_event(p_organisation_id uuid,p_provider_type text,p_provider_event_key text,p_event_type text,p_obligation_id uuid,p_amount_minor integer,p_currency text,p_provider_reference text,p_failure_reason text,p_occurred_at timestamptz)
 returns jsonb language plpgsql security definer set search_path=pg_catalog,public as $$
-declare o public.club_membership_billing_obligations%rowtype; e public.club_membership_billing_provider_events%rowtype; paid public.club_membership_billing_payments%rowtype;
+declare o public.club_membership_billing_obligations%rowtype; a public.club_membership_billing_arrangements%rowtype; e public.club_membership_billing_provider_events%rowtype; paid public.club_membership_billing_payments%rowtype; next_due timestamptz; next_period text;
 begin
   if p_provider_event_key is null or p_event_type not in ('payment_submitted','payment_confirmed','payment_failed','retry_scheduled','payment_cancelled','mandate_cancelled') then raise exception 'Invalid provider event' using errcode='22023'; end if;
   select * into e from public.club_membership_billing_provider_events where organisation_id=p_organisation_id and provider_type=p_provider_type and provider_event_key=p_provider_event_key;
@@ -136,6 +172,14 @@ begin
     if p_amount_minor<>o.amount_minor or p_currency<>o.currency then raise exception 'Payment amount does not match obligation' using errcode='22023'; end if;
     insert into public.club_membership_billing_payments(organisation_id,obligation_id,amount_minor,currency,provider_reference,provider_event_key,occurred_at) values(p_organisation_id,o.id,p_amount_minor,p_currency,p_provider_reference,p_provider_event_key,coalesce(p_occurred_at,now())) on conflict (organisation_id,provider_event_key) do nothing returning * into paid;
     update public.club_membership_billing_obligations set state=case when state in ('failed','grace','retry_scheduled','overdue') then 'recovered' else 'paid' end,last_paid_at=coalesce(p_occurred_at,now()),last_payment_reference=p_provider_reference,failure_reason=null,grace_started_at=null,recovery_exhausted_at=null,updated_at=now() where id=o.id;
+    select * into a from public.club_membership_billing_arrangements where id=o.arrangement_id and organisation_id=o.organisation_id for update;
+    next_due:=public.club_next_membership_billing_due(a.next_due_at,a.frequency);
+    if next_due is not null and a.next_due_at<=o.next_due_at then
+      next_period:=to_char(next_due at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"');
+      insert into public.club_membership_billing_obligations(organisation_id,arrangement_id,membership_id,user_id,customer_id,provider_type,payment_method_family,provider_customer_reference,provider_subscription_reference,amount_minor,currency,frequency,next_due_at,period_key)
+      values(a.organisation_id,a.id,a.membership_id,a.user_id,a.customer_id,a.provider_type,a.payment_method_family,a.provider_customer_reference,a.provider_subscription_reference,a.amount_minor,a.currency,a.frequency,next_due,next_period) on conflict (arrangement_id,period_key) do nothing;
+      update public.club_membership_billing_arrangements set next_due_at=next_due,last_successful_payment_at=coalesce(p_occurred_at,now()),updated_at=now() where id=a.id;
+    end if;
     update public.club_membership_payment_access_suspensions set active=false,cleared_at=now() where obligation_id=o.id and active;
   elsif p_event_type='payment_failed' then update public.club_membership_billing_obligations set state='grace',failure_reason=p_failure_reason,grace_started_at=coalesce(grace_started_at,coalesce(p_occurred_at,now())),updated_at=now() where id=o.id;
   elsif p_event_type='retry_scheduled' then update public.club_membership_billing_obligations set state='retry_scheduled',updated_at=now() where id=o.id;
@@ -175,12 +219,11 @@ begin
   from public.club_membership_billing_obligations o where o.organisation_id=p_organisation_id and o.state in ('due','failed','grace','retry_scheduled','overdue');
   return result;
 end; $$;
-$$;
 
 create or replace function public.club_get_member_billing(p_organisation_id uuid,p_user_id uuid)
 returns jsonb language sql security definer set search_path=pg_catalog,public as $$
-select coalesce(jsonb_agg(jsonb_build_object('id',o.id,'membership_id',o.membership_id,'amount_minor',o.amount_minor,'currency',o.currency,'next_due_at',o.next_due_at,'state',o.state,'payment_method_family',o.payment_method_family,'grace_started_at',o.grace_started_at,'failure_reason',o.failure_reason) order by o.next_due_at),'[]'::jsonb)
-from public.club_membership_billing_obligations o where o.organisation_id=p_organisation_id and o.user_id=p_user_id and auth.uid()=p_user_id;
+select coalesce(jsonb_agg(jsonb_build_object('id',o.id,'membership_id',o.membership_id,'arrangement_id',o.arrangement_id,'amount_minor',o.amount_minor,'currency',o.currency,'next_due_at',o.next_due_at,'arrangement_next_due_at',a.next_due_at,'frequency',a.frequency,'state',o.state,'payment_method_family',a.payment_method_family,'grace_started_at',o.grace_started_at,'failure_reason',o.failure_reason) order by o.next_due_at),'[]'::jsonb)
+from public.club_membership_billing_obligations o join public.club_membership_billing_arrangements a on a.id=o.arrangement_id and a.organisation_id=o.organisation_id where o.organisation_id=p_organisation_id and o.user_id=p_user_id and auth.uid()=p_user_id;
 $$;
 
 create or replace function public.club_save_membership_billing_policy(p_organisation_id uuid,p_grace_period_days integer,p_suspend_after_days integer,p_max_retries integer,p_retry_intervals_days integer[],p_late_fee_enabled boolean,p_late_fee_amount_minor integer,p_access_suspension_enabled boolean)
