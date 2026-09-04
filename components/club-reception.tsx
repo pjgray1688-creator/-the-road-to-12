@@ -10,12 +10,13 @@ import styles from "./club-reception.module.css";
 
 type CashItem = { id: string; status: string; declaredAmountMinor: number; currency: string; memberDisplayName?: string; locationId?: string };
 const money = (minor: number, currency: string) => new Intl.NumberFormat("en-GB", { style: "currency", currency }).format(minor / 100);
+const displayName = (value?: string) => value?.trim() && value !== "Club member" ? value : "Member";
 
 export function ClubReception({ organisationId, role, members, customers, products, locations, cashDeclarations, canAssign }: { organisationId: string; role: ClubRole; members: ClubMemberSummaryRead[]; customers: ClubCustomer[]; products: ClubProduct[]; locations: OrganisationLocation[]; cashDeclarations: CashItem[]; canAssign: boolean }) {
   const [query, setQuery] = useState("");
   const people = useMemo(() => {
     const linked = new Set<string>();
-    const memberRows = members.map(member => { linked.add(member.userId); return { id: `user:${member.userId}`, href: `/club/members/${encodeURIComponent(member.userId)}?org=${encodeURIComponent(organisationId)}`, name: member.displayName, email: member.email, account: "R12 account linked", membership: member.membershipName ?? "No current membership", access: member.accessState === "active" ? "Access active" : member.accessState === "needs_attention" ? "Access needs attention" : "Access unavailable" }; });
+    const memberRows = members.map(member => { linked.add(member.userId); return { id: `user:${member.userId}`, href: `/club/members/${encodeURIComponent(member.userId)}?org=${encodeURIComponent(organisationId)}`, name: displayName(member.displayName), email: member.email, account: "R12 account linked", membership: member.membershipName ?? "No current membership", access: member.accessState === "active" ? "Access active" : member.accessState === "needs_attention" ? "Access needs attention" : "Access unavailable" }; });
     const customerRows = customers.filter(customer => !customer.userId || !linked.has(customer.userId)).map(customer => ({ id: `customer:${customer.id}`, href: `/club/members/customer/${encodeURIComponent(customer.id)}?org=${encodeURIComponent(organisationId)}`, name: customer.displayName, email: customer.email, account: customer.userId ? "R12 account linked" : "R12 account not linked", membership: "Membership details in profile", access: customer.userId ? "Access available after review" : "Digital access awaits account link" }));
     return [...memberRows, ...customerRows];
   }, [members, customers, organisationId]);

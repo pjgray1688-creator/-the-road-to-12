@@ -61,5 +61,5 @@ function ClubClassesWorkspaceBase({ classTypes, sessions, locations, members, av
 }
 
 export function ClubClassesWorkspace(props: ComponentProps<typeof ClubClassesWorkspaceBase>) {
-  return <><div className={styles.workspaceIntro}><span className="eyebrow">CLASS OPERATIONS</span><p>Manage reusable class types, then schedule sessions onto the timetable.</p></div><ClubClassesWorkspaceBase {...props} /></>;
+  return <><div className={`${styles.workspaceIntro} ${props.classTypes.length ? "" : styles.emptyIntro}`}><span className="eyebrow">CLASS OPERATIONS</span><p>{props.classTypes.length ? "Manage reusable class types, then schedule sessions onto the timetable." : "Create a reusable class type before scheduling a session."}</p>{!props.classTypes.length && ["gym_admin", "owner"].includes(props.role) ? <button type="button" className="primary" onClick={() => document.querySelector<HTMLButtonElement>(`.${styles.workspace} .${styles.toolbarActions} button`)?.click()}>Create class type</button> : null}</div><ClubClassesWorkspaceBase {...props} /></>;
 }
