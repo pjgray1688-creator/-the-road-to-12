@@ -65,16 +65,33 @@ end; $$;
 revoke all on function public.club_import_supplier_catalogue(uuid,text,text,jsonb) from public,anon;
 grant execute on function public.club_import_supplier_catalogue(uuid,text,text,jsonb) to authenticated;
 
--- Extend the existing capability boundary for supplier commerce. This keeps
--- SECURITY DEFINER functions aligned with the same override/preset model.
-create or replace function public.club_capability_allowed(p_organisation_id uuid,p_user_id uuid,p_capability text)
-returns boolean language sql security definer set search_path=pg_catalog,public as $$
-select (exists(select 1 from public.club_staff_permission_overrides o where o.organisation_id=p_organisation_id and o.user_id=p_user_id and o.capability=p_capability and o.decision='allow') or exists(select 1 from public.club_members m where m.organisation_id=p_organisation_id and m.user_id=p_user_id and m.active and (
-  (m.role='owner') or
-  (m.role='gym_admin' and p_capability in ('members.view','members.create','members.link_account','memberships.assign','memberships.end_immediately','payments.take','payments.record_cash','refunds.issue','refunds.approve','cash.reconcile','inventory.adjust','induction.manage_policy','classes.manage','services.manage','supplier.catalogue_manage','supplier.orders_manage','supplier.receive','commerce.pricing_manage','commerce.collections_manage')) or
-  (m.role='gym_staff' and p_capability in ('members.view','members.create','members.link_account','payments.take','payments.record_cash','cash.reconcile','supplier.receive','commerce.collections_manage')) or
-  (m.role='trainer' and p_capability='members.view'))
-)) and not exists(select 1 from public.club_staff_permission_overrides o where o.organisation_id=p_organisation_id and o.user_id=p_user_id and o.capability=p_capability and o.decision='deny');
+create or replace function public.club_create_supplier_demand_for_order(p_order_id uuid)
+returns integer language plpgsql security definer set search_path=pg_catalog,public as $$
+declare v_order record; v_item record; v_offer record; v_count integer:=0;
+begin
+  select o.* into v_order from public.club_orders o where o.id=p_order_id and o.status in ('paid','fulfilled');
+  if not found then return 0; end if;
+  for v_item in select i.* from public.club_order_items i where i.order_id=p_order_id loop
+    select count(*) as count into v_count from public.club_supplier_products sp where sp.organisation_id=v_order.organisation_id and sp.club_product_id=v_item.product_id and sp.sellable and not sp.discontinued and sp.fulfilment_type='supplier_order_for_collection';
+    if v_count <> 1 then continue; end if;
+    select sp.* into v_offer from public.club_supplier_products sp where sp.organisation_id=v_order.organisation_id and sp.club_product_id=v_item.product_id and sp.sellable and not sp.discontinued and sp.fulfilment_type='supplier_order_for_collection' limit 1;
+    insert into public.club_supplier_demand(organisation_id,supplier_id,supplier_product_id,order_id,order_item_id,user_id,collection_location_id,quantity_required)
+    values(v_order.organisation_id,v_offer.supplier_id,v_offer.id,v_order.id,v_item.id,v_order.user_id,v_order.location_id,v_item.quantity)
+    on conflict (order_item_id) do nothing;
+  end loop;
+  return 1;
+end; $$;
+revoke all on function public.club_create_supplier_demand_for_order(uuid) from public,anon;
+grant execute on function public.club_create_supplier_demand_for_order(uuid) to authenticated;
+create or replace function public.club_after_payment_supplier_demand() returns trigger language plpgsql security definer set search_path=pg_catalog,public as $$ begin if new.status='paid' then perform public.club_create_supplier_demand_for_order(new.order_id); end if; return new; end; $$;
+drop trigger if exists club_payments_supplier_demand on public.club_payments;
+create trigger club_payments_supplier_demand after insert or update of status on public.club_payments for each row execute function public.club_after_payment_supplier_demand();
+
+create or replace function public.club_list_supplier_demand(p_organisation_id uuid)
+returns jsonb language sql security definer set search_path=pg_catalog,public as $$
+select coalesce(jsonb_agg(jsonb_build_object('id',d.id,'supplier',s.name,'supplier_sku',sp.supplier_sku,'barcode',sp.barcode,'product',coalesce(cp.name,sp.name),'brand',coalesce(cp.brand,sp.brand),'variant',sp.variant,'quantity_required',d.quantity_required,'quantity_received',d.quantity_received,'quantity_allocated',d.quantity_allocated,'status',d.status,'order_reference',left(d.order_id::text,8),'collection_location',l.name) order by s.name,sp.name), '[]'::jsonb)
+from public.club_supplier_demand d join public.club_suppliers s on s.id=d.supplier_id join public.club_supplier_products sp on sp.id=d.supplier_product_id left join public.club_commerce_products cp on cp.id=sp.club_product_id left join public.club_locations l on l.id=d.collection_location_id
+where d.organisation_id=p_organisation_id and public.club_capability_allowed(p_organisation_id,auth.uid(),'supplier.orders_manage');
 $$;
-revoke all on function public.club_capability_allowed(uuid,uuid,text) from public,anon;
-grant execute on function public.club_capability_allowed(uuid,uuid,text) to authenticated;
+revoke all on function public.club_list_supplier_demand(uuid) from public,anon;
+grant execute on function public.club_list_supplier_demand(uuid) to authenticated;
