@@ -25,7 +25,7 @@ export async function generateMetadata({ searchParams }: { searchParams?: Promis
 export default async function ClubPage({ searchParams }: { searchParams?: Promise<{ org?: string }> }) {
   const supabase = await serverSupabase();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/account?mode=signIn");
+  if (!user) { const params = await searchParams; const next = `/club${params?.org ? `?org=${encodeURIComponent(params.org)}` : ""}`; redirect(`/account?mode=signIn&next=${encodeURIComponent(next)}`); }
   try {
     const contexts = await listClubOrganisationContexts(supabase, user.id);
     const orgId = (await searchParams)?.org;

@@ -27,8 +27,16 @@ async function loadShop(client: Awaited<ReturnType<typeof serverSupabase>>, user
 }
 
 export default async function ClubShopPage({ searchParams }: { searchParams?: Promise<{ org?: string; location?: string; view?: string }> }) {
-  const client = await serverSupabase(); const { data: { user } } = await client.auth.getUser(); if (!user) redirect("/account?mode=signIn");
-  const params = await searchParams; let loaded; try { loaded = await loadShop(client, user.id, params?.org, params?.location); } catch { loaded = "error" as const; }
+  const client = await serverSupabase(); const params = await searchParams; const { data: { user } } = await client.auth.getUser();
+  if (!user) {
+    const query = new URLSearchParams();
+    if (params?.org) query.set("org", params.org);
+    if (params?.location) query.set("location", params.location);
+    if (params?.view) query.set("view", params.view);
+    const returnTo = `/club/shop${query.toString() ? `?${query.toString()}` : ""}`;
+    redirect(`/account?mode=signIn&next=${encodeURIComponent(returnTo)}`);
+  }
+  let loaded; try { loaded = await loadShop(client, user.id, params?.org, params?.location); } catch { loaded = "error" as const; }
   if (loaded === "error") return <AppShell className="module-page club-shop-page"><PageHeader eyebrow="R12 CLUB" title="Shop" description="Commerce is temporarily unavailable." /><EmptyState title="Shop couldn’t be loaded.">Try again shortly.</EmptyState><BackButton href="/club">Back to Club</BackButton><AppNav /></AppShell>;
   if (!loaded) return <AppShell className="module-page club-shop-page"><PageHeader eyebrow="R12 CLUB" title="Shop" description="Organisation commerce." /><EmptyState title="Club access required">Your account is not linked to an active Club organisation.</EmptyState><BackButton href="/club">Back to Club</BackButton><AppNav /></AppShell>;
   const theme = resolveOrganisationTheme(loaded.organisation);
