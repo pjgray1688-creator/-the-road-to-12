@@ -12,7 +12,7 @@ export function resolveWeekSchedule(sessions: PlannedSession[], data: AppData, t
   // The legacy Original programme is a dated seven-day plan. Availability can
   // shape generated programmes, but must never repack Original sessions or
   // let an ad-hoc/catch-up workout consume the next canonical occurrence.
-  const originalProgramme = !data.generatedProgramme;
+  const originalProgramme = data.activeProgrammeId === "legacy-personal-programme" || data.generatedProgramme?.isLegacy === true || !data.generatedProgramme;
   const scheduled = athlete && !originalProgramme ? scheduleWeek(sessions, athlete, monday(local.date)) : { occurrences: sessions.filter(s => s.status !== "rest" && s.exerciseIds.length).map(s => ({ occurrenceId: occurrenceKey(s.id, occurrenceDateForDay(date, timezone, s.day)), programmeSessionId: s.id, scheduledDate: occurrenceDateForDay(date, timezone, s.day), status: "planned" as const, session: s, evidence: [] })), deferredSessionIds: [], evidence: [] };
   const completed = new Set(data.workouts.filter(w => w.status === "completed" && w.plannedSessionId && w.scheduledDate).map(w => occurrenceKey(w.plannedSessionId!, w.scheduledDate!)));
   const partial = new Set(data.workouts.filter(w => w.status === "partial" && w.plannedSessionId && w.scheduledDate).map(w => occurrenceKey(w.plannedSessionId!, w.scheduledDate!)));
@@ -27,6 +27,6 @@ export function resolveCurrentWeekSchedule(sessions: PlannedSession[], data: App
   return resolveWeekSchedule(sessions, data, timezone, date);
 }
 
-export function resolveTodayOccurrence(sessions: PlannedSession[], data: AppData, timezone: string, date = new Date()) { const schedule = resolveWeekSchedule(sessions, data, timezone, date); const active = schedule.occurrences.find(item => item.active); if (active) return active; const local = localDateParts(date, timezone); const rest = sessions.find(session => session.day === local.day && (session.status === "rest" || session.exerciseIds.length === 0)); return rest ? { occurrenceId: occurrenceKey(rest.id, occurrenceDateForDay(date, timezone, rest.day)), programmeSessionId: rest.id, scheduledDate: occurrenceDateForDay(date, timezone, rest.day), status: "rest" as const, session: rest, evidence: [], active: true } : schedule.occurrences[0]; }
+export function resolveTodayOccurrence(sessions: PlannedSession[], data: AppData, timezone: string, date = new Date()) { const schedule = resolveWeekSchedule(sessions, data, timezone, date); const active = schedule.occurrences.find(item => item.active); if (active) return active; const local = localDateParts(date, timezone); const rest = sessions.find(session => session.day === local.day && (session.status === "rest" || session.exerciseIds.length === 0)); return rest ? { occurrenceId: occurrenceKey(rest.id, occurrenceDateForDay(date, timezone, rest.day)), programmeSessionId: rest.id, scheduledDate: occurrenceDateForDay(date, timezone, rest.day), status: "rest" as const, session: rest, evidence: [], active: true } : undefined; }
 
 export function occurrenceStatus(data: AppData, sessionId: string, scheduledDate: string): SessionStatus | undefined { return data.sessionStatusOverrides?.[occurrenceKey(sessionId, scheduledDate)]?.status; }
