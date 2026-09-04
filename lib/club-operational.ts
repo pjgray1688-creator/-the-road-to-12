@@ -12,6 +12,7 @@ export type ClubMemberSummary = OrganisationMember & {
   membershipEndsAt?: string;
   accessState: "active" | "unavailable" | "needs_attention";
 };
+export type ClubMemberIdentity = { userId: string; displayName?: string; email?: string };
 
 export type ClubMemberOperationalProfile = {
   summary: ClubMemberSummary;
@@ -29,6 +30,7 @@ export type ClubMemberOperationalProfile = {
 
 export type ClubMemberOperationalRead = {
   member: { id: string; organisationId: string; userId: string; role: string; active: boolean };
+  identity?: ClubMemberIdentity;
   homeLocation?: { id: string; name: string; active?: boolean };
   customer?: { id: string; displayName: string; email?: string; phone?: string; status?: string };
   memberships: Array<{ id: string; productId: string; productName?: string; status: string; startsAt: string; endsAt?: string; source: string; holderUserIds: string[] }>;

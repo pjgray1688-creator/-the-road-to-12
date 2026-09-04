@@ -53,6 +53,14 @@ test("Supabase organisation, location and member reads map empty and populated R
   const empty = new SupabaseClubRepository(fakeClient().client); assert.deepEqual(await empty.listOrganisations(), []);
 });
 
+test("Club identity resolver maps authorised account profile data without exposing auth records", async () => {
+  const fake = fakeClient({ rpcs: { club_resolve_member_identity: { data: { user_id: "user-1", display_name: "Peter Gray", email: "peter@example.com" }, error: null } } });
+  const identity = await new SupabaseClubRepository(fake.client).resolveMemberIdentity("org-1", "user-1");
+  assert.deepEqual(identity, { userId: "user-1", displayName: "Peter Gray", email: "peter@example.com" });
+  assert.equal(fake.rpcCalls[0].name, "club_resolve_member_identity");
+  assert.equal(fake.tableCalls.length, 0);
+});
+
 test("malformed organisation branding falls back to constrained R12 branding", () => {
   const organisation = mapOrganisation({ id: "org", name: "Unsafe", slug: "unsafe", active: true, branding: { coBranding: "white_label", primaryAccent: "red", logoSrc: "javascript:alert(1)", backgroundSrc: "https://remote.invalid/a" } });
   assert.deepEqual(organisation.branding, { coBranding: "r12" });
