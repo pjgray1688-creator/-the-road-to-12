@@ -62,7 +62,7 @@ revoke all on public.club_supplier_order_cycles,public.club_supplier_replenishme
 create or replace function public.club_prepare_supplier_cycle(p_organisation_id uuid,p_supplier_id uuid,p_at timestamptz default now()) returns jsonb
 language plpgsql security definer set search_path=pg_catalog,public as $$
 declare s public.club_suppliers%rowtype; c public.club_supplier_order_cycles%rowtype; b public.club_supplier_order_batches%rowtype;
-  d record; r record; line_id uuid; local_date date; local_time time; weekday integer; days_to_order integer; after_cutoff boolean; cycle_date date; needed integer; free_stock integer; inbound integer;
+  d record; r record; line_id uuid; local_date date; local_time time; weekday integer; days_to_order integer; after_cutoff boolean; cycle_date date; needed integer; free_stock integer; inbound integer; n integer;
 begin
   if auth.uid() is null or not public.club_capability_allowed(p_organisation_id,auth.uid(),'supplier.orders_manage') then raise exception 'Supplier ordering is not permitted' using errcode='42501'; end if;
   select * into s from public.club_suppliers where id=p_supplier_id and organisation_id=p_organisation_id and active for update;
@@ -73,21 +73,22 @@ begin
   days_to_order := (s.order_weekday-weekday+7)%7;
   if after_cutoff then days_to_order:=days_to_order+7; end if;
   cycle_date := local_date+days_to_order;
-  insert into public.club_supplier_order_cycles(organisation_id,supplier_id,cycle_key,order_date,delivery_start_date,delivery_end_date,status)
+  insert into public.club_supplier_order_cycles(organisation_id,supplier_id,cycle_key,cutoff_at,order_date,delivery_start_date,delivery_end_date,status)
   values(p_organisation_id,p_supplier_id,cycle_date::text,(((cycle_date-((s.order_weekday-s.cutoff_weekday+7)%7))::date+s.cutoff_local_time) at time zone s.timezone),cycle_date,
     case when s.delivery_start_weekday is null then null else cycle_date+(s.delivery_start_weekday-s.order_weekday+7)%7 end,
     case when s.delivery_end_weekday is null then null else cycle_date+(s.delivery_end_weekday-s.order_weekday+7)%7 end,'open')
   on conflict (organisation_id,supplier_id,cycle_key) do update set updated_at=now() returning * into c;
   select * into b from public.club_supplier_order_batches where organisation_id=p_organisation_id and supplier_id=p_supplier_id and cycle_id=c.id for update;
   if found then return jsonb_build_object('cycle',to_jsonb(c),'batch',to_jsonb(b),'reused',true); end if;
-  insert into public.club_supplier_order_batches(organisation_id,supplier_id,cycle_id,reference,created_by) values(p_organisation_id,p_supplier_id,c.id,'SUP-'||to_char(current_date,'YYYYMMDD')||'-'||right(replace(c.id::text,'-',''),6),auth.uid()) returning * into b;
+  insert into public.club_supplier_order_counters(organisation_id,next_value) values(p_organisation_id,2) on conflict(organisation_id) do update set next_value=club_supplier_order_counters.next_value+1 returning next_value-1 into n;
+  insert into public.club_supplier_order_batches(organisation_id,supplier_id,cycle_id,reference,created_by) values(p_organisation_id,p_supplier_id,c.id,'SUP-'||to_char(current_date,'YYYYMMDD')||'-'||lpad(n::text,4,'0'),auth.uid()) returning * into b;
   for d in select supplier_product_id,sum(quantity_required)::integer quantity from public.club_supplier_demand where organisation_id=p_organisation_id and supplier_id=p_supplier_id and status='outstanding' and batch_id is null group by supplier_product_id loop
     insert into public.club_supplier_order_batch_lines(batch_id,supplier_product_id,quantity_ordered,member_quantity,replenishment_quantity) values(b.id,d.supplier_product_id,d.quantity,d.quantity,0);
     update public.club_supplier_demand set batch_id=b.id,cycle_id=c.id,updated_at=now() where organisation_id=p_organisation_id and supplier_id=p_supplier_id and supplier_product_id=d.supplier_product_id and status='outstanding' and batch_id is null;
   end loop;
   for r in select rr.* from public.club_supplier_replenishment_rules rr join public.club_supplier_products sp on sp.id=rr.supplier_product_id where rr.organisation_id=p_organisation_id and rr.enabled and sp.supplier_id=p_supplier_id and sp.sellable and not sp.discontinued loop
     select coalesce(sum(quantity_delta),0) into free_stock from public.club_stock_movements where organisation_id=p_organisation_id and location_id=r.location_id and product_id=r.product_id;
-    select coalesce(sum(bl.replenishment_quantity),0) into inbound from public.club_supplier_order_batch_lines bl join public.club_supplier_order_batches bb on bb.id=bl.batch_id where bb.organisation_id=p_organisation_id and bb.supplier_id=p_supplier_id and bb.status in ('draft','ordered','partially_received') and bl.supplier_product_id=r.supplier_product_id;
+    select coalesce(sum(greatest(bl.replenishment_quantity-coalesce((select sum(rl.replenishment_quantity_received) from public.club_supplier_receipt_lines rl where rl.batch_line_id=bl.id),0),0)),0) into inbound from public.club_supplier_order_batch_lines bl join public.club_supplier_order_batches bb on bb.id=bl.batch_id where bb.organisation_id=p_organisation_id and bb.supplier_id=p_supplier_id and bb.status in ('draft','ordered','partially_received') and bl.supplier_product_id=r.supplier_product_id;
     if free_stock+inbound<r.minimum_quantity then needed:=greatest(0,r.target_quantity-free_stock-inbound); else needed:=0; end if;
     if needed>0 then
       insert into public.club_supplier_replenishment_requirements(organisation_id,cycle_id,rule_id,supplier_product_id,location_id,quantity_required) values(p_organisation_id,c.id,r.id,r.supplier_product_id,r.location_id,needed) on conflict(cycle_id,rule_id) do update set quantity_required=excluded.quantity_required;
@@ -103,11 +104,25 @@ end; $$;
 revoke all on function public.club_prepare_supplier_cycle(uuid,uuid,timestamptz) from public,anon;
 grant execute on function public.club_prepare_supplier_cycle(uuid,uuid,timestamptz) to authenticated;
 
-create or replace function public.club_supplier_cycle_timing(p_supplier_id uuid,p_at timestamptz default now()) returns jsonb language sql stable security definer set search_path=pg_catalog,public as $$
-select case when s.cutoff_weekday is null or s.cutoff_local_time is null or s.order_weekday is null or not s.ordering_active then jsonb_build_object('message','Available to order — collection timing confirmed after order') else jsonb_build_object('message','Next supplier cycle · timing configured','timezone',s.timezone,'cutoff_weekday',s.cutoff_weekday,'cutoff_local_time',s.cutoff_local_time,'order_weekday',s.order_weekday,'delivery_start_weekday',s.delivery_start_weekday,'delivery_end_weekday',s.delivery_end_weekday) end from public.club_suppliers s where s.id=p_supplier_id;
+create or replace function public.club_supplier_cycle_timing(p_organisation_id uuid,p_supplier_id uuid,p_at timestamptz default now()) returns jsonb language sql stable security definer set search_path=pg_catalog,public as $$
+select case when s.cutoff_weekday is null or s.cutoff_local_time is null or s.order_weekday is null or not s.ordering_active then jsonb_build_object('message','Available to order — collection timing confirmed after order') else jsonb_build_object('message','Next supplier cycle · timing configured','timezone',s.timezone,'cutoff_weekday',s.cutoff_weekday,'cutoff_local_time',s.cutoff_local_time,'order_weekday',s.order_weekday,'delivery_start_weekday',s.delivery_start_weekday,'delivery_end_weekday',s.delivery_end_weekday) end from public.club_suppliers s where s.id=p_supplier_id and s.organisation_id=p_organisation_id and s.active;
 $$;
-revoke all on function public.club_supplier_cycle_timing(uuid,timestamptz) from public,anon;
-grant execute on function public.club_supplier_cycle_timing(uuid,timestamptz) to authenticated;
+revoke all on function public.club_supplier_cycle_timing(uuid,uuid,timestamptz) from public,anon;
+grant execute on function public.club_supplier_cycle_timing(uuid,uuid,timestamptz) to authenticated;
+
+create or replace function public.club_mark_supplier_ordered(p_organisation_id uuid,p_batch_id uuid) returns jsonb language plpgsql security definer set search_path=pg_catalog,public as $$
+declare b public.club_supplier_order_batches%rowtype; c public.club_supplier_order_cycles%rowtype;
+begin
+  if not public.club_capability_allowed(p_organisation_id,auth.uid(),'supplier.orders_manage') then raise exception 'Supplier ordering is not permitted' using errcode='42501'; end if;
+  select * into b from public.club_supplier_order_batches where id=p_batch_id and organisation_id=p_organisation_id for update;
+  if not found then raise exception 'Supplier order not found' using errcode='P0002'; end if;
+  if b.status='ordered' then return to_jsonb(b); end if;
+  update public.club_supplier_order_batches set status='ordered',ordered_by=auth.uid(),ordered_at=coalesce(ordered_at,now()),updated_at=now() where id=b.id returning * into b;
+  update public.club_supplier_demand set status='ordered',ordered_at=b.ordered_at,updated_at=now() where batch_id=b.id and status='outstanding';
+  if b.cycle_id is not null then update public.club_supplier_order_cycles set status='ordered',updated_at=now() where id=b.cycle_id returning * into c; end if;
+  return to_jsonb(b);
+end; $$;
+revoke all on function public.club_mark_supplier_ordered(uuid,uuid) from public,anon; grant execute on function public.club_mark_supplier_ordered(uuid,uuid) to authenticated;
 
 -- Receipt lines retain which units are customer allocations versus replenishment.
 alter table public.club_supplier_receipt_lines
@@ -126,7 +141,7 @@ begin
   select * into b from public.club_supplier_order_batches where id=p_batch_id and organisation_id=p_organisation_id for update;
   if not found or b.status='draft' then raise exception 'Supplier order is not receivable' using errcode='P0002'; end if;
   select * into r from public.club_supplier_receipts where organisation_id=p_organisation_id and idempotency_key=p_idempotency_key;
-  if found then return to_jsonb(r); end if;
+  if found then if r.batch_id<>b.id then raise exception 'Receipt idempotency key already belongs to another order' using errcode='23505'; end if; return to_jsonb(r); end if;
   insert into public.club_supplier_receipts(organisation_id,batch_id,supplier_id,received_by,idempotency_key,notes) values(p_organisation_id,b.id,b.supplier_id,auth.uid(),p_idempotency_key,p_notes) returning * into r;
   for line in select value from jsonb_array_elements(p_lines) loop
     qty:=coalesce((line->>'quantityReceived')::integer,0);

@@ -30,4 +30,8 @@ test("supplier-cycle migration contains durable cycle and provenance boundaries"
   assert.match(sql, /member_quantity/);
   assert.match(sql, /replenishment_quantity/);
   assert.match(sql, /club_capability_allowed\(p_organisation_id,auth\.uid\(\),'supplier\.orders_manage'\)/);
+  assert.match(sql, /insert into public\.club_supplier_order_cycles\(organisation_id,supplier_id,cycle_key,cutoff_at,order_date,delivery_start_date,delivery_end_date,status\)/);
+  assert.match(sql, /replenishment_quantity_received/);
+  assert.match(sql, /greatest\(bl\.replenishment_quantity-coalesce/);
+  assert.doesNotMatch(sql, /club_supplier_cycle_timing\(uuid,timestamptz\)/);
 });
