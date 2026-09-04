@@ -29,3 +29,13 @@ test("payment-attempt functions enforce authenticated ownership and are not publ
   assert.match(sql, /revoke all on function public\.club_release_payment_attempt.*from public,anon/s);
   assert.match(sql, /grant execute on function public\.club_create_payment_attempt.*authenticated/s);
 });
+
+test("trusted capture and failure paths are durable and exactly-once", () => {
+  assert.match(sql, /club_capture_payment_attempt/);
+  assert.match(sql, /revoke all on function public\.club_capture_payment_attempt\(uuid,text\) from public,anon,authenticated/);
+  assert.match(sql, /status='captured'/);
+  assert.match(sql, /status='failed'/);
+  assert.match(sql, /status='released'/);
+  assert.match(sql, /club_stock_movements/);
+  assert.match(sql, /on conflict \(organisation_id,idempotency_key\) do nothing/);
+});

@@ -9,6 +9,7 @@ create table if not exists public.club_payment_attempts (
   status text not null default 'pending' check (status in ('pending','paid','failed','cancelled')),
   external_method text check (external_method is null or external_method in ('card','klarna','clearpay','paypal','bank_transfer')),
   total_minor integer not null check (total_minor > 0),
+  balance_amount_minor integer not null default 0 check (balance_amount_minor >= 0),
   external_amount_minor integer not null default 0 check (external_amount_minor >= 0),
   idempotency_key text not null,
   failure_reason text,
@@ -89,8 +90,8 @@ begin
       - coalesce((select sum(amount_minor) from public.club_balance_holds where account_id=v_account.id and status='held'),0);
     if v_available < p_balance_amount_minor then raise exception 'Insufficient Madhouse Balance' using errcode='22023'; end if;
   end if;
-  insert into public.club_payment_attempts(organisation_id,order_id,user_id,total_minor,external_method,external_amount_minor,idempotency_key)
-    values(p_organisation_id,p_order_id,auth.uid(),v_order.total_minor,p_external_method,p_external_amount_minor,p_idempotency_key) returning * into v_attempt;
+  insert into public.club_payment_attempts(organisation_id,order_id,user_id,total_minor,balance_amount_minor,external_method,external_amount_minor,idempotency_key)
+    values(p_organisation_id,p_order_id,auth.uid(),v_order.total_minor,p_balance_amount_minor,p_external_method,p_external_amount_minor,p_idempotency_key) returning * into v_attempt;
   if p_balance_amount_minor > 0 then
     insert into public.club_balance_holds(organisation_id,account_id,order_id,payment_attempt_id,amount_minor,idempotency_key)
       values(p_organisation_id,v_account.id,p_order_id,v_attempt.id,p_balance_amount_minor,p_idempotency_key) returning * into v_hold;
@@ -117,3 +118,64 @@ grant execute on function public.club_release_payment_attempt(uuid,text) to auth
 
 comment on table public.club_payment_attempts is 'Provider-neutral pending payment intents. No provider approval or payment success is implied.';
 comment on table public.club_balance_holds is 'Temporary internal Madhouse Balance reservations released on failed/cancelled external payment.';
+
+-- Trusted provider-callback boundary. This function is intentionally not executable
+-- by browser roles; a future provider adapter must call it from a trusted backend.
+create or replace function public.club_capture_payment_attempt(p_attempt_id uuid,p_provider_reference text)
+returns jsonb language plpgsql security definer set search_path=pg_catalog,public as $$
+declare a public.club_payment_attempts%rowtype; h public.club_balance_holds%rowtype; o public.club_orders%rowtype; account public.club_balance_accounts%rowtype; entry public.club_balance_entries%rowtype; item public.club_order_items%rowtype; balance integer; method text;
+begin
+  if nullif(btrim(p_provider_reference),'') is null then raise exception 'Provider reference is required' using errcode='22023'; end if;
+  select * into a from public.club_payment_attempts where id=p_attempt_id for update;
+  if not found then raise exception 'Payment attempt not found' using errcode='P0002'; end if;
+  if a.status='paid' then return jsonb_build_object('status','paid','attempt',to_jsonb(a)); end if;
+  if a.status in ('failed','cancelled') or a.external_amount_minor<=0 or a.external_method is null then raise exception 'Payment attempt cannot be captured' using errcode='22023'; end if;
+  select * into o from public.club_orders where id=a.order_id and organisation_id=a.organisation_id for update;
+  if not found or o.status<>'pending_payment' then raise exception 'Order is not payable' using errcode='22023'; end if;
+  select * into h from public.club_balance_holds where payment_attempt_id=a.id and organisation_id=a.organisation_id for update;
+  if h.id is not null and h.status<>'held' then raise exception 'Balance hold is not available' using errcode='22023'; end if;
+  if h.id is not null then
+    select * into account from public.club_balance_accounts where id=h.account_id and organisation_id=a.organisation_id for update;
+    balance:=coalesce((select sum(amount_delta_minor) from public.club_balance_entries where account_id=account.id),0);
+    insert into public.club_balance_entries(account_id,organisation_id,entry_type,amount_delta_minor,balance_after_minor,order_id,idempotency_key,reason)
+      values(account.id,a.organisation_id,'purchase',-h.amount_minor,balance-h.amount_minor,o.id,a.id::text||':balance','Split payment Balance capture') returning * into entry;
+    update public.club_balance_holds set status='captured',updated_at=now() where id=h.id;
+    insert into public.club_payments(order_id,organisation_id,method,external_reference,amount_minor,currency,status,metadata)
+      values(o.id,a.organisation_id,'balance',a.id::text||':balance',h.amount_minor,o.currency,'paid',jsonb_build_object('payment_attempt_id',a.id,'tender','madhouse_balance'));
+  end if;
+  method:=case when a.external_method='card' then 'card' else 'other' end;
+  insert into public.club_payments(order_id,organisation_id,method,external_reference,amount_minor,currency,status,metadata)
+    values(o.id,a.organisation_id,method,p_provider_reference,a.external_amount_minor,o.currency,'paid',jsonb_build_object('provider',a.external_method,'payment_attempt_id',a.id,'tender','external'));
+  update public.club_payment_attempts set status='paid',provider_reference=p_provider_reference,updated_at=now() where id=a.id returning * into a;
+  update public.club_orders set status='paid',updated_at=now() where id=o.id;
+  for item in select * from public.club_order_items where order_id=o.id and stock_tracked loop
+    insert into public.club_stock_movements(organisation_id,location_id,product_id,movement_type,quantity_delta,order_id,actor_user_id,idempotency_key)
+      values(o.organisation_id,o.location_id,item.product_id,'sale',-item.quantity,o.id,null,a.id::text||':stock:'||item.id) on conflict (organisation_id,idempotency_key) do nothing;
+  end loop;
+  return jsonb_build_object('status','paid','attempt',to_jsonb(a),'balance_entry',case when entry.id is null then null else to_jsonb(entry) end);
+end; $$;
+revoke all on function public.club_capture_payment_attempt(uuid,text) from public,anon,authenticated;
+
+create or replace function public.club_fail_payment_attempt(p_attempt_id uuid,p_reason text)
+returns jsonb language plpgsql security definer set search_path=pg_catalog,public as $$
+declare a public.club_payment_attempts%rowtype; h public.club_balance_holds%rowtype;
+begin
+  select * into a from public.club_payment_attempts where id=p_attempt_id and user_id=auth.uid() for update;
+  if not found then raise exception 'Payment attempt not found' using errcode='P0002'; end if;
+  if a.status='paid' then raise exception 'Paid payment cannot fail' using errcode='22023'; end if;
+  if a.status='failed' then return jsonb_build_object('attempt',to_jsonb(a)); end if;
+  update public.club_payment_attempts set status='failed',failure_reason=nullif(btrim(p_reason),''),updated_at=now() where id=a.id returning * into a;
+  update public.club_balance_holds set status='released',updated_at=now() where payment_attempt_id=a.id and status='held' returning * into h;
+  return jsonb_build_object('attempt',to_jsonb(a),'hold',case when h.id is null then null else to_jsonb(h) end);
+end; $$;
+revoke all on function public.club_fail_payment_attempt(uuid,text) from public,anon;
+grant execute on function public.club_fail_payment_attempt(uuid,text) to authenticated;
+
+-- Read-only member recovery state; identity is derived from auth.uid().
+create or replace function public.club_get_payment_attempt(p_attempt_id uuid)
+returns jsonb language sql security definer set search_path=pg_catalog,public as $$
+select jsonb_build_object('attempt',to_jsonb(a),'hold',(select to_jsonb(h) from public.club_balance_holds h where h.payment_attempt_id=a.id))
+from public.club_payment_attempts a where a.id=p_attempt_id and a.user_id=auth.uid();
+$$;
+revoke all on function public.club_get_payment_attempt(uuid) from public,anon;
+grant execute on function public.club_get_payment_attempt(uuid) to authenticated;
