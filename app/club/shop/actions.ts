@@ -51,3 +51,13 @@ export async function saveCatalogueProductAction(input: { organisationId: string
 }
 
 export async function lookupBarcodeAction(barcode: string) { const normalized = normalizeBarcode(barcode); if (!normalized) return { ok: false as const, error: "Enter an 8–14 digit barcode." }; const candidate = await new OpenFoodFactsBarcodeProvider().lookup(normalized); return candidate ? { ok: true as const, candidate } : { ok: false as const, error: "Couldn’t identify this product online. You can still add it manually." }; }
+
+export async function importSupplierCatalogueAction(input: { organisationId: string; supplierName: string; fileName: string; rows: unknown[] }): Promise<{ ok: true; created: number; updated: number } | { ok: false; error: string }> {
+  try {
+    const value = await context(input.organisationId);
+    if (!value || !["gym_admin", "owner"].includes(value.member.role) || !(await value.repository.hasCapability(value.organisation.id, value.userId, "supplier.catalogue_manage"))) return { ok: false, error: "You don’t have permission to import supplier products." };
+    const { data, error } = await (await serverSupabase()).rpc("club_import_supplier_catalogue", { p_organisation_id: value.organisation.id, p_supplier_name: input.supplierName, p_file_name: input.fileName, p_rows: input.rows });
+    if (error) return { ok: false, error: "Supplier catalogue could not be imported." };
+    revalidatePath("/club/shop"); return { ok: true, created: Number(data?.created ?? 0), updated: Number(data?.updated ?? 0) };
+  } catch { return { ok: false, error: "Supplier catalogue could not be imported." }; }
+}

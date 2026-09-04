@@ -7,7 +7,7 @@ create table if not exists public.club_suppliers (
 create unique index if not exists club_suppliers_org_name_uq on public.club_suppliers(organisation_id, lower(name));
 create table if not exists public.club_supplier_products (
   id uuid primary key default gen_random_uuid(), organisation_id uuid not null references public.organisations(id) on delete cascade,
-  supplier_id uuid not null references public.club_suppliers(id) on delete cascade, supplier_sku text, barcode text, brand text,
+  supplier_id uuid not null references public.club_suppliers(id) on delete cascade, club_product_id uuid references public.club_commerce_products(id) on delete set null, supplier_sku text, barcode text, brand text,
   name text not null, variant text, size text, description text, category text, wholesale_cost_minor integer, supplied_vat_rate numeric,
   supplier_rrp_minor integer, supplier_availability integer, image_url text, supplier_url text, discontinued boolean not null default false,
   sellable boolean not null default false, fulfilment_type text not null default 'supplier_order_for_collection', retail_price_minor integer,
@@ -15,7 +15,7 @@ create table if not exists public.club_supplier_products (
   constraint club_supplier_products_fulfilment_ck check (fulfilment_type in ('stocked_at_location','supplier_order_for_collection','dropship'))
 );
 create unique index if not exists club_supplier_products_sku_uq on public.club_supplier_products(organisation_id,supplier_id,supplier_sku) where supplier_sku is not null;
-create unique index if not exists club_supplier_products_barcode_uq on public.club_supplier_products(organisation_id,barcode) where barcode is not null;
+-- Barcodes identify canonical Club products; multiple suppliers may offer one barcode.
 create table if not exists public.club_supplier_import_batches (
   id uuid primary key default gen_random_uuid(), organisation_id uuid not null references public.organisations(id) on delete cascade,
   supplier_id uuid not null references public.club_suppliers(id) on delete cascade, file_name text not null, imported_by uuid not null,
@@ -25,7 +25,7 @@ create table if not exists public.club_supplier_import_batches (
 create table if not exists public.club_supplier_demand (
   id uuid primary key default gen_random_uuid(), organisation_id uuid not null references public.organisations(id) on delete cascade,
   supplier_id uuid not null references public.club_suppliers(id), supplier_product_id uuid not null references public.club_supplier_products(id),
-  order_id uuid not null references public.club_orders(id), order_item_id uuid, user_id uuid, collection_location_id uuid,
+  order_id uuid not null references public.club_orders(id) on delete restrict, order_item_id uuid references public.club_order_items(id) on delete restrict, user_id uuid, collection_location_id uuid references public.club_locations(id) on delete restrict,
   quantity_required integer not null check (quantity_required > 0), quantity_received integer not null default 0 check (quantity_received >= 0),
   quantity_allocated integer not null default 0 check (quantity_allocated >= 0), status text not null default 'outstanding', ordered_at timestamptz,
   received_at timestamptz, ready_at timestamptz, collected_at timestamptz, created_at timestamptz not null default now(), updated_at timestamptz not null default now(),
@@ -43,3 +43,23 @@ alter table public.club_suppliers enable row level security; alter table public.
 alter table public.club_supplier_import_batches enable row level security; alter table public.club_supplier_demand enable row level security; alter table public.club_notification_events enable row level security;
 -- Access is intentionally via capability-checked server functions; no browser table grants are added here.
 revoke all on public.club_suppliers, public.club_supplier_products, public.club_supplier_import_batches, public.club_supplier_demand, public.club_notification_events from anon, authenticated;
+
+create or replace function public.club_import_supplier_catalogue(p_organisation_id uuid, p_supplier_name text, p_file_name text, p_rows jsonb)
+returns jsonb language plpgsql security definer set search_path=pg_catalog,public as $$
+declare v_supplier uuid; v_batch uuid; v_row jsonb; v_product uuid; v_created integer:=0; v_updated integer:=0; v_conflicts integer:=0;
+begin
+  if auth.uid() is null or not public.club_has_active_role(p_organisation_id,array['gym_admin','owner']) then raise exception 'Supplier catalogue import is not permitted' using errcode='42501'; end if;
+  insert into public.club_suppliers(organisation_id,name) values(p_organisation_id,btrim(p_supplier_name)) on conflict (organisation_id,lower(name)) do update set active=true,updated_at=now() returning id into v_supplier;
+  insert into public.club_supplier_import_batches(organisation_id,supplier_id,file_name,imported_by,row_count) values(p_organisation_id,v_supplier,coalesce(nullif(btrim(p_file_name),''),'supplier.csv'),auth.uid(),jsonb_array_length(coalesce(p_rows,'[]'::jsonb))) returning id into v_batch;
+  for v_row in select value from jsonb_array_elements(coalesce(p_rows,'[]'::jsonb)) loop
+    if nullif(btrim(v_row->>'name'),'') is null then update public.club_supplier_import_batches set invalid_count=invalid_count+1 where id=v_batch; continue; end if;
+    v_product := null;
+    if nullif(btrim(v_row->>'supplierSku'),'') is not null then select id into v_product from public.club_supplier_products where organisation_id=p_organisation_id and supplier_id=v_supplier and supplier_sku=btrim(v_row->>'supplierSku') limit 1; end if;
+    if v_product is null then insert into public.club_supplier_products(organisation_id,supplier_id,supplier_sku,barcode,brand,name,variant,size,description,category,wholesale_cost_minor,supplier_rrp_minor,supplier_availability,image_url,supplier_url,discontinued) values(p_organisation_id,v_supplier,nullif(btrim(v_row->>'supplierSku'),''),nullif(btrim(v_row->>'barcode'),''),nullif(btrim(v_row->>'brand'),''),btrim(v_row->>'name'),nullif(btrim(v_row->>'variant'),''),nullif(btrim(v_row->>'size'),''),nullif(v_row->>'description',''),nullif(btrim(v_row->>'category'),''),nullif(v_row->>'wholesaleCostMinor','')::integer,nullif(v_row->>'rrpMinor','')::integer,nullif(v_row->>'availability','')::integer,nullif(v_row->>'imageUrl',''),nullif(v_row->>'supplierUrl',''),coalesce((v_row->>'discontinued')::boolean,false)) returning id into v_product; v_created:=v_created+1;
+    else update public.club_supplier_products set barcode=nullif(btrim(v_row->>'barcode'),''),brand=nullif(btrim(v_row->>'brand'),''),name=btrim(v_row->>'name'),variant=nullif(btrim(v_row->>'variant'),''),size=nullif(btrim(v_row->>'size'),''),description=nullif(v_row->>'description',''),category=nullif(btrim(v_row->>'category'),''),wholesale_cost_minor=nullif(v_row->>'wholesaleCostMinor','')::integer,supplier_rrp_minor=nullif(v_row->>'rrpMinor','')::integer,supplier_availability=nullif(v_row->>'availability','')::integer,image_url=nullif(v_row->>'imageUrl',''),supplier_url=nullif(v_row->>'supplierUrl',''),discontinued=coalesce((v_row->>'discontinued')::boolean,false),updated_at=now() where id=v_product; v_updated:=v_updated+1; end if;
+  end loop;
+  update public.club_supplier_import_batches set created_count=v_created,updated_count=v_updated where id=v_batch;
+  return jsonb_build_object('batchId',v_batch,'created',v_created,'updated',v_updated);
+end; $$;
+revoke all on function public.club_import_supplier_catalogue(uuid,text,text,jsonb) from public,anon;
+grant execute on function public.club_import_supplier_catalogue(uuid,text,text,jsonb) to authenticated;
