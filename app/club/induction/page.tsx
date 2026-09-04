@@ -5,8 +5,6 @@ import { serverSupabase } from "@/lib/supabase-server";
 import { resolveClubOperationalContext } from "@/lib/club-server-context";
 import { InductionPolicyForm } from "@/components/club-induction-policy-form";
 import { ClubSectionNav } from "@/components/club-shell";
-// Policy fields are grouped as deliberate operational configuration in the shared Club form.
-
 export default async function ClubInductionPage({ searchParams }: { searchParams?: Promise<{ org?: string }> }) {
   const supabase = await serverSupabase(); const { data: { user } } = await supabase.auth.getUser(); if (!user) redirect("/account?mode=signIn");
   const context = await resolveClubOperationalContext(supabase, user.id, (await searchParams)?.org);
