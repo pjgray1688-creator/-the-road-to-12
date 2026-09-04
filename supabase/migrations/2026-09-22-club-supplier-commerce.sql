@@ -48,7 +48,8 @@ create or replace function public.club_import_supplier_catalogue(p_organisation_
 returns jsonb language plpgsql security definer set search_path=pg_catalog,public as $$
 declare v_supplier uuid; v_batch uuid; v_row jsonb; v_product uuid; v_created integer:=0; v_updated integer:=0; v_conflicts integer:=0;
 begin
-  if auth.uid() is null or not public.club_has_active_role(p_organisation_id,array['gym_admin','owner']) then raise exception 'Supplier catalogue import is not permitted' using errcode='42501'; end if;
+  if auth.uid() is null or not public.club_capability_allowed(p_organisation_id,auth.uid(),'supplier.catalogue_manage') then raise exception 'Supplier catalogue import is not permitted' using errcode='42501'; end if;
+  if p_organisation_id is null or nullif(btrim(p_supplier_name),'') is null or jsonb_typeof(p_rows) <> 'array' or jsonb_array_length(p_rows) > 10000 then raise exception 'Invalid supplier import' using errcode='22023'; end if;
   insert into public.club_suppliers(organisation_id,name) values(p_organisation_id,btrim(p_supplier_name)) on conflict (organisation_id,lower(name)) do update set active=true,updated_at=now() returning id into v_supplier;
   insert into public.club_supplier_import_batches(organisation_id,supplier_id,file_name,imported_by,row_count) values(p_organisation_id,v_supplier,coalesce(nullif(btrim(p_file_name),''),'supplier.csv'),auth.uid(),jsonb_array_length(coalesce(p_rows,'[]'::jsonb))) returning id into v_batch;
   for v_row in select value from jsonb_array_elements(coalesce(p_rows,'[]'::jsonb)) loop
@@ -63,3 +64,17 @@ begin
 end; $$;
 revoke all on function public.club_import_supplier_catalogue(uuid,text,text,jsonb) from public,anon;
 grant execute on function public.club_import_supplier_catalogue(uuid,text,text,jsonb) to authenticated;
+
+-- Extend the existing capability boundary for supplier commerce. This keeps
+-- SECURITY DEFINER functions aligned with the same override/preset model.
+create or replace function public.club_capability_allowed(p_organisation_id uuid,p_user_id uuid,p_capability text)
+returns boolean language sql security definer set search_path=pg_catalog,public as $$
+select (exists(select 1 from public.club_staff_permission_overrides o where o.organisation_id=p_organisation_id and o.user_id=p_user_id and o.capability=p_capability and o.decision='allow') or exists(select 1 from public.club_members m where m.organisation_id=p_organisation_id and m.user_id=p_user_id and m.active and (
+  (m.role='owner') or
+  (m.role='gym_admin' and p_capability in ('members.view','members.create','members.link_account','memberships.assign','memberships.end_immediately','payments.take','payments.record_cash','refunds.issue','refunds.approve','cash.reconcile','inventory.adjust','induction.manage_policy','classes.manage','services.manage','supplier.catalogue_manage','supplier.orders_manage','supplier.receive','commerce.pricing_manage','commerce.collections_manage')) or
+  (m.role='gym_staff' and p_capability in ('members.view','members.create','members.link_account','payments.take','payments.record_cash','cash.reconcile','supplier.receive','commerce.collections_manage')) or
+  (m.role='trainer' and p_capability='members.view'))
+)) and not exists(select 1 from public.club_staff_permission_overrides o where o.organisation_id=p_organisation_id and o.user_id=p_user_id and o.capability=p_capability and o.decision='deny');
+$$;
+revoke all on function public.club_capability_allowed(uuid,uuid,text) from public,anon;
+grant execute on function public.club_capability_allowed(uuid,uuid,text) to authenticated;

@@ -11,5 +11,12 @@ export function parseSupplierCsv(input: string, supplier: string): SupplierImpor
   return { rows, invalid, duplicates };
 }
 
+export type SupplierColumnMapping = Partial<Record<"supplierSku" | "barcode" | "brand" | "name" | "variant" | "size" | "description" | "category" | "wholesaleCost" | "rrp" | "availability" | "imageUrl" | "supplierUrl" | "discontinued", string>>;
+export function parseSupplierCsvWithMapping(input: string, supplier: string, mapping: SupplierColumnMapping): SupplierImportResult {
+  const records = parseCsvRecords(input); if (!records.length) return { rows: [], invalid: [], duplicates: [] };
+  const remapped = records.map(record => Object.fromEntries(Object.entries(mapping).filter(([, source]) => source && (record[source!] ?? record[source!.toLowerCase()]) !== undefined).map(([field, source]) => [field === "supplierSku" ? "supplier_sku" : field === "wholesaleCost" ? "wholesale_cost" : field, record[source!] ?? record[source!.toLowerCase()]])));
+  return parseSupplierCsv([Object.keys(remapped[0] ?? {}).join(","), ...remapped.map(record => Object.values(record).map(value => `"${String(value).replace(/"/g, '""')}"`).join(","))].join("\n") + "\n", supplier);
+}
+
 export type PaymentEligibility = { configured: boolean; enabledChannels: string[]; currency: string; minimumMinor?: number; maximumMinor?: number; allowedCategories?: string[] };
 export function paymentMethodEligible(rule: PaymentEligibility, input: { amountMinor: number; channel: string; currency: string; category?: string }) { return rule.configured && rule.currency === input.currency && rule.enabledChannels.includes(input.channel) && (rule.minimumMinor === undefined || input.amountMinor >= rule.minimumMinor) && (rule.maximumMinor === undefined || input.amountMinor <= rule.maximumMinor) && (!rule.allowedCategories?.length || Boolean(input.category && rule.allowedCategories.includes(input.category))); }

@@ -1,11 +1,16 @@
 import type { ClubCommerceProduct, ClubOrder } from "./club-commerce";
 export type FulfilmentState = "in_gym_now" | "available_to_order" | "ordered" | "awaiting_delivery" | "ready_for_collection" | "collected";
-export function fulfilmentForProduct(product: ClubCommerceProduct, onHand?: number): FulfilmentState {
-  if (product.stockTracked && onHand !== undefined && onHand > 0) return "in_gym_now";
-  return "available_to_order";
-}
-export function paidSupplierDemand(order: ClubOrder, paid: boolean, supplierProductIds: Set<string>) {
-  if (!paid || order.status !== "paid") return [];
-  return order.items.filter(item => supplierProductIds.has(item.productId)).map(item => ({ orderId: order.id, orderItemId: item.id, productId: item.productId, quantity: item.quantity }));
-}
+export function fulfilmentForProduct(product: ClubCommerceProduct, onHand?: number): FulfilmentState { return product.stockTracked && onHand !== undefined && onHand > 0 ? "in_gym_now" : "available_to_order"; }
+export function paidSupplierDemand(order: ClubOrder, paid: boolean, supplierProductIds: Set<string>) { return paid && order.status === "paid" ? order.items.filter(item => supplierProductIds.has(item.productId)).map(item => ({ orderId: order.id, orderItemId: item.id, productId: item.productId, quantity: item.quantity })) : []; }
 export function collectionReady(quantityRequired: number, quantityReceived: number, quantityAllocated: number) { return quantityRequired > 0 && quantityReceived >= quantityRequired && quantityAllocated >= quantityRequired; }
+export type SupplierDemandRecord = { id: string; organisationId: string; supplierId: string; supplierProductId: string; orderId: string; orderItemId: string; userId?: string; collectionLocationId?: string; quantityRequired: number; quantityReceived: number; quantityAllocated: number; status: "outstanding" | "ordered" | "awaiting_delivery" | "ready_for_collection" | "collected" };
+export type SupplierOrderBatch = { id: string; organisationId: string; supplierId: string; demandIds: string[]; status: "draft" | "ordered" | "received"; orderedAt?: string; receivedAt?: string };
+export class SupplierWorkflow {
+ demands: SupplierDemandRecord[] = []; batches: SupplierOrderBatch[] = []; notifications: Array<{ orderId: string; eventType: "order_ready_for_collection" }> = [];
+ createDemand(input: Omit<SupplierDemandRecord,"id"|"quantityReceived"|"quantityAllocated"|"status">) { const existing=this.demands.find(item=>item.organisationId===input.organisationId&&item.orderItemId===input.orderItemId); if(existing)return existing; const demand={...input,id:`demand-${this.demands.length+1}`,quantityReceived:0,quantityAllocated:0,status:"outstanding" as const}; this.demands.push(demand); return demand; }
+ consolidate(organisationId:string,supplierId:string) { const demandIds=this.demands.filter(item=>item.organisationId===organisationId&&item.supplierId===supplierId&&item.status==="outstanding").map(item=>item.id); const batch={id:`supplier-order-${this.batches.length+1}`,organisationId,supplierId,demandIds,status:"draft" as const}; this.batches.push(batch); return batch; }
+ markOrdered(batchId:string) { const batch=this.batches.find(item=>item.id===batchId); if(!batch||batch.status!=="draft")throw new Error("supplier_batch_invalid"); batch.status="ordered"; batch.orderedAt=new Date().toISOString(); this.demands.filter(item=>batch.demandIds.includes(item.id)).forEach(item=>{item.status="ordered";}); return batch; }
+ receive(batchId:string,received:Record<string,number>) { const batch=this.batches.find(item=>item.id===batchId); if(!batch||!(["ordered","received"] as string[]).includes(batch.status))throw new Error("supplier_batch_invalid"); batch.status="received"; batch.receivedAt=new Date().toISOString(); this.demands.filter(item=>batch.demandIds.includes(item.id)).forEach(item=>{item.quantityReceived+=Math.max(0,Math.floor(received[item.id]??0)); item.status=item.quantityReceived>=item.quantityRequired?"awaiting_delivery":"ordered";}); return batch; }
+ allocate(demandId:string,quantity:number) { const demand=this.demands.find(item=>item.id===demandId); if(!demand||quantity<1||demand.quantityAllocated+quantity>demand.quantityReceived)throw new Error("allocation_invalid"); demand.quantityAllocated+=quantity; if(collectionReady(demand.quantityRequired,demand.quantityReceived,demand.quantityAllocated)){demand.status="ready_for_collection";if(!this.notifications.some(item=>item.orderId===demand.orderId))this.notifications.push({orderId:demand.orderId,eventType:"order_ready_for_collection"});} return demand; }
+ collect(demandId:string) { const demand=this.demands.find(item=>item.id===demandId); if(!demand||demand.status!=="ready_for_collection")throw new Error("collection_invalid"); demand.status="collected"; return demand; }
+}
