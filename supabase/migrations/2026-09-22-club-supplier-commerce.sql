@@ -208,3 +208,40 @@ revoke all on function public.club_get_supplier_order_batch(uuid,uuid) from publ
 -- Correct demand accounting: allocated units contribute to that demand's received share.
 create or replace function public.club_allocate_supplier_units(p_organisation_id uuid,p_receipt_line_id uuid,p_demand_id uuid,p_quantity integer) returns jsonb language plpgsql security definer set search_path=pg_catalog,public as $$ declare rl public.club_supplier_receipt_lines%rowtype; d public.club_supplier_demand%rowtype; used integer; ready boolean; begin if not public.club_capability_allowed(p_organisation_id,auth.uid(),'supplier.receive') or p_quantity<1 then raise exception 'Supplier allocation is not permitted' using errcode='42501'; end if; select * into rl from public.club_supplier_receipt_lines where id=p_receipt_line_id for update; select * into d from public.club_supplier_demand where id=p_demand_id and organisation_id=p_organisation_id for update; if not found then raise exception 'Allocation target not found' using errcode='P0002'; end if; if not exists(select 1 from public.club_supplier_order_batch_lines bl join public.club_supplier_receipts r on r.batch_id=bl.batch_id where bl.id=rl.batch_line_id and r.organisation_id=p_organisation_id and bl.supplier_product_id=d.supplier_product_id and d.batch_id=bl.batch_id) then raise exception 'Allocation product or batch mismatch' using errcode='22023'; end if; select coalesce(sum(quantity_allocated),0) into used from public.club_supplier_allocations where receipt_line_id=rl.id; if used+p_quantity>rl.quantity_received or d.quantity_allocated+p_quantity>d.quantity_required then raise exception 'Allocation exceeds available quantity' using errcode='22023'; end if; insert into public.club_supplier_allocations(organisation_id,receipt_line_id,demand_id,quantity_allocated,allocated_by) values(p_organisation_id,rl.id,d.id,p_quantity,auth.uid()); update public.club_supplier_demand set quantity_allocated=quantity_allocated+p_quantity,quantity_received=quantity_received+p_quantity,updated_at=now() where id=d.id returning * into d; if d.quantity_allocated>=d.quantity_required then update public.club_supplier_demand set status='ready_for_collection',ready_at=coalesce(ready_at,now()),updated_at=now() where id=d.id; end if; select not exists(select 1 from public.club_supplier_demand x where x.order_id=d.order_id and x.status not in ('ready_for_collection','collected','cancelled')) into ready; if ready then insert into public.club_notification_events(organisation_id,user_id,event_type,order_id,payload) values(p_organisation_id,d.user_id,'order_ready_for_collection',d.order_id,jsonb_build_object('state','queued')) on conflict(order_id,event_type) do nothing; end if; return to_jsonb(d); end; $$;
 revoke all on function public.club_allocate_supplier_units(uuid,uuid,uuid,integer) from public,anon; grant execute on function public.club_allocate_supplier_units(uuid,uuid,uuid,integer) to authenticated;
+
+-- Collection handover: customer allocation is reserved stock, never a free-stock movement.
+alter table public.club_supplier_demand add column if not exists collected_by uuid references auth.users(id) on delete restrict;
+create or replace function public.club_list_ready_collections(p_organisation_id uuid,p_location_id uuid default null)
+returns jsonb language sql security definer set search_path=pg_catalog,public as $$
+select coalesce(jsonb_agg(jsonb_build_object('order_id',x.order_id,'order_reference',left(x.order_id::text,8),'member_name',coalesce(c.display_name,'Member'),'collection_location',coalesce(l.name,'Collection desk'),'ready_at',x.ready_at,'items_summary',x.items_summary) order by x.ready_at),'[]'::jsonb)
+from (select d.order_id,d.user_id,d.collection_location_id,min(d.ready_at) ready_at,string_agg((coalesce(cp.name,sp.name)||' × '||d.quantity_required::text),', ' order by sp.name) items_summary
+      from public.club_supplier_demand d join public.club_supplier_products sp on sp.id=d.supplier_product_id left join public.club_commerce_products cp on cp.id=sp.club_product_id
+      where d.organisation_id=p_organisation_id and d.status='ready_for_collection' and (p_location_id is null or d.collection_location_id=p_location_id) group by d.order_id,d.user_id,d.collection_location_id) x
+left join public.club_customers c on c.organisation_id=p_organisation_id and c.user_id=x.user_id
+left join public.club_locations l on l.id=x.collection_location_id and l.organisation_id=p_organisation_id
+where public.club_capability_allowed(p_organisation_id,auth.uid(),'commerce.collections_manage')
+  and not exists (select 1 from public.club_supplier_demand pending where pending.organisation_id=p_organisation_id and pending.order_id=x.order_id and pending.status not in ('ready_for_collection','collected','cancelled'));
+$$;
+revoke all on function public.club_list_ready_collections(uuid,uuid) from public,anon; grant execute on function public.club_list_ready_collections(uuid,uuid) to authenticated;
+
+create or replace function public.club_confirm_collection(p_organisation_id uuid,p_order_id uuid)
+returns jsonb language plpgsql security definer set search_path=pg_catalog,public as $$
+declare v_user uuid:=auth.uid(); v_count integer; v_ready integer; v_now timestamptz:=now();
+begin
+ if v_user is null or not public.club_capability_allowed(p_organisation_id,v_user,'commerce.collections_manage') then raise exception 'Collection access is not permitted' using errcode='42501'; end if;
+ perform 1 from public.club_supplier_demand where organisation_id=p_organisation_id and order_id=p_order_id for update;
+ select count(*) filter (where status in ('ready_for_collection','collected')), count(*) filter (where status='ready_for_collection') into v_count,v_ready from public.club_supplier_demand where organisation_id=p_organisation_id and order_id=p_order_id;
+ if v_count=0 then raise exception 'Collection order not found' using errcode='P0002'; end if;
+ if exists(select 1 from public.club_supplier_demand where organisation_id=p_organisation_id and order_id=p_order_id and status not in ('ready_for_collection','collected','cancelled')) then raise exception 'Order is not ready for collection' using errcode='22023'; end if;
+ if v_ready=0 then return jsonb_build_object('status','already_collected','order_id',p_order_id); end if;
+ update public.club_supplier_demand set status='collected',collected_at=coalesce(collected_at,v_now),collected_by=coalesce(collected_by,v_user),updated_at=v_now where organisation_id=p_organisation_id and order_id=p_order_id and status='ready_for_collection';
+ return jsonb_build_object('status','collected','order_id',p_order_id,'collected_at',v_now,'collected_by',v_user);
+end; $$;
+revoke all on function public.club_confirm_collection(uuid,uuid) from public,anon; grant execute on function public.club_confirm_collection(uuid,uuid) to authenticated;
+
+create or replace function public.club_list_member_supplier_fulfilment(p_organisation_id uuid,p_user_id uuid)
+returns jsonb language sql security definer set search_path=pg_catalog,public as $$
+select coalesce(jsonb_agg(jsonb_build_object('order_id',d.order_id,'status',case when bool_and(d.status='collected') then 'collected' when bool_and(d.status in ('ready_for_collection','collected')) then 'ready_for_collection' when bool_or(d.status='ordered') then 'awaiting_delivery' else 'order_confirmed' end,'ready_at',max(d.ready_at)) order by max(d.created_at) desc),'[]'::jsonb)
+from public.club_supplier_demand d where d.organisation_id=p_organisation_id and d.user_id=p_user_id and auth.uid()=p_user_id group by d.order_id;
+$$;
+revoke all on function public.club_list_member_supplier_fulfilment(uuid,uuid) from public,anon; grant execute on function public.club_list_member_supplier_fulfilment(uuid,uuid) to authenticated;
