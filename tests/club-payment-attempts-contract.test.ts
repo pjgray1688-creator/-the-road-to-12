@@ -38,4 +38,9 @@ test("trusted capture and failure paths are durable and exactly-once", () => {
   assert.match(sql, /status='released'/);
   assert.match(sql, /club_stock_movements/);
   assert.match(sql, /on conflict \(organisation_id,idempotency_key\) do nothing/);
+  assert.match(sql, /club_create_supplier_demand_for_order\(o\.id\)/);
+  assert.match(sql, /club_service_transactions/);
+  assert.match(sql, /commerce_order_item_id/);
+  assert.match(sql, /club_commerce_products_service_fk/);
+  assert.match(sql, /grant execute on function public\.club_capture_payment_attempt\(uuid,text\) to service_role/);
 });
