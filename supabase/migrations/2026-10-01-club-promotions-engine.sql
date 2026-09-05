@@ -112,15 +112,32 @@ revoke all on function public.club_promotion_eligible_components(uuid,uuid,jsonb
 
 create or replace function public.club_apply_promotion_stack(p_candidates jsonb,p_items jsonb,p_gross_minor integer)
 returns jsonb language plpgsql immutable as $$
-declare c jsonb; comp jsonb; out jsonb:='[]'::jsonb; consumed jsonb:='{}'::jsonb; ids jsonb; mode text; base integer; saving integer; qty integer; used integer; pid text; overlap boolean;
+declare c jsonb; comp jsonb; out jsonb:='[]'::jsonb; consumed jsonb:='{}'::jsonb; net_state jsonb:='{}'::jsonb; selected jsonb; mode text; base integer; saving integer; qty integer; used integer; avail integer; pid text; unit integer; item_qty integer; comp_base integer; overlap boolean;
 begin
+  /* Build per-product working state from canonical basket evidence.  Exclusive
+     promotions consume quantities; combinable promotions reduce only the
+     targeted product's remaining net value (never the whole basket). */
+  for comp in select value from jsonb_array_elements(coalesce(p_items,'[]'::jsonb)) loop
+    pid:=comp->>'product_id'; item_qty:=coalesce((comp->>'quantity')::integer,0); unit:=coalesce((comp->>'unit_price_minor')::integer,0);
+    net_state:=jsonb_set(net_state,array[pid],to_jsonb(item_qty*unit),true);
+  end loop;
   for c in select value from jsonb_array_elements(coalesce(p_candidates,'[]')) order by coalesce((value->>'priority')::integer,0) desc, coalesce((value->>'saving_minor')::integer,0) desc, value->>'promotion_id' loop
-    mode:=coalesce(c->>'stacking','exclusive'); overlap:=false;
-    for comp in select value from jsonb_array_elements(coalesce(c->'eligible_components', '[]'::jsonb)) loop pid:=comp->>'product_id'; qty:=coalesce((comp->>'quantity')::integer,0); used:=coalesce((consumed->>pid)::integer,0); if mode<>'combinable' and used+qty>coalesce((select (value->>'quantity')::integer from jsonb_array_elements(p_items) where value->>'product_id'=pid),0) then overlap:=true; end if; end loop;
-    if overlap then continue; end if;
-    base:=coalesce((select sum((value->>'original_minor')::integer) from jsonb_array_elements(coalesce(c->'eligible_components','[]'::jsonb))), (c->>'base_minor')::integer, 0); saving:=least(base,greatest(0,coalesce((c->>'saving_minor')::integer,0))); if saving<=0 then continue; end if;
-    out:=out||jsonb_build_array(c||jsonb_build_object('input_eligible_base_minor',base,'applied_saving_minor',saving,'output_eligible_base_minor',base-saving));
-    if mode<>'combinable' then for comp in select value from jsonb_array_elements(coalesce(c->'eligible_components','[]'::jsonb)) loop pid:=comp->>'product_id'; consumed:=jsonb_set(consumed,array[pid],to_jsonb(coalesce((consumed->>pid)::integer,0)+(comp->>'quantity')::integer),true); end loop; end if;
+    mode:=coalesce(c->>'stacking','exclusive'); overlap:=false; selected:='[]'::jsonb; base:=0;
+    for comp in select value from jsonb_array_elements(coalesce(c->'eligible_components', '[]'::jsonb)) loop
+      pid:=comp->>'product_id'; qty:=greatest(0,coalesce((comp->>'quantity')::integer,0)); used:=coalesce((consumed->>pid)::integer,0);
+      item_qty:=coalesce((select (value->>'quantity')::integer from jsonb_array_elements(p_items) where value->>'product_id'=pid limit 1),0);
+      avail:=greatest(0,item_qty-used);
+      if mode<>'combinable' and avail=0 and qty>0 then overlap:=true; end if;
+      qty:=case when mode='combinable' then least(qty,item_qty) else least(qty,avail) end;
+      if qty>0 then
+        unit:=coalesce((comp->>'unit_price_minor')::integer,0); comp_base:=case when mode='combinable' then floor(coalesce((net_state->>pid)::numeric,0)*qty/greatest(item_qty,1))::integer else unit*qty end;
+        base:=base+comp_base; selected:=selected||jsonb_build_array(comp||jsonb_build_object('quantity',qty,'original_minor',comp_base,'input_net_minor',comp_base));
+      end if;
+    end loop;
+    if overlap or base<=0 then continue; end if;
+    saving:=least(base,greatest(0,coalesce((c->>'saving_minor')::integer,0))); if saving<=0 then continue; end if;
+    out:=out||jsonb_build_array(c||jsonb_build_object('eligible_components',selected,'input_eligible_base_minor',base,'applied_saving_minor',saving,'output_eligible_base_minor',base-saving));
+    for comp in select value from jsonb_array_elements(selected) loop pid:=comp->>'product_id'; qty:=coalesce((comp->>'quantity')::integer,0); if mode<>'combinable' then consumed:=jsonb_set(consumed,array[pid],to_jsonb(coalesce((consumed->>pid)::integer,0)+qty),true); else comp_base:=coalesce((comp->>'input_net_minor')::integer,0); net_state:=jsonb_set(net_state,array[pid],to_jsonb(greatest(0,coalesce((net_state->>pid)::integer,0)-least(comp_base,saving))),true); end if; end loop;
   end loop; return out;
 end; $$;
 revoke all on function public.club_apply_promotion_stack(jsonb,jsonb,integer) from public,anon,authenticated;
