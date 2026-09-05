@@ -14,6 +14,7 @@ import { ClubCatalogueImport } from "@/components/club-catalogue-import";
 import { ClubDeliveryHistory } from "@/components/club-delivery-history";
 import { ClubBalanceTopUp } from "@/components/club-balance-top-up";
 import { ClubStockRemoval } from "@/components/club-stock-removal";
+import type { ClubProductFamily } from "@/lib/club-product-families";
 
 async function loadShop(client: Awaited<ReturnType<typeof serverSupabase>>, userId: string, organisationId?: string, locationId?: string) {
   const context = await resolveClubOrganisationContext(client, userId, organisationId);
@@ -21,12 +22,14 @@ async function loadShop(client: Awaited<ReturnType<typeof serverSupabase>>, user
   const { repository, organisation, member } = context;
   const staff = ["gym_staff", "gym_admin", "owner"].includes(member.role);
   const [products, locations, balance, orders, declarations, customers, canRecordCash, canReconcile, deliveries] = await Promise.all([repository.listCommerceProducts(organisation.id), repository.listLocations(organisation.id), repository.getBalanceAccount(organisation.id, userId), repository.listOrders(organisation.id), staff ? repository.listCashDeclarations(organisation.id, "declared") : Promise.resolve([]), staff ? repository.listCustomers(organisation.id) : Promise.resolve([]), staff ? repository.hasCapability(organisation.id, userId, "payments.record_cash") : Promise.resolve(false), staff ? repository.hasCapability(organisation.id, userId, "cash.reconcile") : Promise.resolve(false), staff ? repository.listInventoryReceipts(organisation.id, locationId) : Promise.resolve([])]);
+  const { data: familyRows } = await client.from("club_product_families").select("id,organisation_id,name,brand,description,category,active,archived_at,sort_position").eq("organisation_id", organisation.id).eq("active", true);
+  const families = (Array.isArray(familyRows) ? familyRows : []).map((row) => ({ id: String(row.id), organisationId: String(row.organisation_id), name: String(row.name), ...(row.brand ? { brand: String(row.brand) } : {}), ...(row.description ? { description: String(row.description) } : {}), ...(row.category ? { category: String(row.category) } : {}), active: row.active === true, ...(row.archived_at ? { archivedAt: String(row.archived_at) } : {}), sortPosition: Number(row.sort_position ?? 0) })) satisfies ClubProductFamily[];
   const activeLocation = locations.find(location => location.active && location.id === locationId) ?? (member.role === "gym_staff" ? locations.find(location => location.active) : undefined);
   const stockBalances = staff ? await repository.listStockBalances(organisation.id, activeLocation?.id) : [];
   const canAdjustStock = staff ? await repository.hasCapability(organisation.id, userId, "inventory.adjust") : false;
   const canRemoveStock = staff ? await repository.hasCapability(organisation.id, userId, "commerce.stock_remove") : false;
   const canManageCatalogue = member.role === "gym_admin" || member.role === "owner";
-  return { organisation, products, locations, activeLocation, stockBalances, balance, orders, declarations, customers, deliveries, staff, canRecordCash, canReconcile, canAdjustStock, canRemoveStock, canManageCatalogue, role: member.role, contexts: context.availableContexts };
+  return { organisation, products, families, locations, activeLocation, stockBalances, balance, orders, declarations, customers, deliveries, staff, canRecordCash, canReconcile, canAdjustStock, canRemoveStock, canManageCatalogue, role: member.role, contexts: context.availableContexts };
 }
 
 export default async function ClubShopPage({ searchParams }: { searchParams?: Promise<{ org?: string; location?: string; view?: string }> }) {
