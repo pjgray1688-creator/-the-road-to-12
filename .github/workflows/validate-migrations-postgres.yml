@@ -8,6 +8,12 @@ on:
       - 'supabase/config.toml'
       - 'package.json'
       - '.github/workflows/validate-migrations-postgres.yml'
+  pull_request:
+    paths:
+      - 'supabase/migrations/**'
+      - 'supabase/config.toml'
+      - 'package.json'
+      - '.github/workflows/validate-migrations-postgres.yml'
 
 jobs:
   postgres-migrations:
