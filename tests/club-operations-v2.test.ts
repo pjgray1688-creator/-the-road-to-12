@@ -117,3 +117,21 @@ test("More and Members expose lower-frequency and lifecycle destinations", () =>
   assert.ok(more.includes("Manage staff access and Club roles"));
   assert.ok(members.includes("/club/induction"));
 });
+
+test("Overview and Finance expose operational drill-downs without duplicating systems", () => {
+  const overview = read("app/club/page.tsx");
+  const finance = read("app/club/payments/page.tsx");
+  const shopTabs = read("components/club-shop-tabs.tsx");
+  assert.match(overview, /ClubMembersDirectory/);
+  assert.match(overview, /New membership \/ members/);
+  assert.match(overview, /Shop sale/);
+  assert.match(overview, /PT and services/);
+  assert.match(overview, /view=cash/);
+  assert.match(finance, /title=\"Finance\"/);
+  assert.match(finance, /Transactions/);
+  assert.match(finance, /Membership payments/);
+  assert.match(finance, /Cash verification/);
+  assert.match(finance, /club_order_items/);
+  assert.match(finance, /Reports/);
+  assert.doesNotMatch(shopTabs, />Cash<\/a>/);
+});
