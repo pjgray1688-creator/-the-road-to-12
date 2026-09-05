@@ -28,6 +28,7 @@ test("Golden Ticket savings derive from candidate basket bases and choose £140 
 test("promotion migration persists evidence and rejects identity-less monthly redemption", () => {
   const sql = readFileSync(resolve(process.cwd(), "supabase/migrations/2026-10-01-club-promotions-engine.sql"), "utf8");
   assert.match(sql, /club_golden_ticket_identity_required/); assert.match(sql, /user_id is not null or customer_id is not null/); assert.match(sql, /club_promotion_applied_orders/); assert.match(sql, /club_create_commerce_order/);
+  assert.match(sql, /club_resolve_promotion_bundles/); assert.match(sql, /bundle_instances/); assert.match(sql, /remaining/);
 });
 test("stacking honours priority, exclusivity and explicit combinability", () => {
   const applied = resolvePromotionStacking([{ id: "low", savingMinor: 1000, priority: 1, consumedLineIds: ["line"] }, { id: "high", savingMinor: 2000, priority: 2, consumedLineIds: ["line"] }]);
