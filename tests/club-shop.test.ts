@@ -156,6 +156,13 @@ test("paid-order finalisation avoids ambiguous promotion record alias", () => {
   assert.match(migration, /42702/);
 });
 
+test("paid-order stock finalisation has its ON CONFLICT idempotency index", () => {
+  const migration = readFileSync(new URL("../supabase/migrations/2026-10-08-fix-stock-idempotency-constraint.sql", import.meta.url), "utf8");
+  assert.match(migration, /club_stock_movements/);
+  assert.match(migration, /organisation_id, idempotency_key/);
+  assert.match(migration, /where idempotency_key is not null/i);
+});
+
 test("staff POS resolves only an authorised physical location", () => {
   const checkout = readFileSync(new URL("../components/club-staff-checkout.tsx", import.meta.url), "utf8");
   assert.match(checkout, /resolveStaffSaleLocationId/);
