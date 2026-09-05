@@ -42,8 +42,9 @@ export async function searchStaffCustomersAction(input: { organisationId: string
     const query = input.query.trim().toLocaleLowerCase();
     if (!value || !(await value.repository.hasCapability(value.organisation.id, value.userId, "members.view"))) return { ok: false, error: "Customer search is not available." };
     if (query.length < 2) return { ok: true, customers: [] };
-    const customers = await value.repository.listCustomers(value.organisation.id);
-    const results = customers.filter(customer => [customer.displayName, customer.email, customer.phone].some(field => field?.toLocaleLowerCase().includes(query))).slice(0, 20).map(customer => ({ id: customer.id, displayName: customer.displayName, ...(customer.email ? { email: customer.email } : {}), ...(customer.phone ? { phone: customer.phone } : {}) }));
+    const [customers, members] = await Promise.all([value.repository.listCustomers(value.organisation.id), value.repository.listMemberSummaries(value.organisation.id)]);
+    const memberByUser = new Map(members.map(member => [member.userId, member]));
+    const results = customers.filter(customer => { const member = customer.userId ? memberByUser.get(customer.userId) : undefined; return [member?.displayName, member?.email, customer.displayName, customer.email, customer.phone].some(field => field?.toLocaleLowerCase().includes(query)); }).slice(0, 20).map(customer => { const member = customer.userId ? memberByUser.get(customer.userId) : undefined; return { id: customer.id, displayName: member?.displayName ?? customer.displayName, ...(member?.email ?? customer.email ? { email: member?.email ?? customer.email } : {}), ...(customer.phone ? { phone: customer.phone } : {}) }; });
     return { ok: true, customers: results };
   } catch { return { ok: false, error: "Customer search could not be completed." }; }
 }

@@ -51,10 +51,11 @@ test("staff POS customer lookup is server-backed and catalogue stays dense", () 
   const actions = readFileSync(new URL("../app/club/shop/actions.ts", import.meta.url), "utf8");
   const css = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
   assert.match(checkout, /searchStaffCustomersAction/);
-  assert.match(checkout, /Customer search is unavailable/);
-  assert.match(checkout, /No customers match that search/);
+  assert.match(checkout, /Member search is unavailable/);
+  assert.match(checkout, /No members match that search/);
   assert.match(checkout, /customer\.id/);
   assert.match(actions, /listCustomers\(value\.organisation\.id\)/);
+  assert.match(actions, /listMemberSummaries\(value\.organisation\.id\)/);
   assert.match(actions, /members\.view/);
   assert.match(css, /\.checkout-finding\{display:grid;grid-template-columns:minmax\(0,2fr\)/);
   assert.match(css, /\.staff-checkout \.checkout-products\{grid-template-columns:repeat\(auto-fill/);
