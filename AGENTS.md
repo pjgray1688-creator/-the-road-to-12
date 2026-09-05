@@ -12,6 +12,10 @@ When a task is repository-fixable, complete its requested vertical end-to-end: p
 
 Prefer a small complete slice over broad unfinished architecture. Do not expand scope into unrelated Member, Club, or Coach work.
 
+## Product outcomes and deployed verification
+
+Requested product behaviour is the requirement; current implementation limitations are not product requirements. Hide repository/domain implementation prerequisites from staff when the application can resolve them safely. A reported deployed failure remains unresolved even when tests pass: trace the real runtime boundary and add regression coverage for the discovered cause.
+
 ## Production and data safety
 
 The repository is connected to real production data. Never execute production Supabase SQL, run migrations, mutate live records, fabricate provider/hardware responses, or create demo transactions unless the current task explicitly authorises it. Migrations are reviewed repository artifacts; never assume a migration has run because it is committed. Do not edit an already-live migration; correct an explicitly unexecuted migration only when the task permits it.

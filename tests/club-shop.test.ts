@@ -131,6 +131,15 @@ test("staff checkout transparently ensures a member commerce identity", () => {
   assert.match(actions, /find\(item => item\.userId === member\.userId\)/);
   assert.match(checkout, /ensureStaffMemberCustomerAction\(\{ organisationId, memberId: selectedMember\.id \}\)/);
   assert.doesNotMatch(checkout, /Account link required/);
+  assert.match(actions, /staffSpendBalance/);
+  assert.match(actions, /payments\.record_cash/);
+});
+
+test("staff checkout follows the canonical venue when Club navigation changes", () => {
+  const checkout = readFileSync(new URL("../components/club-staff-checkout.tsx", import.meta.url), "utf8");
+  assert.match(checkout, /currentLocationId, locations/);
+  assert.match(checkout, /setLocationId\(resolved\)/);
+  assert.match(checkout, /locationId, customerId/);
 });
 
 test("staff POS resolves only an authorised physical location", () => {
