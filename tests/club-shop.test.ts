@@ -56,9 +56,21 @@ test("staff POS customer lookup is server-backed and catalogue stays dense", () 
   assert.match(checkout, /customer\.id/);
   assert.match(actions, /listCustomers\(value\.organisation\.id\)/);
   assert.match(actions, /listMemberSummaries\(value\.organisation\.id\)/);
+  assert.match(actions, /memberByUser/);
+  assert.match(actions, /member\?\.displayName/);
   assert.match(actions, /members\.view/);
   assert.match(css, /\.checkout-finding\{display:grid;grid-template-columns:minmax\(0,2fr\)/);
   assert.match(css, /\.staff-checkout \.checkout-products\{grid-template-columns:repeat\(auto-fill/);
+  assert.match(checkout, /aria-label="Search member"/);
+});
+
+test("staff checkout presents a real physical location context", () => {
+  const checkout = readFileSync(new URL("../components/club-staff-checkout.tsx", import.meta.url), "utf8");
+  const shell = readFileSync(new URL("../components/club-shell.module.css", import.meta.url), "utf8");
+  assert.match(checkout, /checkout-location/);
+  assert.match(checkout, /Select a physical location/);
+  assert.match(checkout, /No operational location available/);
+  assert.match(shell, /\.links\{overflow:visible\}/);
 });
 
 test("POS and family picker use exact product media without inventing imagery", () => {
