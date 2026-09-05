@@ -10,6 +10,7 @@ import { cashDiscrepancyMinor, parseMinorUnits } from "@/lib/club-money";
 import { memberBasketStorageKey, readMemberBasket, sanitiseMemberBasket, writeMemberBasket } from "@/lib/club-member-basket";
 import { normalizeBarcode } from "@/lib/club-barcode";
 import styles from "./club-shop.module.css";
+import { ClubMemberShop } from "./club-member-shop";
 
 const money = (minor: number) => `£${(minor / 100).toFixed(2)}`;
 const stateLabel = (status: string) => ({ pending_payment: "Payment needed", awaiting_cash_verification: "Awaiting cash verification", cash_disputed: "Cash discrepancy", paid: "Paid", fulfilled: "Completed", cancelled: "Cancelled", refunded: "Refunded", order_confirmed: "Order confirmed", awaiting_delivery: "Awaiting delivery", ready_for_collection: "Ready for collection", collected: "Collected" } as Record<string, string>)[status] ?? status;
