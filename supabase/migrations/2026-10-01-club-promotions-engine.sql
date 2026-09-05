@@ -101,6 +101,30 @@ begin
 end; $$;
 revoke all on function public.club_apply_promotion_stack(jsonb,integer) from public,anon,authenticated;
 
+create or replace function public.club_promotion_eligible_components(p_organisation_id uuid,p_promotion_id uuid,p_items jsonb)
+returns jsonb language sql stable security definer set search_path=pg_catalog,public as $$
+  select coalesce(jsonb_agg(jsonb_build_object('product_id',cp.id,'quantity',(i->>'quantity')::integer,'unit_price_minor',cp.sell_price_minor,'original_minor',cp.sell_price_minor*(i->>'quantity')::integer) order by cp.id),'[]'::jsonb)
+  from jsonb_array_elements(coalesce(p_items,'[]'::jsonb)) i join public.club_commerce_products cp on cp.id=(i->>'product_id')::uuid and cp.organisation_id=p_organisation_id
+  where not exists(select 1 from public.club_promotion_targets t where t.promotion_id=p_promotion_id)
+     or exists(select 1 from public.club_promotion_targets t where t.promotion_id=p_promotion_id and (t.target_type='all_commerce' or (t.target_type='commerce_product' and t.commerce_product_id=cp.id) or (t.target_type='commerce_category' and t.category_key=cp.category)));
+$$;
+revoke all on function public.club_promotion_eligible_components(uuid,uuid,jsonb) from public,anon,authenticated;
+
+create or replace function public.club_apply_promotion_stack(p_candidates jsonb,p_items jsonb,p_gross_minor integer)
+returns jsonb language plpgsql immutable as $$
+declare c jsonb; comp jsonb; out jsonb:='[]'::jsonb; consumed jsonb:='{}'::jsonb; ids jsonb; mode text; base integer; saving integer; qty integer; used integer; pid text; overlap boolean;
+begin
+  for c in select value from jsonb_array_elements(coalesce(p_candidates,'[]')) order by coalesce((value->>'priority')::integer,0) desc, coalesce((value->>'saving_minor')::integer,0) desc, value->>'promotion_id' loop
+    mode:=coalesce(c->>'stacking','exclusive'); overlap:=false;
+    for comp in select value from jsonb_array_elements(coalesce(c->'eligible_components', '[]'::jsonb)) loop pid:=comp->>'product_id'; qty:=coalesce((comp->>'quantity')::integer,0); used:=coalesce((consumed->>pid)::integer,0); if mode<>'combinable' and used+qty>coalesce((select (value->>'quantity')::integer from jsonb_array_elements(p_items) where value->>'product_id'=pid),0) then overlap:=true; end if; end loop;
+    if overlap then continue; end if;
+    base:=coalesce((select sum((value->>'original_minor')::integer) from jsonb_array_elements(coalesce(c->'eligible_components','[]'::jsonb))), (c->>'base_minor')::integer, 0); saving:=least(base,greatest(0,coalesce((c->>'saving_minor')::integer,0))); if saving<=0 then continue; end if;
+    out:=out||jsonb_build_array(c||jsonb_build_object('input_eligible_base_minor',base,'applied_saving_minor',saving,'output_eligible_base_minor',base-saving));
+    if mode<>'combinable' then for comp in select value from jsonb_array_elements(coalesce(c->'eligible_components','[]'::jsonb)) loop pid:=comp->>'product_id'; consumed:=jsonb_set(consumed,array[pid],to_jsonb(coalesce((consumed->>pid)::integer,0)+(comp->>'quantity')::integer),true); end loop; end if;
+  end loop; return out;
+end; $$;
+revoke all on function public.club_apply_promotion_stack(jsonb,jsonb,integer) from public,anon,authenticated;
+
 -- Golden Ticket consumption is intentionally callable only by trusted finalisation code (service role).
 create or replace function public.club_consume_golden_ticket(p_organisation_id uuid,p_promotion_id uuid,p_user_id uuid,p_customer_id uuid,p_order_id uuid,p_candidate jsonb,p_saving_minor integer,p_calendar_month date default date_trunc('month',now())::date)
 returns jsonb language plpgsql security definer set search_path=pg_catalog,public as $$
@@ -215,9 +239,9 @@ begin
         end loop;
       end if;
       if bundle_count>0 then saving:=coalesce((select sum((value->>'saving_minor')::integer) from jsonb_array_elements(bundles->'instances')),0); end if;
-      applied:=applied||jsonb_build_array(jsonb_build_object('promotion_id',pr.id,'promotion_name',pr.name,'saving_minor',saving,'effect_type','bundle','bundle_count',bundle_count,'bundle_groups',pr.eligibility->'bundle_groups','bundle_instances',bundles->'instances','remaining',bundles->'remaining'));
+      applied:=applied||jsonb_build_array(jsonb_build_object('promotion_id',pr.id,'promotion_name',pr.name,'saving_minor',saving,'effect_type','bundle','priority',coalesce((pr.eligibility->>'priority')::integer,0),'stacking','exclusive','bundle_count',bundle_count,'bundle_groups',pr.eligibility->'bundle_groups','bundle_instances',bundles->'instances','eligible_components',(select coalesce(jsonb_agg(comp),'[]'::jsonb) from jsonb_array_elements(bundles->'instances') bi,jsonb_array_elements(bi->'components') comp),'remaining',bundles->'remaining'));
     elsif saving>0 then
-      applied:=applied||jsonb_build_array(jsonb_build_object('promotion_id',pr.id,'promotion_name',pr.name,'saving_minor',saving,'effect_type',ef.effect_type,'base_minor',base,'stacking',coalesce(pr.eligibility->>'stacking','exclusive')));
+      applied:=applied||jsonb_build_array(jsonb_build_object('promotion_id',pr.id,'promotion_name',pr.name,'saving_minor',saving,'effect_type',ef.effect_type,'base_minor',base,'priority',coalesce((pr.eligibility->>'priority')::integer,0),'stacking',coalesce(pr.eligibility->>'stacking','exclusive'),'eligible_components',public.club_promotion_eligible_components(p_organisation_id,pr.id,p_items)));
     end if;
     if coalesce(pr.eligibility->>'stacking','exclusive')<>'combinable' then exit; end if;
   end loop;
@@ -227,7 +251,7 @@ begin
     for c in select * from jsonb_array_elements(coalesce(pr.eligibility->'golden_candidates','[]'::jsonb)) loop candidate_base:=0; for x in select * from jsonb_array_elements(p_items) loop select * into prod from public.club_commerce_products where id=(x->>'product_id')::uuid and organisation_id=p_organisation_id; if (c->>'type'='product' and c->>'id'=prod.id::text) or (c->>'type'='category' and c->>'id'=prod.category) then candidate_base:=candidate_base+prod.sell_price_minor*(x->>'quantity')::integer; end if; end loop; candidate_save:=floor(candidate_base*2000/10000); if candidate_save>best_save or (candidate_save=best_save and candidate_save>0 and (best is null or (c->>'id')<(best->>'id'))) then best_save:=candidate_save; best:=jsonb_build_object('type',c->>'type','id',c->>'id','base_minor',candidate_base,'saving_minor',candidate_save,'included_items',p_items); end if; end loop;
     if best is not null and best_save>0 then applied:=applied||jsonb_build_array(jsonb_build_object('promotion_id',pr.id,'promotion_name',pr.name,'saving_minor',best_save,'effect_type','golden_ticket','base_minor',best->>'base_minor','golden_ticket_candidate',best)); end if;
   end loop;
-  applied:=public.club_apply_promotion_stack(applied,gross); total:=greatest(0,gross-(select coalesce(sum((a->>'applied_saving_minor')::integer),0) from jsonb_array_elements(applied) a)); return jsonb_build_object('gross_minor',gross,'discount_minor',gross-total,'total_minor',total,'applied',applied,'payment_method',p_payment_method);
+  applied:=public.club_apply_promotion_stack(applied,p_items,gross); total:=greatest(0,gross-(select coalesce(sum((a->>'applied_saving_minor')::integer),0) from jsonb_array_elements(applied) a)); return jsonb_build_object('gross_minor',gross,'discount_minor',gross-total,'total_minor',total,'applied',applied,'payment_method',p_payment_method);
 end; $$;
 revoke all on function public.club_evaluate_commerce_promotions(uuid,uuid,uuid,uuid,jsonb,text) from public,anon;
 grant execute on function public.club_evaluate_commerce_promotions(uuid,uuid,uuid,uuid,jsonb,text) to authenticated;
