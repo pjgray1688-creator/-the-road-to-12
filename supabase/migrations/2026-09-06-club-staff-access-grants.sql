@@ -4,20 +4,25 @@ create table if not exists public.club_staff_access_grants (
   email_normalized text not null, display_name text, intended_role text not null check (intended_role in ('gym_staff','gym_admin','trainer')),
   location_ids uuid[] not null default '{}', capabilities text[] not null default '{}', status text not null default 'pending' check (status in ('pending','accepted','revoked','expired')),
   created_by uuid not null references auth.users(id), created_at timestamptz not null default now(), expires_at timestamptz not null default (now() + interval '30 days'),
-  accepted_by uuid references auth.users(id), accepted_at timestamptz, revoked_at timestamptz,
-  unique (organisation_id, email_normalized, status)
+  accepted_by uuid references auth.users(id), accepted_at timestamptz, revoked_at timestamptz
 );
+create unique index if not exists club_staff_access_grants_pending_key on public.club_staff_access_grants(organisation_id,email_normalized) where status='pending';
+create unique index if not exists club_locations_org_id_key on public.club_locations(organisation_id,id);
 create table if not exists public.club_staff_location_access (
   organisation_id uuid not null references public.club_organisations(id) on delete cascade, user_id uuid not null references auth.users(id) on delete cascade,
   location_id uuid not null references public.club_locations(id) on delete cascade, created_at timestamptz not null default now(),
   primary key (organisation_id,user_id,location_id), foreign key (organisation_id,location_id) references public.club_locations(organisation_id, id)
 );
-create unique index if not exists club_locations_org_id_key on public.club_locations(organisation_id,id);
 alter table public.club_staff_access_grants enable row level security; alter table public.club_staff_location_access enable row level security;
 revoke all on table public.club_staff_access_grants, public.club_staff_location_access from public, anon, authenticated;
 grant select on public.club_staff_access_grants to authenticated;
-create policy club_staff_grants_admin_read on public.club_staff_access_grants for select to authenticated using (public.club_has_active_role(organisation_id,array['gym_admin','owner']) or (email_normalized = lower(coalesce((select email from auth.users where id=auth.uid()),'')) and status='pending'));
+create policy club_staff_grants_admin_read on public.club_staff_access_grants for select to authenticated using (public.club_has_active_role(organisation_id,array['gym_admin','owner']) or (email_normalized = lower(btrim(coalesce(auth.jwt()->>'email',''))) and status='pending' and expires_at>now()));
 create policy club_staff_locations_self_read on public.club_staff_location_access for select to authenticated using (user_id=auth.uid() or public.club_has_active_role(organisation_id,array['gym_admin','owner']));
+create or replace function public.club_capability_allowed(p_organisation_id uuid,p_user_id uuid,p_capability text)
+returns boolean language sql stable security definer set search_path=pg_catalog,public as $$
+select auth.uid() is not null and p_user_id=auth.uid() and p_capability in ('members.view','members.create','members.link_account','memberships.assign','memberships.end_immediately','payments.take','payments.record_cash','refunds.issue','refunds.approve','cash.reconcile','inventory.adjust','commerce.stock_remove','members.import','staff.permissions_manage','induction.manage_policy','classes.manage','services.manage','supplier.catalogue_manage','supplier.orders_manage','supplier.receive','commerce.pricing_manage','commerce.collections_manage') and not exists(select 1 from public.club_staff_permission_overrides o where o.organisation_id=p_organisation_id and o.user_id=p_user_id and o.capability=p_capability and o.decision='deny') and exists(select 1 from public.club_members m where m.organisation_id=p_organisation_id and m.user_id=p_user_id and m.active and (m.role in ('owner','gym_admin') or (m.role in ('gym_staff','trainer') and p_capability in ('members.view','members.create','members.link_account','memberships.assign','payments.take','payments.record_cash','classes.manage','services.manage','supplier.receive','commerce.collections_manage')) or exists(select 1 from public.club_staff_permission_overrides o where o.organisation_id=p_organisation_id and o.user_id=p_user_id and o.capability=p_capability and o.decision='allow')));
+$$;
+revoke all on function public.club_capability_allowed(uuid,uuid,text) from public,anon; grant execute on function public.club_capability_allowed(uuid,uuid,text) to authenticated;
 create or replace function public.club_create_staff_access_grant(p_organisation_id uuid,p_email text,p_display_name text,p_role text,p_location_ids uuid[],p_capabilities text[])
 returns jsonb language plpgsql security definer set search_path=pg_catalog,public as $$
 declare g public.club_staff_access_grants%rowtype; e text; begin
