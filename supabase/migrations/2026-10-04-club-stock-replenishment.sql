@@ -17,3 +17,35 @@ begin
  return to_jsonb(r);
 end; $$;
 revoke all on function public.club_save_replenishment_rule(uuid,uuid,uuid,uuid,integer,integer) from public,anon; grant execute on function public.club_save_replenishment_rule(uuid,uuid,uuid,uuid,integer,integer) to authenticated;
+
+create table if not exists public.club_supplier_replenishment_allocations (
+  id uuid primary key default gen_random_uuid(), organisation_id uuid not null references public.club_organisations(id) on delete cascade,
+  batch_line_id uuid not null references public.club_supplier_order_batch_lines(id) on delete cascade,
+  location_id uuid not null, quantity integer not null check (quantity > 0),
+  unique (batch_line_id, location_id), foreign key (organisation_id, location_id) references public.club_locations(organisation_id, id)
+);
+alter table public.club_supplier_replenishment_allocations enable row level security;
+revoke all on public.club_supplier_replenishment_allocations from public,anon,authenticated;
+
+create or replace function public.club_update_replenishment_allocation(p_organisation_id uuid,p_batch_line_id uuid,p_allocations jsonb)
+returns jsonb language plpgsql security definer set search_path=pg_catalog,public as $$
+declare total integer; item jsonb; line record;
+begin
+ if not public.club_capability_allowed(p_organisation_id,auth.uid(),'supplier.orders_manage') or jsonb_typeof(p_allocations)<>'array' then raise exception 'Replenishment allocation is not permitted' using errcode='42501'; end if;
+ select * into line from public.club_supplier_order_batch_lines where id=p_batch_line_id and batch_id in (select id from public.club_supplier_order_batches where organisation_id=p_organisation_id) for update;
+ if not found then raise exception 'Supplier order line not found' using errcode='P0002'; end if;
+ select coalesce(sum((value->>'quantity')::integer),0) into total from jsonb_array_elements(p_allocations);
+ if total<>line.quantity_ordered or exists(select 1 from jsonb_array_elements(p_allocations) value where (value->>'quantity')::integer<1 or not exists(select 1 from public.club_locations where id=(value->>'locationId')::uuid and organisation_id=p_organisation_id and active)) then raise exception 'Allocations must equal the ordered quantity' using errcode='22023'; end if;
+ delete from public.club_supplier_replenishment_allocations where batch_line_id=line.id;
+ for item in select value from jsonb_array_elements(p_allocations) loop insert into public.club_supplier_replenishment_allocations(organisation_id,batch_line_id,location_id,quantity) values(p_organisation_id,line.id,(item->>'locationId')::uuid,(item->>'quantity')::integer); end loop;
+ return jsonb_build_object('batch_line_id',line.id,'quantity_ordered',line.quantity_ordered,'allocations',p_allocations);
+end; $$;
+revoke all on function public.club_update_replenishment_allocation(uuid,uuid,jsonb) from public,anon; grant execute on function public.club_update_replenishment_allocation(uuid,uuid,jsonb) to authenticated;
+
+create or replace function public.club_list_replenishment_distribution(p_organisation_id uuid,p_batch_id uuid)
+returns jsonb language sql security definer set search_path=pg_catalog,public as $$
+select coalesce(jsonb_agg(jsonb_build_object('location_id',a.location_id,'location',l.name,'product_id',sp.club_product_id,'product',coalesce(cp.name,sp.name),'supplier_sku',sp.supplier_sku,'quantity',a.quantity) order by l.name,coalesce(cp.name,sp.name)),'[]'::jsonb)
+from public.club_supplier_replenishment_allocations a join public.club_supplier_order_batch_lines bl on bl.id=a.batch_line_id join public.club_supplier_products sp on sp.id=bl.supplier_product_id left join public.club_commerce_products cp on cp.id=sp.club_product_id join public.club_locations l on l.id=a.location_id
+where a.organisation_id=p_organisation_id and bl.batch_id=p_batch_id and public.club_capability_allowed(p_organisation_id,auth.uid(),'supplier.orders_manage');
+$$;
+revoke all on function public.club_list_replenishment_distribution(uuid,uuid) from public,anon; grant execute on function public.club_list_replenishment_distribution(uuid,uuid) to authenticated;
