@@ -73,3 +73,15 @@ begin
  update public.club_members set active=p_active where organisation_id=p_organisation_id and user_id=p_user_id;
 end; $$;
 revoke all on function public.club_set_staff_active(uuid,uuid,boolean) from public,anon; grant execute on function public.club_set_staff_active(uuid,uuid,boolean) to authenticated;
+create or replace function public.club_set_staff_role(p_organisation_id uuid,p_user_id uuid,p_role text)
+returns void language plpgsql security definer set search_path=pg_catalog,public as $$
+declare current_role text;
+begin
+ if auth.uid() is null or not public.club_has_active_role(p_organisation_id,array['gym_admin','owner']) then raise exception 'Staff access requires admin permission' using errcode='42501'; end if;
+ if p_role not in ('gym_staff','trainer','gym_admin') then raise exception 'Invalid staff role' using errcode='22023'; end if;
+ select role into current_role from public.club_members where organisation_id=p_organisation_id and user_id=p_user_id and active;
+ if current_role is null then raise exception 'Staff member not found' using errcode='P0002'; end if;
+ if current_role='owner' or (p_role='gym_admin' and exists(select 1 from public.club_members where organisation_id=p_organisation_id and user_id=auth.uid() and role<>'owner')) then raise exception 'Owner role is protected' using errcode='42501'; end if;
+ update public.club_members set role=p_role where organisation_id=p_organisation_id and user_id=p_user_id;
+end; $$;
+revoke all on function public.club_set_staff_role(uuid,uuid,text) from public,anon; grant execute on function public.club_set_staff_role(uuid,uuid,text) to authenticated;
