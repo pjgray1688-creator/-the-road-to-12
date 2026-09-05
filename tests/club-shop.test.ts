@@ -149,6 +149,13 @@ test("commerce promotion evaluator avoids ambiguous aggregate alias", () => {
   assert.match(migration, /from jsonb_array_elements\(applied\) applied_row/);
 });
 
+test("paid-order finalisation avoids ambiguous promotion record alias", () => {
+  const migration = readFileSync(new URL("../supabase/migrations/2026-10-07-fix-finalise-promotion-alias.sql", import.meta.url), "utf8");
+  assert.match(migration, /club_finalize_paid_order/);
+  assert.match(migration, /applied_promotion\.promotion_id/);
+  assert.match(migration, /42702/);
+});
+
 test("staff POS resolves only an authorised physical location", () => {
   const checkout = readFileSync(new URL("../components/club-staff-checkout.tsx", import.meta.url), "utf8");
   assert.match(checkout, /resolveStaffSaleLocationId/);
