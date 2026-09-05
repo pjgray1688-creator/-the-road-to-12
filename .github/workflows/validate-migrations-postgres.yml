@@ -103,6 +103,7 @@ jobs:
             supabase/migrations/2026-09-30-club-member-import.sql
             supabase/migrations/2026-10-01-club-promotions-engine.sql
             supabase/migrations/2026-10-04-club-stock-replenishment.sql
+            supabase/migrations/2026-10-05-club-membership-cash-settlement.sql
           )
           for migration in "${migrations[@]}"; do
             echo "Applying ${migration}"

@@ -63,3 +63,16 @@ test("staff POS resolves only an authorised physical location", () => {
   assert.match(checkout, /physical\.length===1\?physical\[0\]\.id:""/);
   assert.match(checkout, /\['total','all','all-sites'\]/);
 });
+
+test("membership cash keeps obligation and declaration settlement distinct", () => {
+  const migration = readFileSync(new URL("../supabase/migrations/2026-10-05-club-membership-cash-settlement.sql", import.meta.url), "utf8");
+  assert.match(migration, /club_membership_billing_obligations/);
+  assert.match(migration, /payment_method_family='cash'/);
+  assert.match(migration, /club_record_membership_cash_payment/);
+  assert.match(migration, /club_declare_membership_cash_drop/);
+  assert.match(migration, /member_drop_box/);
+  assert.match(migration, /cash-declaration:/);
+  assert.match(migration, /state not in \('paid','recovered','cancelled','waived'\)/);
+  assert.match(migration, /club_location_authorized/);
+  assert.doesNotMatch(migration.slice(migration.indexOf("club_declare_membership_cash_drop")), /update public\.club_membership_billing_obligations set state='paid'/);
+});
