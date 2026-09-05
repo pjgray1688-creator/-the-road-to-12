@@ -59,6 +59,28 @@ create table if not exists public.club_order_discounts (
   actor_user_id uuid not null references auth.users(id) on delete restrict, authorising_user_id uuid references auth.users(id) on delete set null, idempotency_key text not null, created_at timestamptz not null default now(),
   unique(organisation_id,idempotency_key), unique(order_id), foreign key(order_id,organisation_id) references public.club_orders(id,organisation_id) on delete restrict
 );
+
+-- Extend the live finaliser to support an authoritative zero-total customer
+-- comp without inventing a payment. Non-zero orders still require paid state.
+create or replace function public.club_finalize_paid_order(p_order_id uuid, p_actor_user_id uuid default null)
+returns void language plpgsql security definer set search_path=pg_catalog,public as $$
+declare v_order public.club_orders%rowtype; v_item public.club_order_items%rowtype; v_product public.club_commerce_products%rowtype; v_customer uuid;
+begin
+  select * into v_order from public.club_orders where id=p_order_id for update;
+  if not found or (v_order.status<>'paid' and not (v_order.status='pending_payment' and v_order.total_minor=0)) then raise exception 'Paid order is required for finalisation' using errcode='22023'; end if;
+  if v_order.status='pending_payment' then update public.club_orders set status='paid',updated_at=now() where id=v_order.id returning * into v_order; end if;
+  for v_item in select * from public.club_order_items where order_id=v_order.id order by id loop
+    if v_item.stock_tracked then insert into public.club_stock_movements(organisation_id,location_id,product_id,movement_type,quantity_delta,order_id,actor_user_id,idempotency_key) values(v_order.organisation_id,v_order.location_id,v_item.product_id,'sale',-v_item.quantity,v_order.id,p_actor_user_id,'order-finalise:'||v_item.id::text) on conflict(organisation_id,idempotency_key) do nothing; end if;
+    select * into v_product from public.club_commerce_products where id=v_item.product_id and organisation_id=v_order.organisation_id;
+    if v_product.service_id is not null then
+      if v_order.location_id is null then raise exception 'Service order requires a location' using errcode='22023'; end if;
+      v_customer:=v_order.customer_id; if v_customer is null and v_order.user_id is not null then select id into v_customer from public.club_customers where organisation_id=v_order.organisation_id and user_id=v_order.user_id limit 1; end if;
+      insert into public.club_service_transactions(organisation_id,location_id,service_id,customer_id,staff_user_id,quantity,unit_price_minor,currency,payment_status,payment_method,payment_reference,fulfilment_status,commerce_order_item_id,metadata) values(v_order.organisation_id,v_order.location_id,v_product.service_id,v_customer,p_actor_user_id,v_item.quantity,v_item.unit_price_minor,v_order.currency,'paid','commerce',v_order.id::text,'pending',v_item.id,jsonb_build_object('commerce_order_id',v_order.id,'comp',v_order.total_minor=0)) on conflict (commerce_order_item_id) do nothing;
+    end if;
+  end loop;
+  perform public.club_create_supplier_demand_for_order(v_order.id);
+end; $$;
+revoke all on function public.club_finalize_paid_order(uuid,uuid) from public,anon,authenticated;
 alter table public.club_stock_removals enable row level security; alter table public.club_order_discounts enable row level security;
 revoke all on table public.club_collection_reminder_events,public.club_stock_removals,public.club_order_discounts from public,anon,authenticated;
 
@@ -162,6 +184,7 @@ begin
   if discount<0 or discount>o.subtotal_minor then raise exception 'Discount exceeds order value' using errcode='22023'; end if;
   insert into public.club_order_discounts(organisation_id,order_id,kind,value_minor,percent,discount_minor,reason,actor_user_id,idempotency_key) values(p_organisation_id,o.id,p_kind,p_value_minor,p_percent,discount,p_reason,auth.uid(),p_idempotency_key) returning * into d;
   update public.club_orders set discount_minor=discount,total_minor=o.subtotal_minor-discount,updated_at=now() where id=o.id;
+  if o.subtotal_minor-discount=0 then perform public.club_finalize_paid_order(o.id,auth.uid()); end if;
   return jsonb_build_object('discount',to_jsonb(d),'order_id',o.id,'total_minor',o.subtotal_minor-discount);
 end; $$;
 

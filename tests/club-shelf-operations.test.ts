@@ -38,6 +38,9 @@ test("reminders and removals are auditable and idempotent", () => {
   assert.match(sql, /Invalid fixed discount/);
   assert.match(sql, /cost_unit_minor,actor_user_id/);
   assert.match(sql, /commerce\.stock_remove/);
+  assert.match(sql, /v_order\.status='pending_payment' and v_order\.total_minor=0/);
+  assert.match(sql, /perform public\.club_finalize_paid_order\(o\.id,auth\.uid\(\)\)/);
+  assert.match(sql, /revoke all on function public\.club_finalize_paid_order\(uuid,uuid\) from public,anon,authenticated/);
 });
 
 test("customer allocations remain separate from free stock and require shelf confirmation", () => {
