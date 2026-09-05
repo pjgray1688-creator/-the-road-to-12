@@ -60,6 +60,19 @@ test("staff POS customer lookup is server-backed and catalogue stays dense", () 
   assert.match(css, /\.staff-checkout \.checkout-products\{grid-template-columns:repeat\(auto-fill/);
 });
 
+test("POS and family picker use exact product media without inventing imagery", () => {
+  const checkout = readFileSync(new URL("../components/club-staff-checkout.tsx", import.meta.url), "utf8");
+  const picker = readFileSync(new URL("../components/club-member-shop.tsx", import.meta.url), "utf8");
+  const media = readFileSync(new URL("../components/club-product-media.tsx", import.meta.url), "utf8");
+  assert.match(media, /product\?\.media\?\.url/);
+  assert.match(checkout, /ClubProductMedia product=\{product\}/);
+  assert.match(checkout, /checkout-scan-confirmation/);
+  assert.match(checkout, /Added to basket/);
+  assert.match(checkout, /normalizeBarcode\(item\.barcode/);
+  assert.match(picker, /sharedProductImage\(card\.variants\)/);
+  assert.doesNotMatch(checkout, /Creatine Gummies/);
+});
+
 test("staff POS keeps an immutable receipt while resetting the next sale", () => {
   const checkout = readFileSync(new URL("../components/club-staff-checkout.tsx", import.meta.url), "utf8");
   assert.match(checkout, /CompletedSaleSummary/);
