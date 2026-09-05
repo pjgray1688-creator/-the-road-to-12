@@ -180,10 +180,10 @@ create or replace function public.club_reconcile_induction_booking(p_organisatio
 returns jsonb language plpgsql security definer set search_path=pg_catalog,public as $$
 declare v_booking public.club_induction_bookings%rowtype;
 begin
-  if auth.uid() is null or not public.club_has_active_role(p_organisation_id,array['gym_staff','gym_admin','owner']) then raise exception 'Induction verification is not permitted' using errcode='42501'; end if;
+  if auth.uid() is null or not public.club_capability_allowed(p_organisation_id,auth.uid(),'induction.perform') then raise exception 'Induction verification is not permitted' using errcode='42501'; end if;
   if p_status not in ('completed','cancelled','no_show') then raise exception 'Induction booking status is invalid' using errcode='22023'; end if;
   select * into v_booking from public.club_induction_bookings where id=p_booking_id and organisation_id=p_organisation_id for update;
-  if not found or v_booking.status<>'booked' then raise exception 'Induction booking is invalid' using errcode='22023'; end if;
+  if not found or v_booking.status<>'booked' or not public.club_location_authorized(p_organisation_id,v_booking.location_id) then raise exception 'Induction booking is invalid' using errcode='22023'; end if;
   update public.club_induction_bookings set status=p_status, completed_at=case when p_status='completed' then now() else null end, verified_by=auth.uid() where id=p_booking_id returning * into v_booking;
   if p_status='completed' then insert into public.club_member_induction_completions(organisation_id,user_id,policy_id,version_id,route,acknowledgement_version,verified_by,completed_at) values(v_booking.organisation_id,v_booking.user_id,v_booking.policy_id,v_booking.version_id,'in_person',coalesce(v_booking.version_id::text,'in_person'),auth.uid(),now()); end if;
   return jsonb_build_object('id',v_booking.id,'organisation_id',v_booking.organisation_id,'user_id',v_booking.user_id,'location_id',v_booking.location_id,'version_id',v_booking.version_id,'starts_at',v_booking.starts_at,'ends_at',v_booking.ends_at,'status',v_booking.status,'created_at',v_booking.created_at,'completed_at',v_booking.completed_at,'verified_by',v_booking.verified_by);

@@ -24,12 +24,17 @@ async function loadShop(client: Awaited<ReturnType<typeof serverSupabase>>, user
   const [products, locations, balance, orders, declarations, customers, canRecordCash, canReconcile, deliveries] = await Promise.all([repository.listCommerceProducts(organisation.id), repository.listLocations(organisation.id), repository.getBalanceAccount(organisation.id, userId), repository.listOrders(organisation.id), staff ? repository.listCashDeclarations(organisation.id, "declared") : Promise.resolve([]), staff ? repository.listCustomers(organisation.id) : Promise.resolve([]), staff ? repository.hasCapability(organisation.id, userId, "payments.record_cash") : Promise.resolve(false), staff ? repository.hasCapability(organisation.id, userId, "cash.reconcile") : Promise.resolve(false), staff ? repository.listInventoryReceipts(organisation.id, locationId) : Promise.resolve([])]);
   const { data: familyRows } = await client.from("club_product_families").select("id,organisation_id,name,brand,description,category,active,archived_at,sort_position").eq("organisation_id", organisation.id).eq("active", true);
   const families = (Array.isArray(familyRows) ? familyRows : []).map((row) => ({ id: String(row.id), organisationId: String(row.organisation_id), name: String(row.name), ...(row.brand ? { brand: String(row.brand) } : {}), ...(row.description ? { description: String(row.description) } : {}), ...(row.category ? { category: String(row.category) } : {}), active: row.active === true, ...(row.archived_at ? { archivedAt: String(row.archived_at) } : {}), sortPosition: Number(row.sort_position ?? 0) })) satisfies ClubProductFamily[];
-  const activeLocation = locations.find(location => location.active && location.id === locationId) ?? (member.role === "gym_staff" ? locations.find(location => location.active) : undefined);
+  const { data: assignedRows } = staff && member.role !== "owner" && member.role !== "gym_admin"
+    ? await client.from("club_staff_location_access").select("location_id").eq("organisation_id", organisation.id).eq("user_id", userId)
+    : { data: null };
+  const assignedIds = new Set((Array.isArray(assignedRows) ? assignedRows : []).map(row => String(row.location_id)));
+  const authorisedLocations = member.role === "owner" || member.role === "gym_admin" ? locations : locations.filter(location => assignedIds.has(location.id));
+  const activeLocation = authorisedLocations.find(location => location.active && location.id === locationId) ?? (authorisedLocations.length === 1 ? authorisedLocations[0] : undefined);
   const stockBalances = staff ? await repository.listStockBalances(organisation.id, activeLocation?.id) : [];
   const canAdjustStock = staff ? await repository.hasCapability(organisation.id, userId, "inventory.adjust") : false;
   const canRemoveStock = staff ? await repository.hasCapability(organisation.id, userId, "commerce.stock_remove") : false;
   const canManageCatalogue = member.role === "gym_admin" || member.role === "owner";
-  return { organisation, products, families, locations, activeLocation, stockBalances, balance, orders, declarations, customers, deliveries, staff, canRecordCash, canReconcile, canAdjustStock, canRemoveStock, canManageCatalogue, role: member.role, contexts: context.availableContexts };
+  return { organisation, products, families, locations: authorisedLocations, activeLocation, stockBalances, balance, orders, declarations, customers, deliveries, staff, canRecordCash, canReconcile, canAdjustStock, canRemoveStock, canManageCatalogue, role: member.role, contexts: context.availableContexts };
 }
 
 export default async function ClubShopPage({ searchParams }: { searchParams?: Promise<{ org?: string; location?: string; view?: string }> }) {
