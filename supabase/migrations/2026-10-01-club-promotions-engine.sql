@@ -61,7 +61,41 @@ begin
     if not found or coalesce((v_item->>'quantity')::integer,0) <= 0 then raise exception 'Product is not sellable' using errcode='22023'; end if;
     v_line := v_product.sell_price_minor * (v_item->>'quantity')::integer; v_gross := v_gross + v_line;
   end loop;
-  for v_p in select * from public.club_promotions where organisation_id=p_organisation_id and status='active' and now() >= starts_at and (ends_at is null or now() < ends_at) and (cardinality(location_ids)=0 or p_location_id = any(location_ids)) and (not exists(select 1 from public.club_promotion_targets t where t.promotion_id=club_promotions.id) or exists(select 1 from public.club_promotion_targets t where t.promotion_id=club_promotions.id and (t.target_type='all_commerce' or exists(select 1 from jsonb_array_elements(p_items) bi where t.target_type='commerce_product' and t.commerce_product_id=(bi->>'product_id')::uuid) or exists(select 1 from jsonb_array_elements(p_items) bi join public.club_commerce_products cp on cp.id=(bi->>'product_id')::uuid and cp.organisation_id=p_organisation_id where t.target_type='commerce_category' and cp.category=t.category_key))) order by coalesce((eligibility->>'priority')::integer,0) desc, id loop
+  for v_p in
+    select p.*
+    from public.club_promotions p
+    where p.organisation_id = p_organisation_id
+      and p.status = 'active'
+      and now() >= p.starts_at
+      and (p.ends_at is null or now() < p.ends_at)
+      and (cardinality(p.location_ids) = 0 or p_location_id = any(p.location_ids))
+      and (
+        not exists (select 1 from public.club_promotion_targets t where t.promotion_id = p.id)
+        or exists (
+          select 1
+          from public.club_promotion_targets t
+          where t.promotion_id = p.id
+            and (
+              t.target_type = 'all_commerce'
+              or exists (
+                select 1 from jsonb_array_elements(p_items) bi
+                where t.target_type = 'commerce_product'
+                  and t.commerce_product_id = (bi->>'product_id')::uuid
+              )
+              or exists (
+                select 1
+                from jsonb_array_elements(p_items) bi
+                join public.club_commerce_products cp
+                  on cp.id = (bi->>'product_id')::uuid
+                 and cp.organisation_id = p_organisation_id
+                where t.target_type = 'commerce_category'
+                  and cp.category = t.category_key
+              )
+            )
+        )
+      )
+    order by coalesce((p.eligibility->>'priority')::integer, 0) desc, p.id
+  loop
     select * into v_effect from public.club_promotion_effects where promotion_id=v_p.id order by id limit 1;
     if v_effect.effect_type='percentage_discount' then v_line := floor(v_gross * v_effect.percentage_basis_points / 10000); elsif v_effect.effect_type='fixed_discount' then v_line := v_effect.amount_minor; elsif v_effect.effect_type='waive_charge' then v_line := 0; else v_line := 0; end if;
     v_line := least(v_gross, greatest(0, coalesce(v_line,0))); if v_line > v_discount then v_discount := v_line; v_applied := jsonb_build_array(jsonb_build_object('promotion_id',v_p.id,'promotion_name',v_p.name,'saving_minor',v_line,'effect_type',v_effect.effect_type)); end if;
