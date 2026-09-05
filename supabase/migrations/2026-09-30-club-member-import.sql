@@ -111,3 +111,120 @@ end; $$;
 
 revoke all on function public.club_create_member_import_batch(uuid,text,text,jsonb,jsonb,jsonb),public.club_list_member_import_batch(uuid,uuid),public.club_map_member_import_package(uuid,uuid,text,uuid,text),public.club_confirm_member_import_batch(uuid,uuid),public.club_execute_member_import_batch(uuid,uuid) from public,anon;
 grant execute on function public.club_create_member_import_batch(uuid,text,text,jsonb,jsonb,jsonb),public.club_list_member_import_batch(uuid,uuid),public.club_map_member_import_package(uuid,uuid,text,uuid,text),public.club_confirm_member_import_batch(uuid,uuid),public.club_execute_member_import_batch(uuid,uuid) to authenticated;
+
+-- Revalidation is deliberately derived from raw_values and the persisted mapping;
+-- browser-supplied diagnostics are retained as evidence but never determine readiness.
+create or replace function public.club_revalidate_member_import_batch(p_organisation_id uuid,p_batch_id uuid)
+returns jsonb language plpgsql security definer set search_path=pg_catalog,public as $$
+declare b public.club_member_import_batches%rowtype; r record; raw jsonb; m jsonb; norm jsonb; blocks jsonb; warns jsonb; ident text; ref text; seen_idents text[]:='{}'; seen_refs text[]:='{}'; date_format text; v_valid integer; v_warning_count integer; v_blocking integer;
+begin
+ if auth.uid() is null or not public.club_capability_allowed(p_organisation_id,auth.uid(),'members.import') then raise exception 'Member import is not permitted' using errcode='42501'; end if;
+ select * into b from public.club_member_import_batches where id=p_batch_id and organisation_id=p_organisation_id for update;
+ if not found then raise exception 'Import batch not found' using errcode='P0002'; end if;
+ m:=b.mapping; date_format:=nullif(m->>'date_format','');
+ for r in select * from public.club_member_import_rows where batch_id=b.id and organisation_id=p_organisation_id order by source_row_number for update loop
+   raw:=r.raw_values; blocks:='[]'::jsonb; warns:='[]'::jsonb;
+   norm:=jsonb_build_object(
+     'firstName',nullif(btrim(coalesce(raw->>(m->>'firstName'),raw->>'first_name',raw->>'firstname')),''),
+     'lastName',nullif(btrim(coalesce(raw->>(m->>'lastName'),raw->>'last_name',raw->>'surname')),''),
+     'fullName',nullif(btrim(coalesce(raw->>(m->>'fullName'),raw->>'full_name',raw->>'name')),''),
+     'email',lower(nullif(btrim(coalesce(raw->>(m->>'email'),raw->>'email')),'')),
+     'phone',nullif(regexp_replace(coalesce(raw->>(m->>'phone'),raw->>'mobile',raw->>'phone'),'[^0-9+]','','g'),''),
+     'legacyReference',nullif(btrim(coalesce(raw->>(m->>'legacyReference'),raw->>'legacy_member_reference',raw->>'member_id',raw->>'member id',raw->>'id')),''),
+     'membershipName',nullif(btrim(coalesce(raw->>(m->>'membershipName'),raw->>'membership_type',raw->>'membership',raw->>'package')),''),
+     'membershipStatus',nullif(btrim(coalesce(raw->>(m->>'membershipStatus'),raw->>'membership_status',raw->>'status')),''),
+     'startDate',nullif(btrim(coalesce(raw->>(m->>'startDate'),raw->>'start_date',raw->>'join_date')),''),
+     'nextPaymentDate',nullif(btrim(coalesce(raw->>(m->>'nextPaymentDate'),raw->>'next_payment_date')),''),
+     'endDate',nullif(btrim(coalesce(raw->>(m->>'endDate'),raw->>'end_date',raw->>'expiry_date')),''),
+     'homeLocation',nullif(btrim(coalesce(raw->>(m->>'homeLocation'),raw->>'home_gym',raw->>'home_location')),''),
+     'billingMethod',nullif(btrim(coalesce(raw->>(m->>'billingMethod'),raw->>'payment_method',raw->>'billing_method')),'')
+   );
+   if coalesce(norm->>'firstName','')='' and coalesce(norm->>'lastName','')='' and coalesce(norm->>'fullName','')='' and coalesce(norm->>'email','')='' and coalesce(norm->>'phone','')='' and coalesce(norm->>'legacyReference','')='' then blocks:=blocks||jsonb_build_array('A name, email, phone or ClubManager reference is required'); end if;
+   ref:=nullif(norm->>'legacyReference',''); ident:=coalesce(ref,'email:'||nullif(norm->>'email',''),'phone:'||nullif(norm->>'phone',''),'name:'||lower(nullif(norm->>'fullName','')));
+   if ref is not null and ref=any(seen_refs) then blocks:=blocks||jsonb_build_array('Duplicate source external ID in this batch'); elsif ref is not null then seen_refs:=array_append(seen_refs,ref); end if;
+   if ident is not null and ident=any(seen_idents) then blocks:=blocks||jsonb_build_array('Duplicate source person in this batch'); elsif ident is not null then seen_idents:=array_append(seen_idents,ident); end if;
+   if norm->>'email' is not null and (select count(*) from public.club_customers c where c.organisation_id=p_organisation_id and lower(c.email)=norm->>'email')>1 then blocks:=blocks||jsonb_build_array('Multiple existing customers match this email'); end if;
+   foreach ident in array[norm->>'startDate',norm->>'nextPaymentDate',norm->>'endDate'] loop
+     if ident is not null and ident<>'' then
+       if ident like '%/%' and date_format is null then blocks:=blocks||jsonb_build_array('Date format requires confirmation');
+       elsif ident like '%/%' and date_format not in ('DD/MM/YYYY','MM/DD/YYYY') then blocks:=blocks||jsonb_build_array('Unsupported date format');
+       elsif ident !~ '^\d{4}-\d{2}-\d{2}$' and ident not like '%/%' then blocks:=blocks||jsonb_build_array('Invalid date value'); end if;
+     end if;
+   end loop;
+   if norm->>'billingMethod' ilike '%gocardless%' then warns:=warns||jsonb_build_array('GoCardless reference requires provider reconciliation'); end if;
+   if norm->>'email' is null then warns:=warns||jsonb_build_array('Email is missing'); end if;
+   if norm->>'phone' is null then warns:=warns||jsonb_build_array('Phone is missing'); end if;
+   if norm->>'membershipName' is null then warns:=warns||jsonb_build_array('Membership package is missing');
+   elsif not exists(select 1 from public.club_member_import_package_mappings pm where pm.batch_id=b.id and pm.organisation_id=p_organisation_id and lower(pm.source_package)=lower(norm->>'membershipName') and pm.status in ('mapped','manual')) then blocks:=blocks||jsonb_build_array('Membership package mapping required'); end if;
+   update public.club_member_import_rows set normalized_values=norm,warnings=warns,blockers=blocks,action=case when jsonb_array_length(blocks)>0 then 'invalid' else case when ref is not null and exists(select 1 from public.club_member_import_identities i where i.organisation_id=p_organisation_id and i.source_system='clubmanager' and i.source_member_reference=ref) then 'exact_match' else 'new' end end,updated_at=now() where id=r.id;
+ end loop;
+ select count(*) filter (where jsonb_array_length(blockers)=0),coalesce(sum(jsonb_array_length(warnings)),0),count(*) filter (where jsonb_array_length(blockers)>0) into v_valid,v_warning_count,v_blocking from public.club_member_import_rows where batch_id=b.id and organisation_id=p_organisation_id;
+ update public.club_member_import_batches set row_count=(select count(*) from public.club_member_import_rows where batch_id=b.id and organisation_id=p_organisation_id),valid_count=v_valid,warning_count=v_warning_count,blocking_count=v_blocking,status=case when v_blocking>0 then 'review_required' else 'ready' end,updated_at=now() where id=b.id returning * into b;
+ return to_jsonb(b);
+end; $$;
+revoke all on function public.club_revalidate_member_import_batch(uuid,uuid) from public,anon; grant execute on function public.club_revalidate_member_import_batch(uuid,uuid) to authenticated;
+
+create or replace function public.club_create_member_import_batch(p_organisation_id uuid,p_filename text,p_checksum text,p_headers jsonb,p_mapping jsonb,p_rows jsonb)
+returns jsonb language plpgsql security definer set search_path=pg_catalog,public as $$
+declare b public.club_member_import_batches%rowtype; item jsonb; n integer:=0;
+begin
+ if auth.uid() is null or not public.club_capability_allowed(p_organisation_id,auth.uid(),'members.import') then raise exception 'Member import is not permitted' using errcode='42501'; end if;
+ if nullif(btrim(p_filename),'') is null or jsonb_typeof(p_headers)<>'array' or jsonb_typeof(p_mapping)<>'object' or jsonb_typeof(p_rows)<>'array' or jsonb_array_length(p_rows)>10000 then raise exception 'Invalid member import batch' using errcode='22023'; end if;
+ insert into public.club_member_import_batches(organisation_id,source_system,original_filename,source_checksum,uploaded_by,status,headers,mapping) values(p_organisation_id,'clubmanager',left(btrim(p_filename),255),nullif(btrim(p_checksum),''),auth.uid(),'validating',p_headers,p_mapping) returning * into b;
+ for item in select value from jsonb_array_elements(p_rows) loop n:=n+1; insert into public.club_member_import_rows(organisation_id,batch_id,source_row_number,raw_values,normalized_values,warnings,blockers,action,match_candidates) values(p_organisation_id,b.id,coalesce((item->>'row_number')::integer,n+1),coalesce(item->'raw','{}'::jsonb),'{}'::jsonb,'[]'::jsonb,'[]'::jsonb,'new','[]'::jsonb); end loop;
+ perform public.club_revalidate_member_import_batch(p_organisation_id,b.id);
+ select * into b from public.club_member_import_batches where id=b.id;
+ insert into public.club_audit_events(organisation_id,actor_user_id,action,target_type,target_id,metadata) values(p_organisation_id,auth.uid(),'member_import.batch_created','member_import_batch',b.id,jsonb_build_object('source_system','clubmanager','row_count',b.row_count,'blocking_count',b.blocking_count));
+ return to_jsonb(b);
+end; $$;
+
+create or replace function public.club_map_member_import_package(p_organisation_id uuid,p_batch_id uuid,p_source_package text,p_club_product_id uuid,p_status text default 'mapped')
+returns jsonb language plpgsql security definer set search_path=pg_catalog,public as $$
+declare r public.club_member_import_package_mappings%rowtype;
+begin
+ if auth.uid() is null or not public.club_capability_allowed(p_organisation_id,auth.uid(),'members.import') then raise exception 'Member import is not permitted' using errcode='42501'; end if;
+ if nullif(btrim(p_source_package),'') is null or p_status not in ('mapped','manual') or not exists(select 1 from public.club_member_import_batches where id=p_batch_id and organisation_id=p_organisation_id) then raise exception 'Invalid package mapping' using errcode='22023'; end if;
+ if p_status='mapped' and not exists(select 1 from public.club_products where id=p_club_product_id and organisation_id=p_organisation_id and kind='membership' and archived_at is null) then raise exception 'Membership package is not available' using errcode='22023'; end if;
+ insert into public.club_member_import_package_mappings(organisation_id,batch_id,source_package,club_product_id,status) values(p_organisation_id,p_batch_id,btrim(p_source_package),p_club_product_id,p_status) on conflict(batch_id,source_package) do update set club_product_id=excluded.club_product_id,status=excluded.status returning * into r;
+ perform public.club_revalidate_member_import_batch(p_organisation_id,p_batch_id);
+ insert into public.club_audit_events(organisation_id,actor_user_id,action,target_type,target_id,metadata) values(p_organisation_id,auth.uid(),'member_import.package_mapped','member_import_batch',p_batch_id,jsonb_build_object('source_package',p_source_package,'status',p_status));
+ return to_jsonb(r);
+end; $$;
+
+create or replace function public.club_confirm_member_import_batch(p_organisation_id uuid,p_batch_id uuid)
+returns jsonb language plpgsql security definer set search_path=pg_catalog,public as $$
+declare b public.club_member_import_batches%rowtype;
+begin
+ if auth.uid() is null or not public.club_capability_allowed(p_organisation_id,auth.uid(),'members.import') then raise exception 'Member import is not permitted' using errcode='42501'; end if;
+ perform public.club_revalidate_member_import_batch(p_organisation_id,p_batch_id);
+ select * into b from public.club_member_import_batches where id=p_batch_id and organisation_id=p_organisation_id for update;
+ if not found or b.blocking_count>0 then raise exception 'Resolve blocking import issues first' using errcode='22023'; end if;
+ update public.club_member_import_batches set status='ready',updated_at=now() where id=b.id returning * into b;
+ insert into public.club_audit_events(organisation_id,actor_user_id,action,target_type,target_id,metadata) values(p_organisation_id,auth.uid(),'member_import.authorised','member_import_batch',b.id,jsonb_build_object('row_count',b.row_count));
+ return to_jsonb(b);
+end; $$;
+
+create or replace function public.club_execute_member_import_batch(p_organisation_id uuid,p_batch_id uuid)
+returns jsonb language plpgsql security definer set search_path=pg_catalog,public as $$
+declare b public.club_member_import_batches%rowtype; r record; customer public.club_customers%rowtype; ref text; created integer:=0; linked integer:=0; was_linked boolean;
+begin
+ if auth.uid() is null or not public.club_capability_allowed(p_organisation_id,auth.uid(),'members.import') then raise exception 'Member import is not permitted' using errcode='42501'; end if;
+ perform public.club_revalidate_member_import_batch(p_organisation_id,p_batch_id);
+ select * into b from public.club_member_import_batches where id=p_batch_id and organisation_id=p_organisation_id for update;
+ if not found or b.status<>'ready' or b.blocking_count>0 then raise exception 'Batch is not ready to import' using errcode='22023'; end if;
+ update public.club_member_import_batches set status='importing',import_started_at=coalesce(import_started_at,now()),updated_at=now() where id=b.id;
+ for r in select * from public.club_member_import_rows where batch_id=b.id and organisation_id=p_organisation_id and action<>'skip' and imported_customer_id is null order by source_row_number for update loop
+   customer:=null; ref:=nullif(r.normalized_values->>'legacyReference','');
+   if ref is not null then select customer_id into customer.id from public.club_member_import_identities where organisation_id=p_organisation_id and source_system='clubmanager' and source_member_reference=ref; end if;
+   was_linked:=false;
+   if customer.id is null and r.normalized_values->>'email' is not null then select * into customer from public.club_customers where organisation_id=p_organisation_id and lower(email)=r.normalized_values->>'email' limit 1; end if;
+   if customer.id is null then insert into public.club_customers(organisation_id,display_name,email,phone,status) values(p_organisation_id,coalesce(nullif(btrim(r.normalized_values->>'fullName'),''),concat_ws(' ',nullif(btrim(r.normalized_values->>'firstName'),''),nullif(btrim(r.normalized_values->>'lastName'),'')),'Imported member'),nullif(r.normalized_values->>'email',''),nullif(r.normalized_values->>'phone',''),'member') returning * into customer; created:=created+1; else linked:=linked+1; was_linked:=true; end if;
+   if ref is not null then insert into public.club_member_import_identities(organisation_id,source_system,source_member_reference,customer_id,first_seen_batch_id) values(p_organisation_id,'clubmanager',ref,customer.id,b.id) on conflict do nothing; end if;
+   update public.club_member_import_rows set imported_customer_id=customer.id,outcome=case when was_linked then 'linked_existing' else 'customer_staged' end,updated_at=now() where id=r.id;
+ end loop;
+ update public.club_member_import_batches set status='completed',completed_at=now(),imported_count=created,linked_count=linked,updated_at=now() where id=b.id returning * into b;
+ insert into public.club_audit_events(organisation_id,actor_user_id,action,target_type,target_id,metadata) values(p_organisation_id,auth.uid(),'member_import.completed','member_import_batch',b.id,jsonb_build_object('created',created,'linked',linked));
+ return to_jsonb(b);
+end; $$;
+revoke all on function public.club_create_member_import_batch(uuid,text,text,jsonb,jsonb,jsonb),public.club_map_member_import_package(uuid,uuid,text,uuid,text),public.club_confirm_member_import_batch(uuid,uuid),public.club_execute_member_import_batch(uuid,uuid) from public,anon;
+grant execute on function public.club_create_member_import_batch(uuid,text,text,jsonb,jsonb,jsonb),public.club_map_member_import_package(uuid,uuid,text,uuid,text),public.club_confirm_member_import_batch(uuid,uuid),public.club_execute_member_import_batch(uuid,uuid) to authenticated;

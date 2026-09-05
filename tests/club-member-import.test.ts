@@ -27,4 +27,9 @@ test("import migration is staged, owner-capability protected and never fabricate
   assert.doesNotMatch(source, /insert into auth\.users/i);
   assert.doesNotMatch(source, /club_payments/);
   assert.match(source, /status not in \('ready','importing'\)/);
+  assert.match(source, /club_revalidate_member_import_batch/);
+  assert.match(source, /raw_values/);
+  assert.match(source, /Duplicate source external ID/);
+  assert.match(source, /membership package mapping required/i);
+  assert.match(source, /blocking_count=blocking/);
 });
