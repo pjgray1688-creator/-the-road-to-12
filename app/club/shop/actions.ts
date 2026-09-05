@@ -36,6 +36,18 @@ export async function staffBalanceSaleAction(input: { organisationId: string; lo
   try { const value = await context(input.organisationId); const key = input.idempotencyKey?.trim() || crypto.randomUUID(); if (!value || !(await locationAuthorized(input.organisationId, input.locationId)) || !(await value.repository.hasCapability(value.organisation.id, value.userId, "payments.take")) || !input.customerId || !input.locationId || !input.items.length) return { ok: false, error: "Select a member and add products." }; const customer = (await value.repository.listCustomers(value.organisation.id)).find(item => item.id === input.customerId); if (!customer) return { ok: false, error: "That member is not available." }; const order = await value.repository.createCommerceOrder({ organisationId: value.organisation.id, locationId: input.locationId, customerId: customer.id, userId: customer.userId, channel: "staff_checkout", currency: "GBP", items: input.items, idempotencyKey: key }); await value.repository.staffSpendBalance(order.id, order.totalMinor, `${key}:balance`); revalidatePath("/club/shop"); return { ok: true, status: "paid", orderId: order.id }; } catch { return { ok: false, error: "Balance payment couldn’t be completed." }; }
 }
 
+export async function searchStaffCustomersAction(input: { organisationId: string; query: string }): Promise<{ ok: true; customers: Array<{ id: string; displayName: string; email?: string; phone?: string }> } | { ok: false; error: string }> {
+  try {
+    const value = await context(input.organisationId);
+    const query = input.query.trim().toLocaleLowerCase();
+    if (!value || !(await value.repository.hasCapability(value.organisation.id, value.userId, "members.view"))) return { ok: false, error: "Customer search is not available." };
+    if (query.length < 2) return { ok: true, customers: [] };
+    const customers = await value.repository.listCustomers(value.organisation.id);
+    const results = customers.filter(customer => [customer.displayName, customer.email, customer.phone].some(field => field?.toLocaleLowerCase().includes(query))).slice(0, 20).map(customer => ({ id: customer.id, displayName: customer.displayName, ...(customer.email ? { email: customer.email } : {}), ...(customer.phone ? { phone: customer.phone } : {}) }));
+    return { ok: true, customers: results };
+  } catch { return { ok: false, error: "Customer search could not be completed." }; }
+}
+
 export async function recordMembershipCashPaymentAction(input: { organisationId: string; obligationId: string; locationId: string; amountMinor: number; currency?: string; idempotencyKey?: string }): Promise<{ ok: true } | { ok: false; error: string }> {
   try {
     const value = await context(input.organisationId);

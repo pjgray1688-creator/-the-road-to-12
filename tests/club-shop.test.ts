@@ -46,22 +46,36 @@ test("staff Sell keeps a two-area till with exact barcode and basket paths", () 
   assert.doesNotMatch(tabs, />Cash<\/a>/);
 });
 
+test("staff POS customer lookup is server-backed and catalogue stays dense", () => {
+  const checkout = readFileSync(new URL("../components/club-staff-checkout.tsx", import.meta.url), "utf8");
+  const actions = readFileSync(new URL("../app/club/shop/actions.ts", import.meta.url), "utf8");
+  const css = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
+  assert.match(checkout, /searchStaffCustomersAction/);
+  assert.match(checkout, /Customer search is unavailable/);
+  assert.match(checkout, /No customers match that search/);
+  assert.match(checkout, /customer\.id/);
+  assert.match(actions, /listCustomers\(value\.organisation\.id\)/);
+  assert.match(actions, /members\.view/);
+  assert.match(css, /\.checkout-finding\{display:grid;grid-template-columns:minmax\(0,2fr\)/);
+  assert.match(css, /\.staff-checkout \.checkout-products\{grid-template-columns:repeat\(auto-fill/);
+});
+
 test("staff POS keeps an immutable receipt while resetting the next sale", () => {
   const checkout = readFileSync(new URL("../components/club-staff-checkout.tsx", import.meta.url), "utf8");
   assert.match(checkout, /CompletedSaleSummary/);
-  assert.match(checkout, /setCompletedSale\(\{totalMinor:total,payment,customerName:selectedCustomer\?\.displayName\?\?"Walk-in",locationName:/);
+  assert.match(checkout, /setCompletedSale\(\{ totalMinor: total, payment, customerName: selectedCustomer\?\.displayName \?\? "Walk-in", locationName:/);
   assert.match(checkout, /completedSale\.totalMinor/);
   assert.match(checkout, /completedSale\.customerName/);
   assert.match(checkout, /completedSale\.locationName/);
   assert.match(checkout, /setCompletedSale\(undefined\)/);
-  assert.match(checkout, /completedSale\.payment===\"balance\"/);
+  assert.match(checkout, /completedSale\.payment === \"balance\"/);
 });
 
 test("staff POS resolves only an authorised physical location", () => {
   const checkout = readFileSync(new URL("../components/club-staff-checkout.tsx", import.meta.url), "utf8");
   assert.match(checkout, /resolveStaffSaleLocationId/);
-  assert.match(checkout, /physical\.length===1\?physical\[0\]\.id:""/);
-  assert.match(checkout, /\['total','all','all-sites'\]/);
+  assert.match(checkout, /physical\.length === 1 \? physical\[0\]\.id : ""/);
+  assert.match(checkout, /\["total", "all", "all-sites"\]/);
 });
 
 test("membership cash keeps obligation and declaration settlement distinct", () => {
