@@ -5,6 +5,8 @@ on:
   push:
     paths:
       - 'supabase/migrations/**'
+      - 'supabase/config.toml'
+      - 'package.json'
       - '.github/workflows/validate-migrations-postgres.yml'
 
 jobs:
@@ -47,7 +49,9 @@ jobs:
             if not exists (select 1 from pg_roles where rolname='service_role') then create role service_role nologin; end if;
           end $$;
           create table auth.users (id uuid primary key);
+          alter table auth.users add column email text;
           create function auth.uid() returns uuid language sql stable as $$ select null::uuid $$;
+          create function auth.jwt() returns jsonb language sql stable as $$ select '{}'::jsonb $$;
           SQL
 
       - name: Apply dependency-complete R12 Club chain
@@ -65,6 +69,7 @@ jobs:
             supabase/migrations/2026-09-04-club-product-entitlements.sql
             supabase/migrations/2026-09-05-club-transactional-rpcs.sql
             supabase/migrations/2026-09-06-club-authenticated-table-privileges.sql
+            supabase/migrations/2026-09-06-club-staff-access-grants.sql
             supabase/migrations/2026-09-07-club-classes-bookings-services.sql
             # 2026-09-08 is the real origin of club_save_commerce_product;
             # 2026-09-20 is its brand-column patch and must follow it.
@@ -87,6 +92,7 @@ jobs:
             supabase/migrations/2026-09-29-club-shelf-removals-discounts.sql
             supabase/migrations/2026-09-30-club-member-import.sql
             supabase/migrations/2026-10-01-club-promotions-engine.sql
+            supabase/migrations/2026-10-04-club-stock-replenishment.sql
           )
           for migration in "${migrations[@]}"; do
             echo "Applying ${migration}"
