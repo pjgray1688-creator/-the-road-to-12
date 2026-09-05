@@ -5,6 +5,8 @@ import { readFileSync } from "node:fs";
 const page = readFileSync("app/club/page.tsx", "utf8");
 const home = readFileSync("components/club-member-home.tsx", "utf8");
 const nav = readFileSync("components/app-nav.tsx", "utf8");
+const join = readFileSync("app/club/join/page.tsx", "utf8");
+const joinAction = readFileSync("app/club/join/actions.ts", "utf8");
 
 test("member Club home uses authenticated operational reads rather than staff data", () => {
   assert.match(page, /getMemberOperationalProfile\(context\.organisation\.id, user\.id\)/);
@@ -23,4 +25,6 @@ test("member Club home exposes real self-service destinations and truthful limit
   assert.match(home, /\/club\/join/);
   assert.match(home, /\/club\/shop\/balance/);
   assert.match(nav, /href: "\/club", label: "Club"/);
+  assert.match(join, /club_list_joinable_organisations/);
+  assert.match(joinAction, /club_start_membership_joining/);
 });
