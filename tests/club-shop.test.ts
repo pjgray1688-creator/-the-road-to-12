@@ -129,7 +129,7 @@ test("staff checkout transparently ensures a member commerce identity", () => {
   assert.match(actions, /ensureStaffMemberCustomerAction/);
   assert.match(actions, /createCustomer\(\{ organisationId: value\.organisation\.id, userId: member\.userId/);
   assert.match(actions, /find\(item => item\.userId === member\.userId\)/);
-  assert.match(checkout, /ensureStaffMemberCustomerAction\(\{ organisationId, memberId: selectedMember\.id \}\)/);
+  assert.match(checkout, /ensureStaffMemberCustomerAction\(\{ organisationId, memberId: member\.id \}\)/);
   assert.doesNotMatch(checkout, /Account link required/);
   assert.match(actions, /staffSpendBalance/);
   assert.match(actions, /payments\.record_cash/);
