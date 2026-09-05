@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { allocateBundle, allocateBundles, applyPromotion, chooseGoldenTicketCandidate, deriveGoldenTicketCandidates, promotionIsActive } from "@/lib/club-promotions";
 
 test("promotion windows, locations and integer discounts are authoritative", () => {
@@ -22,4 +24,8 @@ test("Golden Ticket savings derive from candidate basket bases and choose £140 
     { id: "supplements", label: "Supplements", lines: [{ id: "s1", productId: "s1", unitPriceMinor: 35000, quantity: 1 }, { id: "s2", productId: "s2", unitPriceMinor: 35000, quantity: 1 }] },
   ]);
   const chosen = chooseGoldenTicketCandidate(candidates); assert.equal(candidates.find(c => c.id === "transformation")?.eligibleMinor, 11000); assert.equal(candidates.find(c => c.id === "supplements")?.eligibleMinor, 14000); assert.equal(chosen.id, "supplements");
+});
+test("promotion migration persists evidence and rejects identity-less monthly redemption", () => {
+  const sql = readFileSync(resolve(process.cwd(), "supabase/migrations/2026-10-01-club-promotions-engine.sql"), "utf8");
+  assert.match(sql, /club_golden_ticket_identity_required/); assert.match(sql, /user_id is not null or customer_id is not null/); assert.match(sql, /club_promotion_applied_orders/); assert.match(sql, /club_create_commerce_order/);
 });

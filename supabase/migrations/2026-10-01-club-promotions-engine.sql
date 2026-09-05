@@ -84,3 +84,50 @@ begin
   return to_jsonb(v_row);
 end; $$;
 revoke all on function public.club_consume_golden_ticket(uuid,uuid,uuid,uuid,uuid,jsonb,integer,date) from public,anon,authenticated;
+
+alter table public.club_golden_ticket_redemptions drop constraint if exists club_golden_ticket_identity_required;
+alter table public.club_golden_ticket_redemptions add constraint club_golden_ticket_identity_required check (user_id is not null or customer_id is not null);
+
+-- Validate redemption against immutable applied evidence; trusted finalisation must not fabricate it.
+create or replace function public.club_consume_golden_ticket(p_organisation_id uuid,p_promotion_id uuid,p_user_id uuid,p_customer_id uuid,p_order_id uuid,p_candidate jsonb,p_saving_minor integer,p_calendar_month date default date_trunc('month',now())::date)
+returns jsonb language plpgsql security definer set search_path=pg_catalog,public as $$
+declare v_row public.club_golden_ticket_redemptions%rowtype; v_e public.club_promotion_applied_orders%rowtype;
+begin
+  if auth.uid() is not null or (p_user_id is null and p_customer_id is null) then raise exception 'Trusted identified finalisation required' using errcode='42501'; end if;
+  select * into v_e from public.club_promotion_applied_orders where organisation_id=p_organisation_id and order_id=p_order_id and promotion_id=p_promotion_id for share;
+  if not found or v_e.net_minor is null or v_e.saving_minor<>p_saving_minor or (v_e.applied_snapshot->'golden_ticket_candidate') is distinct from p_candidate then raise exception 'Golden Ticket evidence does not match order' using errcode='22023'; end if;
+  if not exists(select 1 from public.club_orders where id=p_order_id and organisation_id=p_organisation_id and status in ('paid','fulfilled')) then raise exception 'Order is not complete' using errcode='22023'; end if;
+  insert into public.club_golden_ticket_redemptions(organisation_id,promotion_id,user_id,customer_id,calendar_month,order_id,candidate_snapshot,saving_minor) values(p_organisation_id,p_promotion_id,p_user_id,p_customer_id,p_calendar_month,p_order_id,p_candidate,p_saving_minor) on conflict do nothing returning * into v_row;
+  if not found then select * into v_row from public.club_golden_ticket_redemptions where organisation_id=p_organisation_id and promotion_id=p_promotion_id and calendar_month=p_calendar_month and ((p_user_id is not null and user_id=p_user_id) or (p_customer_id is not null and customer_id=p_customer_id)) limit 1; end if;
+  return to_jsonb(v_row);
+end; $$;
+
+-- Administration changes are append-only evidence, without copying sensitive configuration into audit text.
+create or replace function public.club_promotion_audit_trigger() returns trigger language plpgsql security definer set search_path=pg_catalog,public as $$
+begin
+  insert into public.club_audit_events(organisation_id,actor_user_id,action,target_type,target_id,metadata)
+  values(coalesce(new.organisation_id,old.organisation_id),coalesce(auth.uid(),new.created_by),case when tg_op='INSERT' then 'promotion.created' when tg_op='UPDATE' then 'promotion.updated' else 'promotion.deleted' end,'promotion',coalesce(new.id,old.id),jsonb_build_object('operation',tg_op,'name',coalesce(new.name,old.name),'status',coalesce(new.status,old.status)));
+  return coalesce(new,old);
+end; $$;
+drop trigger if exists club_promotions_audit on public.club_promotions;
+create trigger club_promotions_audit after insert or update or delete on public.club_promotions for each row execute function public.club_promotion_audit_trigger();
+
+-- Canonical order creation now resolves configured promotions in the trusted database path.
+create or replace function public.club_create_commerce_order(p_organisation_id uuid,p_location_id uuid,p_customer_id uuid,p_channel text,p_currency text,p_items jsonb,p_idempotency_key text)
+returns jsonb language plpgsql security definer set search_path=pg_catalog,public as $$
+declare v_order public.club_orders%rowtype; v_item jsonb; v_product public.club_commerce_products%rowtype; v_qty integer; v_subtotal integer:=0; v_pricing jsonb; v_discount integer; v_staff boolean; v_existing public.club_orders%rowtype; v_applied jsonb;
+begin
+  if auth.uid() is null or p_channel not in ('member_app','staff_checkout','quick_sale','web','other') or p_currency !~ '^[A-Z]{3}$' or jsonb_typeof(p_items)<>'array' or jsonb_array_length(p_items)=0 then raise exception 'Invalid order input' using errcode='22023'; end if;
+  v_staff:=public.club_has_active_role(p_organisation_id,array['gym_staff','gym_admin','owner']); if not v_staff and p_channel not in ('member_app','web') then raise exception 'Order channel is not permitted' using errcode='42501'; end if;
+  if p_location_id is not null and not exists(select 1 from public.club_locations where id=p_location_id and organisation_id=p_organisation_id and active) then raise exception 'Location is unavailable' using errcode='22023'; end if;
+  if p_customer_id is not null and not exists(select 1 from public.club_customers where id=p_customer_id and organisation_id=p_organisation_id and (v_staff or user_id=auth.uid())) then raise exception 'Customer is not in organisation' using errcode='42501'; end if;
+  if p_idempotency_key is not null then select * into v_existing from public.club_orders where organisation_id=p_organisation_id and idempotency_key=p_idempotency_key; if found then return jsonb_build_object('order',to_jsonb(v_existing),'items',coalesce((select jsonb_agg(to_jsonb(i)) from public.club_order_items i where i.order_id=v_existing.id),'[]'::jsonb),'replayed',true); end if; end if;
+  for v_item in select * from jsonb_array_elements(p_items) loop v_qty:=(v_item->>'quantity')::integer; if v_qty is null or v_qty<=0 then raise exception 'Invalid order quantity' using errcode='22023'; end if; select * into v_product from public.club_commerce_products where id=(v_item->>'product_id')::uuid and organisation_id=p_organisation_id and active for update; if not found or (v_product.stock_tracked and p_location_id is null) or v_product.currency<>p_currency then raise exception 'Product is unavailable' using errcode='22023'; end if; v_subtotal:=v_subtotal+v_product.sell_price_minor*v_qty; end loop;
+  v_pricing:=public.club_evaluate_commerce_promotions(p_organisation_id,p_location_id,auth.uid(),p_customer_id,p_items,null); v_discount:=least(v_subtotal,greatest(0,(v_pricing->>'discount_minor')::integer));
+  insert into public.club_orders(organisation_id,location_id,customer_id,user_id,channel,status,currency,subtotal_minor,discount_minor,total_minor,created_by,idempotency_key) values(p_organisation_id,p_location_id,p_customer_id,case when v_staff then null else auth.uid() end,p_channel,'pending_payment',p_currency,v_subtotal,v_discount,v_subtotal-v_discount,auth.uid(),p_idempotency_key) returning * into v_order;
+  for v_item in select * from jsonb_array_elements(p_items) loop select * into v_product from public.club_commerce_products where id=(v_item->>'product_id')::uuid and organisation_id=p_organisation_id; v_qty:=(v_item->>'quantity')::integer; insert into public.club_order_items(order_id,organisation_id,product_id,product_name,sku,quantity,unit_price_minor,line_total_minor,stock_tracked) values(v_order.id,p_organisation_id,v_product.id,v_product.name,v_product.sku,v_qty,v_product.sell_price_minor,v_product.sell_price_minor*v_qty,v_product.stock_tracked); end loop;
+  for v_applied in select * from jsonb_array_elements(coalesce(v_pricing->'applied','[]'::jsonb)) loop insert into public.club_promotion_applied_orders(organisation_id,order_id,promotion_id,promotion_name,gross_minor,saving_minor,net_minor,applied_snapshot) values(p_organisation_id,v_order.id,(v_applied->>'promotion_id')::uuid,v_applied->>'promotion_name',v_subtotal,(v_applied->>'saving_minor')::integer,v_order.total_minor,jsonb_build_object('promotion',v_applied,'basket',p_items)); end loop;
+  return jsonb_build_object('order',to_jsonb(v_order),'items',(select jsonb_agg(to_jsonb(i)) from public.club_order_items i where i.order_id=v_order.id),'pricing',v_pricing,'replayed',false);
+end; $$;
+revoke all on function public.club_create_commerce_order(uuid,uuid,uuid,text,text,jsonb,text) from public,anon;
+grant execute on function public.club_create_commerce_order(uuid,uuid,uuid,text,text,jsonb,text) to authenticated;
