@@ -31,5 +31,7 @@ test("import migration is staged, owner-capability protected and never fabricate
   assert.match(source, /raw_values/);
   assert.match(source, /Duplicate source external ID/);
   assert.match(source, /membership package mapping required/i);
-  assert.match(source, /blocking_count=blocking/);
+  assert.match(source, /blocking_count=v_blocking/);
+  assert.match(source, /imported_member_id uuid references public\.club_members\(id\)/);
+  assert.doesNotMatch(source, /references public\.club_members\(id,organisation_id\)/);
 });
