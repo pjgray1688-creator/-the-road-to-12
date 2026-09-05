@@ -92,6 +92,22 @@ begin
   return jsonb_build_object('bundle_count',made,'instances',instances,'remaining',remaining);
 end; $$;
 revoke all on function public.club_resolve_promotion_bundles(uuid,jsonb,jsonb,integer,boolean) from public,anon,authenticated;
+grant execute on function public.club_resolve_promotion_bundles(uuid,jsonb,jsonb,integer,boolean) to authenticated;
+
+-- Corrected allocator: each instance is attempted against a copy of remaining;
+-- failed partial attempts are discarded, so leftovers are never consumed.
+create or replace function public.club_resolve_promotion_bundles(p_organisation_id uuid,p_items jsonb,p_groups jsonb,p_bundle_price_minor integer,p_repeatable boolean default true)
+returns jsonb language plpgsql security definer set search_path=pg_catalog,public as $$
+declare remaining jsonb:='[]'::jsonb; trial jsonb; grp jsonb; item jsonb; components jsonb; instances jsonb:='[]'::jsonb; need integer; take integer; qty integer; original integer; idx integer; made integer:=0; ok boolean; prod public.club_commerce_products%rowtype;
+begin
+  for item in select value from jsonb_array_elements(coalesce(p_items,'[]')) order by value->>'product_id' loop select * into prod from public.club_commerce_products where id=(item->>'product_id')::uuid and organisation_id=p_organisation_id and active; if not found then raise exception 'Bundle product is unavailable' using errcode='22023'; end if; remaining:=remaining||jsonb_build_array(jsonb_build_object('product_id',prod.id,'category',prod.category,'quantity',(item->>'quantity')::integer,'unit_price_minor',prod.sell_price_minor)); end loop;
+  loop
+    trial:=remaining; components:='[]'::jsonb; ok:=true; idx:=0;
+    while idx<jsonb_array_length(coalesce(p_groups,'[]')) loop grp:=p_groups->idx; need:=coalesce((grp->>'required_quantity')::integer,0); for item in select value from jsonb_array_elements(trial) order by value->>'product_id' loop exit when need=0; qty:=coalesce((item->>'quantity')::integer,0); if qty>0 and (grp->'product_ids' is null or (grp->'product_ids') ? (item->>'product_id')) and (grp->'categories' is null or (grp->'categories') ? coalesce(item->>'category','')) then take:=least(need,qty); components:=components||jsonb_build_array(jsonb_build_object('group_id',coalesce(grp->>'group_id',idx::text),'group_order',idx,'product_id',item->>'product_id','category',item->>'category','quantity',take,'unit_price_minor',(item->>'unit_price_minor')::integer,'original_minor',take*(item->>'unit_price_minor')::integer)); trial:=coalesce((select jsonb_agg(case when value->>'product_id'=item->>'product_id' then jsonb_set(value,'{quantity}',to_jsonb(qty-take)) else value end order by value->>'product_id') from jsonb_array_elements(trial)),'[]'::jsonb); need:=need-take; end if; end loop; if need>0 then ok:=false; exit; end if; idx:=idx+1; end loop;
+    if not ok then exit; end if; remaining:=trial; original:=coalesce((select sum((value->>'original_minor')::integer) from jsonb_array_elements(components)),0); made:=made+1; instances:=instances||jsonb_build_array(jsonb_build_object('bundle_instance',made,'original_minor',original,'bundle_price_minor',p_bundle_price_minor,'saving_minor',greatest(0,original-p_bundle_price_minor),'components',components)); if not p_repeatable then exit; end if;
+  end loop;
+  return jsonb_build_object('bundle_count',made,'instances',instances,'remaining',remaining);
+end; $$;
 
 -- Golden Ticket consumption is intentionally callable only by trusted finalisation code (service role).
 create or replace function public.club_consume_golden_ticket(p_organisation_id uuid,p_promotion_id uuid,p_user_id uuid,p_customer_id uuid,p_order_id uuid,p_candidate jsonb,p_saving_minor integer,p_calendar_month date default date_trunc('month',now())::date)
@@ -206,7 +222,7 @@ begin
           exit;
         end loop;
       end if;
-      if bundle_count>0 then saving:=least(base,greatest(0,base-(pr.eligibility->>'bundle_price_minor')::integer)); end if;
+      if bundle_count>0 then saving:=coalesce((select sum((value->>'saving_minor')::integer) from jsonb_array_elements(bundles->'instances')),0); end if;
       applied:=applied||jsonb_build_array(jsonb_build_object('promotion_id',pr.id,'promotion_name',pr.name,'saving_minor',saving,'effect_type','bundle','bundle_count',bundle_count,'bundle_groups',pr.eligibility->'bundle_groups','bundle_instances',bundles->'instances','remaining',bundles->'remaining'));
     elsif saving>0 then
       applied:=applied||jsonb_build_array(jsonb_build_object('promotion_id',pr.id,'promotion_name',pr.name,'saving_minor',saving,'effect_type',ef.effect_type,'base_minor',base,'stacking',coalesce(pr.eligibility->>'stacking','exclusive')));

@@ -15,7 +15,7 @@ export function allocateBundles(lines: PromotionLine[], groups: BundleGroup[], d
     const selected: PromotionLine[] = [];
     for (const group of groups) {
       let need = group.required;
-      for (const line of lines) {
+      for (const line of [...lines].sort((a, b) => b.unitPriceMinor - a.unitPriceMinor || a.productId.localeCompare(b.productId) || a.id.localeCompare(b.id))) {
         const available = remaining.get(line.id) ?? 0;
         if (need > 0 && available > 0 && matches(line, group)) { const take = Math.min(need, available); selected.push({ ...line, quantity: take }); need -= take; }
       }

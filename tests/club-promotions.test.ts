@@ -18,6 +18,16 @@ test("repeatable bundles consume quantities once and produce two complete sets",
   const result = allocateBundles([...lines, { id: "d", productId: "d", category: "drink", unitPriceMinor: 200, quantity: 2 }, { id: "s", productId: "s", category: "snack", unitPriceMinor: 300, quantity: 2 }], [{ required: 1, categories: ["meal"] }, { required: 1, categories: ["drink"] }, { required: 1, categories: ["snack"] }], 700);
   assert.equal(result.bundleCount, 2); assert.equal(result.savingMinor, 600); assert.equal(result.lines.reduce((n, l) => n + l.quantity, 0), 6);
 });
+test("bundle attempts roll back incomplete instances and preserve leftovers", () => {
+  const make = (m:number,d:number,s:number) => allocateBundles([{id:"m",productId:"m",category:"meal",unitPriceMinor:500,quantity:m},{id:"d",productId:"d",category:"drink",unitPriceMinor:200,quantity:d},{id:"s",productId:"s",category:"snack",unitPriceMinor:300,quantity:s}], [{required:1,categories:["meal"]},{required:1,categories:["drink"]},{required:1,categories:["snack"]}], 600);
+  assert.equal(make(2,1,2).bundleCount,1); assert.deepEqual(make(2,1,2).bundles.flat().map(l=>`${l.productId}:${l.quantity}`),["m:1","d:1","s:1"]);
+  assert.equal(make(3,2,2).bundleCount,2);
+});
+test("bundle allocation prefers higher-value qualifying products and supports required quantities", () => {
+  const result = allocateBundles([{id:"cheap-meal",productId:"cheap-meal",category:"meal",unitPriceMinor:500,quantity:1},{id:"premium-meal",productId:"premium-meal",category:"meal",unitPriceMinor:700,quantity:1},{id:"drink",productId:"drink",category:"drink",unitPriceMinor:300,quantity:1}], [{required:1,categories:["meal"]},{required:1,categories:["drink"]}],600,false);
+  assert.equal(result.bundles[0][0].productId,"premium-meal"); assert.equal(result.savingMinor,400);
+  assert.equal(allocateBundles([{id:"m",productId:"m",category:"meal",unitPriceMinor:400,quantity:4},{id:"d",productId:"d",category:"drink",unitPriceMinor:200,quantity:2}], [{required:2,categories:["meal"]},{required:1,categories:["drink"]}],700).bundleCount,2);
+});
 test("Golden Ticket savings derive from candidate basket bases and choose £140 over £110", () => {
   const candidates = deriveGoldenTicketCandidates([
     { id: "transformation", label: "Transformation", lines: [{ id: "t", productId: "t", unitPriceMinor: 55000, quantity: 1 }] },
