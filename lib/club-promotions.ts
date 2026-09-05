@@ -31,3 +31,16 @@ export function allocateBundles(lines: PromotionLine[], groups: BundleGroup[], d
 export function allocateBundle(lines: PromotionLine[], groups: BundleGroup[], dealPriceMinor: number) { const result = allocateBundles(lines, groups, dealPriceMinor, false); return { qualifies: result.qualifies, lines: result.bundles[0] ?? [], savingMinor: result.bundles[0] ? result.bundles[0].reduce((n, l) => n + l.unitPriceMinor * l.quantity, 0) - dealPriceMinor > 0 ? result.bundles[0].reduce((n, l) => n + l.unitPriceMinor * l.quantity, 0) - dealPriceMinor : 0 : 0 }; }
 export type GoldenCandidateDefinition = { id: string; label: string; lines: PromotionLine[]; percentBasisPoints?: number };
 export function deriveGoldenTicketCandidates(definitions: GoldenCandidateDefinition[]): GoldenCandidate[] { return definitions.map(candidate => ({ id: candidate.id, label: candidate.label, eligibleMinor: Math.floor(candidate.lines.reduce((sum, line) => sum + line.unitPriceMinor * line.quantity, 0) * (candidate.percentBasisPoints ?? 2000) / 10000) })); }
+export type AppliedPromotion = { id: string; savingMinor: number; combinable?: boolean; priority?: number; consumedLineIds?: string[] };
+/** Applies promotions in priority order; exclusive promotions consume line quantities and cannot overlap. */
+export function resolvePromotionStacking(promotions: AppliedPromotion[]) {
+  const consumed = new Set<string>(); const applied: AppliedPromotion[] = [];
+  for (const promotion of [...promotions].sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0) || a.id.localeCompare(b.id))) {
+    const overlap = (promotion.consumedLineIds ?? []).some(id => consumed.has(id));
+    if (overlap) continue;
+    applied.push(promotion);
+    if (!promotion.combinable) for (const id of promotion.consumedLineIds ?? []) consumed.add(id);
+  }
+  return applied;
+}
+export function goldenTicketEligible(hasQualifyingEntitlement: boolean, redeemedThisMonth: boolean) { return hasQualifyingEntitlement && !redeemedThisMonth; }

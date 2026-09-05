@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { allocateBundle, allocateBundles, applyPromotion, chooseGoldenTicketCandidate, deriveGoldenTicketCandidates, promotionIsActive } from "@/lib/club-promotions";
+import { allocateBundle, allocateBundles, applyPromotion, chooseGoldenTicketCandidate, deriveGoldenTicketCandidates, goldenTicketEligible, promotionIsActive, resolvePromotionStacking } from "@/lib/club-promotions";
 
 test("promotion windows, locations and integer discounts are authoritative", () => {
   const rule = { id:"p", status:"active" as const, startsAt:"2026-09-01T00:00:00Z", endsAt:"2026-10-01T00:00:00Z", locationIds:["r"], effect:"percentage" as const, percentageBasisPoints:1000 };
@@ -29,3 +29,9 @@ test("promotion migration persists evidence and rejects identity-less monthly re
   const sql = readFileSync(resolve(process.cwd(), "supabase/migrations/2026-10-01-club-promotions-engine.sql"), "utf8");
   assert.match(sql, /club_golden_ticket_identity_required/); assert.match(sql, /user_id is not null or customer_id is not null/); assert.match(sql, /club_promotion_applied_orders/); assert.match(sql, /club_create_commerce_order/);
 });
+test("stacking honours priority, exclusivity and explicit combinability", () => {
+  const applied = resolvePromotionStacking([{ id: "low", savingMinor: 1000, priority: 1, consumedLineIds: ["line"] }, { id: "high", savingMinor: 2000, priority: 2, consumedLineIds: ["line"] }]);
+  assert.deepEqual(applied.map(p => p.id), ["high"]);
+  assert.equal(resolvePromotionStacking([{ id: "pct", savingMinor: 1000, combinable: true, consumedLineIds: ["line"] }, { id: "fixed", savingMinor: 500, combinable: true, consumedLineIds: ["line"] }]).length, 2);
+});
+test("Golden Ticket requires a qualifying entitlement and unused month", () => { assert.equal(goldenTicketEligible(false, false), false); assert.equal(goldenTicketEligible(true, true), false); assert.equal(goldenTicketEligible(true, false), true); });
