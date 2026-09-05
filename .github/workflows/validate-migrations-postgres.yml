@@ -66,6 +66,8 @@ jobs:
             supabase/migrations/2026-09-05-club-transactional-rpcs.sql
             supabase/migrations/2026-09-06-club-authenticated-table-privileges.sql
             supabase/migrations/2026-09-07-club-classes-bookings-services.sql
+            # 2026-09-08 is the real origin of club_save_commerce_product;
+            # 2026-09-20 is its brand-column patch and must follow it.
             supabase/migrations/2026-09-08-club-commerce-payments-inventory.sql
             supabase/migrations/2026-09-09-club-cash-credits-promotions.sql
             supabase/migrations/2026-09-10-club-membership-access.sql
