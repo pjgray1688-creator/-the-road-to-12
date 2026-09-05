@@ -67,8 +67,30 @@ end; $$;
 revoke all on function public.club_update_replenishment_line(uuid,uuid,integer,jsonb) from public,anon; grant execute on function public.club_update_replenishment_line(uuid,uuid,integer,jsonb) to authenticated;
 create or replace function public.club_list_replenishment_lines(p_organisation_id uuid)
 returns jsonb language sql security definer set search_path=pg_catalog,public as $$
-select coalesce(jsonb_agg(jsonb_build_object('id',bl.id,'batch_id',bl.batch_id,'quantity_ordered',bl.quantity_ordered,'supplier_product_id',bl.supplier_product_id,'supplier_sku',sp.supplier_sku,'product',coalesce(cp.name,sp.name),'supplier',s.name,'allocations',coalesce((select jsonb_agg(jsonb_build_object('location_id',a.location_id,'quantity',a.quantity)) from public.club_supplier_replenishment_allocations a where a.batch_line_id=bl.id),'[]'::jsonb)),'[]'::jsonb)
-from public.club_supplier_order_batch_lines bl join public.club_supplier_order_batches b on b.id=bl.batch_id join public.club_supplier_products sp on sp.id=bl.supplier_product_id join public.club_suppliers s on s.id=sp.supplier_id left join public.club_commerce_products cp on cp.id=sp.club_product_id
-where b.organisation_id=p_organisation_id and b.status='draft' and bl.member_quantity=0 and bl.replenishment_quantity>0 and public.club_capability_allowed(p_organisation_id,auth.uid(),'supplier.orders_manage');
+select coalesce(
+  jsonb_agg(
+    jsonb_build_object(
+      'id', bl.id,
+      'batch_id', bl.batch_id,
+      'quantity_ordered', bl.quantity_ordered,
+      'supplier_product_id', bl.supplier_product_id,
+      'supplier_sku', sp.supplier_sku,
+      'product', coalesce(cp.name, sp.name),
+      'supplier', s.name,
+      'allocations', coalesce((select jsonb_agg(jsonb_build_object('location_id', a.location_id, 'quantity', a.quantity)) from public.club_supplier_replenishment_allocations a where a.batch_line_id = bl.id), '[]'::jsonb)
+    )
+  ),
+  '[]'::jsonb
+)
+from public.club_supplier_order_batch_lines bl
+join public.club_supplier_order_batches b on b.id = bl.batch_id
+join public.club_supplier_products sp on sp.id = bl.supplier_product_id
+join public.club_suppliers s on s.id = sp.supplier_id
+left join public.club_commerce_products cp on cp.id = sp.club_product_id
+where b.organisation_id = p_organisation_id
+  and b.status = 'draft'
+  and bl.member_quantity = 0
+  and bl.replenishment_quantity > 0
+  and public.club_capability_allowed(p_organisation_id, auth.uid(), 'supplier.orders_manage');
 $$;
 revoke all on function public.club_list_replenishment_lines(uuid) from public,anon; grant execute on function public.club_list_replenishment_lines(uuid) to authenticated;
