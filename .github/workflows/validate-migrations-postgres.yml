@@ -75,7 +75,6 @@ jobs:
             supabase/migrations/2026-09-04-club-product-entitlements.sql
             supabase/migrations/2026-09-05-club-transactional-rpcs.sql
             supabase/migrations/2026-09-06-club-authenticated-table-privileges.sql
-            supabase/migrations/2026-09-06-club-staff-access-grants.sql
             supabase/migrations/2026-09-07-club-classes-bookings-services.sql
             # 2026-09-08 is the real origin of club_save_commerce_product;
             # 2026-09-20 is its brand-column patch and must follow it.
@@ -85,6 +84,11 @@ jobs:
             supabase/migrations/2026-09-11-club-induction.sql
             supabase/migrations/2026-09-12-club-membership-lifecycle.sql
             supabase/migrations/2026-09-13-club-staff-capabilities-audit.sql
+            # Historical production migrations were already executed in their
+            # deployed dependency sequence. The pending staff-access migration
+            # was authored later despite its filename, so validate it only
+            # after the capability/override tables it depends on exist.
+            supabase/migrations/2026-09-06-club-staff-access-grants.sql
             supabase/migrations/2026-09-18-club-delivery-pricing.sql
             supabase/migrations/2026-09-19-club-member-account-identity.sql
             supabase/migrations/2026-09-20-club-commerce-product-brand.sql
