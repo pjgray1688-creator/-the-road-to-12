@@ -11,7 +11,6 @@ import { memberBasketStorageKey, readMemberBasket, sanitiseMemberBasket, writeMe
 import { normalizeBarcode } from "@/lib/club-barcode";
 import styles from "./club-shop.module.css";
 import { ClubMemberShop } from "./club-member-shop";
-import { ClubMemberShopShell } from "./club-member-shop-shell";
 
 const money = (minor: number) => `£${(minor / 100).toFixed(2)}`;
 const stateLabel = (status: string) => ({ pending_payment: "Payment needed", awaiting_cash_verification: "Awaiting cash verification", cash_disputed: "Cash discrepancy", paid: "Paid", fulfilled: "Completed", cancelled: "Cancelled", refunded: "Refunded", order_confirmed: "Order confirmed", awaiting_delivery: "Awaiting delivery", ready_for_collection: "Ready for collection", collected: "Collected" } as Record<string, string>)[status] ?? status;
@@ -39,6 +38,5 @@ function ClubShopBase({ organisationId, userId, products, families = [], locatio
 }
 
 export function ClubShop(props: ComponentProps<typeof ClubShopBase>) {
-  if (!props.staff) return <div className="club-shop-workspace"><ClubMemberShopShell {...props} /></div>;
   return <div className="club-shop-workspace"><div className="club-shop-context"><span className="eyebrow">SHOP OPERATIONS</span><p>Customer checkout and cash verification.</p></div><ClubShopBase {...props} /></div>;
 }
