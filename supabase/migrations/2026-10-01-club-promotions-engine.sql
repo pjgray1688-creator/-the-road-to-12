@@ -154,3 +154,50 @@ begin
   end loop;
 end; $$;
 revoke all on function public.club_finalize_paid_order(uuid,uuid) from public,anon,authenticated;
+
+-- Final evaluator: targeted bases, repeatable persisted JSON bundle groups and
+-- configurable Golden Ticket candidates. All values come from canonical products.
+create or replace function public.club_evaluate_commerce_promotions(p_organisation_id uuid,p_location_id uuid,p_user_id uuid,p_customer_id uuid,p_items jsonb,p_payment_method text default null)
+returns jsonb language plpgsql security definer set search_path=pg_catalog,public as $$
+declare x jsonb; c jsonb; g jsonb; t public.club_promotion_targets%rowtype; pr public.club_promotions%rowtype; ef public.club_promotion_effects%rowtype; prod public.club_commerce_products%rowtype; gross integer:=0; base integer; saving integer; total integer; applied jsonb:='[]'::jsonb; bundles jsonb; bundle_count integer; group_count integer; group_idx integer; eligible_count integer; candidate_base integer; candidate_save integer; best_save integer:=0; best jsonb; month_start date:=date_trunc('month',now())::date;
+begin
+  if auth.uid() is null or not public.club_has_active_role(p_organisation_id,array['member','trainer','gym_staff','gym_admin','owner']) then raise exception 'Promotion evaluation is not permitted' using errcode='42501'; end if;
+  if p_user_id is not null and p_user_id is distinct from auth.uid() and not public.club_has_active_role(p_organisation_id,array['gym_staff','gym_admin','owner']) then raise exception 'Customer is not associated with caller' using errcode='42501'; end if;
+  if jsonb_typeof(coalesce(p_items,'[]'))<>'array' then raise exception 'Invalid basket' using errcode='22023'; end if;
+  for x in select * from jsonb_array_elements(p_items) loop select * into prod from public.club_commerce_products where id=(x->>'product_id')::uuid and organisation_id=p_organisation_id and active for share; if not found or coalesce((x->>'quantity')::integer,0)<=0 then raise exception 'Product is not sellable' using errcode='22023'; end if; gross:=gross+prod.sell_price_minor*(x->>'quantity')::integer; end loop;
+  for pr in select * from public.club_promotions where organisation_id=p_organisation_id and status='active' and now()>=starts_at and (ends_at is null or now()<ends_at) and (cardinality(location_ids)=0 or p_location_id=any(location_ids)) order by coalesce((eligibility->>'priority')::integer,0) desc,id loop
+    if pr.eligibility->>'payment_method'='balance_only' and p_payment_method is distinct from 'balance' then continue; end if;
+    base:=0;
+    for x in select * from jsonb_array_elements(p_items) loop
+      select * into prod from public.club_commerce_products where id=(x->>'product_id')::uuid and organisation_id=p_organisation_id;
+      if not exists(select 1 from public.club_promotion_targets t0 where t0.promotion_id=pr.id) or exists(select 1 from public.club_promotion_targets t0 where t0.promotion_id=pr.id and (t0.target_type='all_commerce' or (t0.target_type='commerce_product' and t0.commerce_product_id=prod.id) or (t0.target_type='commerce_category' and t0.category_key=prod.category)) ) then base:=base+prod.sell_price_minor*(x->>'quantity')::integer; end if;
+    end loop;
+    if base=0 then continue; end if;
+    select * into ef from public.club_promotion_effects where promotion_id=pr.id order by id limit 1;
+    if ef.effect_type='percentage_discount' then saving:=floor(base*ef.percentage_basis_points/10000); elsif ef.effect_type='fixed_discount' then saving:=ef.amount_minor; elsif ef.effect_type='waive_charge' then saving:=base; else saving:=0; end if; saving:=least(base,greatest(0,coalesce(saving,0)));
+    if pr.eligibility ? 'bundle_groups' and pr.eligibility ? 'bundle_price_minor' then
+      bundles:='[]'::jsonb; bundle_count:=0; group_count:=jsonb_array_length(pr.eligibility->'bundle_groups');
+      if group_count>0 then
+        loop
+          group_idx:=0; while group_idx<group_count loop g:=pr.eligibility->'bundle_groups'->group_idx; eligible_count:=0; for x in select * from jsonb_array_elements(p_items) loop select * into prod from public.club_commerce_products where id=(x->>'product_id')::uuid and organisation_id=p_organisation_id; if (g->'product_ids' is null or (g->'product_ids') ? prod.id::text) and (g->'categories' is null or (g->'categories') ? prod.category) then eligible_count:=eligible_count+(x->>'quantity')::integer; end if; end loop; if coalesce((g->>'required_quantity')::integer,0)<=0 then eligible_count:=0; end if; if group_idx=0 or floor(eligible_count/(g->>'required_quantity')::integer)<bundle_count then bundle_count:=floor(eligible_count/(g->>'required_quantity')::integer); end if; group_idx:=group_idx+1; end loop;
+          if bundle_count<=0 or coalesce((pr.eligibility->>'repeatable')::boolean,true)=false then exit; end if;
+          exit;
+        end loop;
+      end if;
+      if bundle_count>0 then saving:=least(base,greatest(0,base-(pr.eligibility->>'bundle_price_minor')::integer)); end if;
+      applied:=applied||jsonb_build_array(jsonb_build_object('promotion_id',pr.id,'promotion_name',pr.name,'saving_minor',saving,'effect_type','bundle','bundle_count',bundle_count,'bundle_groups',pr.eligibility->'bundle_groups'));
+    elsif saving>0 then
+      applied:=applied||jsonb_build_array(jsonb_build_object('promotion_id',pr.id,'promotion_name',pr.name,'saving_minor',saving,'effect_type',ef.effect_type,'base_minor',base,'stacking',coalesce(pr.eligibility->>'stacking','exclusive')));
+    end if;
+    if coalesce(pr.eligibility->>'stacking','exclusive')<>'combinable' then exit; end if;
+  end loop;
+  -- Golden Ticket is opt-in configuration, never inferred from its name.
+  for pr in select * from public.club_promotions where organisation_id=p_organisation_id and status='active' and now()>=starts_at and (ends_at is null or now()<ends_at) and coalesce((eligibility->>'golden_ticket')::boolean,false) and not exists(select 1 from public.club_golden_ticket_redemptions r where r.organisation_id=p_organisation_id and r.promotion_id=pr.id and r.calendar_month=month_start and ((p_user_id is not null and r.user_id=p_user_id) or (p_customer_id is not null and r.customer_id=p_customer_id))) loop
+    best:=null; best_save:=0;
+    for c in select * from jsonb_array_elements(coalesce(pr.eligibility->'golden_candidates','[]'::jsonb)) loop candidate_base:=0; for x in select * from jsonb_array_elements(p_items) loop select * into prod from public.club_commerce_products where id=(x->>'product_id')::uuid and organisation_id=p_organisation_id; if (c->>'type'='product' and c->>'id'=prod.id::text) or (c->>'type'='category' and c->>'id'=prod.category) then candidate_base:=candidate_base+prod.sell_price_minor*(x->>'quantity')::integer; end if; end loop; candidate_save:=floor(candidate_base*2000/10000); if candidate_save>best_save or (candidate_save=best_save and candidate_save>0 and (best is null or (c->>'id')<(best->>'id'))) then best_save:=candidate_save; best:=jsonb_build_object('type',c->>'type','id',c->>'id','base_minor',candidate_base,'saving_minor',candidate_save,'included_items',p_items); end if; end loop;
+    if best is not null and best_save>0 then applied:=applied||jsonb_build_array(jsonb_build_object('promotion_id',pr.id,'promotion_name',pr.name,'saving_minor',best_save,'effect_type','golden_ticket','base_minor',best->>'base_minor','golden_ticket_candidate',best)); end if;
+  end loop;
+  total:=greatest(0,gross-(select coalesce(sum((a->>'saving_minor')::integer),0) from jsonb_array_elements(applied) a)); return jsonb_build_object('gross_minor',gross,'discount_minor',gross-total,'total_minor',total,'applied',applied,'payment_method',p_payment_method);
+end; $$;
+revoke all on function public.club_evaluate_commerce_promotions(uuid,uuid,uuid,uuid,jsonb,text) from public,anon;
+grant execute on function public.club_evaluate_commerce_promotions(uuid,uuid,uuid,uuid,jsonb,text) to authenticated;
