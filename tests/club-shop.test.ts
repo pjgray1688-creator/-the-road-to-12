@@ -33,3 +33,15 @@ test("member cash declarations defer stock effects until staff confirmation", ()
   assert.match(reconcile, /cash-confirmed:/);
   assert.match(reconcile, /p_status='rejected'|cash_disputed/);
 });
+
+test("staff Sell keeps a two-area till with exact barcode and basket paths", () => {
+  const checkout = readFileSync(new URL("../components/club-staff-checkout.tsx", import.meta.url), "utf8");
+  const tabs = readFileSync(new URL("../components/club-shop-tabs.tsx", import.meta.url), "utf8");
+  assert.match(checkout, /Scan barcode/);
+  assert.match(checkout, /normalizeBarcode/);
+  assert.match(checkout, /checkout-products/);
+  assert.match(checkout, /checkout-basket/);
+  assert.match(checkout, /staffCashSaleAction/);
+  assert.match(checkout, /staffBalanceSaleAction/);
+  assert.doesNotMatch(tabs, />Cash<\/a>/);
+});
