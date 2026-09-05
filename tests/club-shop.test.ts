@@ -112,7 +112,7 @@ test("staff POS keeps an immutable receipt while resetting the next sale", () =>
 test("staff POS keeps member identity separate from commerce customer identity", () => {
   const checkout = readFileSync(new URL("../components/club-staff-checkout.tsx", import.meta.url), "utf8");
   assert.match(checkout, /selectedMember/);
-  assert.match(checkout, /setCustomerId\(customer\.linkedCustomerId \?\? ""\)/);
+  assert.match(checkout, /setCustomerId\(ensured\.customerId\)/);
   assert.match(checkout, /ensureStaffMemberCustomerAction/);
   assert.match(checkout, /customerName: selectedMember\?\.displayName/);
   assert.doesNotMatch(checkout, /Payment method<select/);
