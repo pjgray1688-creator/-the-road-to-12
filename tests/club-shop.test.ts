@@ -142,6 +142,13 @@ test("staff checkout follows the canonical venue when Club navigation changes", 
   assert.match(checkout, /locationId, customerId/);
 });
 
+test("commerce promotion evaluator avoids ambiguous aggregate alias", () => {
+  const migration = readFileSync(new URL("../supabase/migrations/2026-10-06-fix-commerce-promotion-alias.sql", import.meta.url), "utf8");
+  assert.match(migration, /club_evaluate_commerce_promotions/);
+  assert.match(migration, /applied_row/);
+  assert.match(migration, /from jsonb_array_elements\(applied\) applied_row/);
+});
+
 test("staff POS resolves only an authorised physical location", () => {
   const checkout = readFileSync(new URL("../components/club-staff-checkout.tsx", import.meta.url), "utf8");
   assert.match(checkout, /resolveStaffSaleLocationId/);
