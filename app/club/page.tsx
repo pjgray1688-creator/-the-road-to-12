@@ -10,6 +10,8 @@ import { listClubOrganisationContexts, isClubStaffRole, toClubNavContexts } from
 import { resolveOrganisationTheme } from "@/lib/club";
 import type { Metadata } from "next";
 import { clubMetadata } from "@/lib/club-metadata";
+import { ClubMemberHome, MemberClubUnavailable } from "@/components/club-member-home";
+import type { ClubClassBooking, ClubClassSession, ClubServiceTransaction } from "@/lib/club-operations";
 
 const roleLabel = (role: string) => role.replace(/_/g, " ").replace(/\b\w/g, letter => letter.toUpperCase());
 
@@ -34,7 +36,29 @@ export default async function ClubPage({ searchParams }: { searchParams?: Promis
     const theme = resolveOrganisationTheme(context.organisation);
     const role = context.role;
     const navContexts = toClubNavContexts(contexts);
-    if (!isClubStaffRole(role)) return <AppShell className="module-page club-page"><PageHeader eyebrow="R12 CLUB" title={theme.organisationName} description="Your Club member workspace." /><ClubSectionNav organisation={context.organisation} role={role} contexts={navContexts} /><Surface><span className="eyebrow">YOUR CLUB</span><div className={styles.quickGrid}><Link href={`/club/classes?org=${encodeURIComponent(context.organisation.id)}`}><strong>Classes</strong><small>View timetable and availability</small></Link><Link href={`/club/shop?org=${encodeURIComponent(context.organisation.id)}`}><strong>Shop</strong><small>Browse products and your orders</small></Link></div></Surface></AppShell>;
+    if (!isClubStaffRole(role)) {
+      try {
+        const profile = await context.repository.getMemberOperationalProfile(context.organisation.id, user.id);
+        const results = await Promise.allSettled([
+          context.repository.getBalanceAccount(context.organisation.id, user.id),
+          context.repository.listLocations(context.organisation.id),
+          context.repository.listClassSessions(context.organisation.id),
+          context.repository.listOrders(context.organisation.id),
+          context.repository.listClassBookings(context.organisation.id),
+          context.repository.listServiceTransactions(context.organisation.id),
+          supabase.rpc("club_get_member_billing", { p_organisation_id: context.organisation.id, p_user_id: user.id }),
+        ]);
+        const value = <T,>(index: number, fallback: T): T => results[index]?.status === "fulfilled" ? results[index].value as T : fallback;
+        const billingResult = value(6, { data: [] as unknown[] });
+        const customerId = profile.customer?.id;
+        const bookings = customerId ? value<ClubClassBooking[]>(4, []).filter(item => item.customerId === customerId) : [];
+        const serviceTransactions = customerId ? value<ClubServiceTransaction[]>(5, []).filter(item => item.customerId === customerId) : [];
+        const sessions = value<ClubClassSession[]>(2, []).filter(item => item.status === "scheduled" && new Date(item.startsAt).getTime() >= Date.now()).sort((a, b) => a.startsAt.localeCompare(b.startsAt));
+        return <ClubMemberHome organisation={context.organisation} role={role} contexts={navContexts} profile={profile} balance={value(0, undefined)} locations={value(1, [])} sessions={sessions} orders={value(3, [])} bookings={bookings} serviceTransactions={serviceTransactions} billing={Array.isArray(billingResult.data) ? billingResult.data as Array<{ state?: string; amount_minor?: number; currency?: string; next_due_at?: string }> : []} />;
+      } catch {
+        return <MemberClubUnavailable />;
+      }
+    }
     const [members, locations, products, services, declarations, sessions, orders] = await Promise.all([context.repository.listMembers(context.organisation.id), context.repository.listLocations(context.organisation.id), context.repository.listCommerceProducts(context.organisation.id), context.repository.listServices(context.organisation.id), context.repository.listCashDeclarations(context.organisation.id), context.repository.listClassSessions(context.organisation.id), context.repository.listOrders(context.organisation.id)]);
     const billingResult = await supabase.rpc("club_list_membership_billing_attention", { p_organisation_id: context.organisation.id });
     const billingAttention = !billingResult.error && Array.isArray(billingResult.data) ? billingResult.data.length : 0;

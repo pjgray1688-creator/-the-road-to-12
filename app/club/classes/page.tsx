@@ -3,7 +3,7 @@ import { AppNav } from "@/components/app-nav";
 import { ClubClassesWorkspace } from "@/components/club-classes";
 import { AppShell, BackButton, EmptyState, PageHeader } from "@/components/ui";
 import { serverSupabase } from "@/lib/supabase-server";
-import { resolveClubOperationalContext } from "@/lib/club-server-context";
+import { resolveClubOrganisationContext } from "@/lib/club-server-context";
 import { resolveOrganisationTheme } from "@/lib/club";
 import type { ClubRole, OrganisationLocation, OrganisationMember } from "@/lib/club";
 import type { ClubClassAvailability, ClubClassSession, ClubClassType } from "@/lib/club-operations";
@@ -23,7 +23,7 @@ function LoadedClasses({ theme, organisation, classTypes, sessions, locations, m
 }
 
 async function loadClasses(supabase: Awaited<ReturnType<typeof serverSupabase>>, userId: string, organisationId?: string) {
-  const context = await resolveClubOperationalContext(supabase, userId, organisationId);
+  const context = await resolveClubOrganisationContext(supabase, userId, organisationId);
   if (!context) return null;
   const [classTypes, locations, sessions] = await Promise.all([context.repository.listClassTypes(context.organisation.id), context.repository.listLocations(context.organisation.id), context.repository.listClassSessions(context.organisation.id)]);
   const today = londonDay(); const visibleSessions = sessions.filter(session => londonDay(new Date(session.startsAt)) >= today).sort((a, b) => a.startsAt.localeCompare(b.startsAt));
