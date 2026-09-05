@@ -163,6 +163,11 @@ test("paid-order stock finalisation has its ON CONFLICT idempotency index", () =
   assert.match(migration, /where idempotency_key is not null/i);
 });
 
+test("stock finalisation conflict target includes the partial-index predicate", () => {
+  const migration = readFileSync(new URL("../supabase/migrations/2026-10-09-fix-stock-conflict-target.sql", import.meta.url), "utf8");
+  assert.match(migration, /on conflict \(organisation_id,idempotency_key\) where idempotency_key is not null do nothing/i);
+});
+
 test("staff POS resolves only an authorised physical location", () => {
   const checkout = readFileSync(new URL("../components/club-staff-checkout.tsx", import.meta.url), "utf8");
   assert.match(checkout, /resolveStaffSaleLocationId/);
