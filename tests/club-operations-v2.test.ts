@@ -84,5 +84,5 @@ test("Club venue context is explicit, role-aware and preserved in navigation", (
   assert.match(shell, /All locations/);
   assert.match(shell, /location=/);
   assert.match(shell, /locations\.filter\(location => location\.active\)/);
-  assert.match(shell, /Locations/);
+  assert.match(shell, /More/);
 });
