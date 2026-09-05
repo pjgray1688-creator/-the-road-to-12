@@ -71,6 +71,9 @@ test("POS and family picker use exact product media without inventing imagery", 
   assert.match(checkout, /normalizeBarcode\(item\.barcode/);
   assert.match(picker, /sharedProductImage\(card\.variants\)/);
   assert.doesNotMatch(checkout, /Creatine Gummies/);
+  const shop = readFileSync(new URL("../components/club-shop.tsx", import.meta.url), "utf8");
+  assert.match(shop, /scannedProduct \? <div className="checkout-scan-confirmation"/);
+  assert.match(shop, /setScannedProduct\(matches\[0\]\)/);
 });
 
 test("staff POS keeps an immutable receipt while resetting the next sale", () => {
