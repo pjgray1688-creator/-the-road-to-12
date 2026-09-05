@@ -77,9 +77,8 @@ test("staff member search wiring includes unlinked canonical members and isolate
 test("staff checkout presents a real physical location context", () => {
   const checkout = readFileSync(new URL("../components/club-staff-checkout.tsx", import.meta.url), "utf8");
   const shell = readFileSync(new URL("../components/club-shell.module.css", import.meta.url), "utf8");
-  assert.match(checkout, /checkout-location/);
-  assert.match(checkout, /Select a physical location/);
-  assert.match(checkout, /No operational location available/);
+  assert.match(checkout, /checkout-location-status/);
+  assert.match(checkout, /Establish a physical venue in Club navigation/);
   assert.match(shell, /\.links\{overflow:visible\}/);
 });
 
@@ -114,7 +113,7 @@ test("staff POS keeps member identity separate from commerce customer identity",
   const checkout = readFileSync(new URL("../components/club-staff-checkout.tsx", import.meta.url), "utf8");
   assert.match(checkout, /selectedMember/);
   assert.match(checkout, /setCustomerId\(customer\.linkedCustomerId \?\? ""\)/);
-  assert.match(checkout, /needs a commerce account link before checkout/);
+  assert.match(checkout, /ensureStaffMemberCustomerAction/);
   assert.match(checkout, /customerName: selectedMember\?\.displayName/);
   assert.doesNotMatch(checkout, /Payment method<select/);
   assert.match(checkout, /Madhouse Balance/);
@@ -122,6 +121,16 @@ test("staff POS keeps member identity separate from commerce customer identity",
   assert.match(actions, /authoritative directory source/);
   assert.match(actions, /listMemberSummaries\(value\.organisation\.id\)/);
   assert.match(actions, /customers = \[\]/);
+});
+
+test("staff checkout transparently ensures a member commerce identity", () => {
+  const actions = readFileSync(new URL("../app/club/shop/actions.ts", import.meta.url), "utf8");
+  const checkout = readFileSync(new URL("../components/club-staff-checkout.tsx", import.meta.url), "utf8");
+  assert.match(actions, /ensureStaffMemberCustomerAction/);
+  assert.match(actions, /createCustomer\(\{ organisationId: value\.organisation\.id, userId: member\.userId/);
+  assert.match(actions, /find\(item => item\.userId === member\.userId\)/);
+  assert.match(checkout, /ensureStaffMemberCustomerAction\(\{ organisationId, memberId: selectedMember\.id \}\)/);
+  assert.doesNotMatch(checkout, /Account link required/);
 });
 
 test("staff POS resolves only an authorised physical location", () => {

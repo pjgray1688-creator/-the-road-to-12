@@ -54,6 +54,27 @@ export async function searchStaffCustomersAction(input: { organisationId: string
   } catch { return { ok: false, error: "Customer search could not be completed." }; }
 }
 
+/** Ensure a real member has the commerce identity required by order APIs. */
+export async function ensureStaffMemberCustomerAction(input: { organisationId: string; memberId: string }): Promise<{ ok: true; customerId: string } | { ok: false; error: string }> {
+  try {
+    const value = await context(input.organisationId);
+    if (!value || !(await value.repository.hasCapability(value.organisation.id, value.userId, "payments.take"))) return { ok: false, error: "You don’t have permission to take payment." };
+    const [members, customers] = await Promise.all([value.repository.listMemberSummaries(value.organisation.id), value.repository.listCustomers(value.organisation.id)]);
+    const member = members.find(item => item.id === input.memberId && item.active);
+    if (!member) return { ok: false, error: "That member is not available in this organisation." };
+    const existing = customers.find(item => item.userId === member.userId);
+    if (existing) return { ok: true, customerId: existing.id };
+    try {
+      const created = await value.repository.createCustomer({ organisationId: value.organisation.id, userId: member.userId, displayName: member.displayName, ...(member.email ? { email: member.email } : {}), status: "member" });
+      return { ok: true, customerId: created.id };
+    } catch {
+      // A concurrent checkout may have won the unique organisation/user race.
+      const retry = (await value.repository.listCustomers(value.organisation.id)).find(item => item.userId === member.userId);
+      return retry ? { ok: true, customerId: retry.id } : { ok: false, error: "This member could not be prepared for checkout." };
+    }
+  } catch { return { ok: false, error: "This member could not be prepared for checkout." }; }
+}
+
 export async function recordMembershipCashPaymentAction(input: { organisationId: string; obligationId: string; locationId: string; amountMinor: number; currency?: string; idempotencyKey?: string }): Promise<{ ok: true } | { ok: false; error: string }> {
   try {
     const value = await context(input.organisationId);
