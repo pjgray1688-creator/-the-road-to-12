@@ -42,10 +42,44 @@ jobs:
           create function auth.uid() returns uuid language sql stable as $$ select null::uuid $$;
           SQL
 
-      - name: Apply complete R12 migration chain
+      - name: Apply dependency-complete R12 Club chain
         run: |
           set -euo pipefail
-          for migration in supabase/migrations/*.sql; do
+          # The 2026-08-30..2026-09-02 files are patches against legacy
+          # workout/profile tables that predate this repository.  Replaying
+          # them from an empty database is not a truthful production baseline
+          # (for example, whoop_connections is expected to pre-exist).  The
+          # Club foundation is the first complete schema creator available;
+          # apply that real Club chain in dependency order instead.
+          migrations=(
+            supabase/migrations/2026-09-03-club-foundation.sql
+            supabase/migrations/2026-09-03-club-branding.sql
+            supabase/migrations/2026-09-04-club-product-entitlements.sql
+            supabase/migrations/2026-09-05-club-transactional-rpcs.sql
+            supabase/migrations/2026-09-06-club-authenticated-table-privileges.sql
+            supabase/migrations/2026-09-07-club-classes-bookings-services.sql
+            supabase/migrations/2026-09-08-club-commerce-payments-inventory.sql
+            supabase/migrations/2026-09-09-club-cash-credits-promotions.sql
+            supabase/migrations/2026-09-10-club-membership-access.sql
+            supabase/migrations/2026-09-11-club-induction.sql
+            supabase/migrations/2026-09-12-club-membership-lifecycle.sql
+            supabase/migrations/2026-09-13-club-staff-capabilities-audit.sql
+            supabase/migrations/2026-09-18-club-delivery-pricing.sql
+            supabase/migrations/2026-09-19-club-member-account-identity.sql
+            supabase/migrations/2026-09-20-club-commerce-product-brand.sql
+            supabase/migrations/2026-09-21-club-cash-settlement-safety.sql
+            supabase/migrations/2026-09-22-club-supplier-commerce.sql
+            supabase/migrations/2026-09-23-club-supplier-capabilities.sql
+            supabase/migrations/2026-09-24-club-supplier-catalogue-operations.sql
+            supabase/migrations/2026-09-25-club-madhouse-balance.sql
+            supabase/migrations/2026-09-26-club-supplier-cycles.sql
+            supabase/migrations/2026-09-27-club-payment-attempts-split-tender.sql
+            supabase/migrations/2026-09-28-club-membership-billing-dunning.sql
+            supabase/migrations/2026-09-29-club-shelf-removals-discounts.sql
+            supabase/migrations/2026-09-30-club-member-import.sql
+            supabase/migrations/2026-10-01-club-promotions-engine.sql
+          )
+          for migration in "${migrations[@]}"; do
             echo "Applying ${migration}"
             psql -v ON_ERROR_STOP=1 -f "${migration}"
             if [ "${migration}" = "supabase/migrations/2026-10-01-club-promotions-engine.sql" ]; then
