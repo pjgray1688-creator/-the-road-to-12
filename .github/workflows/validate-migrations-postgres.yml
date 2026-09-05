@@ -77,7 +77,6 @@ jobs:
             supabase/migrations/2026-09-18-club-delivery-pricing.sql
             supabase/migrations/2026-09-19-club-member-account-identity.sql
             supabase/migrations/2026-09-20-club-commerce-product-brand.sql
-            supabase/migrations/2026-09-21-club-cash-settlement-safety.sql
             supabase/migrations/2026-09-22-club-supplier-commerce.sql
             supabase/migrations/2026-09-23-club-supplier-capabilities.sql
             supabase/migrations/2026-09-24-club-supplier-catalogue-operations.sql
