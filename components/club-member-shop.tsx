@@ -1,12 +1,13 @@
 "use client";
 import { useState } from "react";
 import type { ClubCommerceProduct } from "@/lib/club-commerce";
-import type { ClubProductFamily } from "@/lib/club-product-families";
 import { availableVariantOptions, resolveProductVariant, type FamilyCard } from "@/lib/club-product-families";
+import styles from "./club-shop.module.css";
 
-type Props = { products: ClubCommerceProduct[]; families: ClubProductFamily[]; organisationId: string; add: (product: ClubCommerceProduct) => void; cards: FamilyCard[] };
+type Props = { add: (product: ClubCommerceProduct) => void; cards: FamilyCard[] };
 const money = (minor: number) => `£${(minor / 100).toFixed(2)}`;
-export function ClubMemberShop({ products, families, organisationId, add, cards }: Props) {
+export function ClubMemberShop({ add, cards }: Props) {
+  void styles;
   const [picked, setPicked] = useState<FamilyCard>(); const [selection, setSelection] = useState<Record<string, string>>({});
   const open = (card: FamilyCard) => { if (!card.family || card.variants.length === 1) { add(card.variants[0]); return; } setPicked(card); setSelection({}); };
   const options = picked ? availableVariantOptions(picked.variants, selection) : {}; const resolved = picked ? resolveProductVariant(picked.variants, selection) : undefined;
