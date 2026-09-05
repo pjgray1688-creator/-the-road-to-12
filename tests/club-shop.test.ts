@@ -45,3 +45,21 @@ test("staff Sell keeps a two-area till with exact barcode and basket paths", () 
   assert.match(checkout, /staffBalanceSaleAction/);
   assert.doesNotMatch(tabs, />Cash<\/a>/);
 });
+
+test("staff POS keeps an immutable receipt while resetting the next sale", () => {
+  const checkout = readFileSync(new URL("../components/club-staff-checkout.tsx", import.meta.url), "utf8");
+  assert.match(checkout, /CompletedSaleSummary/);
+  assert.match(checkout, /setCompletedSale\(\{totalMinor:total,payment,customerName:selectedCustomer\?\.displayName\?\?"Walk-in",locationName:/);
+  assert.match(checkout, /completedSale\.totalMinor/);
+  assert.match(checkout, /completedSale\.customerName/);
+  assert.match(checkout, /completedSale\.locationName/);
+  assert.match(checkout, /setCompletedSale\(undefined\)/);
+  assert.match(checkout, /completedSale\.payment===\"balance\"/);
+});
+
+test("staff POS resolves only an authorised physical location", () => {
+  const checkout = readFileSync(new URL("../components/club-staff-checkout.tsx", import.meta.url), "utf8");
+  assert.match(checkout, /resolveStaffSaleLocationId/);
+  assert.match(checkout, /physical\.length===1\?physical\[0\]\.id:""/);
+  assert.match(checkout, /\['total','all','all-sites'\]/);
+});
