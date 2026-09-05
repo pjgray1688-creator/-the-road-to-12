@@ -39,3 +39,4 @@
 .checkout-location{display:grid;gap:4px;color:var(--muted);font-size:12px;font-weight:750}.checkout-location select{min-height:40px;padding:8px 10px;border:1px solid var(--club-border);border-radius:8px;background:var(--club-surface-raised);color:var(--text);font:inherit}
 .checkout-location-status{align-self:center;color:var(--text);font-size:13px;font-weight:750}
 .checkout-payment-method{display:grid;gap:8px;margin:12px 0}.checkout-payment-options{display:flex;gap:8px;flex-wrap:wrap}.checkout-payment-options button{min-height:42px}.checkout-payment-options .active{border-color:var(--club-accent);box-shadow:0 0 0 1px var(--club-accent) inset}.checkout-selected-member{margin:8px 0;color:var(--text)}
+.checkout-error{margin:0 0 12px;padding:10px 12px;border:1px solid #a34b6a;border-radius:10px;background:#351827;color:#ffd9e5;font-weight:700}
