@@ -16,7 +16,7 @@ export async function assignMembershipAction(input: { organisationId: string; pr
     const holders = [...new Set((input.holderUserIds ?? []).filter(Boolean))];
     if (!input.productId || (!holders.length && !input.customerId) || !Number.isFinite(Date.parse(input.startsAt)) || (input.endsAt && (!Number.isFinite(Date.parse(input.endsAt)) || Date.parse(input.endsAt) <= Date.parse(input.startsAt)))) return { ok: false, error: "Check the membership details and dates." };
     const products = await context.repository.listProducts(context.organisation.id, true);
-    const product = products.find(item => item.id === input.productId && item.organisationId === context.organisation.id && item.kind === "membership" && !item.archivedAt);
+    const product = products.find(item => item.id === input.productId && item.organisationId === context.organisation.id && item.kind === "membership" && item.sellable && !item.archivedAt);
     if (!product) return { ok: false, error: "Choose an available membership or pass." };
     const members = await context.repository.listMembers(context.organisation.id);
     if (holders.some(holder => !members.some(member => member.userId === holder && member.active))) return { ok: false, error: "Every holder must be an active organisation member." };

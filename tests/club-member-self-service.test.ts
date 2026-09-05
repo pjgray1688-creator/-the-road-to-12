@@ -20,6 +20,7 @@ test("member Club home exposes real self-service destinations and truthful limit
   assert.doesNotMatch(home, /unlock door|door hardware|fake payment/i);
   assert.match(home, /\/club\/classes/);
   assert.match(home, /\/club\/membership-billing/);
+  assert.match(home, /\/club\/join/);
   assert.match(home, /\/club\/shop\/balance/);
   assert.match(nav, /href: "\/club", label: "Club"/);
 });
