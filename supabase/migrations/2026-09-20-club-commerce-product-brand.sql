@@ -19,5 +19,5 @@ begin
   end if;
   return to_jsonb(v_row);
 end; $$;
-revoke all on function public.club_save_commerce_product(uuid,uuid,text,text,text,text,text,boolean,boolean,integer,integer,text,text,text,jsonb) from public,anon;
-grant execute on function public.club_save_commerce_product(uuid,uuid,text,text,text,text,text,boolean,boolean,integer,integer,text,text,text,jsonb) to authenticated;
+revoke all on function public.club_save_commerce_product(uuid,uuid,text,text,text,text,text,text,boolean,boolean,integer,integer,text,text,text,jsonb) from public,anon;
+grant execute on function public.club_save_commerce_product(uuid,uuid,text,text,text,text,text,text,boolean,boolean,integer,integer,text,text,text,jsonb) to authenticated;
