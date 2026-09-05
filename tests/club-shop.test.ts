@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { searchStaffMemberRecords } from "../lib/club-member-search";
 
 test("Club shop keeps payment paths behind repository actions", () => {
   const actions = readFileSync(new URL("../app/club/shop/actions.ts", import.meta.url), "utf8");
@@ -56,12 +57,21 @@ test("staff POS customer lookup is server-backed and catalogue stays dense", () 
   assert.match(checkout, /customer\.id/);
   assert.match(actions, /listCustomers\(value\.organisation\.id\)/);
   assert.match(actions, /listMemberSummaries\(value\.organisation\.id\)/);
-  assert.match(actions, /memberByUser/);
-  assert.match(actions, /member\?\.displayName/);
+  assert.match(actions, /searchStaffMemberRecords/);
   assert.match(actions, /members\.view/);
   assert.match(css, /\.checkout-finding\{display:grid;grid-template-columns:minmax\(0,2fr\)/);
   assert.match(css, /\.staff-checkout \.checkout-products\{grid-template-columns:repeat\(auto-fill/);
   assert.match(checkout, /aria-label="Search member"/);
+});
+
+test("staff member search wiring includes unlinked canonical members and isolates organisations", () => {
+  const customers = [{ id: "customer-a", organisationId: "org-a", displayName: "Other label", userId: "user-a", status: "member", createdAt: "", updatedAt: "" }] as const;
+  const members = [{ id: "member-a", organisationId: "org-a", userId: "user-a", role: "member", active: true, displayName: "Peter Gray", email: "peter@example.test", accessState: "active" }, { id: "member-b", organisationId: "org-b", userId: "user-b", role: "member", active: true, displayName: "Peter Other", accessState: "active" }] as const;
+  const results = searchStaffMemberRecords("org-a", "  pet ", [...customers], [...members]);
+  assert.deepEqual(results.map(result => result.id), ["customer-a"]);
+  assert.equal(results[0]?.displayName, "Peter Gray");
+  const unlinked = searchStaffMemberRecords("org-a", "jane", [], [{ ...members[0], id: "member-jane", displayName: "Jane Smith", userId: "user-jane" }]);
+  assert.equal(unlinked[0]?.id, "member-jane");
 });
 
 test("staff checkout presents a real physical location context", () => {
