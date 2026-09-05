@@ -1,0 +1,84 @@
+name: Validate R12 migrations in isolated PostgreSQL
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'supabase/migrations/**'
+      - '.github/workflows/validate-migrations-postgres.yml'
+
+jobs:
+  postgres-migrations:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: r12_ci
+          POSTGRES_PASSWORD: r12_ci_only
+          POSTGRES_DB: r12_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U r12_ci -d r12_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: r12_ci
+      PGPASSWORD: r12_ci_only
+      PGDATABASE: r12_ci
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Bootstrap isolated Supabase platform primitives
+        run: |
+          psql -v ON_ERROR_STOP=1 <<'SQL'
+          create extension if not exists pgcrypto;
+          create schema if not exists auth;
+          create table auth.users (id uuid primary key);
+          create function auth.uid() returns uuid language sql stable as $$ select null::uuid $$;
+          SQL
+
+      - name: Apply complete R12 migration chain
+        run: |
+          set -euo pipefail
+          for migration in supabase/migrations/*.sql; do
+            echo "Applying ${migration}"
+            psql -v ON_ERROR_STOP=1 -f "${migration}"
+            if [ "${migration}" = "supabase/migrations/2026-10-01-club-promotions-engine.sql" ]; then
+              echo "PROMOTIONS_MIGRATION_EXECUTED_SUCCESSFULLY"
+            fi
+          done
+
+      - name: Verify promotions catalogue objects
+        run: |
+          psql -v ON_ERROR_STOP=1 -X <<'SQL'
+          select to_regclass('public.club_promotion_applied_orders') is not null as applied_orders;
+          select to_regclass('public.club_golden_ticket_redemptions') is not null as golden_ticket_redemptions;
+          select to_regprocedure('public.club_apply_promotion_stack(jsonb,jsonb,integer)') is not null as stack_function;
+          select to_regprocedure('public.club_evaluate_commerce_promotions(uuid,uuid,uuid,uuid,jsonb,text)') is not null as evaluator_function;
+          select to_regprocedure('public.club_finalize_paid_order(uuid,uuid)') is not null as finaliser_function;
+          select to_regprocedure('public.club_consume_golden_ticket(uuid,uuid,uuid,uuid,uuid,jsonb,integer,date)') is not null as golden_ticket_function;
+          do $$
+          begin
+            if to_regclass('public.club_promotion_applied_orders') is null
+              or to_regclass('public.club_golden_ticket_redemptions') is null
+              or to_regprocedure('public.club_apply_promotion_stack(jsonb,jsonb,integer)') is null
+              or to_regprocedure('public.club_evaluate_commerce_promotions(uuid,uuid,uuid,uuid,jsonb,text)') is null
+              or to_regprocedure('public.club_finalize_paid_order(uuid,uuid)') is null
+              or to_regprocedure('public.club_consume_golden_ticket(uuid,uuid,uuid,uuid,uuid,jsonb,integer,date)') is null then
+              raise exception 'Promotions catalogue verification failed';
+            end if;
+          end $$;
+          SQL
+
+      - name: Run application regression checks
+        run: |
+          npm ci
+          npm test
+          npm run build
+          npm run lint
+          git diff --check
