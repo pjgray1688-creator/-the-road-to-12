@@ -1,0 +1,42 @@
+-- Pending Club staff access prepared by an owner/admin. No email is sent here.
+create table if not exists public.club_staff_access_grants (
+  id uuid primary key default gen_random_uuid(), organisation_id uuid not null references public.club_organisations(id) on delete cascade,
+  email_normalized text not null, display_name text, intended_role text not null check (intended_role in ('gym_staff','gym_admin','trainer')),
+  location_ids uuid[] not null default '{}', capabilities text[] not null default '{}', status text not null default 'pending' check (status in ('pending','accepted','revoked','expired')),
+  created_by uuid not null references auth.users(id), created_at timestamptz not null default now(), expires_at timestamptz not null default (now() + interval '30 days'),
+  accepted_by uuid references auth.users(id), accepted_at timestamptz, revoked_at timestamptz,
+  unique (organisation_id, email_normalized, status)
+);
+create table if not exists public.club_staff_location_access (
+  organisation_id uuid not null references public.club_organisations(id) on delete cascade, user_id uuid not null references auth.users(id) on delete cascade,
+  location_id uuid not null references public.club_locations(id) on delete cascade, created_at timestamptz not null default now(),
+  primary key (organisation_id,user_id,location_id), foreign key (organisation_id,location_id) references public.club_locations(organisation_id, id)
+);
+create unique index if not exists club_locations_org_id_key on public.club_locations(organisation_id,id);
+alter table public.club_staff_access_grants enable row level security; alter table public.club_staff_location_access enable row level security;
+revoke all on table public.club_staff_access_grants, public.club_staff_location_access from public, anon, authenticated;
+grant select on public.club_staff_access_grants to authenticated;
+create policy club_staff_grants_admin_read on public.club_staff_access_grants for select to authenticated using (public.club_has_active_role(organisation_id,array['gym_admin','owner']) or (email_normalized = lower(coalesce((select email from auth.users where id=auth.uid()),'')) and status='pending'));
+create policy club_staff_locations_self_read on public.club_staff_location_access for select to authenticated using (user_id=auth.uid() or public.club_has_active_role(organisation_id,array['gym_admin','owner']));
+create or replace function public.club_create_staff_access_grant(p_organisation_id uuid,p_email text,p_display_name text,p_role text,p_location_ids uuid[],p_capabilities text[])
+returns jsonb language plpgsql security definer set search_path=pg_catalog,public as $$
+declare g public.club_staff_access_grants%rowtype; e text; begin
+ if auth.uid() is null or not public.club_has_active_role(p_organisation_id,array['gym_admin','owner']) then raise exception 'Staff access requires admin permission' using errcode='42501'; end if;
+ if p_role not in ('gym_staff','gym_admin','trainer') or nullif(btrim(p_email),'') is null then raise exception 'Invalid staff access request' using errcode='22023'; end if;
+ if exists(select 1 from unnest(coalesce(p_location_ids,'{}')) x where not exists(select 1 from public.club_locations l where l.id=x and l.organisation_id=p_organisation_id and l.active)) then raise exception 'Location is not in this organisation' using errcode='22023'; end if;
+ foreach e in array coalesce(p_capabilities,'{}') loop if e not in ('members.view','members.create','members.link_account','memberships.assign','memberships.end_immediately','payments.take','payments.record_cash','refunds.issue','refunds.approve','cash.reconcile','inventory.adjust','commerce.stock_remove','members.import','staff.permissions_manage','induction.manage_policy','classes.manage','services.manage','supplier.catalogue_manage','supplier.orders_manage','supplier.receive','commerce.pricing_manage','commerce.collections_manage') then raise exception 'Invalid capability' using errcode='22023'; end if; end loop;
+ insert into public.club_staff_access_grants(organisation_id,email_normalized,display_name,intended_role,location_ids,capabilities,created_by) values(p_organisation_id,lower(btrim(p_email)),nullif(btrim(p_display_name),''),p_role,coalesce(p_location_ids,'{}'),coalesce(p_capabilities,'{}'),auth.uid()) on conflict (organisation_id,email_normalized,status) do update set display_name=excluded.display_name,intended_role=excluded.intended_role,location_ids=excluded.location_ids,capabilities=excluded.capabilities,created_by=auth.uid(),created_at=now(),expires_at=now()+interval '30 days' returning * into g;
+ return to_jsonb(g);
+end; $$;
+revoke all on function public.club_create_staff_access_grant(uuid,text,text,text,uuid[],text[]) from public,anon; grant execute on function public.club_create_staff_access_grant(uuid,text,text,text,uuid[],text[]) to authenticated;
+create or replace function public.club_claim_staff_access_grant(p_grant_id uuid) returns jsonb language plpgsql security definer set search_path=pg_catalog,public as $$
+declare g public.club_staff_access_grants%rowtype; email text; begin
+ if auth.uid() is null then raise exception 'Authentication required' using errcode='42501'; end if; select lower(email) into email from auth.users where id=auth.uid(); select * into g from public.club_staff_access_grants where id=p_grant_id and status='pending' and expires_at>now() and email_normalized=lower(btrim(email)) for update; if not found then raise exception 'Staff access grant is unavailable' using errcode='42501'; end if;
+ insert into public.club_members(organisation_id,user_id,role,active) values(g.organisation_id,auth.uid(),g.intended_role,true) on conflict (organisation_id,user_id) do update set role=excluded.role,active=true;
+ insert into public.club_staff_location_access(organisation_id,user_id,location_id) select g.organisation_id,auth.uid(),x from unnest(g.location_ids) x on conflict do nothing;
+ insert into public.club_staff_permission_overrides(organisation_id,user_id,capability,decision,created_by) select g.organisation_id,auth.uid(),x,'allow',g.created_by from unnest(g.capabilities) x on conflict (organisation_id,user_id,capability) do update set decision='allow',created_by=excluded.created_by,created_at=now();
+ update public.club_staff_access_grants set status='accepted',accepted_by=auth.uid(),accepted_at=now() where id=g.id; return jsonb_build_object('id',g.id,'organisation_id',g.organisation_id,'role',g.intended_role,'status','accepted');
+end; $$;
+revoke all on function public.club_claim_staff_access_grant(uuid) from public,anon; grant execute on function public.club_claim_staff_access_grant(uuid) to authenticated;
+create or replace function public.club_revoke_staff_access_grant(p_organisation_id uuid,p_grant_id uuid) returns jsonb language plpgsql security definer set search_path=pg_catalog,public as $$ declare g public.club_staff_access_grants%rowtype; begin if auth.uid() is null or not public.club_has_active_role(p_organisation_id,array['gym_admin','owner']) then raise exception 'Staff access requires admin permission' using errcode='42501'; end if; update public.club_staff_access_grants set status='revoked',revoked_at=now() where id=p_grant_id and organisation_id=p_organisation_id and status='pending' returning * into g; if not found then raise exception 'Pending grant not found' using errcode='P0002'; end if; return to_jsonb(g); end; $$;
+revoke all on function public.club_revoke_staff_access_grant(uuid,uuid) from public,anon; grant execute on function public.club_revoke_staff_access_grant(uuid,uuid) to authenticated;

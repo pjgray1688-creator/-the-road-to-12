@@ -1,0 +1,16 @@
+"use server";
+import { revalidatePath } from "next/cache";
+import { serverSupabase } from "@/lib/supabase-server";
+import { resolveClubOperationalContext } from "@/lib/club-server-context";
+import { clubCapabilities } from "@/lib/club-capabilities";
+export async function createStaffAccessGrant(input: { organisationId: string; email: string; displayName: string; role: "gym_staff" | "gym_admin" | "trainer"; locationIds: string[]; capabilities: string[] }) {
+  const client = await serverSupabase(); const { data: { user } } = await client.auth.getUser(); if (!user) return { ok: false as const, error: "Sign in required." };
+  const context = await resolveClubOperationalContext(client, user.id, input.organisationId); if (!context || !["owner", "gym_admin"].includes(context.role)) return { ok: false as const, error: "Staff access requires owner or admin permission." };
+  if (!clubCapabilities.every(value => typeof value === "string") || input.capabilities.some(value => !clubCapabilities.includes(value as never))) return { ok: false as const, error: "Choose valid permissions." };
+  const { error } = await client.rpc("club_create_staff_access_grant", { p_organisation_id: context.organisation.id, p_email: input.email, p_display_name: input.displayName, p_role: input.role, p_location_ids: input.locationIds, p_capabilities: input.capabilities });
+  if (error) return { ok: false as const, error: "Staff access could not be prepared." }; revalidatePath("/club/staff"); return { ok: true as const };
+}
+export async function revokeStaffAccessGrant(organisationId: string, grantId: string) {
+  const client = await serverSupabase(); const { data: { user } } = await client.auth.getUser(); if (!user) return { ok: false as const, error: "Sign in required." }; const context = await resolveClubOperationalContext(client, user.id, organisationId); if (!context || !["owner", "gym_admin"].includes(context.role)) return { ok: false as const, error: "Staff access requires owner or admin permission." }; const { error } = await client.rpc("club_revoke_staff_access_grant", { p_organisation_id: context.organisation.id, p_grant_id: grantId }); if (error) return { ok: false as const, error: "Pending access could not be revoked." }; revalidatePath("/club/staff"); return { ok: true as const };
+}
+export async function claimStaffAccessGrant(grantId: string) { const client = await serverSupabase(); const { data: { user } } = await client.auth.getUser(); if (!user) return { ok: false as const, error: "Sign in required." }; const { data, error } = await client.rpc("club_claim_staff_access_grant", { p_grant_id: grantId }); if (error) return { ok: false as const, error: "This access grant is unavailable." }; revalidatePath("/club"); return { ok: true as const, result: data }; }
