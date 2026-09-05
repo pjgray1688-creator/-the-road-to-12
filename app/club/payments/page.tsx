@@ -4,7 +4,7 @@ import { ClubSectionNav } from "@/components/club-shell";
 import { AppShell, EmptyState, PageHeader, Surface } from "@/components/ui";
 import { resolveClubOrganisationContext } from "@/lib/club-server-context";
 import { serverSupabase } from "@/lib/supabase-server";
-import { summariseReconciliation, reconciliationCsv, type ReconciliationOrder, type ReconciliationPayment } from "@/lib/club-reconciliation";
+import { summariseReconciliation, reconciliationCsv, filterCashForPeriod, type ReconciliationOrder, type ReconciliationPayment } from "@/lib/club-reconciliation";
 
 export default async function ClubPaymentsPage({ searchParams }: { searchParams?: Promise<{ org?: string; from?: string; to?: string; location?: string }> }) {
   const client = await serverSupabase();
@@ -14,16 +14,16 @@ export default async function ClubPaymentsPage({ searchParams }: { searchParams?
   if (!context || !["owner", "gym_admin"].includes(context.role) || !(await context.repository.hasCapability(context.organisation.id, user.id, "cash.reconcile"))) {
     return <AppShell className="module-page club-page"><PageHeader eyebrow="R12 CLUB · BILLING" title="Payments" /><EmptyState title="Billing access required">Payment recovery is limited to authorised Club staff.</EmptyState><AppNav /></AppShell>;
   }
-  const params = await searchParams; const now = new Date(); const from = params?.from ?? new Date(now.getFullYear(), now.getMonth(), 1).toISOString(); const to = params?.to ?? now.toISOString();
+  const params = await searchParams; const now = new Date(); const requestedFrom = params?.from ? new Date(params.from) : new Date(now.getFullYear(), now.getMonth(), 1); const requestedTo = params?.to ? new Date(params.to) : now; const fromDate = Number.isNaN(requestedFrom.getTime()) ? new Date(now.getFullYear(), now.getMonth(), 1) : requestedFrom; const toDate = Number.isNaN(requestedTo.getTime()) ? now : requestedTo; if (fromDate > toDate) fromDate.setTime(toDate.getTime()); const from = fromDate.toISOString(); const to = toDate.toISOString();
   const [attentionResult, ordersResult, paymentsResult, refundsResult, cash, locations] = await Promise.all([
     client.rpc("club_list_membership_billing_attention", { p_organisation_id: context.organisation.id }),
     client.from("club_orders").select("id,created_at,location_id,status,subtotal_minor,discount_minor,total_minor,currency,channel").eq("organisation_id", context.organisation.id).gte("created_at", from).lte("created_at", to).order("created_at", { ascending: false }),
     client.from("club_payments").select("id,order_id,created_at,method,amount_minor,status").eq("organisation_id", context.organisation.id).gte("created_at", from).lte("created_at", to),
-    client.from("club_refunds").select("amount_minor,order_id").eq("organisation_id", context.organisation.id),
+    client.from("club_refunds").select("amount_minor,order_id,created_at").eq("organisation_id", context.organisation.id).gte("created_at", from).lte("created_at", to),
     context.repository.listCashDeclarations(context.organisation.id),
     context.repository.listLocations(context.organisation.id)
   ]);
-  const location = params?.location; const orders = ((ordersResult.data ?? []) as ReconciliationOrder[]).filter(order => !location || order.location_id === location); const orderIds = new Set(orders.map(order => order.id)); const payments = ((paymentsResult.data ?? []) as ReconciliationPayment[]).filter(payment => orderIds.has(payment.order_id)); const summary = summariseReconciliation(orders, payments, (refundsResult.data ?? []) as Array<{ amount_minor: number; order_id: string }>); const cashRecorded = cash.filter(item => item.status === "confirmed" && (!location || item.locationId === location)).reduce((sum,item)=>sum+item.declaredAmountMinor,0); const data = attentionResult.data;
+  const location = locations.some(item=>item.id===params?.location) ? params?.location : undefined; const orders = ((ordersResult.data ?? []) as ReconciliationOrder[]).filter(order => !location || order.location_id === location); const orderIds = new Set(orders.map(order => order.id)); const payments = ((paymentsResult.data ?? []) as ReconciliationPayment[]).filter(payment => orderIds.has(payment.order_id)); const summary = summariseReconciliation(orders, payments, (refundsResult.data ?? []) as Array<{ amount_minor: number; order_id: string }>); const cashRecorded = filterCashForPeriod(cash,fromDate,toDate,location).reduce((sum,item)=>sum+item.declaredAmountMinor,0); const data = attentionResult.data;
   const rows = Array.isArray(data) ? data as Array<Record<string, unknown>> : [];
   const cards = [["Gross sales",summary.grossMinor],["Discounts",summary.discountMinor],["Net sales",summary.netMinor],["Payments received",summary.paidMinor],["Recorded cash",cashRecorded],["Madhouse Balance spend",summary.balanceMinor],["External payments",summary.externalMinor],["Refunds",summary.refundMinor],["Outstanding",summary.unpaidMinor]] as const;
   const csv = reconciliationCsv(orders,payments);
