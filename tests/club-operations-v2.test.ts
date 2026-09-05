@@ -86,3 +86,34 @@ test("Club venue context is explicit, role-aware and preserved in navigation", (
   assert.match(shell, /locations\.filter\(location => location\.active\)/);
   assert.match(shell, /More/);
 });
+
+test("owner Club navigation exposes the consolidated operational sections", () => {
+  const shell = read("components/club-shell.tsx");
+  for (const label of ["Overview", "Reception", "Members", "Shop", "Classes", "Services", "Finance", "More"]) {
+    assert.match(shell, new RegExp(`\\[\\"${label}\\"`));
+  }
+  assert.doesNotMatch(shell, /\[\"Payments\"/);
+  assert.doesNotMatch(shell, /\[\"Locations\"/);
+  assert.doesNotMatch(shell, /\[\"Inductions?\"/);
+  assert.doesNotMatch(shell, /\[\"Staff\"/);
+  assert.match(shell, /club\/more/);
+});
+
+test("Club navigation maps lifecycle and administration routes to one primary section", () => {
+  const shell = read("components/club-shell.tsx");
+  assert.ok(shell.includes('pathname.startsWith("/club/induction")') && shell.includes('? "Members"'));
+  assert.ok(shell.includes('pathname.startsWith("/club/locations")') && shell.includes('? "More"'));
+  assert.ok(shell.includes('pathname.startsWith("/club/staff")') && shell.includes('? "More"'));
+  assert.ok(shell.includes('pathname.startsWith("/club/payments")') && shell.includes('? "Finance"'));
+  assert.ok(shell.includes("Boolean(link && link[0] === activeSection)"));
+});
+
+test("More and Members expose lower-frequency and lifecycle destinations", () => {
+  const more = read("app/club/more/page.tsx");
+  const members = read("app/club/members/page.tsx");
+  assert.ok(more.includes("/club/locations"));
+  assert.ok(more.includes("/club/staff"));
+  assert.ok(more.includes("Manage venues and operational location settings"));
+  assert.ok(more.includes("Manage staff access and Club roles"));
+  assert.ok(members.includes("/club/induction"));
+});
