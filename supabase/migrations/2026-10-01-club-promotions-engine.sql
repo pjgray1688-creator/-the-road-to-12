@@ -86,21 +86,6 @@ begin
   return jsonb_build_object('bundle_count',made,'instances',instances,'remaining',remaining);
 end; $$;
 revoke all on function public.club_resolve_promotion_bundles(uuid,jsonb,jsonb,integer,boolean) from public,anon,authenticated;
--- Applies discovered candidates in deterministic priority order. Combinable
--- candidates use remaining net base; exclusive candidates cannot overlap IDs.
-create or replace function public.club_apply_promotion_stack(p_candidates jsonb,p_gross_minor integer)
-returns jsonb language plpgsql immutable as $$
-declare c jsonb; out jsonb:='[]'::jsonb; consumed jsonb:='[]'::jsonb; saving integer; base integer; ids jsonb; mode text;
-begin
-  for c in select value from jsonb_array_elements(coalesce(p_candidates,'[]')) order by coalesce((value->>'priority')::integer,0) desc, value->>'promotion_id' loop
-    ids:=coalesce(c->'consumed_line_ids','[]'::jsonb); mode:=coalesce(c->>'stacking','exclusive');
-    if mode<>'combinable' and exists(select 1 from jsonb_array_elements_text(ids) x where consumed ? x) then continue; end if;
-    base:=greatest(0,p_gross_minor-coalesce((select sum((value->>'saving_minor')::integer) from jsonb_array_elements(out) value),0)); saving:=least(base,greatest(0,coalesce((c->>'saving_minor')::integer,0))); if saving<=0 then continue; end if;
-    out:=out||jsonb_build_array(c||jsonb_build_object('input_base_minor',base,'applied_saving_minor',saving)); if mode<>'combinable' then consumed:=consumed||ids; end if;
-  end loop; return out;
-end; $$;
-revoke all on function public.club_apply_promotion_stack(jsonb,integer) from public,anon,authenticated;
-
 create or replace function public.club_promotion_eligible_components(p_organisation_id uuid,p_promotion_id uuid,p_items jsonb)
 returns jsonb language sql stable security definer set search_path=pg_catalog,public as $$
   select coalesce(jsonb_agg(jsonb_build_object('product_id',cp.id,'quantity',(i->>'quantity')::integer,'unit_price_minor',cp.sell_price_minor,'original_minor',cp.sell_price_minor*(i->>'quantity')::integer) order by cp.id),'[]'::jsonb)
@@ -112,7 +97,7 @@ revoke all on function public.club_promotion_eligible_components(uuid,uuid,jsonb
 
 create or replace function public.club_apply_promotion_stack(p_candidates jsonb,p_items jsonb,p_gross_minor integer)
 returns jsonb language plpgsql immutable as $$
-declare c jsonb; comp jsonb; out jsonb:='[]'::jsonb; consumed jsonb:='{}'::jsonb; net_state jsonb:='{}'::jsonb; selected jsonb; mode text; base integer; saving integer; qty integer; used integer; avail integer; pid text; unit integer; item_qty integer; comp_base integer; overlap boolean;
+declare c jsonb; comp jsonb; out jsonb:='[]'::jsonb; consumed jsonb:='{}'::jsonb; net_state jsonb:='{}'::jsonb; selected jsonb; allocated jsonb; mode text; base integer; saving integer; qty integer; used integer; avail integer; pid text; unit integer; item_qty integer; comp_base integer; alloc integer; alloc_sum integer; idx integer; component_count integer; overlap boolean;
 begin
   /* Build per-product working state from canonical basket evidence.  Exclusive
      promotions consume quantities; combinable promotions reduce only the
@@ -139,8 +124,24 @@ begin
       then floor(base::numeric * greatest(0,(c->>'saving_minor')::integer) / (c->>'base_minor')::integer)::integer
       else greatest(0,coalesce((c->>'saving_minor')::integer,0)) end;
     saving:=least(base,saving); if saving<=0 then continue; end if;
-    out:=out||jsonb_build_array(c||jsonb_build_object('eligible_components',selected,'input_eligible_base_minor',base,'applied_saving_minor',saving,'output_eligible_base_minor',base-saving));
-    for comp in select value from jsonb_array_elements(selected) loop pid:=comp->>'product_id'; qty:=coalesce((comp->>'quantity')::integer,0); if mode<>'combinable' then consumed:=jsonb_set(consumed,array[pid],to_jsonb(coalesce((consumed->>pid)::integer,0)+qty),true); else comp_base:=coalesce((comp->>'input_net_minor')::integer,0); net_state:=jsonb_set(net_state,array[pid],to_jsonb(greatest(0,coalesce((net_state->>pid)::integer,0)-least(comp_base,saving))),true); end if; end loop;
+    allocated:='[]'::jsonb; alloc_sum:=0; idx:=0; component_count:=jsonb_array_length(selected);
+    for comp in select value from jsonb_array_elements(selected) loop
+      idx:=idx+1; comp_base:=coalesce((comp->>'input_net_minor')::integer,0);
+      if idx=component_count then alloc:=greatest(0,saving-alloc_sum); else alloc:=least(comp_base,floor(saving::numeric*comp_base/greatest(base,1))::integer); end if;
+      alloc:=least(comp_base,alloc); alloc_sum:=alloc_sum+alloc;
+      allocated:=allocated||jsonb_build_array(comp||jsonb_build_object('allocated_saving_minor',alloc,'output_net_minor',greatest(0,comp_base-alloc)));
+      pid:=comp->>'product_id'; qty:=coalesce((comp->>'quantity')::integer,0);
+      if mode<>'combinable' then consumed:=jsonb_set(consumed,array[pid],to_jsonb(coalesce((consumed->>pid)::integer,0)+qty),true); end if;
+      net_state:=jsonb_set(net_state,array[pid],to_jsonb(greatest(0,coalesce((net_state->>pid)::integer,0)-alloc)),true);
+    end loop;
+    if alloc_sum<saving then
+      for idx in 0..component_count-1 loop
+        comp:=allocated->idx; comp_base:=coalesce((comp->>'input_net_minor')::integer,0); alloc:=coalesce((comp->>'allocated_saving_minor')::integer,0);
+        qty:=least(comp_base-alloc,saving-alloc_sum); if qty>0 then allocated:=jsonb_set(allocated,array[idx::text,'allocated_saving_minor'],to_jsonb(alloc+qty),false); allocated:=jsonb_set(allocated,array[idx::text,'output_net_minor'],to_jsonb(comp_base-alloc-qty),false); pid:=comp->>'product_id'; net_state:=jsonb_set(net_state,array[pid],to_jsonb(greatest(0,coalesce((net_state->>pid)::integer,0)-qty)),true); alloc_sum:=alloc_sum+qty; end if;
+        exit when alloc_sum=saving;
+      end loop;
+    end if;
+    out:=out||jsonb_build_array(c||jsonb_build_object('eligible_components',allocated,'input_eligible_base_minor',base,'applied_saving_minor',saving,'output_eligible_base_minor',base-saving));
   end loop; return out;
 end; $$;
 revoke all on function public.club_apply_promotion_stack(jsonb,jsonb,integer) from public,anon,authenticated;
