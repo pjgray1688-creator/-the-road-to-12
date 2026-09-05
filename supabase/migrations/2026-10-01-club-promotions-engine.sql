@@ -135,7 +135,10 @@ begin
       end if;
     end loop;
     if overlap or base<=0 then continue; end if;
-    saving:=least(base,greatest(0,coalesce((c->>'saving_minor')::integer,0))); if saving<=0 then continue; end if;
+    saving:=case when c->>'effect_type'='percentage' and coalesce((c->>'base_minor')::integer,0)>0
+      then floor(base::numeric * greatest(0,(c->>'saving_minor')::integer) / (c->>'base_minor')::integer)::integer
+      else greatest(0,coalesce((c->>'saving_minor')::integer,0)) end;
+    saving:=least(base,saving); if saving<=0 then continue; end if;
     out:=out||jsonb_build_array(c||jsonb_build_object('eligible_components',selected,'input_eligible_base_minor',base,'applied_saving_minor',saving,'output_eligible_base_minor',base-saving));
     for comp in select value from jsonb_array_elements(selected) loop pid:=comp->>'product_id'; qty:=coalesce((comp->>'quantity')::integer,0); if mode<>'combinable' then consumed:=jsonb_set(consumed,array[pid],to_jsonb(coalesce((consumed->>pid)::integer,0)+qty),true); else comp_base:=coalesce((comp->>'input_net_minor')::integer,0); net_state:=jsonb_set(net_state,array[pid],to_jsonb(greatest(0,coalesce((net_state->>pid)::integer,0)-least(comp_base,saving))),true); end if; end loop;
   end loop; return out;
