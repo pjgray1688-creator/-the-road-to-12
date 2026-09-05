@@ -61,7 +61,7 @@ begin
     if not found or coalesce((v_item->>'quantity')::integer,0) <= 0 then raise exception 'Product is not sellable' using errcode='22023'; end if;
     v_line := v_product.sell_price_minor * (v_item->>'quantity')::integer; v_gross := v_gross + v_line;
   end loop;
-  for v_p in select * from public.club_promotions where organisation_id=p_organisation_id and status='active' and now() >= starts_at and (ends_at is null or now() < ends_at) and (cardinality(location_ids)=0 or p_location_id = any(location_ids)) order by coalesce((eligibility->>'priority')::integer,0) desc, id loop
+  for v_p in select * from public.club_promotions where organisation_id=p_organisation_id and status='active' and now() >= starts_at and (ends_at is null or now() < ends_at) and (cardinality(location_ids)=0 or p_location_id = any(location_ids)) and (not exists(select 1 from public.club_promotion_targets t where t.promotion_id=club_promotions.id) or exists(select 1 from public.club_promotion_targets t where t.promotion_id=club_promotions.id and (t.target_type='all_commerce' or exists(select 1 from jsonb_array_elements(p_items) bi where t.target_type='commerce_product' and t.commerce_product_id=(bi->>'product_id')::uuid) or exists(select 1 from jsonb_array_elements(p_items) bi join public.club_commerce_products cp on cp.id=(bi->>'product_id')::uuid and cp.organisation_id=p_organisation_id where t.target_type='commerce_category' and cp.category=t.category_key))) order by coalesce((eligibility->>'priority')::integer,0) desc, id loop
     select * into v_effect from public.club_promotion_effects where promotion_id=v_p.id order by id limit 1;
     if v_effect.effect_type='percentage_discount' then v_line := floor(v_gross * v_effect.percentage_basis_points / 10000); elsif v_effect.effect_type='fixed_discount' then v_line := v_effect.amount_minor; elsif v_effect.effect_type='waive_charge' then v_line := 0; else v_line := 0; end if;
     v_line := least(v_gross, greatest(0, coalesce(v_line,0))); if v_line > v_discount then v_discount := v_line; v_applied := jsonb_build_array(jsonb_build_object('promotion_id',v_p.id,'promotion_name',v_p.name,'saving_minor',v_line,'effect_type',v_effect.effect_type)); end if;
@@ -93,7 +93,7 @@ create or replace function public.club_consume_golden_ticket(p_organisation_id u
 returns jsonb language plpgsql security definer set search_path=pg_catalog,public as $$
 declare v_row public.club_golden_ticket_redemptions%rowtype; v_e public.club_promotion_applied_orders%rowtype;
 begin
-  if auth.uid() is not null or (p_user_id is null and p_customer_id is null) then raise exception 'Trusted identified finalisation required' using errcode='42501'; end if;
+  if p_user_id is null and p_customer_id is null then raise exception 'Identified finalisation required' using errcode='42501'; end if;
   select * into v_e from public.club_promotion_applied_orders where organisation_id=p_organisation_id and order_id=p_order_id and promotion_id=p_promotion_id for share;
   if not found or v_e.net_minor is null or v_e.saving_minor<>p_saving_minor or (v_e.applied_snapshot->'golden_ticket_candidate') is distinct from p_candidate then raise exception 'Golden Ticket evidence does not match order' using errcode='22023'; end if;
   if not exists(select 1 from public.club_orders where id=p_order_id and organisation_id=p_organisation_id and status in ('paid','fulfilled')) then raise exception 'Order is not complete' using errcode='22023'; end if;
@@ -131,3 +131,26 @@ begin
 end; $$;
 revoke all on function public.club_create_commerce_order(uuid,uuid,uuid,text,text,jsonb,text) from public,anon;
 grant execute on function public.club_create_commerce_order(uuid,uuid,uuid,text,text,jsonb,text) to authenticated;
+
+-- Extend the already-live canonical finaliser. Promotion evidence and Golden Ticket
+-- consumption are part of the same locked transaction as stock/service effects.
+create or replace function public.club_finalize_paid_order(p_order_id uuid, p_actor_user_id uuid default null)
+returns void language plpgsql security definer set search_path=pg_catalog,public as $$
+declare o public.club_orders%rowtype; i public.club_order_items%rowtype; p public.club_commerce_products%rowtype; paid integer; customer uuid; e public.club_promotion_applied_orders%rowtype; candidate jsonb;
+begin
+  select * into o from public.club_orders where id=p_order_id for update;
+  if not found or (o.status<>'paid' and not (o.status='pending_payment' and o.total_minor=0)) then raise exception 'Paid order is required for finalisation' using errcode='22023'; end if;
+  if o.total_minor>0 then select coalesce(sum(amount_minor),0) into paid from public.club_payments where organisation_id=o.organisation_id and order_id=o.id and status='paid'; if paid<>o.total_minor then raise exception 'Successful tender total does not match order' using errcode='22023'; end if; if exists(select 1 from public.club_promotion_applied_orders e join public.club_promotions pr on pr.id=e.promotion_id where e.order_id=o.id and pr.eligibility->>'payment_method'='balance_only') and exists(select 1 from public.club_payments where order_id=o.id and status='paid' and method<>'balance') then raise exception 'Promotion tender condition was not met' using errcode='22023'; end if; end if;
+  if o.status='pending_payment' then update public.club_orders set status='paid',updated_at=now() where id=o.id returning * into o; end if;
+  for i in select * from public.club_order_items where order_id=o.id order by id loop
+    if i.stock_tracked then insert into public.club_stock_movements(organisation_id,location_id,product_id,movement_type,quantity_delta,order_id,actor_user_id,idempotency_key) values(o.organisation_id,o.location_id,i.product_id,'sale',-i.quantity,o.id,p_actor_user_id,'order-finalise:'||i.id::text) on conflict (organisation_id,idempotency_key) do nothing; end if;
+    select * into p from public.club_commerce_products where id=i.product_id and organisation_id=o.organisation_id;
+    if p.service_id is not null then customer:=o.customer_id; if customer is null and o.user_id is not null then select id into customer from public.club_customers where organisation_id=o.organisation_id and user_id=o.user_id limit 1; end if; insert into public.club_service_transactions(organisation_id,location_id,service_id,customer_id,staff_user_id,quantity,unit_price_minor,currency,payment_status,payment_method,payment_reference,fulfilment_status,commerce_order_item_id,metadata) values(o.organisation_id,o.location_id,p.service_id,customer,p_actor_user_id,i.quantity,i.unit_price_minor,o.currency,'paid','commerce',o.id::text,'pending',i.id,jsonb_build_object('commerce_order_id',o.id)) on conflict (commerce_order_item_id) do nothing; end if;
+  end loop;
+  perform public.club_create_supplier_demand_for_order(o.id);
+  for e in select * from public.club_promotion_applied_orders where organisation_id=o.organisation_id and order_id=o.id loop
+    if not exists(select 1 from public.club_promotion_applied_orders where id=e.id) then raise exception 'Promotion evidence missing' using errcode='22023'; end if;
+    candidate:=e.applied_snapshot->'golden_ticket_candidate'; if candidate is not null and candidate <> 'null'::jsonb then perform public.club_consume_golden_ticket(o.organisation_id,e.promotion_id, o.user_id,o.customer_id,o.id,candidate,e.saving_minor); end if;
+  end loop;
+end; $$;
+revoke all on function public.club_finalize_paid_order(uuid,uuid) from public,anon,authenticated;
