@@ -102,12 +102,26 @@ test("POS and family picker use exact product media without inventing imagery", 
 test("staff POS keeps an immutable receipt while resetting the next sale", () => {
   const checkout = readFileSync(new URL("../components/club-staff-checkout.tsx", import.meta.url), "utf8");
   assert.match(checkout, /CompletedSaleSummary/);
-  assert.match(checkout, /setCompletedSale\(\{ totalMinor: total, payment, customerName: selectedCustomer\?\.displayName \?\? "Walk-in", locationName:/);
+  assert.match(checkout, /setCompletedSale\(\{ totalMinor: total, payment, customerName: selectedMember\?\.displayName/);
   assert.match(checkout, /completedSale\.totalMinor/);
   assert.match(checkout, /completedSale\.customerName/);
   assert.match(checkout, /completedSale\.locationName/);
   assert.match(checkout, /setCompletedSale\(undefined\)/);
   assert.match(checkout, /completedSale\.payment === \"balance\"/);
+});
+
+test("staff POS keeps member identity separate from commerce customer identity", () => {
+  const checkout = readFileSync(new URL("../components/club-staff-checkout.tsx", import.meta.url), "utf8");
+  assert.match(checkout, /selectedMember/);
+  assert.match(checkout, /setCustomerId\(customer\.linkedCustomerId \?\? ""\)/);
+  assert.match(checkout, /needs a commerce account link before checkout/);
+  assert.match(checkout, /customerName: selectedMember\?\.displayName/);
+  assert.doesNotMatch(checkout, /Payment method<select/);
+  assert.match(checkout, /Madhouse Balance/);
+  const actions = readFileSync(new URL("../app/club/shop/actions.ts", import.meta.url), "utf8");
+  assert.match(actions, /authoritative directory source/);
+  assert.match(actions, /listMemberSummaries\(value\.organisation\.id\)/);
+  assert.match(actions, /customers = \[\]/);
 });
 
 test("staff POS resolves only an authorised physical location", () => {

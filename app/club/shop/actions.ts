@@ -43,7 +43,11 @@ export async function searchStaffCustomersAction(input: { organisationId: string
     const query = input.query.trim().toLocaleLowerCase();
     if (!value || !(await value.repository.hasCapability(value.organisation.id, value.userId, "members.view"))) return { ok: false, error: "Customer search is not available." };
     if (query.length < 2) return { ok: true, customers: [] };
-    const [customers, members] = await Promise.all([value.repository.listCustomers(value.organisation.id), value.repository.listMemberSummaries(value.organisation.id)]);
+    // Member summaries are the authoritative directory source. Customer rows are
+    // only an optional commerce link and must never make a valid member vanish.
+    const members = await value.repository.listMemberSummaries(value.organisation.id);
+    let customers = [] as Awaited<ReturnType<typeof value.repository.listCustomers>>;
+    try { customers = await value.repository.listCustomers(value.organisation.id); } catch { customers = []; }
     const results = searchStaffMemberRecords(value.organisation.id, query, customers, members);
     console.info("[club-shop] member search", { organisationContext: Boolean(value.organisation.id), customerCount: customers.length, memberSummaryCount: members.length, resultCount: results.length });
     return { ok: true, customers: results };
