@@ -116,7 +116,7 @@ grant execute on function public.club_create_member_import_batch(uuid,text,text,
 -- browser-supplied diagnostics are retained as evidence but never determine readiness.
 create or replace function public.club_revalidate_member_import_batch(p_organisation_id uuid,p_batch_id uuid)
 returns jsonb language plpgsql security definer set search_path=pg_catalog,public as $$
-declare b public.club_member_import_batches%rowtype; r record; raw jsonb; m jsonb; norm jsonb; blocks jsonb; warns jsonb; ident text; ref text; seen_idents text[]:='{}'; seen_refs text[]:='{}'; date_format text; v_valid integer; v_warning_count integer; v_blocking integer;
+declare b public.club_member_import_batches%rowtype; r record; raw jsonb; m jsonb; norm jsonb; blocks jsonb; warns jsonb; ident text; ref text; seen_idents text[]:='{}'; seen_refs text[]:='{}'; date_format text; date_values text[]; v_valid integer; v_warning_count integer; v_blocking integer;
 begin
  if auth.uid() is null or not public.club_capability_allowed(p_organisation_id,auth.uid(),'members.import') then raise exception 'Member import is not permitted' using errcode='42501'; end if;
  select * into b from public.club_member_import_batches where id=p_batch_id and organisation_id=p_organisation_id for update;
@@ -144,7 +144,8 @@ begin
    if ref is not null and ref=any(seen_refs) then blocks:=blocks||jsonb_build_array('Duplicate source external ID in this batch'); elsif ref is not null then seen_refs:=array_append(seen_refs,ref); end if;
    if ident is not null and ident=any(seen_idents) then blocks:=blocks||jsonb_build_array('Duplicate source person in this batch'); elsif ident is not null then seen_idents:=array_append(seen_idents,ident); end if;
    if norm->>'email' is not null and (select count(*) from public.club_customers c where c.organisation_id=p_organisation_id and lower(c.email)=norm->>'email')>1 then blocks:=blocks||jsonb_build_array('Multiple existing customers match this email'); end if;
-   foreach ident in array[norm->>'startDate',norm->>'nextPaymentDate',norm->>'endDate'] loop
+   date_values:=ARRAY[norm->>'startDate',norm->>'nextPaymentDate',norm->>'endDate'];
+   foreach ident in ARRAY date_values loop
      if ident is not null and ident<>'' then
        if ident like '%/%' and date_format is null then blocks:=blocks||jsonb_build_array('Date format requires confirmation');
        elsif ident like '%/%' and date_format not in ('DD/MM/YYYY','MM/DD/YYYY') then blocks:=blocks||jsonb_build_array('Unsupported date format');

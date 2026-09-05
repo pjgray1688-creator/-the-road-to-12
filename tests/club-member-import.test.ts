@@ -34,4 +34,7 @@ test("import migration is staged, owner-capability protected and never fabricate
   assert.match(source, /blocking_count=v_blocking/);
   assert.match(source, /imported_member_id uuid references public\.club_members\(id\)/);
   assert.doesNotMatch(source, /references public\.club_members\(id,organisation_id\)/);
+  assert.match(source, /date_values:=ARRAY\[/);
+  assert.match(source, /foreach ident in ARRAY date_values loop/);
+  assert.doesNotMatch(source, /foreach ident in array\[/);
 });
