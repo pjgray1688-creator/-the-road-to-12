@@ -35,6 +35,10 @@ export async function staffCashSaleAction(input: { organisationId: string; produ
   try { const value = await context(input.organisationId); const items = input.items ?? (input.productId ? [{ productId: input.productId, quantity: 1 }] : []); const key = input.idempotencyKey?.trim() || crypto.randomUUID(); const client = await serverSupabase(); const { data: locationAllowed } = await client.rpc("club_location_authorized", { p_organisation_id: input.organisationId, p_location_id: input.locationId }); if (!value || !locationAllowed || !["gym_staff", "gym_admin", "owner"].includes(value.member.role) || !(await value.repository.hasCapability(value.organisation.id, value.userId, "payments.record_cash")) || !input.locationId || !items.length || items.some(item => !item.productId || !Number.isInteger(item.quantity) || item.quantity < 1)) return { ok: false, error: "Check the basket and your cash permissions." }; if (input.customerId && !(await value.repository.listCustomers(input.organisationId)).some(customer => customer.id === input.customerId)) return { ok: false, error: "That customer is not available." }; const order = await value.repository.createCommerceOrder({ organisationId: value.organisation.id, locationId: input.locationId, customerId: input.customerId, channel: "staff_checkout", currency: "GBP", items, idempotencyKey: key }); await value.repository.recordCashPayment(order.id, order.totalMinor, `${key}:cash`); await value.repository.appendAuditEvent({ organisationId: value.organisation.id, action: "payment.cash_recorded", targetType: "order", targetId: order.id }); revalidatePath("/club/shop"); return { ok: true, status: "paid", orderId: order.id }; } catch (error) { return paymentFailure("cash_sale", input, error, "Cash sale couldn’t be completed."); }
 }
 
+export async function cancelStaffPendingOrderAction(input: { organisationId: string; orderId: string }): Promise<{ ok: true } | { ok: false; error: string }> {
+  try { const value = await context(input.organisationId); if (!value || !(await value.repository.hasCapability(value.organisation.id, value.userId, "payments.record_cash"))) return { ok: false, error: "You don’t have permission to void orders." }; await value.repository.cancelStaffPendingOrder(value.organisation.id, input.orderId); await value.repository.appendAuditEvent({ organisationId: value.organisation.id, action: "order.staff_pending_voided", targetType: "order", targetId: input.orderId }); revalidatePath("/club/payments"); revalidatePath("/club/shop"); return { ok: true }; } catch { return { ok: false, error: "This order could not be voided." }; }
+}
+
 export async function topUpBalanceAction(input: { organisationId: string; locationId: string; customerId: string; amount: string; notes?: string }): Promise<{ ok: true; balanceMinor: number } | { ok: false; error: string }> {
   try { const value = await context(input.organisationId); const amountMinor = parseMinorUnits(input.amount); if (!value || !(await locationAuthorized(input.organisationId, input.locationId)) || !(await value.repository.hasCapability(value.organisation.id, value.userId, "payments.record_cash")) || !input.customerId || !input.locationId || amountMinor === undefined || amountMinor <= 0) return { ok: false, error: "Choose a member, location and valid amount." }; const entry = await value.repository.recordBalanceCashTopUp({ organisationId: value.organisation.id, locationId: input.locationId, customerId: input.customerId, amountMinor, currency: "GBP", idempotencyKey: crypto.randomUUID(), notes: input.notes }); const customer = (await value.repository.listCustomers(value.organisation.id)).find(item => item.id === input.customerId); const account = customer?.userId ? await value.repository.getBalanceAccount(value.organisation.id, customer.userId) : undefined; revalidatePath("/club/shop"); return { ok: true, balanceMinor: account?.balanceMinor ?? entry.balanceAfterMinor }; } catch { return { ok: false, error: "Balance top-up couldn’t be completed." }; }
 }
@@ -79,6 +83,19 @@ export async function ensureStaffMemberCustomerAction(input: { organisationId: s
       return retry ? { ok: true, customerId: retry.id } : { ok: false, error: "This member could not be prepared for checkout." };
     }
   } catch { return { ok: false, error: "This member could not be prepared for checkout." }; }
+}
+
+/** Resolve the member's stored-value account before payment is chosen. */
+export async function getStaffCustomerBalanceAction(input: { organisationId: string; customerId: string }): Promise<{ ok: true; balanceMinor?: number; currency?: string; status?: string } | { ok: false; error: string }> {
+  try {
+    const value = await context(input.organisationId);
+    if (!value || !(await value.repository.hasCapability(value.organisation.id, value.userId, "payments.take"))) return { ok: false, error: "Balance details are not available." };
+    const customer = (await value.repository.listCustomers(value.organisation.id)).find(item => item.id === input.customerId && item.organisationId === value.organisation.id);
+    if (!customer) return { ok: false, error: "That member is not available." };
+    const account = await value.repository.getBalanceAccountForCustomer(value.organisation.id, customer.id);
+    if (!account || account.status !== "active") return { ok: true, status: account?.status };
+    return { ok: true, balanceMinor: account.balanceMinor, currency: account.currency, status: account.status };
+  } catch { return { ok: false, error: "Balance details could not be loaded." }; }
 }
 
 export async function recordMembershipCashPaymentAction(input: { organisationId: string; obligationId: string; locationId: string; amountMinor: number; currency?: string; idempotencyKey?: string }): Promise<{ ok: true } | { ok: false; error: string }> {

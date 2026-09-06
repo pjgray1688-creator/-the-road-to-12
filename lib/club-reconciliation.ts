@@ -5,7 +5,18 @@ export function filterCashForPeriod<T extends { status: string; declaredAt: stri
 export function summariseReconciliation(orders: ReconciliationOrder[], payments: ReconciliationPayment[], refunds: Array<{ amount_minor: number; order_id: string }> = []): ReconciliationSummary {
   const summary: ReconciliationSummary = { grossMinor: 0, discountMinor: 0, netMinor: 0, paidMinor: 0, cashMinor: 0, balanceMinor: 0, externalMinor: 0, refundMinor: 0, unpaidMinor: 0, pendingMinor: 0, failedMinor: 0, compValueMinor: 0 };
   const byOrder = new Map(orders.map(order => [order.id, order]));
-  for (const order of orders) { summary.grossMinor += order.subtotal_minor; summary.discountMinor += order.discount_minor; summary.netMinor += order.total_minor; if (order.total_minor === 0 && order.discount_minor > 0) summary.compValueMinor += order.discount_minor; if (order.status === "pending_payment" || order.status === "draft") summary.unpaidMinor += order.total_minor; }
+  for (const order of orders) {
+    // Pending/draft orders remain visible as outstanding, but are not sales:
+    // revenue is counted only after the order is paid or fulfilled.
+    const completed = order.status === "paid" || order.status === "fulfilled";
+    if (completed) {
+      summary.grossMinor += order.subtotal_minor;
+      summary.discountMinor += order.discount_minor;
+      summary.netMinor += order.total_minor;
+      if (order.total_minor === 0 && order.discount_minor > 0) summary.compValueMinor += order.discount_minor;
+    }
+    if (order.status === "pending_payment" || order.status === "draft") summary.unpaidMinor += order.total_minor;
+  }
   for (const payment of payments) { if (payment.status === "paid" && byOrder.has(payment.order_id)) { summary.paidMinor += payment.amount_minor; if (payment.method === "cash") summary.cashMinor += payment.amount_minor; else if (payment.method === "balance") summary.balanceMinor += payment.amount_minor; else summary.externalMinor += payment.amount_minor; } else if (payment.status === "pending") summary.pendingMinor += payment.amount_minor; else if (payment.status === "failed") summary.failedMinor += payment.amount_minor; }
   summary.refundMinor = refunds.reduce((sum, refund) => sum + (byOrder.has(refund.order_id) ? refund.amount_minor : 0), 0);
   return summary;
