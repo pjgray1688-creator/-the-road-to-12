@@ -175,6 +175,15 @@ test("staff POS resolves only an authorised physical location", () => {
   assert.match(checkout, /\["total", "all", "all-sites"\]/);
 });
 
+test("checkout balance reads the customer ledger after account ensure", () => {
+  const actions = readFileSync(new URL("../app/club/shop/actions.ts", import.meta.url), "utf8");
+  const start = actions.indexOf("export async function getStaffCustomerBalanceAction");
+  const source = actions.slice(start, start + 1800);
+  assert.match(source, /ensureBalanceAccountForCustomer/);
+  assert.match(source, /getBalanceAccountForCustomer/);
+  assert.match(source, /balanceMinor: account\?\.balanceMinor \?\? 0/);
+});
+
 test("membership cash keeps obligation and declaration settlement distinct", () => {
   const migration = readFileSync(new URL("../supabase/migrations/2026-10-05-club-membership-cash-settlement.sql", import.meta.url), "utf8");
   assert.match(migration, /club_membership_billing_obligations/);

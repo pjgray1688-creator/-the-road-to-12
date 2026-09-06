@@ -96,9 +96,10 @@ export async function getStaffCustomerBalanceAction(input: { organisationId: str
     if (!value || !(await value.repository.hasCapability(value.organisation.id, value.userId, "payments.take"))) return { ok: false, error: "Balance details are not available." };
     const customer = (await value.repository.listCustomers(value.organisation.id)).find(item => item.id === input.customerId && item.organisationId === value.organisation.id);
     if (!customer) return { ok: false, error: "That member is not available." };
-    const account = await value.repository.ensureBalanceAccountForCustomer(value.organisation.id, customer.id, "GBP");
-    if (!account || account.status !== "active") return { ok: true, status: account?.status };
-    return { ok: true, balanceMinor: account.balanceMinor, currency: account.currency, status: account.status };
+    const ensured = await value.repository.ensureBalanceAccountForCustomer(value.organisation.id, customer.id, "GBP");
+    if (!ensured || ensured.status !== "active") return { ok: true, status: ensured?.status };
+    const account = await value.repository.getBalanceAccountForCustomer(value.organisation.id, customer.id);
+    return { ok: true, balanceMinor: account?.balanceMinor ?? 0, currency: ensured.currency, status: ensured.status };
   } catch { return { ok: false, error: "Balance details could not be loaded." }; }
 }
 
