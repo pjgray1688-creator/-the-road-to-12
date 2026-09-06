@@ -41,3 +41,22 @@
 .checkout-payment-method{display:grid;gap:8px;margin:12px 0}.checkout-payment-options{display:flex;gap:8px;flex-wrap:wrap}.checkout-payment-options button{min-height:42px}.checkout-payment-options .active{border-color:var(--club-accent);box-shadow:0 0 0 1px var(--club-accent) inset}.checkout-selected-member{margin:8px 0;color:var(--text)}
 .checkout-payment-choice{min-height:48px;min-width:140px;padding:10px 14px;border:1px solid var(--border);border-radius:10px;background:#171325;color:var(--text);font-weight:700;cursor:pointer}.checkout-payment-choice.active{border-color:var(--club-accent);background:#302052;box-shadow:0 0 0 1px var(--club-accent) inset}.checkout-payment-choice:disabled{opacity:.55;cursor:not-allowed}
 .checkout-error{margin:0 0 12px;padding:10px 12px;border:1px solid #a34b6a;border-radius:10px;background:#351827;color:#ffd9e5;font-weight:700}
+
+/* Browser printing is limited to the completed-sale receipt. */
+@media print {
+  body * { visibility: hidden !important; }
+  .checkout-receipt, .checkout-receipt * { visibility: visible !important; }
+  .checkout-receipt {
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 80mm;
+    max-width: 100%;
+    padding: 8mm;
+    background: #fff !important;
+    color: #111 !important;
+    font: 11pt/1.35 Arial, sans-serif;
+  }
+  .checkout-receipt .club-detail-row { border-color: #ddd !important; color: #111 !important; padding: 4mm 0; }
+  .checkout-receipt .muted, .checkout-receipt small { color: #444 !important; }
+  .checkout-receipt-actions, .checkout-receipt button { display: none !important; }
+}
