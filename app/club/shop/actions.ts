@@ -46,6 +46,9 @@ export async function topUpBalanceAction(input: { organisationId: string; locati
 export async function staffBalanceSaleAction(input: { organisationId: string; locationId: string; customerId: string; items: Array<{ productId: string; quantity: number }>; idempotencyKey?: string }): Promise<Result> {
   try { const value = await context(input.organisationId); const key = input.idempotencyKey?.trim() || crypto.randomUUID(); if (!value || !(await locationAuthorized(input.organisationId, input.locationId)) || !(await value.repository.hasCapability(value.organisation.id, value.userId, "payments.record_cash")) || !input.customerId || !input.locationId || !input.items.length) return { ok: false, error: "Select a member and add products." }; const customer = (await value.repository.listCustomers(value.organisation.id)).find(item => item.id === input.customerId); if (!customer) return { ok: false, error: "That member is not available." }; const order = await value.repository.createCommerceOrder({ organisationId: value.organisation.id, locationId: input.locationId, customerId: customer.id, userId: customer.userId, channel: "staff_checkout", currency: "GBP", items: input.items, idempotencyKey: key }); await value.repository.staffSpendBalance(order.id, order.totalMinor, `${key}:balance`); revalidatePath("/club/shop"); return { ok: true, status: "paid", orderId: order.id }; } catch (error) { return paymentFailure("balance_sale", input, error, "Balance payment couldn’t be completed."); }
 }
+export async function staffSplitSaleAction(input: { organisationId: string; locationId: string; customerId: string; items: Array<{ productId: string; quantity: number }>; balanceMinor: number; cashMinor: number; amountTenderedMinor?: number; idempotencyKey?: string }): Promise<Result> {
+  try { const value = await context(input.organisationId); const key=input.idempotencyKey?.trim()||crypto.randomUUID(); if(!value||!(await locationAuthorized(input.organisationId,input.locationId))||!(await value.repository.hasCapability(value.organisation.id,value.userId,"payments.record_cash"))||!input.customerId||input.balanceMinor<0||input.cashMinor<0||input.amountTenderedMinor!==undefined&&input.amountTenderedMinor<input.cashMinor) return {ok:false,error:"Check payment amounts and permissions."}; const order=await value.repository.createCommerceOrder({organisationId:value.organisation.id,locationId:input.locationId,customerId:input.customerId,channel:"staff_checkout",currency:"GBP",items:input.items,idempotencyKey:key}); await value.repository.staffSettleSplitPayment(order.id,input.balanceMinor,input.cashMinor,key); revalidatePath("/club/shop"); return {ok:true,status:"paid",orderId:order.id}; } catch(error) { return paymentFailure("balance_sale",input,error,"Balance payment couldn’t be completed."); }
+}
 
 export async function searchStaffCustomersAction(input: { organisationId: string; query: string }): Promise<{ ok: true; customers: StaffMemberSearchResult[] } | { ok: false; error: string }> {
   try {
@@ -73,14 +76,15 @@ export async function ensureStaffMemberCustomerAction(input: { organisationId: s
     const member = members.find(item => item.id === input.memberId && item.active);
     if (!member) return { ok: false, error: "That member is not available in this organisation." };
     const existing = customers.find(item => item.userId === member.userId);
-    if (existing) return { ok: true, customerId: existing.id };
+    const ensureBalance = async (customerId: string) => { await value.repository.ensureBalanceAccountForCustomer(value.organisation.id, customerId, "GBP"); return { ok: true as const, customerId }; };
+    if (existing) return ensureBalance(existing.id);
     try {
       const created = await value.repository.createCustomer({ organisationId: value.organisation.id, userId: member.userId, displayName: member.displayName, ...(member.email ? { email: member.email } : {}), status: "member" });
-      return { ok: true, customerId: created.id };
+      return ensureBalance(created.id);
     } catch {
       // A concurrent checkout may have won the unique organisation/user race.
       const retry = (await value.repository.listCustomers(value.organisation.id)).find(item => item.userId === member.userId);
-      return retry ? { ok: true, customerId: retry.id } : { ok: false, error: "This member could not be prepared for checkout." };
+      return retry ? ensureBalance(retry.id) : { ok: false, error: "This member could not be prepared for checkout." };
     }
   } catch { return { ok: false, error: "This member could not be prepared for checkout." }; }
 }
@@ -94,6 +98,19 @@ export async function getStaffCustomerBalanceAction(input: { organisationId: str
     if (!customer) return { ok: false, error: "That member is not available." };
     const account = await value.repository.getBalanceAccountForCustomer(value.organisation.id, customer.id);
     if (!account || account.status !== "active") return { ok: true, status: account?.status };
+    return { ok: true, balanceMinor: account.balanceMinor, currency: account.currency, status: account.status };
+  } catch { return { ok: false, error: "Balance details could not be loaded." }; }
+}
+
+/** Prepare an already-linked commerce customer for stored-value display. This
+ * creates only the zero-balance account shell; it never credits value. */
+export async function ensureStaffCustomerBalanceAction(input: { organisationId: string; customerId: string }): Promise<{ ok: true; balanceMinor: number; currency: string; status: string } | { ok: false; error: string }> {
+  try {
+    const value = await context(input.organisationId);
+    if (!value || !(await value.repository.hasCapability(value.organisation.id, value.userId, "payments.take"))) return { ok: false, error: "Balance details are not available." };
+    const customer = (await value.repository.listCustomers(value.organisation.id)).find(item => item.id === input.customerId && item.organisationId === value.organisation.id);
+    if (!customer) return { ok: false, error: "That member is not available." };
+    const account = await value.repository.ensureBalanceAccountForCustomer(value.organisation.id, customer.id, "GBP");
     return { ok: true, balanceMinor: account.balanceMinor, currency: account.currency, status: account.status };
   } catch { return { ok: false, error: "Balance details could not be loaded." }; }
 }
