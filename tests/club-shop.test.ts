@@ -101,12 +101,23 @@ test("POS and family picker use exact product media without inventing imagery", 
 test("staff POS keeps an immutable receipt while resetting the next sale", () => {
   const checkout = readFileSync(new URL("../components/club-staff-checkout.tsx", import.meta.url), "utf8");
   assert.match(checkout, /CompletedSaleSummary/);
-  assert.match(checkout, /setCompletedSale\(\{ totalMinor: total, payment, customerName: selectedMember\?\.displayName/);
+  assert.match(checkout, /setCompletedSale\(\{ totalMinor: total, payment/);
   assert.match(checkout, /completedSale\.totalMinor/);
   assert.match(checkout, /completedSale\.customerName/);
   assert.match(checkout, /completedSale\.locationName/);
   assert.match(checkout, /setCompletedSale\(undefined\)/);
   assert.match(checkout, /completedSale\.payment === \"balance\"/);
+  assert.match(checkout, /completedSale\.balanceMinor/);
+  assert.match(checkout, /completedSale\.cashMinor/);
+});
+
+test("completed split-tender receipts show the actual tender breakdown", () => {
+  const checkout = readFileSync(new URL("../components/club-staff-checkout.tsx", import.meta.url), "utf8");
+  const css = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
+  assert.match(checkout, /Madhouse Balance £\$\{/);
+  assert.match(checkout, /\+ Cash £\$\{/);
+  assert.match(css, /@page \{ size: 80mm auto; margin: 3mm; \}/);
+  assert.match(css, /page-break-inside: avoid/);
 });
 
 test("staff POS keeps member identity separate from commerce customer identity", () => {
