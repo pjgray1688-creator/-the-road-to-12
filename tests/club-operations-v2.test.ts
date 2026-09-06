@@ -76,6 +76,7 @@ test("member navigation is not rendered inside Club while remaining app-scoped",
   const nav = read("components/app-nav.tsx");
   assert.match(nav, /pathname\.startsWith\("\/club"\)/);
   assert.match(nav, /Today/);
+  assert.doesNotMatch(nav, /href: "\/club", label: "Club"/);
 });
 
 test("Club venue context is explicit, role-aware and preserved in navigation", () => {

@@ -24,7 +24,7 @@ test("member Club home exposes real self-service destinations and truthful limit
   assert.match(home, /\/club\/membership-billing/);
   assert.match(home, /\/club\/join/);
   assert.match(home, /\/club\/shop\/balance/);
-  assert.match(nav, /href: "\/club", label: "Club"/);
+  assert.doesNotMatch(nav, /href: "\/club", label: "Club"/);
   assert.match(join, /club_list_joinable_organisations/);
   assert.match(joinAction, /club_start_membership_joining/);
 });
