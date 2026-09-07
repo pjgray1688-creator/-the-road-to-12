@@ -35,6 +35,7 @@ button:active, a:active { transform: scale(.98); }
 input, select { min-height: var(--control-height); font-size: 16px; }
 
 .shell { max-width: 620px; padding: calc(18px + env(safe-area-inset-top)) 20px calc(34px + env(safe-area-inset-bottom)); }
+.shell.module-page, .shell.home-screen { padding-bottom: calc(112px + env(safe-area-inset-bottom)); }
 .home-screen { display: flex; flex-direction: column; gap: var(--space-3); }
 .home-screen > .dashboard { margin-top: 0; }
 .home-screen > header { order: 1; }
@@ -271,7 +272,7 @@ h1 em, .day, .topline button, .text-button, .plan-row b, .coach-callout span { c
   --ease-standard: cubic-bezier(.2,.8,.2,1);
 }
 
-.app-shell { width: 100%; min-height: 100svh; }
+.app-shell { width: 100%; min-height: 100svh; padding-bottom: calc(88px + env(safe-area-inset-bottom)); }
 .module-page, .account-page { display: flex; flex-direction: column; gap: var(--card-gap); }
 main.legal-page { display: flex; flex-direction: column; }
 .home-screen, .legal-page, .account-page { gap: var(--card-gap); }
@@ -368,11 +369,19 @@ main.legal-page { display: flex; flex-direction: column; }
 .settings-row:active, .navigation-row:active, .back-button:active, .tertiary-button:active { transform: scale(.985); }
 .pb-badge { display: none; }
 .history-set b { font-variant-numeric: tabular-nums; }
-.app-nav { position: sticky; bottom: 0; z-index: 4; display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin: var(--space-xl) calc(var(--page-gutter) * -1) calc(var(--space-md) * -1); padding: 8px var(--page-gutter) calc(8px + env(safe-area-inset-bottom)); background: rgba(12,13,18,.94); border-top: 1px solid var(--separator); box-shadow: 0 -8px 24px rgba(0,0,0,.18); backdrop-filter: blur(14px); }
+.app-nav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin: 0; padding: 8px var(--page-gutter) calc(8px + env(safe-area-inset-bottom)); background: rgba(12,13,18,.94); border-top: 1px solid var(--separator); box-shadow: 0 -8px 24px rgba(0,0,0,.18); backdrop-filter: blur(14px); }
 .app-nav a { min-height: 52px; display: grid; place-items: center; align-content: center; gap: 2px; border-radius: var(--radius-sm); color: var(--text-tertiary); text-decoration: none; }
 .app-nav a span { font-size: 20px; line-height: 1; }
 .app-nav a small { font-size: 11px; font-weight: 700; }
 .app-nav a.selected { color: var(--accent-bright); background: rgba(168,85,247,.12); }
+.check-in-sheet { max-height: min(90svh, 720px); overflow-y: auto; }
+.check-in-field { border: 0; padding: 0; margin: 0; display: grid; gap: 8px; }
+.check-in-field legend { color: var(--text-primary); font-size: 14px; font-weight: 700; }
+.check-in-options { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+.check-in-options button { min-height: 44px; border: 1px solid var(--separator); border-radius: var(--radius-sm); background: var(--surface-2); color: var(--text-secondary); font-weight: 800; }
+.check-in-options button.selected { background: rgba(168,85,247,.22); color: var(--text-primary); border-color: var(--accent); }
+.check-in-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 4px; }
+.readiness-card > .text-button { width: auto; justify-self: start; color: var(--text-tertiary); text-decoration: none; font-size: 12px; font-weight: 600; }
 .active-workout-card { background: var(--surface-1); border-color: rgba(168,85,247,.5); box-shadow: 0 0 0 1px rgba(168,85,247,.12), 0 12px 30px rgba(0,0,0,.24); animation: active-border 3s ease-in-out infinite; }
 .calibration-feedback { display: grid; gap: 8px; margin: 14px 0; }
 .calibration-feedback > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
