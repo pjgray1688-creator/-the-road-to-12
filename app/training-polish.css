@@ -418,3 +418,5 @@ main.legal-page { display: flex; flex-direction: column; }
   .topline-actions { flex-wrap: wrap; justify-content: flex-end; }
   .workout-header h1 { font-size: clamp(27px, 8vw, 34px); }
 }
+.home-screen > .session-exception{display:none}.today-hero .session-exception{margin-top:14px}
+.upcoming-card .upcoming-row{display:grid;grid-template-columns:minmax(72px,.35fr) minmax(0,1fr) auto;align-items:start;gap:8px}.upcoming-card .upcoming-row>span{min-width:0;display:grid;gap:3px}.upcoming-card .upcoming-row>span small{display:block}.upcoming-card .upcoming-row .status-pill{justify-self:end}
