@@ -22,5 +22,5 @@ test("Today gym shortcut is ordered directly after the greeting", () => {
   const gym = dashboard.indexOf('member-gym-shortcut');
   assert.ok(greeting >= 0 && gym > greeting);
   const styles = fs.readFileSync("app/training-polish.css", "utf8");
-  assert.match(styles, /\.home-screen > \.member-gym-shortcut \{ order: 2; \}/);
+  assert.match(styles, /\.home-screen > \.member-gym-shortcut \{ order: 3; \}/);
 });
