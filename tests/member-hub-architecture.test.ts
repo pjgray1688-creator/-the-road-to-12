@@ -23,7 +23,24 @@ test("member hub resolves memberships from the authenticated user and keeps oper
 test("member hub keeps unsupported credentials and verification truthful", () => {
   const hub = readFileSync("components/member-hub.tsx", "utf8");
   const link = readFileSync("app/member-hub/link/page.tsx", "utf8");
-  assert.match(hub, /PIN or QR credential is not available/);
+  assert.match(hub, /Digital access/);
   assert.match(link, /Email verification is not configured yet/);
   assert.doesNotMatch(link, /window\.(alert|prompt|confirm)/);
+});
+
+test("Today uses member-safe gym context and keeps recovery management in Account", () => {
+  const today = readFileSync("components/dashboard-foundation.tsx", "utf8");
+  const account = readFileSync("app/account/page.tsx", "utf8");
+  assert.match(today, /\/api\/member-hub/);
+  assert.match(today, /href="\/member-hub"/);
+  assert.doesNotMatch(today, /whoop\/disconnect/);
+  assert.match(account, /whoop\/disconnect/);
+});
+
+test("Member shop omits operator barcode and reception context", () => {
+  const shop = readFileSync("components/club-shop.tsx", "utf8");
+  assert.match(shop, /props\.staff \? "club-shop-workspace" : "member-shop-workspace"/);
+  assert.match(shop, /MEMBER SHOP/);
+  const memberBranch = shop.split("if (!staff)")[1]?.split("return <div className=\{styles.shop\}")[0] ?? "";
+  assert.doesNotMatch(memberBranch, /Scan or enter barcode|Add barcode|SHOP OPERATIONS/);
 });
