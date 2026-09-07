@@ -29,7 +29,11 @@ export function MissedSessionAction({ occurrence }: { occurrence?: TodayOccurren
   // completes. When it supplies the canonical occurrence, that occurrence is
   // sufficient to establish today's eligibility; do not strand the action on
   // the first (empty) local-storage snapshot.
-  if ((!occurrence && !data.generatedProgramme && !data.trainingProfile) || today.session.status === "rest" || loadActiveWorkout()) return null;
+  // When the mounted Today card supplies its canonical occurrence, the parent
+  // has already established whether an active workout is being shown. Avoid a
+  // stale local-storage active-workout snapshot hiding the action from a
+  // planned card that still offers START WORKOUT.
+  if ((!occurrence && !data.generatedProgramme && !data.trainingProfile) || today.session.status === "rest" || (!occurrence && loadActiveWorkout())) return null;
   const occurrenceStatus = occurrence?.status;
   if (occurrenceStatus && occurrenceStatus !== "planned") return null;
   const overrides = data.sessionStatusOverrides ?? {};
