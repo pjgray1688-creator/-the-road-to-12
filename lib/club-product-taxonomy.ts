@@ -29,7 +29,7 @@ export function inferMemberShopCategory(input: ProductCategoryInput): MemberShop
   if (includesAny(all, ["merch", "apparel", "clothing", "t-shirt", "hoodie", "shirt", "vest", "shorts"])) return "Merch & Apparel";
   // Powder, creatine, vitamins and pre-workout are prepared supplements, even
   // when a supplier calls them a protein product.
-  if (includesAny(all, ["whey", "protein powder", "powder", "creatine", "pre-workout", "pre workout", "amino", "bcaa", "collagen", "glutamine", "vitamin", "mineral", "electrolyte powder", "mass gainer", "supplement"])) return "Supplements";
+  if (includesAny(all, ["whey", "protein powder", "powder", "creatine", "pre-workout", "pre workout", "amino", "bcaa", "collagen", "glutamine", "vitamin", "mineral", "electrolyte powder", "mass gainer", "supplement", "cream of rice", "powdered rice", "rice powder"])) return "Supplements";
   if (includesAny(all, ["ready to drink", "ready-to-drink", "rtd", "drink", "shake", "bar", "snack", "meal", "food", "water", "coffee", "energy drink"])) return "Food & Drinks";
   // Food is the safer default for a retail item that has no stronger signal;
   // reception can override the inferred value in the operator catalogue.

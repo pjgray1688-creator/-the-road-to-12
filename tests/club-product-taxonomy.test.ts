@@ -9,6 +9,7 @@ test("category inference distinguishes ready-to-consume food from prepared suppl
   assert.equal(inferMemberShopCategory({ name: "Ready to drink protein shake", format: "bottle" }), "Food & Drinks");
   assert.equal(inferMemberShopCategory({ name: "Whey Protein Powder", supplierCategory: "Protein" }), "Supplements");
   assert.equal(inferMemberShopCategory({ name: "Creatine Monohydrate" }), "Supplements");
+  assert.equal(inferMemberShopCategory({ name: "Cream of Rice" }), "Supplements");
   assert.equal(inferMemberShopCategory({ name: "GSN Chicken Meal" }), "Food & Drinks");
   assert.equal(inferMemberShopCategory({ name: "Gym Hoodie" }), "Merch & Apparel");
 });

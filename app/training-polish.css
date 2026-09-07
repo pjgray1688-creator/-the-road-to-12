@@ -39,10 +39,11 @@ input, select { min-height: var(--control-height); font-size: 16px; }
 .home-screen { display: flex; flex-direction: column; gap: var(--space-3); }
 .home-screen > .dashboard { margin-top: 0; }
 .home-screen > header { order: 1; }
-.home-screen > .readiness-card { order: 2; }
-.home-screen > .today-hero { order: 3; }
-.home-screen > .exercise-overview { order: 4; }
-.home-screen > .post-workout { order: 3; }
+.home-screen > .member-gym-shortcut { order: 2; }
+.home-screen > .readiness-card { order: 3; }
+.home-screen > .today-hero { order: 4; }
+.home-screen > .exercise-overview { order: 5; }
+.home-screen > .post-workout { order: 4; }
 .home-screen > .upcoming-card { order: 5; }
 .home-screen > .block-card { order: 6; }
 .home-screen > .activity-card { order: 7; }

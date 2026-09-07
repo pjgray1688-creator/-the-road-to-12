@@ -8,14 +8,30 @@ import { loadActiveWorkout, loadData, saveData } from "@/lib/storage";
 import { defaultTrainingProfile } from "@/lib/training-profile";
 import { allExercises } from "@/lib/workout";
 
+type TodayOccurrence = {
+  date: string;
+  day: number;
+  weekday: string;
+  session: ReturnType<typeof resolveToday>["session"];
+  scheduledDate?: string;
+  occurrenceId?: string;
+  status?: string;
+};
+
 const exerciseName = (id: string) => allExercises().find(item => item.id === id)?.name ?? "compatible accessory work";
 
-export function MissedSessionAction({ occurrence }: { occurrence?: ReturnType<typeof resolveToday> } = {}) {
+export function MissedSessionAction({ occurrence }: { occurrence?: TodayOccurrence } = {}) {
   const [data, setData] = useState(() => loadData());
   const [salvage, setSalvage] = useState<SalvageProposal | null>(null); const [confirmOpen, setConfirmOpen] = useState(false); const [reasonOpen, setReasonOpen] = useState(false);
   const timezone = data.timezone ?? (typeof window === "undefined" ? "Europe/London" : Intl.DateTimeFormat().resolvedOptions().timeZone || "Europe/London");
   const today = occurrence ?? resolveToday(activeWeek(), timezone);
-  if ((!data.generatedProgramme && !data.trainingProfile) || today.session.status === "rest" || loadActiveWorkout()) return null;
+  // DashboardFoundation can mount before the authenticated programme hydration
+  // completes. When it supplies the canonical occurrence, that occurrence is
+  // sufficient to establish today's eligibility; do not strand the action on
+  // the first (empty) local-storage snapshot.
+  if ((!occurrence && !data.generatedProgramme && !data.trainingProfile) || today.session.status === "rest" || loadActiveWorkout()) return null;
+  const occurrenceStatus = occurrence?.status;
+  if (occurrenceStatus && occurrenceStatus !== "planned") return null;
   const overrides = data.sessionStatusOverrides ?? {};
   const canonicalWeek = resolveWeekSchedule(activeWeek(), data, timezone, new Date(`${today.date}T12:00:00Z`));
   const priorMiss = canonicalWeek.occurrences.filter(item => item.scheduledDate <= today.date).map(item => ({ session: item.session, date: item.scheduledDate })).reverse().find(item => overrides[occurrenceKey(item.session.id, item.date)]?.status === "missed" || (overrides[item.session.id]?.status === "missed" && item.session.day < today.day));
