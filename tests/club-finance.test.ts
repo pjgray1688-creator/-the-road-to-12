@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { calculateCommercialSettlement, financeCsv, monthRange, summariseStaffSettlement } from "../lib/club-finance";
+import { calculateCommercialSettlement, calculateShiftMinutes, financeCsv, monthRange, summariseStaffSettlement } from "../lib/club-finance";
 import { hasClubCapability } from "../lib/club-capabilities";
 import { activeBalanceTopUpOffers, splitBalanceTopUp } from "../lib/club-promotions";
 
@@ -10,3 +10,4 @@ test("staff settlement uses explicit direction", () => { const result = summaris
 test("finance CSV is stable and safely escaped", () => { const csv = financeCsv([{ occurredAt: "2026-09-01", reference: "A,1", category: "Shop", grossMinor: 100, source: "order" }]); assert.match(csv, /"A,1"/); assert.equal(monthRange(2026, 9).from, "2026-09-01T00:00:00.000Z"); });
 test("finance capabilities keep staff and management scopes separate", () => { assert.equal(hasClubCapability("gym_staff", "staff.work_submit"), true); assert.equal(hasClubCapability("gym_staff", "finance.view"), false); assert.equal(hasClubCapability("gym_admin", "finance.view"), true); });
 test("balance offers are tenant scoped and split funded versus promotional credit", () => { const offers = activeBalanceTopUpOffers([{ id: "x", organisationId: "a", payMinor: 2000, spendableMinor: 2500, active: true, startsAt: "2026-01-01" }, { id: "y", organisationId: "b", payMinor: 2000, spendableMinor: 2500, active: true, startsAt: "2026-01-01" }], "a", new Date("2026-09-01")); assert.equal(offers.length, 1); assert.deepEqual(splitBalanceTopUp(2000, 2500), { cashFundedMinor: 2000, promotionalBonusMinor: 500, spendableMinor: 2500 }); });
+test("shift duration is derived from start, finish and break", () => { assert.equal(calculateShiftMinutes("09:00", "17:30", 30), 480); assert.equal(calculateShiftMinutes("22:00", "02:00", 0), 240); assert.throws(() => calculateShiftMinutes("09:00", "09:00", 0)); assert.throws(() => calculateShiftMinutes("09:00", "10:00", 60)); });

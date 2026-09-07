@@ -1,0 +1,8 @@
+-- Additive shift timing for the Club finance work foundation.
+alter table public.club_finance_work_entries add column if not exists start_time time;
+alter table public.club_finance_work_entries add column if not exists finish_time time;
+alter table public.club_finance_work_entries add column if not exists break_minutes integer check (break_minutes is null or break_minutes >= 0);
+
+create or replace function public.club_finance_submit_shift(p_organisation_id uuid,p_work_date date,p_start_time time,p_finish_time time,p_break_minutes integer,p_duration_minutes integer,p_note text default null) returns jsonb language plpgsql security definer set search_path=pg_catalog,public as $$ declare r public.club_finance_work_entries%rowtype; begin if auth.uid() is null or not public.club_has_active_role(p_organisation_id,array['trainer','gym_staff','gym_admin','owner']) then raise exception 'Finance work submission is not permitted' using errcode='42501'; end if; if p_duration_minutes is null or p_duration_minutes <= 0 or p_break_minutes < 0 then raise exception 'Invalid shift duration' using errcode='22023'; end if; insert into public.club_finance_work_entries(organisation_id,staff_user_id,work_type,work_date,start_time,finish_time,break_minutes,duration_minutes,note) values(p_organisation_id,auth.uid(),'hours',p_work_date,p_start_time,p_finish_time,p_break_minutes,p_duration_minutes,p_note) returning * into r; return to_jsonb(r); end; $$;
+revoke all on function public.club_finance_submit_shift(uuid,date,time,time,integer,integer,text) from public,anon;
+grant execute on function public.club_finance_submit_shift(uuid,date,time,time,integer,integer,text) to authenticated;
