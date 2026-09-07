@@ -22,7 +22,9 @@ export function availableVariantOptions(variants: ClubCommerceProduct[], selecte
   return Object.fromEntries(Object.entries(values).sort(([a], [b]) => a.localeCompare(b)).map(([key, set]) => [key, [...set].sort()]));
 }
 export function resolveProductVariant(variants: ClubCommerceProduct[], selected: Record<string, string>): ClubCommerceProduct | undefined {
-  const keys = Object.keys(variants.find(selectable)?.variantOptions ?? {}); if (!keys.length || keys.some(key => !selected[key])) return undefined;
-  const matches = variants.filter(selectable).filter(v => keys.every(key => v.variantOptions?.[key] === selected[key])); return matches.length === 1 ? matches[0] : undefined;
+  const active = variants.filter(selectable);
+  if (active.length === 1) return active[0];
+  const keys = Object.keys(active[0]?.variantOptions ?? {}); if (!keys.length || keys.some(key => !selected[key])) return undefined;
+  const matches = active.filter(v => keys.every(key => v.variantOptions?.[key] === selected[key])); return matches.length === 1 ? matches[0] : undefined;
 }
 export function money(minor: number) { return `£${(minor / 100).toFixed(2)}`; }
