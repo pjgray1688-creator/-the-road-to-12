@@ -44,3 +44,6 @@ export function resolvePromotionStacking(promotions: AppliedPromotion[]) {
   return applied;
 }
 export function goldenTicketEligible(hasQualifyingEntitlement: boolean, redeemedThisMonth: boolean) { return hasQualifyingEntitlement && !redeemedThisMonth; }
+export type BalanceTopUpOffer = { id: string; organisationId: string; payMinor: number; spendableMinor: number; title?: string; active: boolean; startsAt: string; endsAt?: string; position?: number };
+export function activeBalanceTopUpOffers(offers: BalanceTopUpOffer[], organisationId: string, now = new Date()) { return offers.filter(offer => offer.organisationId === organisationId && offer.active && offer.payMinor > 0 && offer.spendableMinor >= offer.payMinor && new Date(offer.startsAt) <= now && (!offer.endsAt || now < new Date(offer.endsAt))).sort((a, b) => (a.position ?? 0) - (b.position ?? 0) || a.payMinor - b.payMinor || a.id.localeCompare(b.id)); }
+export function splitBalanceTopUp(payMinor: number, spendableMinor: number) { if (!Number.isInteger(payMinor) || !Number.isInteger(spendableMinor) || payMinor <= 0 || spendableMinor < payMinor) throw new Error("invalid_balance_offer"); return { cashFundedMinor: payMinor, promotionalBonusMinor: spendableMinor - payMinor, spendableMinor }; }
