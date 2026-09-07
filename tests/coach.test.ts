@@ -56,7 +56,7 @@ test("all actual sets are retained in Whoop export", () => { const workout: Work
 test("cardio is always 30–40 minutes and reduces intensity under fatigue", () => { const moderate = cardioRecommendation(14, 1); const hard = cardioRecommendation(18, 6); assert.ok(moderate.duration >= 30 && moderate.duration <= 40); assert.ok(hard.duration >= 30 && hard.duration <= 40); assert.ok(hard.incline < moderate.incline); });
 test("preparation RIR cannot lower the expected first working load", () => { const first = evaluateSet(db, [s("warmup", 16, 12, 2)], "", [{ ...s("working", 38, 10, 2) }], 0); const ramp = evaluateSet(db, [s("ramp", 24, 8, 0)], "", [{ ...s("working", 38, 10, 2) }], 0); assert.equal(first.nextWeight, 28); assert.equal(ramp.nextWeight, 38); });
 test("ramp records may omit RIR and still progress", () => { const d = evaluateSet(db, [{ ...s("ramp", 24, 8, 0), rir: undefined }], "", [{ ...s("working", 38, 10, 2) }], 1); assert.equal(d.nextKind, "working"); assert.equal(d.nextWeight, 38); });
-test("low-confidence plate-loaded ramps discover load from easy feedback", () => { const first = evaluateSet(trap, [{ ...s("ramp", 60, 6, 0), exerciseId: trap.id, exerciseName: trap.name }], "very easy", [], 0); assert.equal(first.nextKind, "ramp"); assert.ok(first.nextWeight >= 80); const second = evaluateSet(trap, [{ ...s("ramp", 60, 6, 0), exerciseId: trap.id, exerciseName: trap.name }, { ...s("ramp", first.nextWeight, 6, 0), exerciseId: trap.id, exerciseName: trap.name }], "easy", [], 0); assert.equal(second.nextKind, "ramp"); assert.ok(second.nextWeight > first.nextWeight); });
+test("low-confidence plate-loaded ramps discover load from easy feedback", () => { const first = evaluateSet(trap, [{ ...s("ramp", 60, 6, 0), exerciseId: trap.id, exerciseName: trap.name }], "very easy", [], 0); assert.equal(first.nextKind, "ramp"); assert.ok(first.nextWeight >= 80); const second = evaluateSet(trap, [{ ...s("ramp", 60, 6, 0), exerciseId: trap.id, exerciseName: trap.name }, { ...s("ramp", first.nextWeight, 6, 0), exerciseId: trap.id, exerciseName: trap.name }], "easy", [], 0); assert.equal(second.nextKind, "working"); assert.equal(second.nextWeight, trap.defaultWorkingWeight); });
 test("effort feedback exposes deterministic coaching signals", () => { assert.equal(effortSignal("very easy"), "easy"); assert.equal(effortSignal("easy today"), "easy"); assert.equal(effortSignal("hard set"), "hard"); assert.equal(effortSignal("about right"), "about_right"); });
 test("low-confidence heavy compounds converge within a bounded descending-rep ramp", () => { const sets: LoggedSet[] = []; let decision = evaluateSet(trap, [{ ...s("ramp", 60, 6, 0), exerciseId: trap.id, exerciseName: trap.name }], "very easy", [], 0); sets.push({ ...s("ramp", 60, 6, 0), exerciseId: trap.id, exerciseName: trap.name }); assert.match(decision.repTarget, /5–8|3–5|1–3/); for (let i = 0; i < 2; i++) { const next = { ...s("ramp", decision.nextWeight, i === 0 ? 5 : 3, 0), exerciseId: trap.id, exerciseName: trap.name }; sets.push(next); decision = evaluateSet(trap, sets, "very easy", [], 0); } assert.ok(sets.filter(set => set.kind === "ramp").length <= 3); assert.notEqual(decision.nextKind, "ramp"); });
 test("working RIR is never assumed while preparation remains RIR-free", () => { const plan = initialCoachPlan(trap, [], 0); assert.equal(plan.kind, "warmup"); const ramp = evaluateSet(trap, [{ ...s("ramp", 100, 3, 0), exerciseId: trap.id, exerciseName: trap.name }], "very easy", [], 0); assert.equal(ramp.restSeconds <= 120, true); });
@@ -75,7 +75,33 @@ test("normal plate-loaded progression remains smaller when effort is near target
 });
 test("pain or failure feedback on a ramp can still stop progression", () => { const d = evaluateSet(db, [{ ...s("ramp", 24, 4, 0) }], "shoulder pain", [], 0); assert.equal(d.tone, "reduce"); assert.equal(d.nextKind, "complete"); });
 test("calibration feedback is structured and confidence is exercise-history based", () => { assert.equal(calibrationSignal("very easy"), "very_easy"); assert.equal(calibrationSignal("starting to work"), "getting_close"); assert.equal(calibrationSignal("sharp knee pain"), "too_hard"); assert.equal(calibrationConfidence([]), "unknown"); assert.equal(calibrationConfidence([s("working", 80, 6, 2)]), "low"); });
-test("low-confidence discovery uses meaningful profile-aware jumps and avoids same-load repeats", () => { const first = evaluateSet(trap, [{ ...s("ramp", 60, 8, 0), exerciseId: trap.id, exerciseName: trap.name }], "very easy", [], 0, "experienced"); const second = evaluateSet(trap, [{ ...s("ramp", 60, 8, 0), exerciseId: trap.id, exerciseName: trap.name }, { ...s("ramp", first.nextWeight, 5, 0), exerciseId: trap.id, exerciseName: trap.name }], "very easy", [], 0, "experienced"); assert.ok(first.nextWeight - 60 >= 20); assert.ok(second.nextWeight > first.nextWeight); assert.notEqual(first.nextWeight, 60); });
+test("low-confidence discovery uses meaningful profile-aware jumps and avoids same-load repeats", () => { const first = evaluateSet(trap, [{ ...s("ramp", 60, 8, 0), exerciseId: trap.id, exerciseName: trap.name }], "very easy", [], 0, "experienced"); const second = evaluateSet(trap, [{ ...s("ramp", 60, 8, 0), exerciseId: trap.id, exerciseName: trap.name }, { ...s("ramp", first.nextWeight, 5, 0), exerciseId: trap.id, exerciseName: trap.name }], "very easy", [], 0, "experienced"); assert.ok(first.nextWeight - 60 >= 20); assert.equal(second.nextWeight, trap.defaultWorkingWeight); assert.notEqual(first.nextWeight, 60); });
+
+test("barbell row ramps cannot overshoot the resolved working target", () => {
+  const row = exercisesForSession(["barbell-row"])[0];
+  const warmup = evaluateSet(row, [{ ...s("warmup", 40, 10, 0), exerciseId: row.id, exerciseName: row.name }], "easy", [], 0);
+  assert.ok(warmup.nextWeight <= 80);
+  const ramp = evaluateSet(row, [{ ...s("ramp", 80, 3, 0), exerciseId: row.id, exerciseName: row.name }], "easy", [], 0);
+  assert.equal(ramp.nextKind, "working");
+  assert.ok(ramp.nextWeight <= 80);
+});
+
+test("ramp load is monotonic, bounded and equipment-valid", () => {
+  const row = exercisesForSession(["barbell-row"])[0];
+  assert.equal(rampLoad(row, 40, 80), 80);
+  assert.equal(rampLoad(row, 80, 80), 80);
+  assert.ok(rampLoad(row, 40, 80) <= 80);
+  const dumbbell = exercisesForSession(["incline-db-press"])[0];
+  assert.ok(rampLoad(dumbbell, 20, 30) <= 30);
+  assert.equal(rampLoad(dumbbell, 30, 30), 30);
+});
+
+test("easy ramps do not escalate a low-history working target", () => {
+  const row = exercisesForSession(["barbell-row"])[0];
+  const decision = evaluateSet(row, [{ ...s("ramp", 60, 8, 0), exerciseId: row.id, exerciseName: row.name }], "very easy", [], 0);
+  assert.equal(decision.nextWeight, row.defaultWorkingWeight);
+  assert.ok(decision.nextWeight <= row.defaultWorkingWeight);
+});
 test("calibration jump scale remains conservative for beginners and smaller profiles", () => { assert.ok(calibrationLoad(trap, 80, "very_easy", 0, "beginner") < calibrationLoad(trap, 80, "very_easy", 0, "experienced")); assert.ok(calibrationLoad(cable, 14, "very_easy") - 14 < calibrationLoad(trap, 80, "very_easy") - 80); });
 test("broad heavy-compound discovery uses coarse practical total-load resolution", () => { assert.equal(resolveDiscoveryLoad(trap, 132.5, 2), 130); assert.equal(resolveDiscoveryLoad(trap, 132.5, 3), 135); assert.equal(resolveDiscoveryLoad(db, 20, 2), 20); });
 test("challenging working sets at target reps do not escalate aggressively", () => { const first = evaluateSet(trap, [{ ...s("working", 152.5, 6, 0), exerciseId: trap.id, exerciseName: trap.name }], "very easy"); const second = evaluateSet(trap, [{ ...s("working", 152.5, 6, 1), exerciseId: trap.id, exerciseName: trap.name }], "very easy"); assert.ok(first.nextWeight <= 152.5); assert.ok(second.nextWeight <= 152.5); assert.notEqual(second.tone, "progress"); });
