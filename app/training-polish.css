@@ -47,7 +47,7 @@ input, select { min-height: var(--control-height); font-size: 16px; }
 .home-screen > .upcoming-card { order: 5; }
 .home-screen > .block-card { order: 6; }
 .home-screen > .activity-card { order: 7; }
-.home-screen > .dashboard:not(.readiness-card):not(.upcoming-card):not(.block-card):not(.activity-card):not(.post-workout) { order: 8; }
+.home-screen > .dashboard:not(.readiness-card):not(.member-gym-shortcut):not(.upcoming-card):not(.block-card):not(.activity-card):not(.post-workout) { order: 8; }
 
 header { margin: 10px 0 20px; align-items: center; }
 .brand-mark { width: 42px; height: 42px; background: var(--accent); color: #160c21; border-radius: 11px; clip-path: none; letter-spacing: -1.5px; }
