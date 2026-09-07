@@ -1,0 +1,6 @@
+import { notFound } from "next/navigation";
+import { AppShell, PageHeader } from "@/components/ui";
+import { serverSupabase } from "@/lib/supabase-server";
+import { ClubJoiningForm } from "@/components/club-joining-form";
+
+export default async function GymJoinPage({ params }: { params: Promise<{ clubSlug: string }> }) { const supabase = await serverSupabase(); const slug = (await params).clubSlug; const { data: orgs } = await supabase.rpc("club_list_joinable_organisations"); const org = (Array.isArray(orgs) ? orgs as Array<{ id: string; name: string; slug: string }> : []).find(item => item.slug === slug); if (!org) notFound(); const { data } = await supabase.rpc("club_list_joinable_memberships", { p_organisation_id: org.id }); const products = (Array.isArray(data) ? data : []).map(value => { const item = value as Record<string, unknown>; return { id: String(item.id), name: String(item.name), priceMinor: Number(item.price_minor), billing: String(item.billing), ...(item.duration_days != null ? { durationDays: Number(item.duration_days) } : {}) }; }); return <AppShell className="module-page"><PageHeader eyebrow="MEMBER HUB · JOIN" title={org.name} description="Membership options for this gym." /><ClubJoiningForm organisationId={org.id} products={products} /></AppShell>; }

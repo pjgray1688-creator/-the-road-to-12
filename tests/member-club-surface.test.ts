@@ -4,8 +4,8 @@ import fs from "node:fs";
 
 test("Account exposes My Club as the member umbrella", () => {
   const source = fs.readFileSync("app/account/page.tsx", "utf8");
-  assert.match(source, /label="My Club"/);
-  assert.match(source, /href="\/club"/);
+  assert.match(source, /label="My Gym"/);
+  assert.match(source, /href="\/member-hub"/);
 });
 
 test("member Club home keeps member-only surfaces and avoids operational records", () => {
