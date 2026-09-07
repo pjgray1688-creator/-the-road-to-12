@@ -6,8 +6,9 @@ import { serverSupabase } from "@/lib/supabase-server";
 import { resolveClubOrganisationContext } from "@/lib/club-server-context";
 import { resolveOrganisationTheme } from "@/lib/club";
 import type { ClubRole, OrganisationLocation, OrganisationMember } from "@/lib/club";
-import type { ClubClassAvailability, ClubClassSession, ClubClassType } from "@/lib/club-operations";
+import type { ClubClassAvailability, ClubClassBooking, ClubClassSession, ClubClassType } from "@/lib/club-operations";
 import { ClubSectionNav } from "@/components/club-shell";
+import { ClubMemberClasses } from "@/components/club-member-classes";
 const londonDay = (value = new Date()) => new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/London", year: "numeric", month: "2-digit", day: "2-digit" }).format(value);
 
 function AccessRequired() {
@@ -19,7 +20,12 @@ function LoadError() {
 }
 
 function LoadedClasses({ theme, organisation, classTypes, sessions, locations, members, availability, role, userId, today, contexts }: { theme: ReturnType<typeof resolveOrganisationTheme>; organisation: import("@/lib/club").Organisation; classTypes: ClubClassType[]; sessions: ClubClassSession[]; locations: OrganisationLocation[]; members: OrganisationMember[]; availability: Record<string, ClubClassAvailability | null>; role: ClubRole; userId: string; today: string; contexts?: Array<{ organisation: import("@/lib/club").Organisation; role: ClubRole }> }) {
+  if (!(["gym_staff", "gym_admin", "owner", "trainer"] as ClubRole[]).includes(role)) return <MemberClassesLoaded organisation={organisation} sessions={sessions} availability={availability} bookings={[]} contexts={contexts} />;
   return <AppShell className="module-page club-classes-page"><PageHeader eyebrow="R12 CLUB · CLASSES" title="Classes" description="Classes, capacity and timetable management." /><ClubSectionNav organisation={organisation} role={role} contexts={contexts} /><ClubClassesWorkspace classTypes={classTypes} sessions={sessions} locations={locations} members={members} availability={availability} role={role} currentUserId={userId} today={today} accent={theme.primaryAccent} /><BackButton href={`/club?org=${encodeURIComponent(organisation.id)}`}>Back to Club</BackButton><AppNav /></AppShell>;
+}
+
+function MemberClassesLoaded({ organisation, sessions, availability, bookings, customerId, contexts }: { organisation: import("@/lib/club").Organisation; sessions: ClubClassSession[]; availability: Record<string, ClubClassAvailability | null>; bookings: ClubClassBooking[]; customerId?: string; contexts?: Array<{ organisation: import("@/lib/club").Organisation; role: ClubRole }> }) {
+  return <AppShell className="module-page club-classes-page"><PageHeader eyebrow="MY CLUB" title="Classes" description="Book an upcoming class or manage your bookings." /><ClubSectionNav organisation={organisation} role="member" contexts={contexts} /><ClubMemberClasses sessions={sessions} availability={availability} bookings={bookings} customerId={customerId} /><BackButton href={`/club?org=${encodeURIComponent(organisation.id)}`}>Back to My Club</BackButton><AppNav /></AppShell>;
 }
 
 async function loadClasses(supabase: Awaited<ReturnType<typeof serverSupabase>>, userId: string, organisationId?: string) {
@@ -29,7 +35,9 @@ async function loadClasses(supabase: Awaited<ReturnType<typeof serverSupabase>>,
   const today = londonDay(); const visibleSessions = sessions.filter(session => londonDay(new Date(session.startsAt)) >= today).sort((a, b) => a.startsAt.localeCompare(b.startsAt));
   const availabilityResults = await Promise.allSettled(visibleSessions.map(session => context.repository.getClassAvailability(session.id)));
   const availability = Object.fromEntries(visibleSessions.map((session, index) => [session.id, availabilityResults[index].status === "fulfilled" ? availabilityResults[index].value : null]));
-  return { context, classTypes, locations, visibleSessions, today, availability, theme: resolveOrganisationTheme(context.organisation) };
+  const profile = ["gym_staff", "gym_admin", "owner", "trainer"].includes(context.role) ? undefined : await context.repository.getMemberOperationalProfile(context.organisation.id, userId);
+  const bookings = profile?.customer?.id ? (await context.repository.listClassBookings(context.organisation.id)).filter(item => item.customerId === profile.customer!.id) : [];
+  return { context, classTypes, locations, visibleSessions, today, availability, theme: resolveOrganisationTheme(context.organisation), memberCustomerId: profile?.customer?.id, memberBookings: bookings };
 }
 
 export default async function ClubClassesPage({ searchParams }: { searchParams?: Promise<{ org?: string }> }) {
@@ -44,5 +52,5 @@ export default async function ClubClassesPage({ searchParams }: { searchParams?:
     failed = true;
   }
   if (failed || !loaded) return failed ? <LoadError /> : <AccessRequired />;
-  return <LoadedClasses theme={loaded.theme} organisation={loaded.context.organisation} classTypes={loaded.classTypes} sessions={loaded.visibleSessions} locations={loaded.locations} members={loaded.context.members} availability={loaded.availability} role={loaded.context.role} userId={user.id} today={loaded.today} contexts={loaded.context.availableContexts} />;
+  return loaded.context.role === "member" || loaded.context.role === "guest" ? <MemberClassesLoaded organisation={loaded.context.organisation} sessions={loaded.visibleSessions} availability={loaded.availability} bookings={loaded.memberBookings} customerId={loaded.memberCustomerId} contexts={loaded.context.availableContexts} /> : <LoadedClasses theme={loaded.theme} organisation={loaded.context.organisation} classTypes={loaded.classTypes} sessions={loaded.visibleSessions} locations={loaded.locations} members={loaded.context.members} availability={loaded.availability} role={loaded.context.role} userId={user.id} today={loaded.today} contexts={loaded.context.availableContexts} />;
 }

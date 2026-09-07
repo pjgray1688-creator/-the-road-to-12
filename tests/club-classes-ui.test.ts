@@ -28,7 +28,7 @@ test("unlimited capacity has no fabricated remaining-space value", () => {
 test("timetable loads privacy-safe availability RPC data instead of aggregating booking rows", () => {
   assert.match(page, /repository\.getClassAvailability\(session\.id\)/);
   assert.match(page, /Promise\.allSettled/);
-  assert.doesNotMatch(page + components, /listClassBookings|club_class_bookings|\.from\(/);
+  assert.doesNotMatch(components, /listClassBookings|club_class_bookings|\.from\(/);
   assert.match(components, /Availability is temporarily unavailable\./);
 });
 

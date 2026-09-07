@@ -1,0 +1,13 @@
+"use client";
+import { useState, useTransition } from "react";
+import type { ClubClassAvailability, ClubClassBooking, ClubClassSession } from "@/lib/club-operations";
+import { bookMemberClassAction, cancelMemberClassAction } from "@/app/club/classes/member-actions";
+
+const date = (value: string) => new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(value));
+export function ClubMemberClasses({ sessions, availability, bookings, customerId }: { sessions: ClubClassSession[]; availability: Record<string, ClubClassAvailability | null>; bookings: ClubClassBooking[]; customerId?: string }) {
+  const [items, setItems] = useState(bookings); const [message, setMessage] = useState(""); const [pending, startTransition] = useTransition();
+  const activeBooking = (sessionId: string) => items.find(item => item.sessionId === sessionId && item.status !== "cancelled");
+  const book = (sessionId: string) => startTransition(async () => { setMessage(""); const result = await bookMemberClassAction({ sessionId, customerId }); if (!result.ok) { setMessage(result.error); return; } setItems(current => [...current.filter(item => item.id !== result.booking.id), result.booking]); });
+  const cancel = (bookingId: string) => startTransition(async () => { setMessage(""); const result = await cancelMemberClassAction({ bookingId }); if (!result.ok) { setMessage(result.error); return; } setItems(current => current.map(item => item.id === result.booking.id ? result.booking : item)); });
+  return <div className="member-class-list">{message && <p className="error-text" role="alert">{message}</p>}{sessions.length ? sessions.map(session => { const own = activeBooking(session.id); const availabilityState = availability[session.id]; const full = availabilityState?.isFull ?? false; return <article className="member-class-row" key={session.id}><div><strong>{session.title ?? "Club class"}</strong><small>{date(session.startsAt)}{session.capacity !== undefined && availabilityState ? ` · ${availabilityState.spacesRemaining ?? 0} places left` : ""}</small></div>{own ? <div className="member-class-action"><span className="status-pill status-completed">Booked</span><button className="tertiary-button" type="button" disabled={pending} onClick={() => cancel(own.id)}>Cancel</button></div> : <button className="secondary" type="button" disabled={pending || full || !customerId} onClick={() => book(session.id)}>{!customerId ? "Account not ready" : full ? "Full" : "Book class"}</button>}</article>; }) : <p className="muted">No classes are currently available.</p>}</div>;
+}

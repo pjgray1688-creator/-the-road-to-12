@@ -382,6 +382,12 @@ main.legal-page { display: flex; flex-direction: column; }
 .check-in-options button.selected { background: rgba(168,85,247,.22); color: var(--text-primary); border-color: var(--accent); }
 .check-in-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 4px; }
 .readiness-card > .text-button { width: auto; justify-self: start; color: var(--text-tertiary); text-decoration: none; font-size: 12px; font-weight: 600; }
+.member-class-list { display: grid; gap: 2px; }
+.member-class-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-md); padding: 14px 0; border-bottom: 1px solid var(--separator); }
+.member-class-row:last-child { border-bottom: 0; }
+.member-class-row > div:first-child { display: grid; gap: 4px; min-width: 0; }
+.member-class-row small { color: var(--text-secondary); }
+.member-class-action { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 .active-workout-card { background: var(--surface-1); border-color: rgba(168,85,247,.5); box-shadow: 0 0 0 1px rgba(168,85,247,.12), 0 12px 30px rgba(0,0,0,.24); animation: active-border 3s ease-in-out infinite; }
 .calibration-feedback { display: grid; gap: 8px; margin: 14px 0; }
 .calibration-feedback > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
