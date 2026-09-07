@@ -1,5 +1,6 @@
-import type { Exercise } from "./types";
+import type { Exercise, LoggedSet, Workout } from "./types";
 import { exerciseLibrary } from "./exercise-library";
+import { progressionProfile, rampBudgetFor } from "./progression";
 
 export const COMMERCIAL_CABLE_STACK_LOADS = [9, 14, 18, 23, 27, 32, 36, 41, 45, 50, 55, 59, 64, 68, 73, 77, 82];
 export const mondayExercises: Exercise[] = [
@@ -70,12 +71,58 @@ export const exercisesForSession = (exerciseIds: string[], overrides: Record<str
   return exerciseIds.map(id => { const exercise = catalog.get(id); if (!exercise) throw new Error(`Unresolved prescribed exercise: ${id}`); const resolved = { ...exercise, ...overrides[id] }; return { ...resolved, name: canonicalExerciseName(resolved.name) }; });
 };
 export const parseRange = (target: string) => { const values = target.match(/\d+/g)?.map(Number) ?? [0, 0]; return { low: values[values.length - 2] ?? values[0], high: values[values.length - 1] ?? values[0] }; };
-export function firstIncompleteWorkoutCursor(exercises: Exercise[], sets: import("./types").LoggedSet[]) {
+/** Resolve substitutions before looking at persisted set identity.  Logged sets
+ * are stored against the exercise actually performed, not the prescription. */
+export function resolveWorkoutExercises(exercises: Exercise[], workout?: Pick<Workout, "substitutions" | "substitutionDetails"> | null) {
+  return exercises.map((prescribed) => {
+    const detail = workout?.substitutionDetails?.find(item => item.originalExerciseId === prescribed.id);
+    if (detail) return exerciseById(detail.replacementExerciseId) ?? prescribed;
+    const legacyName = workout?.substitutions?.[prescribed.id];
+    return legacyName ? allExercises().find(item => item.name === legacyName) ?? prescribed : prescribed;
+  });
+}
+
+/**
+ * Derive the next actionable phase from persisted facts.  The UI cursor is
+ * deliberately not part of this calculation: preparation and working roles
+ * have different completion rules, and only working sets count toward the
+ * prescription.
+ */
+export function resolveNextWorkoutAction(exercises: Exercise[], sets: LoggedSet[]) {
   for (let index = 0; index < exercises.length; index += 1) {
     const exercise = exercises[index];
     const logged = sets.filter(set => set.exerciseId === exercise.id);
     const working = logged.filter(set => set.kind === "working");
-    if (working.length < exercise.sets) return { index, kind: working.length || logged.length ? "working" as const : "warmup" as const, workingCompleted: working.length, loggedPreparation: logged.filter(set => set.kind !== "working").length };
+    // Some imported/live records retain left/right in exerciseName. When that
+    // paired representation exists, each side has its own working-set count;
+    // one side must never make the exercise appear complete.
+    const sideRecords = working.filter(set => /(?:\s|[-—])(left|right|l|r)$/i.test(set.exerciseName));
+    if (sideRecords.length > 0) {
+      const countFor = (side: "left" | "right") => sideRecords.filter(set => new RegExp(`(?:\\s|[-—])${side}$`, "i").test(set.exerciseName)).length;
+      const nextSide = countFor("left") < exercise.sets ? "left" : countFor("right") < exercise.sets ? "right" : undefined;
+      if (nextSide) return { index, kind: "working" as const, side: nextSide, workingCompleted: working.length, loggedPreparation: logged.filter(set => set.kind !== "working").length };
+      continue;
+    }
+    if (working.length >= exercise.sets) continue;
+
+    const preparation = logged.filter(set => set.kind !== "working");
+    // A persisted working set is authoritative evidence that preparation for
+    // this exercise has already been completed, even if an older snapshot did
+    // not persist every warm-up/ramp record.
+    if (working.length > 0) return { index, kind: "working" as const, workingCompleted: working.length, loggedPreparation: preparation.length };
+    const warmupRequired = progressionProfile(exercise).category !== "dumbbell_isolation"
+      && progressionProfile(exercise).category !== "cable_machine_isolation"
+      && progressionProfile(exercise).category !== "bodyweight_assisted"
+      && index === 0;
+    const warmups = preparation.filter(set => set.kind === "warmup").length;
+    const ramps = preparation.filter(set => set.kind === "ramp").length;
+    if (warmupRequired && warmups === 0) return { index, kind: "warmup" as const, workingCompleted: working.length, loggedPreparation: preparation.length };
+    const expectedRamps = index === 0 ? rampBudgetFor(exercise, working.length > 0) : 1;
+    if (ramps < expectedRamps) return { index, kind: "ramp" as const, workingCompleted: working.length, loggedPreparation: preparation.length };
+    return { index, kind: "working" as const, workingCompleted: working.length, loggedPreparation: preparation.length };
   }
   return { index: exercises.length, kind: "complete" as const, workingCompleted: 0, loggedPreparation: 0 };
 }
+
+/** Backwards-compatible name for callers outside the training surface. */
+export const firstIncompleteWorkoutCursor = resolveNextWorkoutAction;
