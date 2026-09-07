@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { assessWorkingSession, calibrationConfidence, calibrationLoad, calibrationSignal, cardioRecommendation, effortSignal, evaluateSet, initialCoachPlan, nextExerciseRecommendation, practicalLoad, resolveDiscoveryLoad, restFor, startingPrescription, workingWeight } from "../lib/coach";
+import { assessWorkingSession, calibrationConfidence, calibrationLoad, calibrationSignal, cardioRecommendation, effortSignal, evaluateSet, initialCoachPlan, nextExerciseRecommendation, practicalLoad, resolveDiscoveryLoad, resolveWorkingLoadSuggestion, restFor, startingPrescription, workingHistory, workingWeight } from "../lib/coach";
 
 test("easy calibration uses movement-aware increments", () => {
   const row = { id: "barbell-row", name: "Barbell Row", target: "4 × 8", sets: 4, restSeconds: 120, purpose: "strength" as const, equipment: "barbell" as const, defaultWorkingWeight: 80 };
@@ -105,3 +105,33 @@ test("easy ramps do not escalate a low-history working target", () => {
 test("calibration jump scale remains conservative for beginners and smaller profiles", () => { assert.ok(calibrationLoad(trap, 80, "very_easy", 0, "beginner") < calibrationLoad(trap, 80, "very_easy", 0, "experienced")); assert.ok(calibrationLoad(cable, 14, "very_easy") - 14 < calibrationLoad(trap, 80, "very_easy") - 80); });
 test("broad heavy-compound discovery uses coarse practical total-load resolution", () => { assert.equal(resolveDiscoveryLoad(trap, 132.5, 2), 130); assert.equal(resolveDiscoveryLoad(trap, 132.5, 3), 135); assert.equal(resolveDiscoveryLoad(db, 20, 2), 20); });
 test("challenging working sets at target reps do not escalate aggressively", () => { const first = evaluateSet(trap, [{ ...s("working", 152.5, 6, 0), exerciseId: trap.id, exerciseName: trap.name }], "very easy"); const second = evaluateSet(trap, [{ ...s("working", 152.5, 6, 1), exerciseId: trap.id, exerciseName: trap.name }], "very easy"); assert.ok(first.nextWeight <= 152.5); assert.ok(second.nextWeight <= 152.5); assert.notEqual(second.tone, "progress"); });
+
+test("Free mode leaves a brand-new weighted exercise unresolved", () => {
+  const row = exercisesForSession(["barbell-row"])[0];
+  const suggestion = resolveWorkingLoadSuggestion(row, []);
+  assert.equal(suggestion.suggestedLoad, null);
+  assert.equal(suggestion.reasonCode, "no_history");
+});
+
+test("Free suggestions use valid working history only and remain explainable", () => {
+  const row = exercisesForSession(["barbell-row"])[0];
+  const suggestion = resolveWorkingLoadSuggestion(row, [s("ramp", 110, 3, 0), s("working", 70, 10, 3), s("working", 70, 9, 2)]);
+  assert.equal(suggestion.suggestedLoad, 70);
+  assert.equal(suggestion.basis, "history");
+  assert.equal(suggestion.previousWorkingSet?.weight, 70);
+});
+
+test("a confirmed Free target bounds preparation and overrides a suggestion", () => {
+  const row = exercisesForSession(["barbell-row"])[0];
+  assert.equal(startingPrescription(row, [], 0, 70).work, 70);
+  const ramp = evaluateSet(row, [{ ...s("ramp", 50, 5, 0), exerciseId: row.id, exerciseName: row.name }], "very easy", [], 0, undefined, 70);
+  assert.ok(ramp.nextWeight <= 70);
+  assert.equal(resolveWorkingLoadSuggestion(row, [s("working", 70, 10, 2)], 80).suggestedLoad, 80);
+});
+
+test("suggestions are not persisted as completed sets", () => {
+  const row = exercisesForSession(["barbell-row"])[0];
+  const suggestion = resolveWorkingLoadSuggestion(row, []);
+  assert.equal(suggestion.suggestedLoad, null);
+  assert.equal(workingHistory([]).length, 0);
+});
