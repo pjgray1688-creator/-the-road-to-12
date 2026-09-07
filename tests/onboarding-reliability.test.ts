@@ -10,11 +10,12 @@ test("landing auth actions preserve distinct signup and sign-in intent", () => {
 
 test("onboarding owns immutable, question-specific choices and safe navigation", () => {
   const source = fs.readFileSync("app/onboarding/page.tsx", "utf8");
-  assert.match(source, /as const/);
+  const questions = fs.readFileSync("lib/onboarding-questions.ts", "utf8");
+  assert.match(questions, /as const/);
   assert.match(source, /key=\{`\$\{question\[0\]\}-\$\{String\(value\)\}`\}/);
   assert.match(source, /type="button" className="secondary"/);
   assert.match(source, /Conditioning means cardio or fitness work/);
-  assert.match(source, /Would you like any extra conditioning\?/);
+  assert.match(questions, /Would you like any extra conditioning\?/);
   assert.doesNotMatch(source, /question\[2\]\.push\(|question\[2\]\.unshift\(|question\[2\]\.splice\(/);
 });
 
