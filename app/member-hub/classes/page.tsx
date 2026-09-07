@@ -3,6 +3,22 @@ import { redirect } from "next/navigation";
 import { serverSupabase } from "@/lib/supabase-server";
 import { clubRepository } from "@/lib/club-repository";
 import { ClubMemberClasses } from "@/components/club-member-classes";
-import { AppShell, BackButton, EmptyState, PageHeader } from "@/components/ui";
+import { AppShell, EmptyState, PageHeader } from "@/components/ui";
 
-export default async function MemberHubClasses({ searchParams }: { searchParams?: Promise<{ org?: string }> }) { const client = await serverSupabase(); const { data: { user } } = await client.auth.getUser(); if (!user) redirect("/account?mode=signIn&next=%2Fmember-hub%2Fclasses"); const params = await searchParams; const { data } = await client.rpc("club_list_my_memberships"); const rows = Array.isArray(data) ? data as Array<Record<string, unknown>> : []; const row = rows.find(value => String((value.organisation as Record<string, unknown> | undefined)?.id) === params?.org) ?? rows[0]; if (!row) return <AppShell className="module-page"><PageHeader eyebrow="MEMBER AREA" title="Classes" /><EmptyState title="Connect your gym first">Classes will appear once a membership is linked.</EmptyState></AppShell>; const org = row.organisation as Record<string, unknown>; const organisationId = String(org.id); const repository = clubRepository(client); const profile = await repository.getMemberOperationalProfile(organisationId, user.id); const sessions = (await repository.listClassSessions(organisationId)).filter(session => session.status === "scheduled" && new Date(session.startsAt).getTime() >= Date.now()).sort((a, b) => a.startsAt.localeCompare(b.startsAt)); const availabilityResults = await Promise.allSettled(sessions.map(session => repository.getClassAvailability(session.id))); const availability = Object.fromEntries(sessions.map((session, index) => [session.id, availabilityResults[index].status === "fulfilled" ? availabilityResults[index].value : null])); const bookings = profile.customer ? (await repository.listClassBookings(organisationId)).filter(item => item.customerId === profile.customer!.id) : []; return <AppShell className="module-page club-page"><PageHeader eyebrow="MEMBER AREA" title="Classes" description={`Book classes at ${String(org.name)}.`} />{profile.customer ? <ClubMemberClasses sessions={sessions} availability={availability} bookings={bookings} customerId={profile.customer.id} /> : <EmptyState title="Member profile is still being linked">Classes will be available when your gym membership is connected.</EmptyState>}<BackButton href="/member-hub">Back to Member Area</BackButton></AppShell>; }
+export default async function MemberHubClasses({ searchParams }: { searchParams?: Promise<{ org?: string }> }) {
+  const client = await serverSupabase();
+  const { data: { user } } = await client.auth.getUser();
+  if (!user) redirect("/account?mode=signIn&next=%2Fmember-hub%2Fclasses");
+  const params = await searchParams;
+  const { data } = await client.rpc("club_list_my_memberships");
+  const rows = Array.isArray(data) ? data as Array<Record<string, unknown>> : [];
+  const row = rows.find(value => String((value.organisation as Record<string, unknown> | undefined)?.id) === params?.org) ?? rows[0];
+  if (!row) return <AppShell className="module-page member-area-page"><PageHeader title="Classes" /><EmptyState title="Connect your gym first">Classes will appear once a membership is linked.</EmptyState></AppShell>;
+  const org = row.organisation as Record<string, unknown>; const organisationId = String(org.id); const repository = clubRepository(client);
+  const profile = await repository.getMemberOperationalProfile(organisationId, user.id);
+  const sessions = (await repository.listClassSessions(organisationId)).filter(session => session.status === "scheduled" && new Date(session.startsAt).getTime() >= Date.now()).sort((a, b) => a.startsAt.localeCompare(b.startsAt));
+  const availabilityResults = await Promise.allSettled(sessions.map(session => repository.getClassAvailability(session.id)));
+  const availability = Object.fromEntries(sessions.map((session, index) => [session.id, availabilityResults[index].status === "fulfilled" ? availabilityResults[index].value : null]));
+  const bookings = profile.customer ? (await repository.listClassBookings(organisationId)).filter(item => item.customerId === profile.customer!.id) : [];
+  return <AppShell className="module-page club-page member-area-page"><PageHeader title="Classes" />{profile.customer ? <ClubMemberClasses sessions={sessions} availability={availability} bookings={bookings} customerId={profile.customer.id} /> : <EmptyState title="Member profile is still being linked">Classes will be available when your gym membership is connected.</EmptyState>}</AppShell>;
+}
