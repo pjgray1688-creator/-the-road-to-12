@@ -37,10 +37,12 @@ test("Today uses member-safe gym context and keeps recovery management in Accoun
   assert.match(account, /whoop\/disconnect/);
 });
 
-test("Member shop omits operator barcode and reception context", () => {
+test("Member shop exposes self-service scanning without operator controls", () => {
   const shop = readFileSync("components/club-shop.tsx", "utf8");
   assert.match(shop, /props\.staff \? "club-shop-workspace" : "member-shop-workspace"/);
   assert.match(shop, /MEMBER SHOP/);
   const memberBranch = shop.split("if (!staff)")[1]?.split("return <div className=\{styles.shop\}")[0] ?? "";
-  assert.doesNotMatch(memberBranch, /Scan or enter barcode|Add barcode|SHOP OPERATIONS/);
+  assert.doesNotMatch(memberBranch, /SHOP OPERATIONS|Cash to verify|RECEPTION/);
+  assert.match(shop, /aria-label=\"Product barcode\"/);
+  assert.match(shop, /normalizeBarcode\(candidate\.barcode\)/);
 });
