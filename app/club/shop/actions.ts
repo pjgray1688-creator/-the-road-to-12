@@ -20,13 +20,22 @@ async function context(organisationId: string) { const client = await serverSupa
 export async function evaluateCommercePromotionsAction(input: { organisationId: string; locationId?: string; userId?: string; items: Array<{ productId: string; quantity: number }>; paymentMethod?: string }): Promise<{ ok: true; pricing: { grossMinor: number; discountMinor: number; totalMinor: number; applied: unknown[] } } | { ok: false; error: string }> {
   try {
     const value = await context(input.organisationId);
-    if (!value || !input.items.length || input.items.some(item => !item.productId || !Number.isInteger(item.quantity) || item.quantity < 1)) return { ok: false, error: "Promotion evaluation unavailable." };
+    if (!value || !input.items.length || input.items.some(item => !item.productId || !Number.isInteger(item.quantity) || item.quantity < 1)) return { ok: false, error: "Price calculation unavailable — please retry." };
     const client = await serverSupabase();
     const { data, error } = await client.rpc("club_evaluate_commerce_promotions", { p_organisation_id: value.organisation.id, p_location_id: input.locationId ?? null, p_user_id: input.userId ?? value.userId, p_customer_id: null, p_items: input.items.map(item => ({ product_id: item.productId, quantity: item.quantity })), p_payment_method: input.paymentMethod ?? null });
-    if (error || !data || typeof data !== "object") return { ok: false, error: "Promotion evaluation unavailable." };
+    if (error || !data || typeof data !== "object") {
+      const reference = crypto.randomUUID().slice(0, 8).toUpperCase();
+      const source = error as { code?: unknown; message?: unknown; details?: unknown; hint?: unknown } | null;
+      console.error("[club-shop] promotion evaluation failure", { operation: "club_evaluate_commerce_promotions", reference, organisationId: value.organisation.id, locationId: input.locationId ?? null, hasLocation: Boolean(input.locationId), callerUserId: value.userId, targetUserId: input.userId ?? value.userId, itemCount: input.items.length, code: typeof source?.code === "string" ? source.code : "UNKNOWN", message: typeof source?.message === "string" ? source.message.slice(0, 300) : "invalid response", details: typeof source?.details === "string" ? source.details.slice(0, 300) : undefined, hint: typeof source?.hint === "string" ? source.hint.slice(0, 300) : undefined });
+      return { ok: false, error: `Price calculation unavailable — please retry. Ref: ${reference}` };
+    }
     const result = data as Record<string, unknown>;
     return { ok: true, pricing: { grossMinor: Number(result.gross_minor ?? 0), discountMinor: Number(result.discount_minor ?? 0), totalMinor: Number(result.total_minor ?? 0), applied: Array.isArray(result.applied) ? result.applied : [] } };
-  } catch { return { ok: false, error: "Promotion evaluation unavailable." }; }
+  } catch (error) {
+    const reference = crypto.randomUUID().slice(0, 8).toUpperCase();
+    console.error("[club-shop] promotion evaluation exception", { operation: "club_evaluate_commerce_promotions", reference, organisationId: input.organisationId, locationId: input.locationId ?? null, itemCount: input.items.length, error: error instanceof Error ? error.message.slice(0, 300) : "unknown" });
+    return { ok: false, error: `Price calculation unavailable — please retry. Ref: ${reference}` };
+  }
 }
 async function locationAuthorized(organisationId: string, locationId: string) { const client = await serverSupabase(); const { data, error } = await client.rpc("club_location_authorized", { p_organisation_id: organisationId, p_location_id: locationId }); return !error && data === true; }
 export async function purchaseAction(input: { organisationId: string; productId?: string; items?: Array<{ productId: string; quantity: number }>; locationId?: string; quantity?: number; payment: "balance" | "cash_box"; idempotencyKey?: string }): Promise<Result> {
