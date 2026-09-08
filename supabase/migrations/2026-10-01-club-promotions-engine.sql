@@ -271,7 +271,7 @@ revoke all on function public.club_finalize_paid_order(uuid,uuid) from public,an
 -- configurable Golden Ticket candidates. All values come from canonical products.
 create or replace function public.club_evaluate_commerce_promotions(p_organisation_id uuid,p_location_id uuid,p_user_id uuid,p_customer_id uuid,p_items jsonb,p_payment_method text default null)
 returns jsonb language plpgsql security definer set search_path=pg_catalog,public as $$
-declare x jsonb; c jsonb; g jsonb; a jsonb; components jsonb; t public.club_promotion_targets%rowtype; pr public.club_promotions%rowtype; ef public.club_promotion_effects%rowtype; prod public.club_commerce_products%rowtype; gross integer:=0; base integer; saving integer; total integer; applied jsonb:='[]'::jsonb; bundles jsonb; bundle_count integer; group_count integer; group_idx integer; eligible_count integer; candidate_base integer; candidate_save integer; best_save integer:=0; best jsonb; month_start date:=date_trunc('month',now())::date;
+declare x jsonb; c jsonb; g jsonb; v_candidate jsonb; components jsonb; t public.club_promotion_targets%rowtype; pr public.club_promotions%rowtype; ef public.club_promotion_effects%rowtype; prod public.club_commerce_products%rowtype; gross integer:=0; base integer; saving integer; total integer; applied jsonb:='[]'::jsonb; bundles jsonb; bundle_count integer; group_count integer; group_idx integer; eligible_count integer; candidate_base integer; candidate_save integer; best_save integer:=0; best jsonb; month_start date:=date_trunc('month',now())::date;
 begin
   if auth.uid() is null or not public.club_has_active_role(p_organisation_id,array['member','trainer','gym_staff','gym_admin','owner']) then raise exception 'Promotion evaluation is not permitted' using errcode='42501'; end if;
   if p_user_id is not null and p_user_id is distinct from auth.uid() and not public.club_has_active_role(p_organisation_id,array['gym_staff','gym_admin','owner']) then raise exception 'Customer is not associated with caller' using errcode='42501'; end if;
@@ -310,8 +310,8 @@ begin
       candidate_base:=0; components:='[]'::jsonb;
       if c->>'type'='deal' then
         if coalesce((c->>'compatible')::boolean,false) then
-          select value into a from jsonb_array_elements(applied) where value->>'promotion_id'=coalesce(c->>'promotion_id',c->>'id') limit 1;
-          if a is not null then candidate_base:=greatest(0,coalesce((a->>'input_eligible_base_minor')::integer,(a->>'base_minor')::integer,0)-coalesce((a->>'applied_saving_minor')::integer,(a->>'saving_minor')::integer,0)); components:=coalesce(a->'eligible_components','[]'::jsonb); end if;
+          select value into v_candidate from jsonb_array_elements(applied) as applied_candidate(value) where applied_candidate.value->>'promotion_id'=coalesce(c->>'promotion_id',c->>'id') limit 1;
+          if v_candidate is not null then candidate_base:=greatest(0,coalesce((v_candidate->>'input_eligible_base_minor')::integer,(v_candidate->>'base_minor')::integer,0)-coalesce((v_candidate->>'applied_saving_minor')::integer,(v_candidate->>'saving_minor')::integer,0)); components:=coalesce(v_candidate->'eligible_components','[]'::jsonb); end if;
         end if;
       else
         for x in select * from jsonb_array_elements(p_items) loop
@@ -323,7 +323,7 @@ begin
     end loop;
     if best is not null and best_save>0 then applied:=applied||jsonb_build_array(jsonb_build_object('promotion_id',pr.id,'promotion_name',pr.name,'saving_minor',best_save,'effect_type','golden_ticket','base_minor',best->>'base_minor','golden_ticket_candidate',best)); end if;
   end loop;
-  applied:=public.club_apply_promotion_stack(applied,p_items,gross); total:=greatest(0,gross-(select coalesce(sum((a->>'applied_saving_minor')::integer),0) from jsonb_array_elements(applied) a)); return jsonb_build_object('gross_minor',gross,'discount_minor',gross-total,'total_minor',total,'applied',applied,'payment_method',p_payment_method);
+  applied:=public.club_apply_promotion_stack(applied,p_items,gross); total:=greatest(0,gross-(select coalesce(sum((applied_item->>'applied_saving_minor')::integer),0) from jsonb_array_elements(applied) as applied_item)); return jsonb_build_object('gross_minor',gross,'discount_minor',gross-total,'total_minor',total,'applied',applied,'payment_method',p_payment_method);
 end; $$;
 revoke all on function public.club_evaluate_commerce_promotions(uuid,uuid,uuid,uuid,jsonb,text) from public,anon;
 grant execute on function public.club_evaluate_commerce_promotions(uuid,uuid,uuid,uuid,jsonb,text) to authenticated;
