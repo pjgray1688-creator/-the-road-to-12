@@ -1,0 +1,11 @@
+-- Internal supplier-cost history only; never exposed by member catalogue RPCs.
+create table if not exists public.club_supplier_variant_costs (
+  id uuid primary key default gen_random_uuid(), organisation_id uuid not null references public.club_organisations(id) on delete cascade,
+  supplier_id uuid not null references public.club_suppliers(id) on delete restrict, supplier_product_id uuid not null references public.club_supplier_products(id) on delete restrict,
+  cost_minor integer not null check (cost_minor >= 0), currency text not null default 'GBP', observed_at timestamptz not null, source_reference text, created_by uuid references auth.users(id) on delete set null, created_at timestamptz not null default now()
+);
+create index if not exists club_supplier_variant_costs_lookup on public.club_supplier_variant_costs(organisation_id,supplier_product_id,observed_at desc);
+alter table public.club_supplier_variant_costs enable row level security;
+revoke all on public.club_supplier_variant_costs from anon,authenticated;
+create or replace function public.club_record_supplier_variant_cost(p_organisation_id uuid,p_supplier_id uuid,p_supplier_product_id uuid,p_cost_minor integer,p_currency text,p_observed_at timestamptz,p_source_reference text default null) returns jsonb language plpgsql security definer set search_path=pg_catalog,public as $$ declare id uuid; begin if auth.uid() is null or not public.club_capability_allowed(p_organisation_id,auth.uid(),'supplier.catalogue_manage') then raise exception 'Supplier cost access is not permitted' using errcode='42501'; end if; if p_cost_minor is null or p_cost_minor<0 then raise exception 'Invalid supplier cost' using errcode='22023'; end if; insert into public.club_supplier_variant_costs(organisation_id,supplier_id,supplier_product_id,cost_minor,currency,observed_at,source_reference,created_by) values(p_organisation_id,p_supplier_id,p_supplier_product_id,p_cost_minor,coalesce(nullif(p_currency,''),'GBP'),p_observed_at,p_source_reference,auth.uid()) returning id into id; return jsonb_build_object('id',id); end; $$;
+revoke all on function public.club_record_supplier_variant_cost(uuid,uuid,uuid,integer,text,timestamptz,text) from public,anon; grant execute on function public.club_record_supplier_variant_cost(uuid,uuid,uuid,integer,text,timestamptz,text) to authenticated;
