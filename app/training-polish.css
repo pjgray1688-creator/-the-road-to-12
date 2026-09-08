@@ -48,6 +48,7 @@ input, select { min-height: var(--control-height); font-size: 16px; }
 .home-screen > .block-card { order: 6; }
 .home-screen > .activity-card { order: 7; }
 .home-screen > .dashboard:not(.readiness-card):not(.member-gym-shortcut):not(.upcoming-card):not(.block-card):not(.activity-card):not(.post-workout) { order: 8; }
+.member-gym-row{display:block}.member-gym-row>div{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:16px}.member-gym-row>div>div{display:grid;gap:4px}.member-gym-row .secondary{min-height:48px;padding:0 16px;border-color:rgba(168,85,247,.35);background:rgba(168,85,247,.12);text-decoration:none;white-space:nowrap}
 
 header { margin: 10px 0 20px; align-items: center; }
 .brand-mark { width: 42px; height: 42px; background: var(--accent); color: #160c21; border-radius: 11px; clip-path: none; letter-spacing: -1.5px; }
