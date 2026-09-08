@@ -8,7 +8,7 @@ async function authorised(org: string, pricing = true) {
   const client = await serverSupabase(); const { data: { user } } = await client.auth.getUser();
   if (!user) return; const context = await resolveClubOrganisationContext(client, user.id, org);
   if (!context || !(await context.repository.hasCapability(org, user.id, "supplier.catalogue_manage")) || pricing && !(await context.repository.hasCapability(org, user.id, "commerce.pricing_manage"))) return;
-  return { client };
+  return { client, context };
 }
 export async function publishSupplierOfferAction(input: { organisationId: string; offerId: string; productId: string; retailPriceMinor: number }) {
   const value = await authorised(input.organisationId); if (!value) return { ok: false, error: "Catalogue publication access required." };
@@ -60,13 +60,13 @@ export async function importGsnCatalogueAction(input: { organisationId: string; 
   if (!value || !input.rows.length) return { ok: false, error: "GSN import access required." };
   let created = 0; let updated = 0; let unchanged = 0;
   for (const row of input.rows) {
-    const mapped = gsnCommerceProductInsert({ brand: row.brand ?? "GSN", range: row.range ?? "", name: row.name, category: row.category, description: row.description, retailPriceMinor: row.retailPriceMinor, sourceUrl: row.sourceUrl, parentImageReference: row.parentImageReference });
+    const mapped = gsnCommerceProductInsert({ brand: row.brand ?? "GSN", range: row.range ?? "", name: row.name, category: row.category, description: row.description, retailPriceMinor: row.retailPriceMinor, sourceUrl: row.sourceUrl, parentImageReference: row.parentImageReference, variantImageReference: row.variantImageReference, nutrition: row.nutrition, ingredients: row.ingredients, allergens: row.allergens });
     const existingResult = await value.client.from("club_commerce_products").select("id,name,brand,description,category,active,stock_tracked,sell_price_minor,currency,media,sku,barcode,cost_price_minor,tax_code").eq("organisation_id", input.organisationId).eq("name", mapped.name).eq("category", mapped.category).maybeSingle();
     if (existingResult.error) { console.error("[gsn-import] lookup failed", { product: row.name, code: existingResult.error.code, message: existingResult.error.message }); return { ok: false, error: "Import failed: catalogue database schema is not ready." }; }
     const existing = existingResult.data as Record<string, unknown> | null;
     const currentMedia = existing?.media && typeof existing.media === "object" && !Array.isArray(existing.media) ? existing.media as Record<string, unknown> : {};
     const mergedMedia = { ...currentMedia, ...mapped.media, ...(mapped.media.enrichment && typeof currentMedia.enrichment === "object" ? { enrichment: { ...(currentMedia.enrichment as Record<string, unknown>), ...(mapped.media.enrichment as Record<string, unknown>) } } : {}) };
-    const sellPriceMinor = row.retailPriceMinor ?? Number(existing?.sell_price_minor ?? mapped.sell_price_minor);
+    const sellPriceMinor = row.retailPriceMinor ?? 400;
     const changed = !existing || Number(existing.sell_price_minor) !== sellPriceMinor || (row.sourceUrl && currentMedia.sourceUrl !== row.sourceUrl) || (row.parentImageReference && currentMedia.parentImageReference !== row.parentImageReference) || (row.variantImageReference && currentMedia.variantImageReference !== row.variantImageReference) || (row.description && existing.description !== row.description) || (row.ingredients && (currentMedia.enrichment as Record<string, unknown> | undefined)?.ingredients !== row.ingredients) || (row.allergens && (currentMedia.enrichment as Record<string, unknown> | undefined)?.allergens !== row.allergens);
     if (!changed) { unchanged++; continue; }
     const product = await value.client.rpc("club_save_commerce_product", { p_id: existing?.id ?? null, p_organisation_id: input.organisationId, p_sku: existing?.sku ?? null, p_barcode: existing?.barcode ?? null, p_name: String(existing?.name ?? mapped.name), p_brand: String(existing?.brand ?? mapped.brand), p_description: row.description ?? existing?.description ?? null, p_category: String(existing?.category ?? mapped.category), p_active: existing?.active !== false, p_stock_tracked: existing?.stock_tracked !== false, p_sell_price_minor: sellPriceMinor, p_cost_price_minor: existing?.cost_price_minor ?? null, p_currency: String(existing?.currency ?? mapped.currency), p_tax_code: existing?.tax_code ?? null, p_supplier_reference: null, p_media: mergedMedia });
@@ -74,4 +74,21 @@ export async function importGsnCatalogueAction(input: { organisationId: string; 
     if (existing) updated++; else created++;
   }
   revalidatePath("/club/shop"); revalidatePath("/member-hub/shop"); return { ok: true, created, updated, unchanged };
+}
+
+export async function loadGsnDemoStockAction(input: { organisationId: string; locationId: string; productIds: string[]; targetQuantity?: number }) {
+  const value = await authorised(input.organisationId, false);
+  const target = input.targetQuantity ?? 10;
+  if (!value || !(await value.context.repository.hasCapability(input.organisationId, (await value.client.auth.getUser()).data.user!.id, "inventory.adjust")) || !input.locationId || !input.productIds.length || !Number.isInteger(target) || target < 0) return { ok: false, error: "Demo stock access required." };
+  const balances = await value.context.repository.listStockBalances(input.organisationId, input.locationId);
+  const byProduct = new Map(balances.map(item => [item.productId, item.onHand ?? 0]));
+  let updated = 0;
+  for (const productId of [...new Set(input.productIds)]) {
+    const delta = target - (byProduct.get(productId) ?? 0);
+    if (delta === 0) continue;
+    const { error } = await value.client.rpc("club_adjust_inventory", { p_organisation_id: input.organisationId, p_location_id: input.locationId, p_product_id: productId, p_movement_type: "stocktake_adjustment", p_quantity_delta: delta, p_reason: "GSN demo opening stock (temporary)", p_idempotency_key: `gsn-demo-stock:${input.organisationId}:${input.locationId}:${productId}:${target}` });
+    if (error) return { ok: false, error: "Demo stock could not be loaded." };
+    updated++;
+  }
+  revalidatePath("/club/shop"); revalidatePath("/member-hub/shop"); return { ok: true, updated, targetQuantity: target };
 }
