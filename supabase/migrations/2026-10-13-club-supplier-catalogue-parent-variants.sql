@@ -78,3 +78,30 @@ begin
 end; $$;
 revoke all on function public.club_import_supplier_catalogue_v2(uuid,text,text,jsonb,boolean) from public, anon;
 grant execute on function public.club_import_supplier_catalogue_v2(uuid,text,text,jsonb,boolean) to authenticated;
+
+-- Member-safe read model: no supplier costs or operator-only metadata are returned.
+create or replace function public.club_list_member_supplier_catalogue(p_organisation_id uuid, p_location_id uuid default null)
+returns jsonb language sql security definer set search_path=pg_catalog,public as $$
+select coalesce(jsonb_agg(jsonb_build_object(
+  'parentKey',pp.parent_key,'supplierId',s.id,'supplierName',s.name,'memberOrderable',s.member_orderable,
+  'brand',pp.brand,'name',pp.name,'description',pp.description,'category',pp.category,'subcategory',pp.subcategory,
+  'sourceUrl',pp.source_url,'imageReference',pp.parent_image_url,
+  'variants',(select coalesce(jsonb_agg(jsonb_build_object('id',sp.id,'clubProductId',sp.club_product_id,'supplierId',s.id,'parentKey',pp.parent_key,'flavour',sp.variant,'size',sp.size,'packQuantity',sp.pack_quantity,'supplierSku',sp.supplier_sku,'barcode',sp.barcode,'stockStatus',sp.availability_status,'availabilityCheckedAt',sp.availability_checked_at,'memberOrderableUnit',sp.member_orderable_unit,'imageReference',sp.variant_image_url,'retailPriceMinor',coalesce((select p.retail_price_minor from public.club_supplier_variant_prices p where p.organisation_id=sp.organisation_id and p.supplier_product_id=sp.id and p.active and (p.effective_to is null or p.effective_to>now()) order by p.effective_from desc limit 1),sp.retail_price_minor)) order by sp.size,sp.variant),'[]'::jsonb) from public.club_supplier_products sp where sp.organisation_id=pp.organisation_id and sp.parent_product_id=pp.id and sp.active and not sp.discontinued)
+) order by pp.name),'[]'::jsonb)
+from public.club_supplier_parent_products pp join public.club_suppliers s on s.id=pp.supplier_id
+where pp.organisation_id=p_organisation_id and pp.active and pp.archived_at is null and s.active and exists(select 1 from public.club_members m where m.organisation_id=p_organisation_id and m.user_id=auth.uid() and m.active);
+$$;
+revoke all on function public.club_list_member_supplier_catalogue(uuid,uuid) from public,anon; grant execute on function public.club_list_member_supplier_catalogue(uuid,uuid) to authenticated;
+
+create or replace function public.club_set_supplier_variant_retail_price(p_organisation_id uuid, p_supplier_product_id uuid, p_retail_price_minor integer, p_active boolean default true)
+returns jsonb language plpgsql security definer set search_path=pg_catalog,public as $$
+declare result jsonb;
+begin
+  if auth.uid() is null or not public.club_capability_allowed(p_organisation_id,auth.uid(),'commerce.pricing_manage') then raise exception 'Retail pricing is not permitted' using errcode='42501'; end if;
+  if p_retail_price_minor is null or p_retail_price_minor < 0 then raise exception 'Invalid retail price' using errcode='22023'; end if;
+  if not exists(select 1 from public.club_supplier_products where id=p_supplier_product_id and organisation_id=p_organisation_id) then raise exception 'Supplier variant not found' using errcode='P0002'; end if;
+  insert into public.club_supplier_variant_prices(organisation_id,supplier_product_id,retail_price_minor,active,created_by) values(p_organisation_id,p_supplier_product_id,p_retail_price_minor,p_active,auth.uid());
+  update public.club_supplier_products set retail_price_minor=p_retail_price_minor where id=p_supplier_product_id and organisation_id=p_organisation_id;
+  select jsonb_build_object('supplierProductId',p_supplier_product_id,'retailPriceMinor',p_retail_price_minor,'active',p_active) into result; return result;
+end; $$;
+revoke all on function public.club_set_supplier_variant_retail_price(uuid,uuid,integer,boolean) from public,anon; grant execute on function public.club_set_supplier_variant_retail_price(uuid,uuid,integer,boolean) to authenticated;

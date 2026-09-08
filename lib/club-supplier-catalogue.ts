@@ -7,6 +7,7 @@ export type SupplierCatalogueProduct = { parentKey: string; supplierId: string; 
 export type SupplierCatalogueImportRow = Omit<SupplierCatalogueVariant, "supplierId" | "parentKey" | "imageReference"> & { supplier: string; name: string; brand?: string; description?: string; category?: string; subcategory?: string; sourceUrl?: string; parentImageReference?: string; variantImageReference?: string; parentKey?: string };
 export type SupplierCatalogueStore = { suppliers: ClubSupplier[]; products: SupplierCatalogueProduct[]; retailPrices: Record<string, number> };
 export type SupplierCatalogueImportSummary = { suppliers: number; parents: number; variants: number; created: number; updated: number; unchanged: number; errors: string[] };
+export type DurableSupplierParentRow = { parentKey: string; supplierId: string; supplierName: string; memberOrderable: boolean; brand?: string; name: string; description?: string; category?: string; subcategory?: string; sourceUrl?: string; imageReference?: string; variants: Array<SupplierCatalogueVariant & { id: string; retailPriceMinor?: number; clubProductId?: string }> };
 
 const clean = (value: unknown) => typeof value === "string" && value.trim() ? value.trim() : undefined;
 const stock = (value: unknown): SupplierStockStatus => /^(available|in stock|yes|true|1)$/i.test(String(value ?? "")) ? "available" : /^(unavailable|out of stock|no|false|0)$/i.test(String(value ?? "")) ? "unavailable" : "unknown";
@@ -49,6 +50,11 @@ export function upsertSupplierCatalogue(store: SupplierCatalogueStore, rows: Sup
 /** The member resolver should receive this boolean; unknown supplier stock is never orderable. */
 export function supplierVariantOrderable(supplier: ClubSupplier, variant: SupplierCatalogueVariant) {
   return supplier.memberOrderable && variant.stockStatus === "available";
+}
+
+/** Convert member-safe durable rows into the existing grouped commerce-product shape. */
+export function durableSupplierRowsToProducts(rows: DurableSupplierParentRow[], organisationId: string) {
+  return rows.flatMap(parent => parent.variants.map(variant => ({ id: variant.clubProductId ?? variant.id, organisationId, sku: variant.supplierSku, barcode: variant.barcode, name: parent.name, brand: parent.brand, description: parent.description, category: parent.category, active: true, stockTracked: Boolean(variant.clubProductId), sellPriceMinor: variant.retailPriceMinor ?? 0, currency: "GBP", supplierReference: variant.supplierSku, supplierMemberOrderable: parent.memberOrderable, supplierAvailabilityStatus: variant.stockStatus, variantImageReference: variant.imageReference, media: parent.imageReference ? { url: parent.imageReference } : undefined, familyId: `${parent.supplierId}:${parent.parentKey}`, variantOptions: Object.fromEntries([["flavour", variant.flavour], ["size", variant.size], ["packQuantity", variant.packQuantity ? String(variant.packQuantity) : undefined]].filter((entry): entry is [string, string] => Boolean(entry[1]))), createdAt: "", updatedAt: "" })));
 }
 
 /** Return only real variants for a selected size; never cross-product flavours. */
