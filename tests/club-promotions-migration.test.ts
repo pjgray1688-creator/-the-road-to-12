@@ -26,3 +26,12 @@ test("configured global GSN promotion maps to the real basket evaluator contract
   assert.equal(rule.repeatable, true);
   assert.equal(gsnPotOGoldPromotion(ids).combinable, false);
 });
+
+test("mounted shop delegates basket pricing to the canonical evaluator action", () => {
+  const shop = readFileSync("components/club-shop.tsx", "utf8");
+  const actions = readFileSync("app/club/shop/actions.ts", "utf8");
+  assert.match(shop, /evaluateCommercePromotionsAction/);
+  assert.match(shop, /p_items|items:/);
+  assert.match(actions, /club_evaluate_commerce_promotions/);
+  assert.match(actions, /p_location_id/);
+});
