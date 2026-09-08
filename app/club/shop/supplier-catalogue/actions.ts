@@ -55,18 +55,23 @@ export async function commitCatalogueEnrichmentAction(input: { organisationId: s
   if (error) return { ok: false, error: "Enrichment could not be saved." };
   revalidatePath("/club/shop/supplier-catalogue"); revalidatePath("/member-hub/shop"); return { ok: true, updated: payload.length };
 }
-export async function importGsnCatalogueAction(input: { organisationId: string; rows: Array<{ name: string; brand?: string; range?: string; category?: string; description?: string; retailPriceMinor?: number; sourceUrl?: string; parentImageReference?: string }> }) {
+export async function importGsnCatalogueAction(input: { organisationId: string; rows: Array<{ name: string; brand?: string; range?: string; category?: string; description?: string; retailPriceMinor?: number; sourceUrl?: string; parentImageReference?: string; variantImageReference?: string; nutrition?: Record<string, unknown>; ingredients?: string; allergens?: string }> }) {
   const value = await authorised(input.organisationId, false);
   if (!value || !input.rows.length) return { ok: false, error: "GSN import access required." };
-  let created = 0;
+  let created = 0; let updated = 0; let unchanged = 0;
   for (const row of input.rows) {
     const mapped = gsnCommerceProductInsert({ brand: row.brand ?? "GSN", range: row.range ?? "", name: row.name, category: row.category, description: row.description, retailPriceMinor: row.retailPriceMinor, sourceUrl: row.sourceUrl, parentImageReference: row.parentImageReference });
-    const existingResult = await value.client.from("club_commerce_products").select("id").eq("organisation_id", input.organisationId).eq("name", mapped.name).eq("category", mapped.category).maybeSingle();
+    const existingResult = await value.client.from("club_commerce_products").select("id,name,brand,description,category,active,stock_tracked,sell_price_minor,currency,media,sku,barcode,cost_price_minor,tax_code").eq("organisation_id", input.organisationId).eq("name", mapped.name).eq("category", mapped.category).maybeSingle();
     if (existingResult.error) { console.error("[gsn-import] lookup failed", { product: row.name, code: existingResult.error.code, message: existingResult.error.message }); return { ok: false, error: "Import failed: catalogue database schema is not ready." }; }
-    if (existingResult.data) continue;
-    const product = await value.client.rpc("club_save_commerce_product", { p_id: null, p_organisation_id: input.organisationId, p_sku: null, p_barcode: null, p_name: mapped.name, p_brand: mapped.brand, p_description: mapped.description, p_category: mapped.category, p_active: mapped.active, p_stock_tracked: mapped.stock_tracked, p_sell_price_minor: mapped.sell_price_minor, p_cost_price_minor: null, p_currency: mapped.currency, p_tax_code: null, p_supplier_reference: null, p_media: mapped.media });
+    const existing = existingResult.data as Record<string, unknown> | null;
+    const currentMedia = existing?.media && typeof existing.media === "object" && !Array.isArray(existing.media) ? existing.media as Record<string, unknown> : {};
+    const mergedMedia = { ...currentMedia, ...mapped.media, ...(mapped.media.enrichment && typeof currentMedia.enrichment === "object" ? { enrichment: { ...(currentMedia.enrichment as Record<string, unknown>), ...(mapped.media.enrichment as Record<string, unknown>) } } : {}) };
+    const sellPriceMinor = row.retailPriceMinor ?? Number(existing?.sell_price_minor ?? mapped.sell_price_minor);
+    const changed = !existing || Number(existing.sell_price_minor) !== sellPriceMinor || (row.sourceUrl && currentMedia.sourceUrl !== row.sourceUrl) || (row.parentImageReference && currentMedia.parentImageReference !== row.parentImageReference) || (row.variantImageReference && currentMedia.variantImageReference !== row.variantImageReference) || (row.description && existing.description !== row.description) || (row.ingredients && (currentMedia.enrichment as Record<string, unknown> | undefined)?.ingredients !== row.ingredients) || (row.allergens && (currentMedia.enrichment as Record<string, unknown> | undefined)?.allergens !== row.allergens);
+    if (!changed) { unchanged++; continue; }
+    const product = await value.client.rpc("club_save_commerce_product", { p_id: existing?.id ?? null, p_organisation_id: input.organisationId, p_sku: existing?.sku ?? null, p_barcode: existing?.barcode ?? null, p_name: String(existing?.name ?? mapped.name), p_brand: String(existing?.brand ?? mapped.brand), p_description: row.description ?? existing?.description ?? null, p_category: String(existing?.category ?? mapped.category), p_active: existing?.active !== false, p_stock_tracked: existing?.stock_tracked !== false, p_sell_price_minor: sellPriceMinor, p_cost_price_minor: existing?.cost_price_minor ?? null, p_currency: String(existing?.currency ?? mapped.currency), p_tax_code: existing?.tax_code ?? null, p_supplier_reference: null, p_media: mergedMedia });
     if (product.error) { console.error("[gsn-import] canonical product save failed", { product: row.name, code: product.error.code, message: product.error.message }); return { ok: false, error: product.error.code === "42703" || product.error.code === "42P01" ? "Import failed: catalogue database schema is not ready." : product.error.code === "42501" ? "Import failed: catalogue write permission is not available." : `Import failed while saving “${row.name}”: invalid catalogue data.` }; }
-    created++;
+    if (existing) updated++; else created++;
   }
-  revalidatePath("/club/shop"); revalidatePath("/member-hub/shop"); return { ok: true, created };
+  revalidatePath("/club/shop"); revalidatePath("/member-hub/shop"); return { ok: true, created, updated, unchanged };
 }

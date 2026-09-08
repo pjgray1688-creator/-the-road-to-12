@@ -27,4 +27,4 @@ export function resolveProductVariant(variants: ClubCommerceProduct[], selected:
   const keys = Object.keys(active[0]?.variantOptions ?? {}); if (!keys.length || keys.some(key => !selected[key])) return undefined;
   const matches = active.filter(v => keys.every(key => v.variantOptions?.[key] === selected[key])); return matches.length === 1 ? matches[0] : undefined;
 }
-export function money(minor: number) { return `£${(minor / 100).toFixed(2)}`; }
+export function money(minor: number) { return minor > 0 ? `£${(minor / 100).toFixed(2)}` : "Price not set"; }
