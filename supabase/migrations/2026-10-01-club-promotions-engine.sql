@@ -1,5 +1,6 @@
 -- R12 Promotions Engine: durable configuration, historical evidence and Golden Ticket concurrency.
--- Review/install manually; this migration seeds no offers and makes no provider calls.
+-- REQUIRED for authoritative bundle pricing/order totals. Review/install manually;
+-- this migration seeds no offers and makes no provider calls.
 
 create table if not exists public.club_promotion_applied_orders (
   id uuid primary key default gen_random_uuid(),
