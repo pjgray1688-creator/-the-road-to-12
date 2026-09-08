@@ -1,4 +1,6 @@
 "use client";
+/* Authoritative pricing state is synchronized from the server evaluator. */
+/* eslint-disable react-hooks/set-state-in-effect */
 import { useEffect, useMemo, useState, useTransition } from "react";
 import type { ClubCommerceProduct } from "@/lib/club-commerce";
 import type { ClubCustomer } from "@/lib/club-operations";
