@@ -29,6 +29,7 @@ export function allocateBundles(lines: PromotionLine[], groups: BundleGroup[], d
   return { qualifies: bundles.length > 0, lines: bundles.flat(), savingMinor, bundleCount: bundles.length, bundles };
 }
 export function allocateBundle(lines: PromotionLine[], groups: BundleGroup[], dealPriceMinor: number) { const result = allocateBundles(lines, groups, dealPriceMinor, false); return { qualifies: result.qualifies, lines: result.bundles[0] ?? [], savingMinor: result.bundles[0] ? result.bundles[0].reduce((n, l) => n + l.unitPriceMinor * l.quantity, 0) - dealPriceMinor > 0 ? result.bundles[0].reduce((n, l) => n + l.unitPriceMinor * l.quantity, 0) - dealPriceMinor : 0 : 0 }; }
+export function applyGsnPotOGoldDeal(quantity:number){if(!Number.isInteger(quantity)||quantity<0)throw new Error("invalid_quantity");return Math.floor(quantity/10)*3200+(quantity%10)*400;}
 export type GoldenCandidateDefinition = { id: string; label: string; lines: PromotionLine[]; percentBasisPoints?: number };
 export function deriveGoldenTicketCandidates(definitions: GoldenCandidateDefinition[]): GoldenCandidate[] { return definitions.map(candidate => ({ id: candidate.id, label: candidate.label, eligibleMinor: Math.floor(candidate.lines.reduce((sum, line) => sum + line.unitPriceMinor * line.quantity, 0) * (candidate.percentBasisPoints ?? 2000) / 10000) })); }
 export type AppliedPromotion = { id: string; savingMinor: number; combinable?: boolean; priority?: number; consumedLineIds?: string[] };
