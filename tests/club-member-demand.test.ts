@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { allocateReceivedUnits, availableToSellAfterMemberAllocation, collectionLabelData, collectionQrReference, snapshotMemberSupplierOrderLine, supplierRequirementLines, supplierVariantCanBeOrdered } from "../lib/club-supplier-workflow";
-import { groupSupplierCatalogue, parseSupplierCatalogueRows, resolveSupplierProductImage, resolveSupplierVariantReference, upsertSupplierCatalogue, variantsForSize, type SupplierCatalogueStore } from "../lib/club-supplier-catalogue";
+import { ACTIVE_SPORTS_HEADERS, groupSupplierCatalogue, normalizeActiveSportsCsv, parseSupplierCatalogueRows, resolveSupplierProductImage, resolveSupplierVariantReference, upsertSupplierCatalogue, variantsForSize, type SupplierCatalogueStore } from "../lib/club-supplier-catalogue";
 
 test("supplier requirements keep committed member demand separate from replenishment", () => {
   assert.deepEqual(supplierRequirementLines({ supplierId: "active", replenishment: [{ supplierVariantKey: "v", quantity: 3 }], committed: [{ supplierVariantKey: "v", quantity: 2 }] }), [{ supplierId: "active", supplierVariantKey: "v", replenishmentQuantity: 3, committedMemberQuantity: 2, totalRequired: 5 }]);
@@ -51,4 +51,18 @@ test("durable catalogue migration contains parent, variant metadata, retail mapp
   const sql = readFileSync("supabase/migrations/2026-10-13-club-supplier-catalogue-parent-variants.sql", "utf8");
   for (const term of ["club_supplier_parent_products", "parent_product_id", "pack_quantity", "member_orderable_unit", "availability_checked_at", "variant_image_url", "club_supplier_variant_prices", "club_import_supplier_catalogue_v2", "supplier.catalogue_manage", "p_reconcile boolean default false"]) assert.match(sql, new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   assert.doesNotMatch(sql, /wholesale_cost_minor[^\n]*p_rows/);
+});
+test("Active Sports 19-column export normalises stock, units, leading zeroes and images", () => {
+  const csv = `\uFEFF${ACTIVE_SPORTS_HEADERS.join(",")}\nActive Sports Nutrition,EHP Labs,OxyShred Ultra,Supplements,Fat Burners,Description,60 servings,Pink Lemonade,,Unit,In stock,2026-09-08T10:00:00Z,000123,000045,https://active.example/item,operator note,https://img.example/parent.jpg,https://img.example/variant.jpg,verified`;
+  const result = normalizeActiveSportsCsv(csv); assert.equal(result.errors.length, 0); assert.equal(result.rows[0].supplierSku, "000123"); assert.equal(result.rows[0].barcode, "000045"); assert.equal(result.rows[0].stockStatus, "available"); assert.equal(result.rows[0].memberOrderableUnit, "Unit"); assert.equal(result.rows[0].parentImageReference, "https://img.example/parent.jpg"); assert.equal(result.rows[0].variantImageReference, "https://img.example/variant.jpg");
+});
+test("stock states are conservative and invalid row fields are surfaced", () => {
+  const make = (stock: string, date = "2026-09-08", unit = "Case", url = "https://active.example/item") => `${ACTIVE_SPORTS_HEADERS.join(",")}\nActive Sports Nutrition,Brand,Product,Drinks,RTD,Desc,330ml,Chocolate,8,${unit},${stock},${date},,,${url},,,,`;
+  assert.equal(normalizeActiveSportsCsv(make("Unknown")).rows[0].stockStatus, "unknown"); assert.equal(normalizeActiveSportsCsv(make("Unavailable - dated clearance")).rows[0].stockStatus, "unavailable"); assert.equal(normalizeActiveSportsCsv(make("Out of stock")).rows[0].stockStatus, "unavailable");
+  const invalid = normalizeActiveSportsCsv(make("In stock", "not-a-date", "Pallet", "not-url")); assert.equal(invalid.rows.length, 0); assert.equal(invalid.errors.length, 3);
+});
+test("missing required headers and duplicate exact rows are deterministic", () => {
+  const missing = normalizeActiveSportsCsv("Supplier,Parent Product\nActive Sports,Product"); assert.match(missing.errors[0].reason, /Missing required/);
+  const row = `${ACTIVE_SPORTS_HEADERS.join(",")}\nActive Sports Nutrition,B,Product,C,S,D,1kg,Vanilla,1,Unit,In stock,2026-09-08,SKU,001,https://x.example,note,,,\nActive Sports Nutrition,B,Product,C,S,D,1kg,Vanilla,1,Unit,In stock,2026-09-08,SKU,001,https://x.example,note,,,`;
+  const result = normalizeActiveSportsCsv(row); assert.deepEqual(result.duplicateRows, [3]); assert.equal(result.rows.length, 2);
 });
