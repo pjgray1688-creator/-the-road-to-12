@@ -1,5 +1,10 @@
 export type PromotionLine = { id: string; productId: string; category?: string; unitPriceMinor: number; quantity: number };
 export type PromotionRule = { id: string; status: "draft"|"active"|"paused"|"expired"; startsAt: string; endsAt?: string; locationIds?: string[]; effect: "percentage"|"fixed"|"fixed_price"|"bundle"; valueMinor?: number; percentageBasisPoints?: number; priority?: number; combinable?: boolean; eligibility?: unknown; bundleGroups?: BundleGroup[]; bundlePriceMinor?: number; repeatable?: boolean };
+export function mapPromotionRecord(value: Record<string, unknown>): PromotionRule {
+  const eligibility = value.eligibility && typeof value.eligibility === "object" ? value.eligibility as Record<string, unknown> : undefined;
+  const groups = Array.isArray(eligibility?.bundle_groups) ? eligibility.bundle_groups.map(group => { const item = group as Record<string, unknown>; return { required: Number(item.required_quantity ?? 0), productIds: Array.isArray(item.product_ids) ? item.product_ids.map(String) : undefined, categories: Array.isArray(item.categories) ? item.categories.map(String) : undefined }; }) : undefined;
+  return { id: String(value.id), status: String(value.status ?? "active") as PromotionRule["status"], startsAt: value.starts_at ? String(value.starts_at) : "1970-01-01T00:00:00.000Z", ...(value.ends_at ? { endsAt: String(value.ends_at) } : {}), ...(Array.isArray(value.location_ids) && value.location_ids.length ? { locationIds: value.location_ids.map(String) } : {}), effect: groups?.length ? "bundle" : "percentage", ...(groups?.length ? { bundleGroups: groups, bundlePriceMinor: Number(eligibility?.bundle_price_minor ?? 0), repeatable: eligibility?.repeatable !== false } : {}) };
+}
 export function promotionIsActive(rule: PromotionRule, now: Date, locationId?: string) { return rule.status === "active" && new Date(rule.startsAt) <= now && (!rule.endsAt || now < new Date(rule.endsAt)) && (!rule.locationIds?.length || (locationId ? rule.locationIds.includes(locationId) : false)); }
 export function applyPromotion(subtotalMinor: number, rule: PromotionRule): number { const saving = rule.effect === "percentage" ? Math.floor(subtotalMinor * Math.max(0, Math.min(10000, rule.percentageBasisPoints ?? 0)) / 10000) : rule.effect === "fixed_price" ? Math.max(0, subtotalMinor - (rule.valueMinor ?? 0)) : rule.effect === "bundle" ? 0 : Math.max(0, rule.valueMinor ?? 0); return Math.min(subtotalMinor, saving); }
 export type GoldenCandidate = { id: string; label: string; eligibleMinor: number };
@@ -34,11 +39,11 @@ export const GSN_POT_O_GOLD_PROMOTION_NAME = "GSN 10 Meals for £32";
 export function gsnPotOGoldPromotion(productIds: string[], startsAt = "1970-01-01T00:00:00.000Z"): PromotionRule {
   return { id: "gsn-pot-o-gold-10-for-32", status: "active", startsAt, effect: "bundle", bundleGroups: [{ required: 10, productIds }], bundlePriceMinor: 3200, repeatable: true, priority: 100, combinable: false };
 }
-export function applyPromotionRules(lines: PromotionLine[], promotions: PromotionRule[]): { subtotalMinor: number; discountMinor: number; totalMinor: number; applied: Array<{ id: string; savingMinor: number; bundleCount?: number }> } {
+export function applyPromotionRules(lines: PromotionLine[], promotions: PromotionRule[], locationId?: string): { subtotalMinor: number; discountMinor: number; totalMinor: number; applied: Array<{ id: string; savingMinor: number; bundleCount?: number }> } {
   const subtotalMinor = lines.reduce((sum, line) => sum + line.unitPriceMinor * line.quantity, 0);
   let discountMinor = 0;
   const applied: Array<{ id: string; savingMinor: number; bundleCount?: number }> = [];
-  for (const rule of promotions.filter(item => promotionIsActive(item, new Date()))) {
+  for (const rule of promotions.filter(item => promotionIsActive(item, new Date(), locationId))) {
     if (rule.effect === "bundle" && rule.bundleGroups?.length && rule.bundlePriceMinor !== undefined) {
       const allocation = allocateBundles(lines, rule.bundleGroups, rule.bundlePriceMinor, rule.repeatable ?? true);
       if (allocation.savingMinor > 0) { discountMinor += allocation.savingMinor; applied.push({ id: rule.id, savingMinor: allocation.savingMinor, bundleCount: allocation.bundleCount }); }
