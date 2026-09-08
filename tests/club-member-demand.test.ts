@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { allocateReceivedUnits, availableToSellAfterMemberAllocation, collectionLabelData, collectionQrReference, snapshotMemberSupplierOrderLine, supplierRequirementLines, supplierVariantCanBeOrdered } from "../lib/club-supplier-workflow";
 import { groupSupplierCatalogue, parseSupplierCatalogueRows, resolveSupplierProductImage, resolveSupplierVariantReference, upsertSupplierCatalogue, variantsForSize, type SupplierCatalogueStore } from "../lib/club-supplier-catalogue";
 
@@ -45,4 +46,9 @@ test("supplier promo boilerplate is excluded while parent remains grouped", () =
   const supplier = { id: "active", name: "Active Sports", memberOrderable: true };
   const rows = parseSupplierCatalogueRows("name,parent_key,variant,size,availability\nBeef XP | SPECIAL OFFER | FREE SHAKER,beef-xp,Chocolate,1kg,available\nBeef XP | BLACK FRIDAY,beef-xp,Vanilla,2kg,available", supplier);
   const grouped = groupSupplierCatalogue(rows, supplier); assert.equal(grouped.length, 1); assert.equal(grouped[0].name, "Beef XP"); assert.equal(grouped[0].variants.length, 2);
+});
+test("durable catalogue migration contains parent, variant metadata, retail mapping and guarded importer", () => {
+  const sql = readFileSync("supabase/migrations/2026-10-13-club-supplier-catalogue-parent-variants.sql", "utf8");
+  for (const term of ["club_supplier_parent_products", "parent_product_id", "pack_quantity", "member_orderable_unit", "availability_checked_at", "variant_image_url", "club_supplier_variant_prices", "club_import_supplier_catalogue_v2", "supplier.catalogue_manage", "p_reconcile boolean default false"]) assert.match(sql, new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.doesNotMatch(sql, /wholesale_cost_minor[^\n]*p_rows/);
 });
