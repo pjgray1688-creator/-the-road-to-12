@@ -18,3 +18,7 @@ export async function configureGsnPotOGoldPromotionAction(input: { organisationI
   const promotionId = String((promotion as Record<string, unknown>).id); const { error: targetError } = await client.rpc("club_save_promotion_targets", { p_promotion_id: promotionId, p_targets: productIds.map(commerce_product_id => ({ target_type: "commerce_product", commerce_product_id })) }); if (targetError) return { ok: false, error: "GSN promotion eligibility could not be configured." };
   revalidatePath("/club/promotions"); revalidatePath("/member-hub/shop"); return { ok: true, promotionId, eligibleProducts: productIds.length };
 }
+
+export async function setClubPromotionStatusAction(input:{organisationId:string; promotionId:string; status:"active"|"paused"}) {
+  const client=await serverSupabase(); const {data:{user}}=await client.auth.getUser(); if(!user) return {ok:false,error:"Sign in required."}; const context=await resolveClubOrganisationContext(client,user.id,input.organisationId); if(!context || !(await context.repository.hasCapability(input.organisationId,user.id,"commerce.pricing_manage"))) return {ok:false,error:"Promotion management access required."}; const {error}=await client.from("club_promotions").update({status:input.status}).eq("id",input.promotionId).eq("organisation_id",input.organisationId); if(error) return {ok:false,error:"Promotion status could not be updated."}; revalidatePath("/club/promotions"); revalidatePath("/club/shop"); return {ok:true};
+}
