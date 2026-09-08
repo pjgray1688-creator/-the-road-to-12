@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { allocateReceivedUnits, availableToSellAfterMemberAllocation, collectionLabelData, collectionQrReference, snapshotMemberSupplierOrderLine, supplierRequirementLines, supplierVariantCanBeOrdered } from "../lib/club-supplier-workflow";
-import { resolveSupplierVariantReference, variantsForSize } from "../lib/club-supplier-catalogue";
+import { groupSupplierCatalogue, parseSupplierCatalogueRows, resolveSupplierProductImage, resolveSupplierVariantReference, upsertSupplierCatalogue, variantsForSize, type SupplierCatalogueStore } from "../lib/club-supplier-catalogue";
 
 test("supplier requirements keep committed member demand separate from replenishment", () => {
   assert.deepEqual(supplierRequirementLines({ supplierId: "active", replenishment: [{ supplierVariantKey: "v", quantity: 3 }], committed: [{ supplierVariantKey: "v", quantity: 2 }] }), [{ supplierId: "active", supplierVariantKey: "v", replenishmentQuantity: 3, committedMemberQuantity: 2, totalRequired: 5 }]);
@@ -32,4 +32,17 @@ test("order-line snapshot and collection label preserve exact identity while QR 
   assert.equal(line.fulfilmentType, "MEMBER_SUPPLIER_ORDER");
   const label = collectionLabelData({ memberDisplayName: "Member", orderReference: "R12-1", productName: "Beef XP", quantity: 1, locationName: "Rotherham", organisationId: "org", orderId: "order", orderItemId: "item" });
   assert.match(label.qrReference, /^r12col_/); assert.doesNotMatch(label.qrReference, /Member|org|order|item/); assert.notEqual(collectionQrReference("org", "order", "item"), "");
+});
+test("supplier CSV upsert is idempotent and does not require a price", () => {
+  const supplier = { id: "active", name: "Active Sports", memberOrderable: true };
+  const rows = parseSupplierCatalogueRows("supplier,brand,parent_product,size,variant,pack_quantity,supplier_sku,availability,parent_image_url,variant_image_url\nActive Sports,Applied Nutrition,Beef XP,1kg,Chocolate,1,SKU-1,available,https://img/parent.jpg,https://img/variant.jpg\nActive Sports,Applied Nutrition,Beef XP,2kg,Cherry Slush,1,SKU-2,available,https://img/parent.jpg,", supplier);
+  const store: SupplierCatalogueStore = { suppliers: [], products: [], retailPrices: {} };
+  const first = upsertSupplierCatalogue(store, rows, supplier); const second = upsertSupplierCatalogue(store, rows, supplier);
+  assert.equal(store.products.length, 1); assert.equal(store.products[0].variants.length, 2); assert.equal(first.created, 3); assert.equal(second.unchanged, 1);
+  assert.equal(resolveSupplierProductImage(store.products[0], store.products[0].variants[0]), "https://img/variant.jpg");
+});
+test("supplier promo boilerplate is excluded while parent remains grouped", () => {
+  const supplier = { id: "active", name: "Active Sports", memberOrderable: true };
+  const rows = parseSupplierCatalogueRows("name,parent_key,variant,size,availability\nBeef XP | SPECIAL OFFER | FREE SHAKER,beef-xp,Chocolate,1kg,available\nBeef XP | BLACK FRIDAY,beef-xp,Vanilla,2kg,available", supplier);
+  const grouped = groupSupplierCatalogue(rows, supplier); assert.equal(grouped.length, 1); assert.equal(grouped[0].name, "Beef XP"); assert.equal(grouped[0].variants.length, 2);
 });
