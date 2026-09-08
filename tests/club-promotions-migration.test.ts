@@ -12,6 +12,9 @@ test("pre-migration schema cannot provide authoritative bundle order pricing", (
   assert.match(migration, /club_resolve_promotion_bundles/);
   assert.match(migration, /club_promotion_applied_orders/);
   assert.match(migration, /repeatable/);
+  for (const policy of migration.matchAll(/create policy\s+(\w+)\s+on\s+([^\s;]+)/gi)) {
+    assert.match(migration.slice(0, policy.index), new RegExp(`drop policy if exists ${policy[1]} on ${policy[2]}`, "i"));
+  }
 });
 
 test("configured global GSN promotion maps to the real basket evaluator contract", () => {

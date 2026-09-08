@@ -37,7 +37,9 @@ alter table public.club_promotion_applied_orders enable row level security;
 alter table public.club_golden_ticket_redemptions enable row level security;
 revoke all on table public.club_promotion_applied_orders, public.club_golden_ticket_redemptions from public, anon, authenticated;
 grant select on table public.club_promotion_applied_orders, public.club_golden_ticket_redemptions to authenticated;
+drop policy if exists club_promotion_applied_orders_staff on public.club_promotion_applied_orders;
 create policy club_promotion_applied_orders_staff on public.club_promotion_applied_orders for select to authenticated using (public.club_has_active_role(organisation_id,array['gym_staff','gym_admin','owner']));
+drop policy if exists club_golden_ticket_redemptions_staff on public.club_golden_ticket_redemptions;
 create policy club_golden_ticket_redemptions_staff on public.club_golden_ticket_redemptions for select to authenticated using (public.club_has_active_role(organisation_id,array['gym_staff','gym_admin','owner']) or user_id=auth.uid());
 
 -- Lifecycle is configuration plus time; a future-dated row is never economically active.
