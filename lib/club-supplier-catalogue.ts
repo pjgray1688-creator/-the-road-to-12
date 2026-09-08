@@ -23,3 +23,18 @@ export function groupSupplierCatalogue(rows: SupplierCatalogueImportRow[], suppl
 export function supplierVariantOrderable(supplier: ClubSupplier, variant: SupplierCatalogueVariant) {
   return supplier.memberOrderable && variant.stockStatus === "available";
 }
+
+/** Return only real variants for a selected size; never cross-product flavours. */
+export function variantsForSize(product: SupplierCatalogueProduct, size?: string) {
+  return product.variants.filter(variant => !size || variant.size === size);
+}
+
+/** Resolve an incoming supplier reference without accepting ambiguous matches. */
+export function resolveSupplierVariantReference(input: { supplierSku?: string; barcode?: string; canonicalVariantId?: string }, variants: Array<{ canonicalVariantId: string; supplierSku?: string; barcode?: string }>) {
+  const match = (key: "supplierSku" | "barcode" | "canonicalVariantId", value?: string) => value ? variants.filter(variant => variant[key] === value) : [];
+  for (const [key, value] of [["supplierSku", input.supplierSku], ["barcode", input.barcode], ["canonicalVariantId", input.canonicalVariantId]] as const) {
+    const matches = match(key, value);
+    if (matches.length === 1) return matches[0];
+  }
+  return undefined;
+}

@@ -1,4 +1,36 @@
 import type { ClubCommerceProduct, ClubOrder } from "./club-commerce";
+import type { SupplierCatalogueVariant } from "./club-supplier-catalogue";
+export type FulfilmentType = "LOCAL_STOCK" | "MEMBER_SUPPLIER_ORDER";
+export type SupplierRequirementLine = { supplierId: string; supplierVariantKey: string; replenishmentQuantity: number; committedMemberQuantity: number; totalRequired: number };
+export type CollectionRecord = { id: string; organisationId: string; locationId: string; orderId: string; orderItemId: string; quantity: number; readyAt?: string; collectedAt?: string; status: "awaiting_supplier" | "ready_for_collection" | "collected"; qrReference: string };
+export type MemberSupplierOrderLineSnapshot = { fulfilmentType: "MEMBER_SUPPLIER_ORDER"; canonicalProductId: string; canonicalVariantId: string; supplierId: string; supplierVariantReference?: string; barcode?: string; flavour?: string; size?: string; packQuantity?: number; memberFacingProductName: string; retailPriceMinor: number; quantity: number };
+export type CollectionLabelData = { memberDisplayName: string; orderReference: string; productName: string; variantSummary?: string; quantity: number; locationName: string; readyDate?: string; qrReference: string };
+
+export function committedMemberDemand(orders: ClubOrder[], memberOrderableVariantKeys: Set<string>) {
+  return orders.filter(order => order.channel === "member_app" && order.status === "paid").flatMap(order => order.items.filter(item => memberOrderableVariantKeys.has(item.productId)).map(item => ({ orderId: order.id, orderItemId: item.id, supplierVariantKey: item.productId, quantity: item.quantity })));
+}
+export function supplierRequirementLines(input: { supplierId: string; replenishment: Array<{ supplierVariantKey: string; quantity: number }>; committed: Array<{ supplierVariantKey: string; quantity: number }> }): SupplierRequirementLine[] {
+  const keys = new Set([...input.replenishment.map(x => x.supplierVariantKey), ...input.committed.map(x => x.supplierVariantKey)]);
+  return [...keys].sort().map(key => { const replenishmentQuantity = input.replenishment.filter(x => x.supplierVariantKey === key).reduce((n, x) => n + Math.max(0, Math.floor(x.quantity)), 0); const committedMemberQuantity = input.committed.filter(x => x.supplierVariantKey === key).reduce((n, x) => n + Math.max(0, Math.floor(x.quantity)), 0); return { supplierId: input.supplierId, supplierVariantKey: key, replenishmentQuantity, committedMemberQuantity, totalRequired: replenishmentQuantity + committedMemberQuantity }; });
+}
+export function snapshotMemberSupplierOrderLine(input: Omit<MemberSupplierOrderLineSnapshot, "fulfilmentType">): MemberSupplierOrderLineSnapshot {
+  if (!Number.isInteger(input.retailPriceMinor) || input.retailPriceMinor < 0) throw new Error("invalid_retail_price");
+  if (!Number.isInteger(input.quantity) || input.quantity < 1) throw new Error("invalid_quantity");
+  return { ...input, fulfilmentType: "MEMBER_SUPPLIER_ORDER" };
+}
+export function availableToSellAfterMemberAllocation(onHand: number, reserved: number, allocatedMemberQuantity: number) {
+  return Math.max(0, Math.floor(onHand) - Math.max(0, Math.floor(reserved)) - Math.max(0, Math.floor(allocatedMemberQuantity)));
+}
+export function allocateReceivedUnits(demands: Array<{ id: string; supplierVariantKey: string; quantityRequired: number; quantityAllocated: number; createdAt: string }>, supplierVariantKey: string, receivedQuantity: number) {
+  let remaining = Math.max(0, Math.floor(receivedQuantity)); const allocations: Array<{ demandId: string; quantity: number }> = [];
+  for (const demand of demands.filter(d => d.supplierVariantKey === supplierVariantKey).sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id))) { const quantity = Math.min(remaining, Math.max(0, demand.quantityRequired - demand.quantityAllocated)); if (quantity) { allocations.push({ demandId: demand.id, quantity }); remaining -= quantity; } if (!remaining) break; }
+  return { allocations, uncommittedQuantity: remaining };
+}
+export function collectionQrReference(organisationId: string, orderId: string, orderItemId: string) { let hash = 2166136261; for (const value of `${organisationId}:${orderId}:${orderItemId}`) hash = Math.imul(hash ^ value.charCodeAt(0), 16777619); return `r12col_${(hash >>> 0).toString(36)}`; }
+export function collectionLabelData(input: Omit<CollectionLabelData, "qrReference"> & { organisationId: string; orderId: string; orderItemId: string }): CollectionLabelData {
+  return { memberDisplayName: input.memberDisplayName, orderReference: input.orderReference, productName: input.productName, ...(input.variantSummary ? { variantSummary: input.variantSummary } : {}), quantity: input.quantity, locationName: input.locationName, ...(input.readyDate ? { readyDate: input.readyDate } : {}), qrReference: collectionQrReference(input.organisationId, input.orderId, input.orderItemId) };
+}
+export function supplierVariantCanBeOrdered(supplier: { memberOrderable: boolean }, variant: SupplierCatalogueVariant, hasRetailPrice: boolean) { return supplier.memberOrderable && variant.stockStatus === "available" && hasRetailPrice; }
 export type FulfilmentState = "in_gym_now" | "available_to_order" | "ordered" | "awaiting_delivery" | "ready_for_collection" | "collected";
 export function fulfilmentForProduct(product: ClubCommerceProduct, onHand?: number): FulfilmentState { return product.stockTracked && onHand !== undefined && onHand > 0 ? "in_gym_now" : "available_to_order"; }
 export function paidSupplierDemand(order: ClubOrder, paid: boolean, supplierProductIds: Set<string>) { return paid && order.status === "paid" ? order.items.filter(item => supplierProductIds.has(item.productId)).map(item => ({ orderId: order.id, orderItemId: item.id, productId: item.productId, quantity: item.quantity })) : []; }
