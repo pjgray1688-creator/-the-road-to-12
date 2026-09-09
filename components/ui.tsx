@@ -1,9 +1,9 @@
 import Link from "next/link";
-import type { ReactNode } from "react";
+import type { ReactNode, CSSProperties } from "react";
 import { AvailabilitySettings } from "@/components/availability-settings";
 
-export function AppShell({ children, className = "" }: { children: ReactNode; className?: string }) {
-  return <main className={`app-shell ${className}`.trim()}>{children}{className.includes("member-hub-page") ? <Link className="back-button member-area-return" href="/">Back to R12</Link> : null}</main>;
+export function AppShell({ children, className = "", style }: { children: ReactNode; className?: string; style?: CSSProperties }) {
+  return <main className={`app-shell ${className}`.trim()} style={style}>{children}{className.includes("member-hub-page") ? <Link className="back-button member-area-return" href="/">Back to R12</Link> : null}</main>;
 }
 
 export function PageHeader({ eyebrow, title, description, children }: { eyebrow?: string; title: string; description?: string; children?: ReactNode }) {
