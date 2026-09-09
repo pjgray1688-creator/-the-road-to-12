@@ -1,0 +1,2 @@
+import { glowZonePackages } from "@/lib/glow-zone";
+export function GlowZoneTopUp(){return <section className="surface-card"><h2>TOP UP / BUY MINUTES</h2>{glowZonePackages.map(p=><div className="club-detail-row" key={p.id}><span><strong>{p.name}</strong><small>{p.minutes} minutes{p.membersOnly?" · Member price":""}</small></span><strong>£{(p.priceMinor/100).toFixed(2)}</strong></div>)}<p className="muted">Reception payment/tender integration is not connected yet. No minutes are granted until a completed payment is recorded.</p></section>}

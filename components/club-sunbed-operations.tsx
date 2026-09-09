@@ -1,6 +1,7 @@
 "use client";
-import { useState, useTransition, type ReactNode } from "react";
+import { useEffect, useState, useTransition, type ReactNode } from "react";
 import { recordSunbedUseAction, searchGlowCustomersAction, getGlowBalanceAction, getGlowAgeAction, verifyGlowAgeAction, adjustGlowMinutesAction, removeGlowMinutesAction, getGlowHistoryAction, getGlowLoyaltyAction } from "@/app/club/sunbeds/actions";
+import { glowZonePackages } from "@/lib/glow-zone";
 
 type Customer={userId:string;name:string;email:string};
 export function ClubSunbedOperations({organisationId,locations}:{organisationId:string;locations:Array<{id:string;name:string}>}){
@@ -9,6 +10,7 @@ export function ClubSunbedOperations({organisationId,locations}:{organisationId:
  const refresh=(userId:string)=>startTransition(async()=>{const [b,a,h,l]=await Promise.all([getGlowBalanceAction({organisationId,userId}),getGlowAgeAction({organisationId,userId}),getGlowHistoryAction({organisationId,userId}),getGlowLoyaltyAction({organisationId,userId})]);if(b.ok){setBalance(b.balance.minutes);setNextExpiry(b.balance.next_expiry)}if(a.ok)setAge(a.age?.status??"required");if(h.ok)setHistory(h.history);if(l.ok)setLoyalty(l.qualifyingSessions)});
  const choose=(x:Customer)=>{setSelected(x);setResults([]);refresh(x.userId)};
  const search=()=>startTransition(async()=>{const r=await searchGlowCustomersAction({organisationId,query});setResults(r.ok?r.results:[])});
+ useEffect(()=>{const timer=setTimeout(()=>{if(query.trim().length<2){setResults([]);return}void search()},300);return()=>clearTimeout(timer)},[query]);
  const verify=()=>selected&&dob&&startTransition(async()=>{const r=await verifyGlowAgeAction({organisationId,userId:selected.userId,locationId:locationId!,dateOfBirth:dob});setMessage(r.ok?"Age verified and retained for future visits.":(r.error??"Verification failed"));if(r.ok)refresh(selected.userId)});
  const use=()=>selected&&locationId&&startTransition(async()=>{const r=await recordSunbedUseAction({organisationId,userId:selected.userId,locationId,minutes:Number(minutes),idempotencyKey:`glow-use-${selected.userId}-${Date.now()}`});setMessage(r.ok?`${minutes} minutes used. Issue the physical token now.`:(r.error??"Use could not be recorded."));if(r.ok)refresh(selected.userId)});
  const adjust=(remove:boolean)=>selected&&locationId&&startTransition(async()=>{const fn=remove?removeGlowMinutesAction:adjustGlowMinutesAction;const r=await fn({organisationId,userId:selected.userId,locationId,minutes:Number(minutes),reason,idempotencyKey:`glow-adjust-${selected.userId}-${remove?"remove":"add"}-${Date.now()}`});setMessage(r.ok?"Adjustment recorded and balance refreshed.":(r.error??"Adjustment failed"));if(r.ok)refresh(selected.userId)});
