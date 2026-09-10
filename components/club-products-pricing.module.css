@@ -1,0 +1,6 @@
+.overview { display:grid; gap:16px; }
+.overview > section { display:grid; gap:12px; }
+.filters { display:flex; flex-wrap:wrap; gap:8px; }
+.filters button { min-height:44px; }
+.search { width:100%; min-height:46px; padding:12px 14px; border:1px solid var(--line); border-radius:10px; background:var(--panel2); color:var(--text); }
+.results { display:grid; gap:1px; }
