@@ -1,0 +1,21 @@
+{
+  "verification": "Independent check using existing normalizer AND existing commercial parser. The committed dry-run currently omits the latter.",
+  "publication": "REVIEW_ONLY_NOT_CUSTOMER_LIVE",
+  "parentProducts": 933,
+  "exactVariants": 3531,
+  "fullyCostedVariants": 1796,
+  "missingCost": 1735,
+  "explicitVatFree": 82,
+  "standardVat": 1714,
+  "vatReview": 1735,
+  "supplierOrderable": 2687,
+  "supplierUnavailable": 831,
+  "missingSku": 3512,
+  "missingBarcode": 3531,
+  "validParentOrVariantImage": 2,
+  "missingOrRejectedImage": 3529,
+  "duplicateRows": 0,
+  "parseErrors": 0,
+  "requiresManagementReview": 3529,
+  "economicsErrors": []
+}

@@ -1,0 +1,79 @@
+[
+  {
+    "kept_source_row": 1548,
+    "merged_source_row": 2510,
+    "product": "TNT Nuclear CANS",
+    "variant": "Cherry Cola",
+    "stock_values": [
+      "In stock",
+      "In stock"
+    ],
+    "stock_conflict": false
+  },
+  {
+    "kept_source_row": 1549,
+    "merged_source_row": 2511,
+    "product": "TNT Nuclear CANS",
+    "variant": "Ice Burst",
+    "stock_values": [
+      "In stock",
+      "In stock"
+    ],
+    "stock_conflict": false
+  },
+  {
+    "kept_source_row": 1550,
+    "merged_source_row": 2512,
+    "product": "TNT Nuclear CANS",
+    "variant": "Lemonade",
+    "stock_values": [
+      "In stock",
+      "In stock"
+    ],
+    "stock_conflict": false
+  },
+  {
+    "kept_source_row": 1645,
+    "merged_source_row": 2643,
+    "product": "Clear Whey Isolate",
+    "variant": "Blue Raspberry (BAG)",
+    "stock_values": [
+      "Out of stock",
+      "In stock"
+    ],
+    "stock_conflict": true
+  },
+  {
+    "kept_source_row": 1647,
+    "merged_source_row": 2644,
+    "product": "Clear Whey Isolate",
+    "variant": "Mango Passionfruit (BAG)",
+    "stock_values": [
+      "Out of stock",
+      "In stock"
+    ],
+    "stock_conflict": true
+  },
+  {
+    "kept_source_row": 1648,
+    "merged_source_row": 2645,
+    "product": "Clear Whey Isolate",
+    "variant": "Peach Ice Tea (BAG)",
+    "stock_values": [
+      "Out of stock",
+      "In stock"
+    ],
+    "stock_conflict": true
+  },
+  {
+    "kept_source_row": 1689,
+    "merged_source_row": 2651,
+    "product": "The Muscle Bomb",
+    "variant": "CAFFEINE FREE - Sherbet Lemon",
+    "stock_values": [
+      "In stock",
+      "Out of stock"
+    ],
+    "stock_conflict": true
+  }
+]

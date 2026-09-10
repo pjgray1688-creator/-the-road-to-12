@@ -1,0 +1,22 @@
+{
+  "generatedAt": "2026-09-10T10:07:39.598Z",
+  "input": "outputs/active-sports/catalogue.csv",
+  "publication": "REVIEW_ONLY_NOT_CUSTOMER_LIVE",
+  "parentProducts": 933,
+  "exactVariants": 3531,
+  "fullyCostedVariants": 0,
+  "missingCost": 3531,
+  "explicitVatFree": 0,
+  "standardVat": 0,
+  "vatReview": 3531,
+  "supplierOrderable": 2687,
+  "supplierUnavailable": 831,
+  "missingSku": 3512,
+  "missingBarcode": 3531,
+  "validParentOrVariantImage": 2,
+  "missingOrRejectedImage": 3529,
+  "duplicateRows": [],
+  "parseErrors": 0,
+  "requiresManagementReview": 3531,
+  "errors": []
+}

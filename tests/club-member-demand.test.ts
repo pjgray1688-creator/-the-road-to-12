@@ -92,3 +92,12 @@ test("supplier order quantity keeps case/box ordering explicit and imagery rejec
   assert.equal(mod.resolveValidatedSupplierImage(product), undefined);
   assert.equal(mod.resolveValidatedSupplierImage({ ...product, imageReference: "https://img.test/parent.jpg" }), "https://img.test/parent.jpg");
 });
+
+test("reviewed Active Sports reconciliation reports commercial counts from parsed fields", async () => {
+  const mod = await import("../lib/club-supplier-catalogue");
+  const csv = (await import("node:fs/promises")).readFile("data/active-sports/catalogue.csv", "utf8");
+  const input = await csv; const normal = mod.normalizeActiveSportsCsv(input); const records = (await import("../lib/club-csv")).parseCsvRecords(input);
+  normal.rows.forEach((row, index) => Object.assign(row, mod.parseActiveSportsCommercialFields(records[index]).fields));
+  const report = mod.activeSportsReconciliationReport(normal.rows, normal.errors, normal.duplicateRows);
+  assert.deepEqual({ variants: report.exactVariants, costed: report.fullyCostedVariants, missing: report.missingCost, vatFree: report.explicitVatFree, standard: report.standardVat, duplicates: report.duplicateRows, errors: report.parseErrors }, { variants: 3531, costed: 1796, missing: 1735, vatFree: 82, standard: 1714, duplicates: 0, errors: 0 });
+});
