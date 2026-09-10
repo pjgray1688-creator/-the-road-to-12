@@ -96,3 +96,111 @@ export function resolveSupplierVariantReference(input: { supplierSku?: string; b
   }
   return undefined;
 }
+
+/** Commercial fields accepted by the reviewed Active Sports import. These stay
+ * operator-side until a catalogue row has been deliberately published. */
+export type ActiveSportsCommercialFields = {
+  currentBoldTradeCostExVatMinor?: number;
+  purchaseVatRate?: number;
+  purchaseVatTreatment?: "standard" | "vat_free" | "review";
+  trueCostMinor?: number;
+  targetMargin?: number;
+  suggestedRetailMinor?: number;
+  finalRetailMinor?: number;
+  costStatus?: string;
+  costSourceSnapshot?: string;
+};
+
+const commercialHeaderAliases: Record<keyof ActiveSportsCommercialFields, string[]> = {
+  currentBoldTradeCostExVatMinor: ["Current Bold Trade Cost ex VAT", "Current Bold Trade Cost ex VAT (minor)"],
+  purchaseVatRate: ["VAT Rate", "Purchase VAT Rate"],
+  purchaseVatTreatment: ["VAT Treatment", "Purchase VAT Treatment"],
+  trueCostMinor: ["True Cost", "True Cost (minor)"],
+  targetMargin: ["Target Margin", "Target Margin %"],
+  suggestedRetailMinor: ["Suggested Retail", "Suggested Retail (minor)"],
+  finalRetailMinor: ["Final / Live Retail", "Final Retail", "Live Retail"],
+  costStatus: ["Cost Status"],
+  costSourceSnapshot: ["Cost Source / Snapshot", "Cost Source Snapshot"]
+};
+
+const cleanHeader = (value: string) => value.replace(/^\uFEFF/, "").trim().toLowerCase().replace(/\s+/g, " ");
+const commercialHeaderLookup = (record: Record<string, unknown>) => new Map(Object.keys(record).map(key => [cleanHeader(key), key]));
+const readCommercialField = (record: Record<string, unknown>, lookup: Map<string, string>, key: keyof ActiveSportsCommercialFields) => {
+  for (const alias of commercialHeaderAliases[key]) {
+    const source = lookup.get(cleanHeader(alias));
+    if (source) {
+      const value = String(record[source] ?? "").trim();
+      if (value) return value;
+    }
+  }
+  return undefined;
+};
+
+/** Parse optional commercial columns without making them customer-visible or
+ * inventing missing supplier economics. Money accepts GBP text or minor units
+ * when the header explicitly says minor. */
+export function parseActiveSportsCommercialFields(record: Record<string, unknown>): { fields: ActiveSportsCommercialFields; errors: string[] } {
+  const lookup = commercialHeaderLookup(record);
+  const errors: string[] = [];
+  const money = (key: keyof ActiveSportsCommercialFields) => {
+    const raw = readCommercialField(record, lookup, key);
+    if (raw === undefined) return undefined;
+    const minorHeader = commercialHeaderAliases[key].some(alias => /minor/i.test(alias) && lookup.has(cleanHeader(alias)));
+    const value = minorHeader ? Number(raw) : Math.round(Number(raw.replace(/[^0-9.-]/g, "")) * 100);
+    if (!Number.isInteger(value) || value < 0) { errors.push(`${String(key)} must be a non-negative amount`); return undefined; }
+    return value;
+  };
+  const percentage = (key: keyof ActiveSportsCommercialFields) => {
+    const raw = readCommercialField(record, lookup, key);
+    if (raw === undefined) return undefined;
+    const value = Number(raw.replace(/%/g, "").trim());
+    if (!Number.isFinite(value) || value < 0 || value > 100) { errors.push(`${String(key)} must be between 0 and 100`); return undefined; }
+    return value / 100;
+  };
+  const treatmentRaw = readCommercialField(record, lookup, "purchaseVatTreatment")?.toLowerCase();
+  const treatment = treatmentRaw === undefined ? undefined : /free|zero/.test(treatmentRaw) ? "vat_free" as const : /standard|20/.test(treatmentRaw) ? "standard" as const : /review|other/.test(treatmentRaw) ? "review" as const : undefined;
+  if (treatmentRaw && !treatment) errors.push("purchaseVatTreatment must be standard, vat free/zero-rated, or review");
+  const tradeCost = money("currentBoldTradeCostExVatMinor");
+  const vatRate = percentage("purchaseVatRate");
+  const trueCost = money("trueCostMinor");
+  const targetMargin = percentage("targetMargin");
+  const suggestedRetail = money("suggestedRetailMinor");
+  const finalRetail = money("finalRetailMinor");
+  const costStatus = readCommercialField(record, lookup, "costStatus");
+  const costSourceSnapshot = readCommercialField(record, lookup, "costSourceSnapshot");
+  const fields: ActiveSportsCommercialFields = {
+    ...(tradeCost === undefined ? {} : { currentBoldTradeCostExVatMinor: tradeCost }),
+    ...(vatRate === undefined ? {} : { purchaseVatRate: vatRate }),
+    ...(treatment ? { purchaseVatTreatment: treatment } : {}),
+    ...(trueCost === undefined ? {} : { trueCostMinor: trueCost }),
+    ...(targetMargin === undefined ? {} : { targetMargin }),
+    ...(suggestedRetail === undefined ? {} : { suggestedRetailMinor: suggestedRetail }),
+    ...(finalRetail === undefined ? {} : { finalRetailMinor: finalRetail }),
+    ...(costStatus ? { costStatus } : {}),
+    ...(costSourceSnapshot ? { costSourceSnapshot } : {})
+  };
+  return { fields, errors };
+}
+
+/** Reconcile supplier availability conservatively: a parent is orderable only
+ * when at least one exact, available variant has been reviewed. */
+export function supplierParentCanBeOrdered(supplier: ClubSupplier, parent: SupplierCatalogueProduct, hasRetailPrice: (variant: SupplierCatalogueVariant) => boolean = () => true) {
+  return supplier.memberOrderable && parent.variants.some(variant => supplierVariantOrderable(supplier, variant) && hasRetailPrice(variant));
+}
+
+/** Supplier order units are never silently converted from a case into a single
+ * sellable unit. The caller must explicitly choose the supplier's order unit. */
+export function supplierOrderQuantity(variant: Pick<SupplierCatalogueVariant, "packQuantity" | "memberOrderableUnit">, quantity: number) {
+  if (!Number.isInteger(quantity) || quantity < 1) throw new Error("invalid_supplier_order_quantity");
+  const unit = variant.memberOrderableUnit?.toLowerCase();
+  if (!unit) throw new Error("supplier_order_unit_required");
+  return { quantity, unit, packQuantity: variant.packQuantity ?? 1, isCaseOrBox: unit === "case" || unit === "box" };
+}
+
+const likelyPlaceholderImage = /placeholder|no[-_ ]?image|coming[-_ ]?soon|default[-_ ]?product/i;
+/** Validate imported imagery before it is allowed into a customer-facing
+ * catalogue; invalid/placeholder URLs fall back to parent or no image. */
+export function resolveValidatedSupplierImage(product: SupplierCatalogueProduct, variant?: SupplierCatalogueVariant) {
+  const candidates = [variant?.imageReference, product.imageReference].filter((value): value is string => Boolean(value));
+  return candidates.find(value => { try { const url = new URL(value); return (url.protocol === "https:" || url.protocol === "http:") && !likelyPlaceholderImage.test(url.pathname + url.search); } catch { return false; } });
+}

@@ -66,3 +66,29 @@ test("missing required headers and duplicate exact rows are deterministic", () =
   const row = `${ACTIVE_SPORTS_HEADERS.join(",")}\nActive Sports Nutrition,B,Product,C,S,D,1kg,Vanilla,1,Unit,In stock,2026-09-08,SKU,001,https://x.example,note,,,\nActive Sports Nutrition,B,Product,C,S,D,1kg,Vanilla,1,Unit,In stock,2026-09-08,SKU,001,https://x.example,note,,,`;
   const result = normalizeActiveSportsCsv(row); assert.deepEqual(result.duplicateRows, [3]); assert.equal(result.rows.length, 2);
 });
+
+test("Active Sports commercial import fields preserve supplier VAT treatment without inventing missing costs", async () => {
+  const mod = await import("../lib/club-supplier-catalogue");
+  const standard = mod.parseActiveSportsCommercialFields({ "Current Bold Trade Cost ex VAT": "10.00", "VAT Rate": "20%", "VAT Treatment": "Standard 20%", "Target Margin %": "30%", "Suggested Retail": "19.99", "Cost Status": "current" });
+  assert.deepEqual(standard.errors, []); assert.equal(standard.fields.currentBoldTradeCostExVatMinor, 1000); assert.equal(standard.fields.purchaseVatRate, .2); assert.equal(standard.fields.purchaseVatTreatment, "standard"); assert.equal(standard.fields.suggestedRetailMinor, 1999);
+  const free = mod.parseActiveSportsCommercialFields({ "Current Bold Trade Cost ex VAT": "10.00", "VAT Treatment": "VAT free / zero-rated" });
+  assert.equal(free.fields.purchaseVatTreatment, "vat_free"); assert.equal(free.fields.currentBoldTradeCostExVatMinor, 1000); assert.equal(free.fields.trueCostMinor, undefined);
+  const invalid = mod.parseActiveSportsCommercialFields({ "VAT Rate": "120%" }); assert.equal(invalid.fields.purchaseVatRate, undefined); assert.match(invalid.errors[0], /between 0 and 100/);
+});
+
+test("Active Sports parent orderability requires an exact available variant and retail price", async () => {
+  const mod = await import("../lib/club-supplier-catalogue");
+  const supplier = { id: "active", name: "Active Sports", memberOrderable: true };
+  const parent = { parentKey: "abe", supplierId: "active", name: "ABE", variants: [{ supplierId: "active", parentKey: "abe", stockStatus: "unavailable" as const }, { supplierId: "active", parentKey: "abe", stockStatus: "available" as const }] };
+  assert.equal(mod.supplierParentCanBeOrdered(supplier, parent, variant => variant.stockStatus === "available"), true);
+  assert.equal(mod.supplierParentCanBeOrdered(supplier, { ...parent, variants: [{ ...parent.variants[0] }] }, () => true), false);
+});
+
+test("supplier order quantity keeps case/box ordering explicit and imagery rejects placeholders", async () => {
+  const mod = await import("../lib/club-supplier-catalogue");
+  assert.deepEqual(mod.supplierOrderQuantity({ memberOrderableUnit: "Case", packQuantity: 12 }, 1), { quantity: 1, unit: "case", packQuantity: 12, isCaseOrBox: true });
+  assert.throws(() => mod.supplierOrderQuantity({ memberOrderableUnit: undefined, packQuantity: 1 }, 1), /supplier_order_unit_required/);
+  const product = { parentKey: "p", supplierId: "active", name: "Product", imageReference: "https://img.test/no-image.png", variants: [] };
+  assert.equal(mod.resolveValidatedSupplierImage(product), undefined);
+  assert.equal(mod.resolveValidatedSupplierImage({ ...product, imageReference: "https://img.test/parent.jpg" }), "https://img.test/parent.jpg");
+});
