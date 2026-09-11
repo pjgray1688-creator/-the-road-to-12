@@ -307,6 +307,12 @@ test("worker persists reconciliation stage timings returned by the RPC", () => {
   assert.match(worker, /durationMs/);
 });
 
+test("reconciliation writes each completed stage immediately", () => {
+  const sql = readFileSync("supabase/migrations/2026-10-31-reconcile-stage-logging.sql", "utf8");
+  for (const stage of ["snapshot complete", "identity matching complete", "duplicate handling complete", "reconciliation complete", "pricing complete", "publish complete"]) assert.match(sql, new RegExp(stage));
+  assert.match(sql, /insert into public\.club_import_job_logs/);
+});
+
 test("worker failure payload includes stage and SQL error context", () => {
   const sql = readFileSync("supabase/migrations/2026-10-27-import-worker-failure-details.sql", "utf8");
   assert.match(sql, /'status','failed'/);
