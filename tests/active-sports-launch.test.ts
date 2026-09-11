@@ -281,6 +281,12 @@ test("worker completion requires an explicit valid terminal payload", () => {
   assert.match(worker, /status: payload\?\.status \?\? null/);
 });
 
+test("failed worker payload is promoted without replacing its RPC details", () => {
+  const worker = readFileSync("lib/supplier-import-worker.ts", "utf8");
+  assert.match(worker, /error: firstFailure \? \(firstFailure\.result \?\? firstFailure\.error\)/);
+  assert.match(worker, /validationError: firstFailure\?\.validationError/);
+});
+
 test("worker failure payload includes stage and SQL error context", () => {
   const sql = readFileSync("supabase/migrations/2026-10-27-import-worker-failure-details.sql", "utf8");
   assert.match(sql, /'status','failed'/);

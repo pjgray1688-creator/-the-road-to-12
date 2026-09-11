@@ -41,11 +41,12 @@ export async function runQueuedSupplierImportWorker(triggerJobId?: string) {
       const invalid = error ? undefined : completionError(data);
       const ok = !error && !invalid;
       const payload = data && typeof data === "object" && !Array.isArray(data) ? data as Record<string, unknown> : undefined;
-      results.push({ jobId: id, ok, result: data ?? null, status: payload?.status ?? null, error: error ?? invalid ?? null });
+      results.push({ jobId: id, ok, result: data ?? null, status: payload?.status ?? null, error: error ?? invalid ?? null, validationError: invalid ?? null });
       if (ok) await log(client, [id], "worker completed");
     }
     const failed = results.filter(result => result.ok === false);
-    return { claimed: ids.length, claimedJobIds: ids, started: ids.length > 0, completed: results.length - failed.length, failed: failed.length, error: failed[0]?.error ?? null, results };
+    const firstFailure = failed[0];
+    return { claimed: ids.length, claimedJobIds: ids, started: ids.length > 0, completed: results.length - failed.length, failed: failed.length, error: firstFailure ? (firstFailure.result ?? firstFailure.error) : null, validationError: firstFailure?.validationError ?? null, results };
   } catch (error) {
     return { claimed: 0, claimedJobIds: [], started: false, completed: 0, failed: 1, error, results: [] };
   }
