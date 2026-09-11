@@ -287,6 +287,12 @@ test("failed worker payload is promoted without replacing its RPC details", () =
   assert.match(worker, /validationError: firstFailure\?\.validationError/);
 });
 
+test("worker qualifies stage column and PL/pgSQL variable", () => {
+  const sql = readFileSync("supabase/migrations/2026-10-28-fix-worker-stage-ambiguity.sql", "utf8");
+  assert.match(sql, /update public\.club_import_job_events e/);
+  assert.match(sql, /e2\.stage=worker\.stage/);
+});
+
 test("worker failure payload includes stage and SQL error context", () => {
   const sql = readFileSync("supabase/migrations/2026-10-27-import-worker-failure-details.sql", "utf8");
   assert.match(sql, /'status','failed'/);
