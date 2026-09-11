@@ -33,6 +33,10 @@ export async function reconcileActiveSportsAction(input: { organisationId: strin
     const supplier = await client.from("club_suppliers").select("id").eq("organisation_id", input.organisationId).ilike("name", "Active Sports%").maybeSingle();
     const { data: queued, error: queueError } = await client.rpc("club_enqueue_supplier_import_job", { p_organisation_id: input.organisationId, p_supplier_id: supplier.data?.id ?? null, p_filename: input.fileName.slice(0, 200), p_payload: { supplier: "Active Sports", rows, revision: input.revision ?? null } });
     if (queueError) return { ok: false as const, error: "Import job could not be queued. No changes were applied." };
+    const workerOrigin = process.env.NEXT_PUBLIC_SITE_URL ?? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined);
+    if (workerOrigin) {
+      void fetch(`${workerOrigin.replace(/\/$/, "")}/api/internal/supplier-import-worker`, { headers: process.env.CRON_SECRET ? { authorization: `Bearer ${process.env.CRON_SECRET}` } : undefined }).catch(() => undefined);
+    }
     return { ok: true as const, summary: parsed.summary, duplicateGroups: parsed.duplicateGroups, comparison: { ...(queued as Record<string, unknown>), applied: false, queued: true } as Record<string, number | string | boolean> };
   }
   const { data, error } = await client.rpc("club_reconcile_active_sports", { p_organisation_id: input.organisationId, p_file_name: input.fileName.slice(0, 200), p_rows: rows, p_apply: false, p_expected_revision: input.revision ?? null });

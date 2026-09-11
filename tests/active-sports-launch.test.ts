@@ -245,9 +245,15 @@ test("supplier import queue has an automatic scheduled worker boundary", async (
   const { readFileSync } = await import("node:fs");
   const migration = readFileSync("supabase/migrations/2026-10-24-supplier-import-worker-trigger.sql", "utf8");
   const route = readFileSync("app/api/internal/supplier-import-worker/route.ts", "utf8");
-  const vercel = readFileSync("vercel.json", "utf8");
   assert.match(migration, /club_claim_supplier_import_jobs/);
   assert.match(migration, /for update skip locked/i);
   assert.match(route, /club_run_supplier_import_job/);
-  assert.match(vercel, /api\/internal\/supplier-import-worker/);
+});
+
+test("enqueue immediately kicks the worker without requiring cron", async () => {
+  const action = readFileSync("app/club/products/actions.ts", "utf8");
+  assert.match(action, /club_enqueue_supplier_import_job/);
+  assert.match(action, /api\/internal\/supplier-import-worker/);
+  assert.match(action, /void fetch\([^\n]+\.catch\(\(\) => undefined\)/);
+  assert.doesNotMatch(action, /await fetch\([^\n]+supplier-import-worker/);
 });
