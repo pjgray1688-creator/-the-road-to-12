@@ -36,12 +36,18 @@ test("whole unavailable parent excluded, genuine unavailable sibling retained", 
   assert.equal(parsed.summary.excludedParents, 1);
 });
 
-test("strong identity is stable across display changes; duplicate SKU and barcode rejected", () => {
-  const a = { supplier: "Active Sports", name: "Whey", supplierSku: "000123", stockStatus: "available" as const };
+test("variant identity includes flavour and size while barcode/SKU remain linking metadata", () => {
+  const a = { supplier: "Active Sports", name: "Whey", flavour: "Chocolate", size: "2kg", supplierSku: "000123", stockStatus: "available" as const };
   assert.equal(activeSportsIdentity(a), activeSportsIdentity({ ...a, name: "Updated whey" }));
-  const parsed = prepareActiveSportsImport(csv({ ...record, "Supplier SKU": "000123" }, { ...record, "Supplier SKU": "000123", "Parent Product": "Renamed" }));
-  assert.deepEqual(parsed.duplicateRows, [2, 3]);
-  assert.deepEqual(prepareActiveSportsImport(csv({ ...record, Barcode: "00123", "Supplier SKU": "A" }, { ...record, Barcode: "00123", "Supplier SKU": "B" })).duplicateRows, [2, 3]);
+  const parsed = prepareActiveSportsImport(csv({ ...record, "Supplier SKU": "000123" }, { ...record, "Supplier SKU": "000123", "Variant / Flavour": "Vanilla" }));
+  assert.deepEqual(parsed.duplicateRows, []);
+  assert.equal(parsed.duplicateGroups.length, 0);
+  const sameVariant = prepareActiveSportsImport(csv({ ...record, "Supplier SKU": "000123" }, { ...record, "Supplier SKU": "000123", "Barcode": "00999999" }));
+  assert.deepEqual(sameVariant.duplicateRows, [2, 3]);
+  const differentSize = prepareActiveSportsImport(csv({ ...record, "Supplier SKU": "000123" }, { ...record, "Supplier SKU": "000123", "Size / Format": "1kg" }));
+  assert.deepEqual(differentSize.duplicateRows, []);
+  const barcodeFlavours = prepareActiveSportsImport(csv({ ...record, Barcode: "12345678", "Supplier SKU": "A" }, { ...record, Barcode: "12345678", "Supplier SKU": "B", "Variant / Flavour": "Vanilla" }));
+  assert.deepEqual(barcodeFlavours.duplicateRows, []);
 });
 
 test("identical duplicates are grouped, first row is kept, and validation remains importable", () => {
@@ -57,20 +63,22 @@ test("identical duplicates are grouped, first row is kept, and validation remain
 
 test("duplicate identity groups expose row facts and only conflicting commercial data fails", () => {
   const sameBarcodeDifferentSku = prepareActiveSportsImport(csv({ ...record, Barcode: "12345678", "Supplier SKU": "SKU-A" }, { ...record, Barcode: "12345678", "Supplier SKU": "SKU-B" }));
-  assert.equal(sameBarcodeDifferentSku.duplicateGroups.length, 1);
-  assert.equal(sameBarcodeDifferentSku.duplicateGroups[0].identical, false);
-  assert.deepEqual(sameBarcodeDifferentSku.duplicateGroups[0].conflictingRows, [2, 3]);
-  assert.match(sameBarcodeDifferentSku.duplicateGroups[0].identityKey, /barcode/);
-  assert.equal(sameBarcodeDifferentSku.duplicateGroups[0].rows[0].productName, "Whey");
-  assert.equal(sameBarcodeDifferentSku.duplicateGroups[0].rows[0].brand, "Per4m Nutrition");
-  assert.equal(sameBarcodeDifferentSku.duplicateGroups[0].rows[0].supplier, "Active Sports");
-  assert.equal(sameBarcodeDifferentSku.duplicateGroups[0].rows[0].sku, "SKU-A");
-  assert.equal(sameBarcodeDifferentSku.duplicateGroups[0].rows[0].barcode, "12345678");
-  assert.equal(sameBarcodeDifferentSku.duplicateGroups[0].rows[0].variant, "Chocolate");
-  assert.equal(sameBarcodeDifferentSku.duplicateGroups[0].rows[0].size, "2kg");
-  assert.equal(sameBarcodeDifferentSku.duplicateGroups[0].rows[0].stock, "available");
-  assert.equal(sameBarcodeDifferentSku.duplicateGroups[0].rows[0].costPriceMinor, 2000);
-  assert.equal(sameBarcodeDifferentSku.duplicateGroups[0].rows[0].vatRate, .2);
+  assert.equal(sameBarcodeDifferentSku.duplicateGroups.length, 0);
+  const sameFlavour = prepareActiveSportsImport(csv({ ...record, Barcode: "12345678", "Supplier SKU": "SKU-A" }, { ...record, Barcode: "12345678", "Supplier SKU": "SKU-A", "Trade Cost ex VAT": "21.00" }));
+  assert.equal(sameFlavour.duplicateGroups.length, 1);
+  assert.equal(sameFlavour.duplicateGroups[0].identical, false);
+  assert.deepEqual(sameFlavour.duplicateGroups[0].conflictingRows, [2, 3]);
+  assert.match(sameFlavour.duplicateGroups[0].identityKey, /sku/);
+  assert.equal(sameFlavour.duplicateGroups[0].rows[0].productName, "Whey");
+  assert.equal(sameFlavour.duplicateGroups[0].rows[0].brand, "Per4m Nutrition");
+  assert.equal(sameFlavour.duplicateGroups[0].rows[0].supplier, "Active Sports");
+  assert.equal(sameFlavour.duplicateGroups[0].rows[0].sku, "SKU-A");
+  assert.equal(sameFlavour.duplicateGroups[0].rows[0].barcode, "12345678");
+  assert.equal(sameFlavour.duplicateGroups[0].rows[0].variant, "Chocolate");
+  assert.equal(sameFlavour.duplicateGroups[0].rows[0].size, "2kg");
+  assert.equal(sameFlavour.duplicateGroups[0].rows[0].stock, "available");
+  assert.equal(sameFlavour.duplicateGroups[0].rows[0].costPriceMinor, 2000);
+  assert.equal(sameFlavour.duplicateGroups[0].rows[0].vatRate, .2);
   const sameSkuDifferentCost = prepareActiveSportsImport(csv({ ...record, "Supplier SKU": "SKU-C" }, { ...record, "Supplier SKU": "SKU-C", "Trade Cost ex VAT": "21.00" }));
   assert.equal(sameSkuDifferentCost.duplicateGroups[0].identical, false);
   assert.equal(sameSkuDifferentCost.errors.some(error => error.reason.includes("Conflicting duplicate identity")), true);
@@ -83,7 +91,7 @@ test("duplicate identity groups expose row facts and only conflicting commercial
   const duplicateSku = prepareActiveSportsImport(csv({ ...record, "Supplier SKU": "SKU-E" }, { ...record, "Supplier SKU": "SKU-E" }));
   assert.equal(duplicateSku.duplicateGroups[0].identical, true);
   const mixed = prepareActiveSportsImport(csv({ ...record, Barcode: "12345678", "Supplier SKU": "SKU-F" }, { ...record, Barcode: "12345678", "Supplier SKU": "SKU-G" }));
-  assert.equal(mixed.duplicateGroups[0].identical, false);
+  assert.equal(mixed.duplicateGroups.length, 0);
 });
 
 test("malformed costs, VAT, stock, missing facts and corrupt CSV fail closed", () => {
@@ -120,6 +128,8 @@ test("database reconciliation protects permissions, audited manual pricing, idem
   assert.match(sql, /p_expected_revision is distinct from revision/);
   assert.match(sql, /pg_advisory_xact_lock/);
   assert.match(sql, /prior=payload and o.import_identity=identity_key then unchanged/);
+  assert.match(sql, /supplierSku.*variant.*size/);
+  assert.doesNotMatch(sql, /barcode_seen/);
   assert.match(sql, /if not new.manual_price then new.retail_price_minor:=floor_minor/);
   assert.match(sql, /retail_price_minor=p_retail_price_minor,manual_price=true/);
   assert.match(sql, /insert into public.club_supplier_variant_costs/);

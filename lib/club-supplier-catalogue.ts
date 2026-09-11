@@ -228,7 +228,11 @@ export function supplierPricing(tradeCostMinor: number, vatRate: number, livePri
 
 export function activeSportsIdentity(row: SupplierCatalogueImportRow) {
   const normal = (value?: string) => value?.trim().toLowerCase() ?? "";
-  return row.supplierSku ? `sku:${row.supplierSku.trim()}` : row.barcode ? `barcode:${row.barcode.trim()}` : `facts:${JSON.stringify([normal(row.brand), normal(row.name), normal(row.size), normal(row.flavour), row.packQuantity ?? 1, normal(row.memberOrderableUnit)])}`;
+  const variant = normal(row.flavour) || normal(row.name);
+  const size = normal(row.size);
+  const reference = row.supplierSku ? `sku:${normal(row.supplierSku)}` : row.barcode ? `barcode:${normal(row.barcode)}` : "facts";
+  const product = reference === "facts" ? `|product:${normal(row.name)}` : "";
+  return `${reference}${product}|variant:${variant}|size:${size}|pack:${row.packQuantity ?? 1}|unit:${normal(row.memberOrderableUnit)}`;
 }
 
 /** Final-file gate. Historical review exports can still be inspected by the legacy parser,
@@ -261,7 +265,10 @@ export function prepareActiveSportsImport(csv: string, options: { duplicateChoic
     if (/^(case|box|pack)$/i.test(record["member order unit"] ?? "") && !/^\d+$/.test(record["pack qty"] ?? "")) errors.push({ row, reason: "Pack Qty is required for a case, box or pack" });
     const candidate = { supplier: record.supplier || "", name: cleanSupplierProductName(record["parent product"] ?? ""), brand: record.brand || undefined, size: record["size / format"] || undefined, flavour: record["variant / flavour"] || undefined, packQuantity: Number(record["pack qty"] || 1), memberOrderableUnit: record["member order unit"] || undefined, supplierSku: record["supplier sku"] || undefined, barcode: record.barcode || undefined, stockStatus: stock(record["supplier stock"]) };
     const normal = (value?: string) => value?.trim().toLowerCase() ?? "";
-    const keys = [candidate.supplier && candidate.supplier.toLowerCase() + ":sku:" + normal(candidate.supplierSku), candidate.supplier && candidate.supplier.toLowerCase() + ":barcode:" + normal(candidate.barcode), `${candidate.supplier.toLowerCase()}:facts:${JSON.stringify([normal(candidate.brand), normal(candidate.name), normal(candidate.size), normal(candidate.flavour), candidate.packQuantity || 1, normal(candidate.memberOrderableUnit)])}`].filter((key): key is string => Boolean(key && !key.endsWith(":sku:") && !key.endsWith(":barcode:")));
+    const variant = normal(candidate.flavour) || normal(candidate.name);
+    const reference = candidate.supplierSku ? `sku:${normal(candidate.supplierSku)}` : candidate.barcode ? `barcode:${normal(candidate.barcode)}` : "facts";
+    const product = reference === "facts" ? `:product:${normal(candidate.name)}` : "";
+    const keys = [`${candidate.supplier.toLowerCase()}:${reference}${product}:variant:${variant}:size:${normal(candidate.size)}:pack:${candidate.packQuantity || 1}:unit:${normal(candidate.memberOrderableUnit)}`];
     const signature = JSON.stringify({ ...Object.fromEntries(Object.entries(record).map(([key, value]) => [key, value.trim()])), commercial: fields.fields });
     duplicateCandidates.push({ detail: { row, productName: candidate.name, brand: candidate.brand, supplier: candidate.supplier, sku: candidate.supplierSku, barcode: candidate.barcode, variant: candidate.flavour, size: candidate.size, stock: candidate.stockStatus, costPriceMinor: fields.fields.currentBoldTradeCostExVatMinor, retailPriceMinor: fields.fields.finalRetailMinor, vatRate: fields.fields.purchaseVatRate, identityKey: keys[0] ?? "" }, keys, signature });
   });
@@ -284,8 +291,7 @@ export function prepareActiveSportsImport(csv: string, options: { duplicateChoic
     if (group.length < 2) continue;
     group.forEach(item => visited.add(item.detail.row));
     const identical = group.every(item => item.signature === group[0].signature);
-    const commonKeys = [...new Set(group.flatMap(item => item.keys).filter(key => group.every(item => item.keys.includes(key))))];
-    const identityKey = commonKeys.find(key => key.includes(":sku:")) ?? commonKeys.find(key => key.includes(":barcode:")) ?? commonKeys.find(key => key.includes(":facts:")) ?? candidate.detail.identityKey;
+    const identityKey = candidate.keys[0] ?? candidate.detail.identityKey;
     const selectedRow = options.duplicateChoices?.[identityKey];
     const chosen = !identical && selectedRow !== undefined && group.some(item => item.detail.row === selectedRow) ? selectedRow : undefined;
     const autoIgnoredRows = identical ? group.slice(1).map(item => item.detail.row) : chosen === undefined ? [] : group.filter(item => item.detail.row !== chosen).map(item => item.detail.row);

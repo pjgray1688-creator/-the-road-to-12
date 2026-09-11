@@ -71,7 +71,7 @@ returns jsonb language plpgsql security definer set search_path=pg_catalog,publi
 declare s public.club_suppliers%rowtype; o public.club_supplier_products%rowtype; pp uuid; cp uuid; r jsonb; prior jsonb; payload jsonb;
   identity_key text; v_parent_key text; ids uuid[]:='{}'; keys text[]:='{}'; available_parents text[]; revision text; result jsonb;
   creates integer:=0; updates integer:=0; unchanged integer:=0; costs integer:=0; stocks integer:=0; omitted integer:=0; manual integer:=0; reviews integer:=0; retired integer:=0;
-  trade integer; vat numeric; landed integer; live integer; match_ids uuid[]; all_seen text[]:='{}'; barcode_seen text[]:='{}'; batch uuid;
+  trade integer; vat numeric; landed integer; live integer; match_ids uuid[]; all_seen text[]:='{}'; batch uuid;
 begin
   if auth.uid() is null or not public.club_capability_allowed(p_organisation_id,auth.uid(),'supplier.catalogue_manage') or not public.club_capability_allowed(p_organisation_id,auth.uid(),'commerce.pricing_manage') then raise exception 'Catalogue and pricing access required' using errcode='42501'; end if;
   if p_apply is null or p_rows is null or jsonb_typeof(p_rows)<>'array' or jsonb_array_length(p_rows) not between 1 and 10000 then raise exception 'Supply a complete catalogue' using errcode='22023'; end if;
@@ -96,10 +96,10 @@ begin
     perform (r->>'availabilityCheckedAt')::timestamptz;
     if exists(select 1 from jsonb_each_text(r) field where field.key in ('sourceUrl','parentImageReference','variantImageReference') and nullif(field.value,'') is not null and field.value !~ '^https?://[^[:space:]]+$') then raise exception 'Invalid source or image URL' using errcode='22023'; end if;
     if coalesce(r->>'packQuantity','1') !~ '^\d+$' or coalesce((r->>'packQuantity')::integer,1)<1 or (r->>'memberOrderableUnit' in ('case','box','pack') and r->>'packQuantity' is null) then raise exception 'Invalid supplier pack quantity' using errcode='22023'; end if;
-    -- Stable SKU, then barcode, then full order-unit facts. Never trust a caller-supplied key.
-    identity_key:=coalesce('sku:'||nullif(btrim(r->>'supplierSku'),''),'barcode:'||nullif(btrim(r->>'barcode'),''),'facts:'||jsonb_build_array(lower(btrim(r->>'brand')),lower(btrim(r->>'name')),lower(btrim(r->>'size')),lower(coalesce(btrim(r->>'flavour'),'')),coalesce((r->>'packQuantity')::integer,1),r->>'memberOrderableUnit')::text);
-    if identity_key=any(all_seen) or (nullif(r->>'barcode','') is not null and r->>'barcode'=any(barcode_seen)) then raise exception 'Duplicate exact supplier identity' using errcode='22023'; end if;
-    all_seen:=array_append(all_seen,identity_key); barcode_seen:=array_append(barcode_seen,r->>'barcode');
+    -- SKU/barcode are linking metadata; flavour/variant and size make the sellable identity.
+    identity_key:=coalesce('sku:'||nullif(btrim(r->>'supplierSku'),'')||':variant:'||lower(coalesce(nullif(btrim(r->>'flavour'),''),btrim(r->>'name')))||':size:'||lower(btrim(r->>'size')),'barcode:'||nullif(btrim(r->>'barcode'),'')||':variant:'||lower(coalesce(nullif(btrim(r->>'flavour'),''),btrim(r->>'name')))||':size:'||lower(btrim(r->>'size')),'facts:'||jsonb_build_array(lower(btrim(r->>'brand')),lower(btrim(r->>'name')),lower(btrim(r->>'size')),lower(coalesce(btrim(r->>'flavour'),'')),coalesce((r->>'packQuantity')::integer,1),r->>'memberOrderableUnit')::text);
+    if identity_key=any(all_seen) then raise exception 'Duplicate exact supplier identity' using errcode='22023'; end if;
+    all_seen:=array_append(all_seen,identity_key);
   end loop;
   select array_agg(distinct lower(btrim(value->>'brand'))||'|'||lower(btrim(value->>'name'))) into available_parents from jsonb_array_elements(p_rows) where value->>'stockStatus'='available';
   select count(*) into retired from public.club_supplier_parent_products where organisation_id=p_organisation_id and supplier_id=s.id and active and not coalesce(club_supplier_parent_products.parent_key=any(available_parents),false);
@@ -108,10 +108,9 @@ begin
   end if;
   for r in select value from jsonb_array_elements(p_rows) loop
     v_parent_key:=lower(btrim(r->>'brand'))||'|'||lower(btrim(r->>'name'));
-    identity_key:=coalesce('sku:'||nullif(btrim(r->>'supplierSku'),''),'barcode:'||nullif(btrim(r->>'barcode'),''),'facts:'||jsonb_build_array(lower(btrim(r->>'brand')),lower(btrim(r->>'name')),lower(btrim(r->>'size')),lower(coalesce(btrim(r->>'flavour'),'')),coalesce((r->>'packQuantity')::integer,1),r->>'memberOrderableUnit')::text);
+    identity_key:=coalesce('sku:'||nullif(btrim(r->>'supplierSku'),'')||':variant:'||lower(coalesce(nullif(btrim(r->>'flavour'),''),btrim(r->>'name')))||':size:'||lower(btrim(r->>'size')),'barcode:'||nullif(btrim(r->>'barcode'),'')||':variant:'||lower(coalesce(nullif(btrim(r->>'flavour'),''),btrim(r->>'name')))||':size:'||lower(btrim(r->>'size')),'facts:'||jsonb_build_array(lower(btrim(r->>'brand')),lower(btrim(r->>'name')),lower(btrim(r->>'size')),lower(coalesce(btrim(r->>'flavour'),'')),coalesce((r->>'packQuantity')::integer,1),r->>'memberOrderableUnit')::text);
     select array_agg(sp.id) into match_ids from public.club_supplier_products sp where sp.organisation_id=p_organisation_id and sp.supplier_id=s.id and
-      (sp.import_identity=identity_key or (nullif(r->>'supplierSku','') is not null and sp.supplier_sku=r->>'supplierSku') or (nullif(r->>'barcode','') is not null and sp.barcode=r->>'barcode') or
-      ((nullif(r->>'supplierSku','') is null or sp.supplier_sku is null or sp.supplier_sku=r->>'supplierSku') and (nullif(r->>'barcode','') is null or sp.barcode is null or sp.barcode=r->>'barcode') and lower(coalesce(sp.brand,''))=lower(r->>'brand') and lower(sp.name)=lower(r->>'name') and lower(coalesce(sp.size,''))=lower(r->>'size') and lower(coalesce(sp.variant,''))=lower(coalesce(r->>'flavour','')) and coalesce(sp.pack_quantity,1)=coalesce((r->>'packQuantity')::integer,1) and lower(coalesce(sp.member_orderable_unit,'unit'))=r->>'memberOrderableUnit'));
+      (sp.import_identity=identity_key or (lower(coalesce(sp.brand,''))=lower(r->>'brand') and lower(sp.name)=lower(r->>'name') and lower(coalesce(sp.size,''))=lower(r->>'size') and lower(coalesce(sp.variant,''))=lower(coalesce(r->>'flavour','')) and coalesce(sp.pack_quantity,1)=coalesce((r->>'packQuantity')::integer,1) and lower(coalesce(sp.member_orderable_unit,'unit'))=r->>'memberOrderableUnit' and (nullif(r->>'supplierSku','') is null or sp.supplier_sku is null or sp.supplier_sku=r->>'supplierSku') and (nullif(r->>'barcode','') is null or sp.barcode is null or sp.barcode=r->>'barcode')));
     if cardinality(match_ids)>1 then raise exception 'Ambiguous existing supplier identity. No changes applied.' using errcode='22023'; end if;
     select * into o from public.club_supplier_products where id=match_ids[1];
     if o.id is not null and o.id=any(ids) then raise exception 'Multiple source rows match one stored variant' using errcode='22023'; end if;
