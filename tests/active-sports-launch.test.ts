@@ -126,6 +126,14 @@ test("database duplicate validation returns every group with both source records
   assert.match(forward, /grant execute on function public\.club_reconcile_active_sports/);
 });
 
+test("supplier uniqueness follows canonical identity instead of SKU alone", () => {
+  const sql = readFileSync("supabase/migrations/2026-10-19-active-sports-identity-uniqueness.sql", "utf8");
+  assert.match(sql, /drop index if exists public\.club_supplier_products_sku_uq/);
+  assert.match(sql, /club_supplier_products_identity_uq/);
+  assert.match(sql, /organisation_id, supplier_id, import_identity/);
+  assert.match(sql, /existing duplicate identity groups require reconciliation/);
+});
+
 test("malformed costs, VAT, stock, missing facts and corrupt CSV fail closed", () => {
   for (const value of ["abc", "£abc", "-1", "10.001", "1e3", "1.2.3", ""]) assert.ok(prepareActiveSportsImport(csv({ ...record, "Trade Cost ex VAT": value })).errors.length, value);
   for (const value of ["twenty", "-20", "120%", "20%%"]) assert.ok(prepareActiveSportsImport(csv({ ...record, "VAT Rate": value })).errors.length, value);
