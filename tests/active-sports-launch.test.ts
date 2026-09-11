@@ -153,6 +153,16 @@ test("reconciliation profiling exposes stage timings for Supabase diagnosis", ()
   assert.match(sql, /totalMs/);
 });
 
+test("supplier import jobs provide worker, retry and persisted progress entrypoints", () => {
+  const sql = readFileSync("supabase/migrations/2026-10-23-supplier-import-worker.sql", "utf8");
+  assert.match(sql, /club_run_supplier_import_job/);
+  assert.match(sql, /club_retry_supplier_import_job/);
+  assert.match(sql, /club_get_supplier_import_job/);
+  assert.match(sql, /club_import_job_events/);
+  assert.match(sql, /club_reconcile_active_sports\(j\.organisation_id/);
+  assert.match(sql, /status='failed'/);
+});
+
 test("malformed costs, VAT, stock, missing facts and corrupt CSV fail closed", () => {
   for (const value of ["abc", "£abc", "-1", "10.001", "1e3", "1.2.3", ""]) assert.ok(prepareActiveSportsImport(csv({ ...record, "Trade Cost ex VAT": value })).errors.length, value);
   for (const value of ["twenty", "-20", "120%", "20%%"]) assert.ok(prepareActiveSportsImport(csv({ ...record, "VAT Rate": value })).errors.length, value);

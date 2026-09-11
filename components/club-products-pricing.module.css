@@ -23,4 +23,7 @@
 .duplicateColumn dt { color:var(--muted); font-size:12px; }
 .duplicateColumn dd { margin:2px 0 0; overflow-wrap:anywhere; }
 .diffField { background:rgba(251,191,36,.14); outline:1px solid rgba(251,191,36,.4); }
+.importJob { border:1px solid var(--line); border-radius:12px; padding:16px; background:var(--panel); }
+.progressTrack { height:12px; border-radius:999px; background:var(--panel2); overflow:hidden; }
+.progressTrack span { display:block; height:100%; border-radius:inherit; background:var(--accent,#8b5cf6); transition:width .4s ease; }
 .history { padding-left:20px; overflow-wrap:anywhere; }
