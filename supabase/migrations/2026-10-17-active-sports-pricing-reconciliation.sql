@@ -71,7 +71,7 @@ returns jsonb language plpgsql security definer set search_path=pg_catalog,publi
 declare s public.club_suppliers%rowtype; o public.club_supplier_products%rowtype; pp uuid; cp uuid; r jsonb; prior jsonb; payload jsonb;
   identity_key text; v_parent_key text; ids uuid[]:='{}'; keys text[]:='{}'; available_parents text[]; revision text; result jsonb;
   creates integer:=0; updates integer:=0; unchanged integer:=0; costs integer:=0; stocks integer:=0; omitted integer:=0; manual integer:=0; reviews integer:=0; retired integer:=0;
-  trade integer; vat numeric; landed integer; live integer; match_ids uuid[]; all_seen text[]:='{}'; batch uuid;
+  trade integer; vat numeric; landed integer; live integer; match_ids uuid[]; all_seen text[]:='{}'; seen_records jsonb[]:='{}'; seen_rows integer[]:='{}'; duplicate_diagnostics jsonb:='[]'; source_row integer:=1; batch uuid;
 begin
   if auth.uid() is null or not public.club_capability_allowed(p_organisation_id,auth.uid(),'supplier.catalogue_manage') or not public.club_capability_allowed(p_organisation_id,auth.uid(),'commerce.pricing_manage') then raise exception 'Catalogue and pricing access required' using errcode='42501'; end if;
   if p_apply is null or p_rows is null or jsonb_typeof(p_rows)<>'array' or jsonb_array_length(p_rows) not between 1 and 10000 then raise exception 'Supply a complete catalogue' using errcode='22023'; end if;
@@ -98,9 +98,14 @@ begin
     if coalesce(r->>'packQuantity','1') !~ '^\d+$' or coalesce((r->>'packQuantity')::integer,1)<1 or (r->>'memberOrderableUnit' in ('case','box','pack') and r->>'packQuantity' is null) then raise exception 'Invalid supplier pack quantity' using errcode='22023'; end if;
     -- SKU/barcode are linking metadata; flavour/variant and size make the sellable identity.
     identity_key:=coalesce('sku:'||nullif(btrim(r->>'supplierSku'),'')||':brand:'||lower(btrim(r->>'brand'))||':variant:'||lower(coalesce(nullif(btrim(r->>'flavour'),''),btrim(r->>'name')))||':size:'||lower(btrim(r->>'size')),'barcode:'||nullif(btrim(r->>'barcode'),'')||':brand:'||lower(btrim(r->>'brand'))||':variant:'||lower(coalesce(nullif(btrim(r->>'flavour'),''),btrim(r->>'name')))||':size:'||lower(btrim(r->>'size')),'facts:'||jsonb_build_array(lower(btrim(r->>'brand')),lower(btrim(r->>'name')),lower(btrim(r->>'size')),lower(coalesce(btrim(r->>'flavour'),'')),coalesce((r->>'packQuantity')::integer,1),r->>'memberOrderableUnit')::text);
-    if identity_key=any(all_seen) then raise exception 'Duplicate exact supplier identity' using errcode='22023'; end if;
-    all_seen:=array_append(all_seen,identity_key);
+    if identity_key=any(all_seen) then
+      duplicate_diagnostics:=duplicate_diagnostics||jsonb_build_array(jsonb_build_object('identityKey',identity_key,'records',jsonb_build_array(seen_records[array_position(all_seen,identity_key)]||jsonb_build_object('csvRow',seen_rows[array_position(all_seen,identity_key)]),r||jsonb_build_object('csvRow',source_row+1))));
+    else
+      all_seen:=array_append(all_seen,identity_key); seen_records:=array_append(seen_records,r); seen_rows:=array_append(seen_rows,source_row+1);
+    end if;
+    source_row:=source_row+1;
   end loop;
+  if jsonb_array_length(duplicate_diagnostics)>0 then raise exception 'Duplicate exact supplier identity diagnostics: %',duplicate_diagnostics::text using errcode='22023'; end if;
   select array_agg(distinct lower(btrim(value->>'brand'))||'|'||lower(btrim(value->>'name'))) into available_parents from jsonb_array_elements(p_rows) where value->>'stockStatus'='available';
   select count(*) into retired from public.club_supplier_parent_products where organisation_id=p_organisation_id and supplier_id=s.id and active and not coalesce(club_supplier_parent_products.parent_key=any(available_parents),false);
   if p_apply and s.id is null then

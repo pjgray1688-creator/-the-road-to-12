@@ -108,6 +108,17 @@ test("catalogue validation preserves duplicate reports and exposes diagnostic fa
   assert.match(panel, /Validation diagnostics/);
   assert.match(panel, /CSV rows/);
   assert.match(panel, /Identity key/);
+  assert.match(action, /duplicateGroups/);
+});
+
+test("database duplicate validation returns every group with both source records", () => {
+  const sql = readFileSync("supabase/migrations/2026-10-17-active-sports-pricing-reconciliation.sql", "utf8");
+  assert.match(sql, /duplicate_diagnostics/);
+  assert.match(sql, /seen_records/);
+  assert.match(sql, /seen_rows/);
+  assert.match(sql, /jsonb_build_object\('identityKey'/);
+  assert.match(sql, /jsonb_build_array\(seen_records/);
+  assert.match(sql, /jsonb_array_length\(duplicate_diagnostics\)>0/);
 });
 
 test("malformed costs, VAT, stock, missing facts and corrupt CSV fail closed", () => {

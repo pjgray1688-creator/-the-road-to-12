@@ -5,13 +5,16 @@ import { serverSupabase } from "@/lib/supabase-server";
 import { resolveClubOrganisationContext } from "@/lib/club-server-context";
 import { prepareActiveSportsImport, resolveValidatedSupplierImage } from "@/lib/club-supplier-catalogue";
 
-type ActiveSportsDiagnostic = { category: "validation" | "database" | "unexpected"; message: string; code?: string; rows?: number[]; identityKey?: string; field?: string };
+type ActiveSportsDiagnostic = { category: "validation" | "database" | "unexpected"; message: string; code?: string; rows?: number[]; identityKey?: string; field?: string; duplicateGroups?: Array<{ identityKey: string; records: Array<Record<string, unknown>> }> };
 function diagnostic(error: unknown, category: ActiveSportsDiagnostic["category"], code?: string): ActiveSportsDiagnostic {
   const message = error instanceof Error ? error.message : typeof error === "string" ? error : "Unknown catalogue failure";
   const rows = [...message.matchAll(/(?:row|rows?)\s*#?\s*(\d+)/gi)].map(match => Number(match[1]));
   const identityKey = message.match(/identity(?: key)?\s*[=:]?\s*([^.;]+)/i)?.[1]?.trim();
   const field = message.match(/(?:field|column)\s*[=:]?\s*([A-Za-z][\w /-]*)/i)?.[1]?.trim();
-  return { category, message, ...(code ? { code } : {}), ...(rows.length ? { rows: [...new Set(rows)] } : {}), ...(identityKey ? { identityKey } : {}), ...(field ? { field } : {}) };
+  const payload = message.match(/diagnostics:\s*(\[[\s\S]*\])\s*$/i)?.[1];
+  let duplicateGroups: ActiveSportsDiagnostic["duplicateGroups"];
+  if (payload) { try { const parsed = JSON.parse(payload) as unknown; if (Array.isArray(parsed)) duplicateGroups = parsed.filter((group): group is { identityKey: string; records: Array<Record<string, unknown>> } => Boolean(group && typeof group === "object" && typeof (group as { identityKey?: unknown }).identityKey === "string" && Array.isArray((group as { records?: unknown }).records))); } catch { /* retain the raw diagnostic message */ } }
+  return { category, message, ...(code ? { code } : {}), ...(rows.length ? { rows: [...new Set(rows)] } : {}), ...(identityKey ? { identityKey } : {}), ...(field ? { field } : {}), ...(duplicateGroups?.length ? { duplicateGroups } : {}) };
 }
 
 export async function reconcileActiveSportsAction(input: { organisationId: string; csv: string; fileName: string; revision?: string; confirm?: boolean; duplicateChoices?: Record<string, number> }) {
