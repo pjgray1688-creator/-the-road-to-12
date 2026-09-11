@@ -28,3 +28,26 @@ export function resolveProductVariant(variants: ClubCommerceProduct[], selected:
   const matches = active.filter(v => keys.every(key => v.variantOptions?.[key] === selected[key])); return matches.length === 1 ? matches[0] : undefined;
 }
 export function money(minor: number) { return minor > 0 ? `£${(minor / 100).toFixed(2)}` : "Price not set"; }
+
+/** Choose size/order unit before flavour. Real unavailable siblings remain visible,
+ * while changing an earlier choice clears dependent choices in the caller. */
+export function memberVariantChoices(variants: ClubCommerceProduct[], selection: Record<string, string>, canOrder: (product: ClubCommerceProduct) => boolean) {
+  const keys = [...new Set(variants.flatMap(variant => Object.keys(variant.variantOptions ?? {})))].sort((a, b) => {
+    const order = ["size", "orderUnit", "packQuantity", "flavour"];
+    const rank = (key: string) => order.includes(key) ? order.indexOf(key) : order.length;
+    return rank(a) - rank(b) || a.localeCompare(b);
+  });
+  const effective: Record<string, string> = {};
+  const controls: Array<{ key: string; values: Array<{ value: string; disabled: boolean }> }> = [];
+  let matching = variants.filter(variant => variant.active);
+  for (const key of keys) {
+    const values = [...new Set(matching.map(variant => variant.variantOptions?.[key]).filter((value): value is string => Boolean(value)))].sort();
+    if (!values.length) continue;
+    controls.push({ key, values: values.map(value => ({ value, disabled: !matching.some(variant => variant.variantOptions?.[key] === value && canOrder(variant)) })) });
+    const chosen = values.includes(selection[key]) ? selection[key] : values.length === 1 ? values[0] : undefined;
+    if (!chosen) break;
+    effective[key] = chosen;
+    matching = matching.filter(variant => variant.variantOptions?.[key] === chosen);
+  }
+  return { controls, effective, resolved: matching.length === 1 && Object.keys(matching[0].variantOptions ?? {}).every(key => effective[key]) ? matching[0] : variants.length === 1 && !keys.length ? variants[0] : undefined };
+}

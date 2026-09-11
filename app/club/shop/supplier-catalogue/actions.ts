@@ -14,36 +14,36 @@ export async function publishSupplierOfferAction(input: { organisationId: string
   const value = await authorised(input.organisationId); if (!value) return { ok: false, error: "Catalogue publication access required." };
   const { data, error } = await value.client.rpc("club_publish_supplier_offer", { p_organisation_id: input.organisationId, p_offer_id: input.offerId, p_club_product_id: input.productId, p_retail_price_minor: input.retailPriceMinor });
   if (error) return { ok: false, error: "Review the product, price and supplier offer before publishing." };
-  revalidatePath("/club/shop/supplier-catalogue"); revalidatePath("/club/shop"); return { ok: true, offer: data };
+  revalidatePath("/club/products"); revalidatePath("/club/shop/supplier-catalogue"); revalidatePath("/club/shop"); return { ok: true, offer: data };
 }
 export async function createAndPublishSupplierProductAction(input: { organisationId: string; offerId: string; name: string; brand?: string; category?: string; barcode?: string; retailPriceMinor: number }) {
   const value = await authorised(input.organisationId); if (!value) return { ok: false, error: "Catalogue publication access required." };
   const { data, error } = await value.client.rpc("club_create_and_publish_supplier_product", { p_organisation_id: input.organisationId, p_offer_id: input.offerId, p_name: input.name, p_brand: input.brand ?? null, p_category: input.category ?? null, p_barcode: input.barcode ?? null, p_retail_price_minor: input.retailPriceMinor });
   if (error) return { ok: false, error: "The canonical product could not be created." };
-  revalidatePath("/club/shop/supplier-catalogue"); revalidatePath("/club/shop"); return { ok: true, offer: data };
+  revalidatePath("/club/products"); revalidatePath("/club/shop/supplier-catalogue"); revalidatePath("/club/shop"); return { ok: true, offer: data };
 }
 
 export async function setSupplierVariantRetailPriceAction(input: { organisationId: string; variantId: string; retailPriceMinor: number; active?: boolean }) {
   const value = await authorised(input.organisationId);
-  if (!value || !input.variantId || !Number.isInteger(input.retailPriceMinor) || input.retailPriceMinor < 0) return { ok: false, error: "Enter a valid non-negative GBP price." };
+  if (!value || !input.variantId || !Number.isInteger(input.retailPriceMinor) || (input.retailPriceMinor <= 0 || input.retailPriceMinor > 100000000)) return { ok: false, error: "Enter a valid non-negative GBP price." };
   const { error } = await value.client.rpc("club_set_supplier_variant_retail_price", { p_organisation_id: input.organisationId, p_supplier_product_id: input.variantId, p_retail_price_minor: input.retailPriceMinor, p_active: input.active ?? true });
   if (error) return { ok: false, error: "Retail price could not be saved." };
-  revalidatePath("/club/shop/supplier-catalogue"); revalidatePath("/member-hub/shop"); return { ok: true };
+  revalidatePath("/club/products"); revalidatePath("/club/shop/supplier-catalogue"); revalidatePath("/member-hub/shop"); return { ok: true };
 }
 
 export async function setParentRetailPriceAction(input: { organisationId: string; variantIds: string[]; retailPriceMinor: number }) {
   const value = await authorised(input.organisationId);
-  if (!value || !input.variantIds.length || input.variantIds.some(id => !id) || !Number.isInteger(input.retailPriceMinor) || input.retailPriceMinor < 0) return { ok: false, error: "Enter a valid price and variants." };
+  if (!value || !input.variantIds.length || input.variantIds.some(id => !id) || !Number.isInteger(input.retailPriceMinor) || (input.retailPriceMinor <= 0 || input.retailPriceMinor > 100000000)) return { ok: false, error: "Enter a valid price and variants." };
   for (const variantId of input.variantIds) {
     const { error } = await value.client.rpc("club_set_supplier_variant_retail_price", { p_organisation_id: input.organisationId, p_supplier_product_id: variantId, p_retail_price_minor: input.retailPriceMinor, p_active: true });
     if (error) return { ok: false, error: "One or more variant prices could not be saved." };
   }
-  revalidatePath("/club/shop/supplier-catalogue"); revalidatePath("/member-hub/shop"); return { ok: true, updated: input.variantIds.length };
+  revalidatePath("/club/products"); revalidatePath("/club/shop/supplier-catalogue"); revalidatePath("/member-hub/shop"); return { ok: true, updated: input.variantIds.length };
 }
 export async function commitRetailPriceCsvAction(input: { organisationId: string; rows: Array<{ variantId?: string; retailPriceMinor?: number }> }) {
   const value = await authorised(input.organisationId); if (!value) return { ok: false, error: "Pricing access required." };
   let updated = 0; for (const row of input.rows) { if (!row.variantId || row.retailPriceMinor === undefined) continue; if (!Number.isInteger(row.retailPriceMinor) || row.retailPriceMinor < 0) return { ok: false, error: "Invalid retail price." }; const { error } = await value.client.rpc("club_set_supplier_variant_retail_price", { p_organisation_id: input.organisationId, p_supplier_product_id: row.variantId, p_retail_price_minor: row.retailPriceMinor, p_active: true }); if (error) return { ok: false, error: "Pricing import could not be applied." }; updated++; }
-  revalidatePath("/club/shop/supplier-catalogue"); revalidatePath("/member-hub/shop"); return { ok: true, updated };
+  revalidatePath("/club/products"); revalidatePath("/club/shop/supplier-catalogue"); revalidatePath("/member-hub/shop"); return { ok: true, updated };
 }
 
 export async function commitCatalogueEnrichmentAction(input: { organisationId: string; rows: Array<Record<string, unknown>> }) {
@@ -53,7 +53,7 @@ export async function commitCatalogueEnrichmentAction(input: { organisationId: s
   if (!payload.length) return { ok: false, error: "No matched enrichment variants to save." };
   const { error } = await value.client.from("club_supplier_variant_enrichment").upsert(payload, { onConflict: "organisation_id,supplier_product_id" });
   if (error) return { ok: false, error: "Enrichment could not be saved." };
-  revalidatePath("/club/shop/supplier-catalogue"); revalidatePath("/member-hub/shop"); return { ok: true, updated: payload.length };
+  revalidatePath("/club/products"); revalidatePath("/club/shop/supplier-catalogue"); revalidatePath("/member-hub/shop"); return { ok: true, updated: payload.length };
 }
 export async function importGsnCatalogueAction(input: { organisationId: string; rows: Array<{ name: string; brand?: string; range?: string; category?: string; description?: string; retailPriceMinor?: number; sourceUrl?: string; parentImageReference?: string; variantImageReference?: string; nutrition?: Record<string, unknown>; ingredients?: string; allergens?: string }> }) {
   const value = await authorised(input.organisationId, false);

@@ -4,3 +4,16 @@
 .filters button { min-height:44px; }
 .search { width:100%; min-height:46px; padding:12px 14px; border:1px solid var(--line); border-radius:10px; background:var(--panel2); color:var(--text); }
 .results { display:grid; gap:1px; }
+.supplierPanel { display:grid; gap:16px; margin-block:24px; }
+.controls { display:flex; flex-wrap:wrap; gap:12px; }
+.controls label { display:grid; gap:6px; flex:1 1 160px; }
+.controls input,.controls select,.supplierPanel button { min-height:44px; }
+.offer { border:1px solid var(--line); border-radius:12px; padding:16px; background:var(--panel2); }
+.offer summary { cursor:pointer; min-height:44px; display:flex; flex-wrap:wrap; justify-content:space-between; gap:8px; }
+.offer summary small { display:block; color:var(--muted); }
+.facts { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; }
+.facts div { min-width:0; overflow-wrap:anywhere; }
+.facts dt { font-size:12px; color:var(--muted); }
+.facts dd { margin:4px 0 0; }
+.warning { color:#fbbf24; }
+.history { padding-left:20px; overflow-wrap:anywhere; }

@@ -1,3 +1,5 @@
+import { normalizeBarcode } from "./club-barcode";
+import { parseMinorUnits } from "./club-money";
 import { parseCsvRecords } from "./club-csv";
 
 export type SupplierStockStatus = "available" | "unavailable" | "unknown";
@@ -7,7 +9,7 @@ export type SupplierCatalogueProduct = { parentKey: string; supplierId: string; 
 export type SupplierCatalogueImportRow = Omit<SupplierCatalogueVariant, "supplierId" | "parentKey" | "imageReference"> & { supplier: string; name: string; brand?: string; description?: string; category?: string; subcategory?: string; sourceUrl?: string; parentImageReference?: string; variantImageReference?: string; parentKey?: string };
 export type SupplierCatalogueStore = { suppliers: ClubSupplier[]; products: SupplierCatalogueProduct[]; retailPrices: Record<string, number> };
 export type SupplierCatalogueImportSummary = { suppliers: number; parents: number; variants: number; created: number; updated: number; unchanged: number; errors: string[] };
-export type DurableSupplierParentRow = { parentKey: string; supplierId: string; supplierName: string; memberOrderable: boolean; brand?: string; name: string; description?: string; category?: string; subcategory?: string; sourceUrl?: string; imageReference?: string; variants: Array<SupplierCatalogueVariant & { id: string; retailPriceMinor?: number; clubProductId?: string }> };
+export type DurableSupplierParentRow = { parentKey: string; supplierId: string; supplierName: string; memberOrderable: boolean; brand?: string; name: string; description?: string; category?: string; subcategory?: string; sourceUrl?: string; imageReference?: string; variants: Array<SupplierCatalogueVariant & { id: string; retailPriceMinor?: number; clubProductId?: string; localStockTracked?: boolean }> };
 
 const clean = (value: unknown) => typeof value === "string" && value.trim() ? value.trim() : undefined;
 const stock = (value: unknown): SupplierStockStatus => /^(available|in stock|yes|true|1)$/i.test(String(value ?? "").trim()) ? "available" : /^(unavailable|out of stock|no|false|0|unavailable\s*-\s*dated\s*clearance)$/i.test(String(value ?? "").trim()) ? "unavailable" : "unknown";
@@ -20,7 +22,7 @@ export type ActiveSportsImportResult = { rows: ActiveSportsNormalisedRow[]; erro
 export type CatalogueOperatorFilter = { query?: string; supplierId?: string; brand?: string; category?: string; availability?: SupplierStockStatus; priced?: boolean; memberOrderable?: boolean; sort?: "name" | "brand" | "unpriced" | "available" };
 export function filterSupplierParents(parents: DurableSupplierParentRow[], filter: CatalogueOperatorFilter = {}) { const query = filter.query?.trim().toLowerCase(); const matches = parents.filter(parent => (!filter.supplierId || parent.supplierId === filter.supplierId) && (!filter.brand || parent.brand === filter.brand) && (!filter.category || parent.category === filter.category) && parent.variants.some(variant => (!filter.availability || variant.stockStatus === filter.availability) && (!filter.memberOrderable || parent.memberOrderable) && (!filter.priced || variant.retailPriceMinor !== undefined) && (!query || [parent.name,parent.brand,parent.category,parent.subcategory,variant.flavour,variant.size,variant.supplierSku,variant.barcode].some(value => value?.toLowerCase().includes(query))))); return matches.sort((a,b)=> filter.sort === "brand" ? (a.brand??"").localeCompare(b.brand??"") || a.name.localeCompare(b.name) : filter.sort === "unpriced" ? Number(a.variants.every(v=>v.retailPriceMinor!==undefined))-Number(b.variants.every(v=>v.retailPriceMinor!==undefined)) || a.name.localeCompare(b.name) : filter.sort === "available" ? Number(b.variants.some(v=>v.stockStatus === "available"))-Number(a.variants.some(v=>v.stockStatus === "available")) || a.name.localeCompare(b.name) : a.name.localeCompare(b.name)); }
 
-/** Normalise the exact Catalogue-sheet export; no supplier price fields are accepted. */
+/** Normalise catalogue facts and attach optional commercial fields to their original row. */
 export function normalizeActiveSportsCsv(input: string): ActiveSportsImportResult {
   const records = parseCsvRecords(input); if (!records.length) return { rows: [], errors: [{ row: 1, reason: "CSV is empty" }], duplicateRows: [], headers: [] };
   const rawHeaders = Object.keys(records[0] as Record<string, unknown>); const lookup = new Map(rawHeaders.map(header => [headerKey(header), header]));
@@ -28,7 +30,7 @@ export function normalizeActiveSportsCsv(input: string): ActiveSportsImportResul
   if (missing.length) return { rows: [], errors: [{ row: 1, reason: `Missing required catalogue headers: ${missing.join(", ")}` }], duplicateRows: [], headers: rawHeaders };
   const errors: ActiveSportsImportResult["errors"] = []; const duplicateRows: number[] = []; const seen = new Set<string>(); const rows: ActiveSportsNormalisedRow[] = [];
   const value = (record: Record<string, string>, header: string) => String(record[lookup.get(headerKey(header)) ?? header] ?? "").trim();
-  records.forEach((recordValue, index) => { const record = recordValue as unknown as Record<string, string>; const rowNumber = index + 2; const supplierName = value(record, "Supplier"); const name = cleanSupplierProductName(value(record, "Parent Product")); if (!supplierName) errors.push({ row: rowNumber, reason: "Supplier is required" }); if (!name) errors.push({ row: rowNumber, reason: "Parent Product is required" }); const checked = value(record, "Stock Checked"); if (checked && Number.isNaN(Date.parse(checked))) errors.push({ row: rowNumber, reason: "Stock Checked must be a valid date/time" }); const sourceUrl = value(record, "Source URL"); if (sourceUrl && !validUrl(sourceUrl)) errors.push({ row: rowNumber, reason: "Source URL must be an http(s) URL" }); const orderUnit = value(record, "Member Order Unit"); if (orderUnit && !unitValues.has(orderUnit.toLowerCase())) errors.push({ row: rowNumber, reason: `Unsupported Member Order Unit: ${orderUnit}` }); const packRaw = value(record, "Pack Qty"); const packQuantity = packRaw ? Number(packRaw) : undefined; if (packRaw && (packQuantity === undefined || !Number.isInteger(packQuantity) || packQuantity < 1)) errors.push({ row: rowNumber, reason: "Pack Qty must be a positive whole number" }); const safePackQuantity = packQuantity !== undefined && Number.isInteger(packQuantity) && packQuantity > 0 ? packQuantity : undefined; const supplier = supplierName.toLowerCase().replace(/\s+/g, " "); const parentKey = `${value(record, "Brand").toLowerCase()}|${name.toLowerCase()}`; const sku = value(record, "Supplier SKU") || undefined; const barcode = value(record, "Barcode") || undefined; const identity = `${supplier}|${parentKey}|${value(record, "Size / Format").toLowerCase()}|${value(record, "Variant / Flavour").toLowerCase()}|${safePackQuantity ?? ""}|${orderUnit.toLowerCase()}|${sku ?? ""}|${barcode ?? ""}`; if (seen.has(identity)) duplicateRows.push(rowNumber); seen.add(identity); if (errors.some(error => error.row === rowNumber)) return; rows.push({ supplier: supplierName, parentKey, name, brand: value(record, "Brand") || undefined, description: value(record, "Description") || undefined, category: value(record, "Category") || undefined, subcategory: value(record, "Subcategory") || undefined, sourceUrl: sourceUrl || undefined, parentImageReference: value(record, "Parent Image URL") || undefined, variantImageReference: value(record, "Variant Image URL") || undefined, flavour: value(record, "Variant / Flavour") || undefined, size: value(record, "Size / Format") || undefined, packQuantity: safePackQuantity, memberOrderableUnit: orderUnit || undefined, supplierSku: sku, barcode, stockStatus: stock(value(record, "Supplier Stock")), supplierStock: stock(value(record, "Supplier Stock")), availabilityCheckedAt: checked || undefined, notes: value(record, "Notes") || undefined, imageStatus: value(record, "Image Status") || undefined }); });
+  records.forEach((recordValue, index) => { const record = recordValue as unknown as Record<string, string>; const rowNumber = index + 2; const supplierName = value(record, "Supplier"); const name = cleanSupplierProductName(value(record, "Parent Product")); if (!supplierName) errors.push({ row: rowNumber, reason: "Supplier is required" }); if (!name) errors.push({ row: rowNumber, reason: "Parent Product is required" }); const checked = value(record, "Stock Checked"); if (checked && Number.isNaN(Date.parse(checked))) errors.push({ row: rowNumber, reason: "Stock Checked must be a valid date/time" }); const sourceUrl = value(record, "Source URL"); if (sourceUrl && !validUrl(sourceUrl)) errors.push({ row: rowNumber, reason: "Source URL must be an http(s) URL" }); const orderUnit = value(record, "Member Order Unit"); if (orderUnit && !unitValues.has(orderUnit.toLowerCase())) errors.push({ row: rowNumber, reason: `Unsupported Member Order Unit: ${orderUnit}` }); const packRaw = value(record, "Pack Qty"); const packQuantity = packRaw ? Number(packRaw) : undefined; if (packRaw && (packQuantity === undefined || !Number.isInteger(packQuantity) || packQuantity < 1)) errors.push({ row: rowNumber, reason: "Pack Qty must be a positive whole number" }); const safePackQuantity = packQuantity !== undefined && Number.isInteger(packQuantity) && packQuantity > 0 ? packQuantity : undefined; const supplier = supplierName.toLowerCase().replace(/\s+/g, " "); const parentKey = `${value(record, "Brand").toLowerCase()}|${name.toLowerCase()}`; const sku = value(record, "Supplier SKU") || undefined; const barcode = value(record, "Barcode") || undefined; const identity = `${supplier}|${parentKey}|${value(record, "Size / Format").toLowerCase()}|${value(record, "Variant / Flavour").toLowerCase()}|${safePackQuantity ?? ""}|${orderUnit.toLowerCase()}|${sku ?? ""}|${barcode ?? ""}`; if (seen.has(identity)) duplicateRows.push(rowNumber); seen.add(identity); const commercial = parseActiveSportsCommercialFields(record); commercial.errors.forEach(reason => errors.push({ row: rowNumber, reason })); if (errors.some(error => error.row === rowNumber)) return; rows.push({ ...commercial.fields, supplier: supplierName, parentKey, name, brand: value(record, "Brand") || undefined, description: value(record, "Description") || undefined, category: value(record, "Category") || undefined, subcategory: value(record, "Subcategory") || undefined, sourceUrl: sourceUrl || undefined, parentImageReference: value(record, "Parent Image URL") || undefined, variantImageReference: value(record, "Variant Image URL") || undefined, flavour: value(record, "Variant / Flavour") || undefined, size: value(record, "Size / Format") || undefined, packQuantity: safePackQuantity, memberOrderableUnit: orderUnit || undefined, supplierSku: sku, barcode, stockStatus: stock(value(record, "Supplier Stock")), supplierStock: stock(value(record, "Supplier Stock")), availabilityCheckedAt: checked || undefined, notes: value(record, "Notes") || undefined, imageStatus: value(record, "Image Status") || undefined }); });
   return { rows, errors, duplicateRows, headers: rawHeaders };
 }
 /** Removes source promotion boilerplate while retaining the real product identity. */
@@ -74,7 +76,7 @@ export function supplierVariantOrderable(supplier: ClubSupplier, variant: Suppli
 
 /** Convert member-safe durable rows into the existing grouped commerce-product shape. */
 export function durableSupplierRowsToProducts(rows: DurableSupplierParentRow[], organisationId: string) {
-  return rows.flatMap(parent => parent.variants.map(variant => ({ id: variant.clubProductId ?? variant.id, organisationId, sku: variant.supplierSku, barcode: variant.barcode, name: parent.name, brand: parent.brand, description: parent.description, category: parent.category, active: true, stockTracked: Boolean(variant.clubProductId), sellPriceMinor: variant.retailPriceMinor ?? 0, currency: "GBP", supplierReference: variant.supplierSku, supplierMemberOrderable: parent.memberOrderable, supplierAvailabilityStatus: variant.stockStatus, variantImageReference: variant.imageReference, media: parent.imageReference ? { url: parent.imageReference } : undefined, familyId: `${parent.supplierId}:${parent.parentKey}`, variantOptions: Object.fromEntries([["flavour", variant.flavour], ["size", variant.size], ["packQuantity", variant.packQuantity ? String(variant.packQuantity) : undefined]].filter((entry): entry is [string, string] => Boolean(entry[1]))), createdAt: "", updatedAt: "" })));
+  return rows.filter(parent => parent.memberOrderable && parent.variants.some(variant => variant.stockStatus === "available")).flatMap(parent => parent.variants.map(variant => ({ id: variant.clubProductId ?? variant.id, organisationId, sku: variant.supplierSku, barcode: variant.barcode, name: parent.name, brand: parent.brand, description: parent.description, category: parent.category, active: true, stockTracked: variant.localStockTracked === true, sellPriceMinor: variant.retailPriceMinor ?? 0, currency: "GBP", supplierReference: variant.supplierSku, supplierMemberOrderable: parent.memberOrderable, supplierAvailabilityStatus: variant.stockStatus, variantImageReference: variant.imageReference, media: parent.imageReference ? { url: parent.imageReference } : undefined, familyId: `${parent.supplierId}:${parent.parentKey}`, variantOptions: Object.fromEntries([["orderUnit", variant.memberOrderableUnit], ["flavour", variant.flavour], ["size", variant.size], ["packQuantity", variant.packQuantity ? String(variant.packQuantity) : undefined]].filter((entry): entry is [string, string] => Boolean(entry[1]))), createdAt: "", updatedAt: "" })));
 }
 
 /** Return only real variants for a selected size; never cross-product flavours. */
@@ -112,7 +114,7 @@ export type ActiveSportsCommercialFields = {
 };
 
 const commercialHeaderAliases: Record<keyof ActiveSportsCommercialFields, string[]> = {
-  currentBoldTradeCostExVatMinor: ["Current Bold Trade Cost ex VAT", "Current Bold Trade Cost ex VAT (minor)"],
+  currentBoldTradeCostExVatMinor: ["Trade Cost ex VAT", "Current Bold Trade Cost ex VAT", "Current Bold Trade Cost ex VAT (minor)"],
   purchaseVatRate: ["VAT Rate", "Purchase VAT Rate"],
   purchaseVatTreatment: ["VAT Treatment", "Purchase VAT Treatment"],
   trueCostMinor: ["True Cost", "True Cost (minor)"],
@@ -146,22 +148,23 @@ export function parseActiveSportsCommercialFields(record: Record<string, unknown
     const raw = readCommercialField(record, lookup, key);
     if (raw === undefined) return undefined;
     const minorHeader = commercialHeaderAliases[key].some(alias => /minor/i.test(alias) && lookup.has(cleanHeader(alias)));
-    const value = minorHeader ? Number(raw) : Math.round(Number(raw.replace(/[^0-9.-]/g, "")) * 100);
-    if (!Number.isInteger(value) || value < 0) { errors.push(`${String(key)} must be a non-negative amount`); return undefined; }
+    const value = minorHeader && /^\d+$/.test(raw) ? Number(raw) : !minorHeader ? parseMinorUnits(raw.replace(/^£\s*/, "")) : undefined;
+    if (value === undefined || !Number.isSafeInteger(value) || value < 0 || value > 100000000) { errors.push(`${String(key)} must be a non-negative amount`); return undefined; }
     return value;
   };
   const percentage = (key: keyof ActiveSportsCommercialFields) => {
     const raw = readCommercialField(record, lookup, key);
     if (raw === undefined) return undefined;
-    const value = Number(raw.replace(/%/g, "").trim());
+    const value = key === "purchaseVatRate" && /^vat[ _-]*free$/i.test(raw) ? 0 : /^\d+(?:\.\d+)?%?$/.test(raw) ? Number(raw.replace(/%/g, "")) : NaN;
     if (!Number.isFinite(value) || value < 0 || value > 100) { errors.push(`${String(key)} must be between 0 and 100`); return undefined; }
-    return value / 100;
+    return key === "purchaseVatRate" && !raw.includes("%") && value <= 1 ? value : value / 100;
   };
   const treatmentRaw = readCommercialField(record, lookup, "purchaseVatTreatment")?.toLowerCase();
   const treatment = treatmentRaw === undefined ? undefined : /free|zero/.test(treatmentRaw) ? "vat_free" as const : /standard|20/.test(treatmentRaw) ? "standard" as const : /review|other/.test(treatmentRaw) ? "review" as const : undefined;
   if (treatmentRaw && !treatment) errors.push("purchaseVatTreatment must be standard, vat free/zero-rated, or review");
   const tradeCost = money("currentBoldTradeCostExVatMinor");
   const vatRate = percentage("purchaseVatRate");
+  if (treatment === "vat_free" && vatRate !== undefined && vatRate !== 0) errors.push("VAT treatment conflicts with explicit VAT Rate");
   const trueCost = money("trueCostMinor");
   const targetMargin = percentage("targetMargin");
   const suggestedRetail = money("suggestedRetailMinor");
@@ -210,3 +213,62 @@ export function activeSportsReconciliationReport(rows: ActiveSportsNormalisedRow
   const image = (row: ActiveSportsNormalisedRow) => resolveValidatedSupplierImage({ parentKey: String(row.parentKey ?? ""), supplierId: String(row.supplier ?? ""), name: row.name, imageReference: row.parentImageReference, variants: [] }, row.variantImageReference ? { supplierId: String(row.supplier ?? ""), parentKey: String(row.parentKey ?? ""), imageReference: row.variantImageReference, stockStatus: row.stockStatus } : undefined);
   return { parentProducts: parents.size, exactVariants: rows.length, fullyCostedVariants: rows.filter(row => row.currentBoldTradeCostExVatMinor !== undefined).length, missingCost: rows.filter(row => row.currentBoldTradeCostExVatMinor === undefined).length, explicitVatFree: rows.filter(row => row.purchaseVatTreatment === "vat_free").length, standardVat: rows.filter(row => row.purchaseVatTreatment === "standard").length, vatReview: rows.filter(row => row.purchaseVatTreatment === "review" || row.purchaseVatTreatment === undefined).length, supplierOrderable: rows.filter(row => row.supplierStock === "available").length, supplierUnavailable: rows.filter(row => row.supplierStock === "unavailable").length, missingSku: rows.filter(row => !row.supplierSku).length, missingBarcode: rows.filter(row => !row.barcode).length, validParentOrVariantImage: rows.filter(row => Boolean(image(row))).length, missingOrRejectedImage: rows.filter(row => !image(row)).length, duplicateRows: duplicateRows.length, parseErrors: errors.length, requiresManagementReview: rows.filter(row => row.currentBoldTradeCostExVatMinor === undefined || row.purchaseVatTreatment === "review" || !image(row)).length + duplicateRows.length + errors.length };
 }
+
+/** Integer-penny landed cost. Supplier VAT is unrecoverable; no sales VAT is deducted. */
+export function supplierPricing(tradeCostMinor: number, vatRate: number, livePriceMinor?: number) {
+  if (!Number.isSafeInteger(tradeCostMinor) || tradeCostMinor < 0 || tradeCostMinor > 100000000 || !Number.isFinite(vatRate) || vatRate < 0 || vatRate > 1) throw new Error("Invalid supplier cost or VAT");
+  const trueCostMinor = Math.round(tradeCostMinor * (1 + vatRate));
+  // 30% gross margin and upward whole-pound rounding, without float boundary drift.
+  const recommendedFloorMinor = Math.ceil(trueCostMinor / 70) * 100;
+  const live = livePriceMinor ?? recommendedFloorMinor;
+  return { trueCostMinor, recommendedFloorMinor, livePriceMinor: live, marginPercent: live > 0 ? (live - trueCostMinor) / live * 100 : null, belowFloor: live < recommendedFloorMinor };
+}
+
+export function activeSportsIdentity(row: SupplierCatalogueImportRow) {
+  const normal = (value?: string) => value?.trim().toLowerCase() ?? "";
+  return row.supplierSku ? `sku:${row.supplierSku.trim()}` : row.barcode ? `barcode:${row.barcode.trim()}` : `facts:${JSON.stringify([normal(row.brand), normal(row.name), normal(row.size), normal(row.flavour), row.packQuantity ?? 1, normal(row.memberOrderableUnit)])}`;
+}
+
+/** Final-file gate. Historical review exports can still be inspected by the legacy parser,
+ * but only complete supplier facts enter the authenticated reconciler. Retail columns
+ * are ignored: R12 owns recommendations and management owns approved live prices. */
+export function prepareActiveSportsImport(csv: string) {
+  let sourceRows = 0;
+  try { sourceRows = parseCsvRecords(csv, true).length; } catch (error) {
+    return { rows: [], errors: [{ row: 1, reason: String(error instanceof Error ? error.message : error) }], duplicateRows: [], summary: { sourceRows: 0, retainedParentProducts: 0, exactVariants: 0, supplierOrderableVariants: 0, unavailableSiblingsRetained: 0, excludedParents: 0, rejectedRows: 1, duplicateIdentities: 0, missingCommercialData: 0, vatFreeCount: 0, standardVatCount: 0 } };
+  }
+  const result = normalizeActiveSportsCsv(csv);
+  const errors = [...result.errors]; const seen = new Set<string>(); const duplicates = new Set(result.duplicateRows);
+  const rows = result.rows.map(row => {
+    const trade = row.currentBoldTradeCostExVatMinor;
+    // Explicit VAT FREE remains zero. Blank VAT defaults to 20%; never replace explicit rates.
+    const vat = row.purchaseVatRate ?? (row.purchaseVatTreatment === "vat_free" ? 0 : 0.2);
+    return { ...row, purchaseVatRate: vat, purchaseVatTreatment: vat === 0 ? "vat_free" as const : "standard" as const, currentBoldTradeCostExVatMinor: trade, memberOrderableUnit: row.memberOrderableUnit?.toLowerCase(), identity: activeSportsIdentity(row) };
+  });
+  const records = parseCsvRecords(csv);
+  let missingCommercialData = 0;
+  records.forEach((record, index) => {
+    const row = index + 2;
+    const fields = parseActiveSportsCommercialFields(record);
+    if (record.barcode?.trim() && !normalizeBarcode(record.barcode)) errors.push({ row, reason: "Barcode must contain 8–14 digits, preserved as text" });
+    if (fields.fields.currentBoldTradeCostExVatMinor === undefined) { missingCommercialData++; errors.push({ row, reason: "Trade Cost ex VAT is required and must be a non-negative GBP amount" }); }
+    if (!/^(active sports|active sports nutrition)$/i.test(record.supplier?.trim() ?? "")) errors.push({ row, reason: "Supplier must be Active Sports or Active Sports Nutrition" });
+    for (const key of ["brand", "category", "size / format", "member order unit", "stock checked", "cost source / snapshot"]) if (!record[key]?.trim()) errors.push({ row, reason: `${key} is required` });
+    if (!/^(available|in stock|unavailable|out of stock|unavailable\s*-\s*dated\s*clearance)$/i.test(record["supplier stock"] ?? "")) errors.push({ row, reason: "Supplier Stock must be In stock or Out of stock" });
+    if (/^(case|box|pack)$/i.test(record["member order unit"] ?? "") && !/^\d+$/.test(record["pack qty"] ?? "")) errors.push({ row, reason: "Pack Qty is required for a case, box or pack" });
+    const candidate = { supplier: "Active Sports", name: cleanSupplierProductName(record["parent product"] ?? ""), brand: record.brand, size: record["size / format"], flavour: record["variant / flavour"], packQuantity: Number(record["pack qty"] || 1), memberOrderableUnit: record["member order unit"], supplierSku: record["supplier sku"] || undefined, barcode: record.barcode || undefined, stockStatus: stock(record["supplier stock"]) };
+    // Report strong identity collisions even if display facts differ.
+    for (const key of [activeSportsIdentity(candidate), candidate.barcode ? `barcode:${candidate.barcode}` : undefined].filter((key): key is string => Boolean(key)).filter((key, i, keys) => keys.indexOf(key) === i)) { if (seen.has(key)) duplicates.add(row); seen.add(key); }
+  });
+  const availableParents = new Set(rows.filter(row => row.stockStatus === "available").map(row => row.parentKey));
+  const retained = rows.filter(row => availableParents.has(row.parentKey));
+  return { rows, errors, duplicateRows: [...duplicates], summary: { sourceRows, retainedParentProducts: availableParents.size, exactVariants: retained.length, supplierOrderableVariants: retained.filter(row => row.stockStatus === "available").length, unavailableSiblingsRetained: retained.filter(row => row.stockStatus === "unavailable").length, excludedParents: new Set(rows.filter(row => !availableParents.has(row.parentKey)).map(row => row.parentKey)).size, rejectedRows: new Set(errors.map(error => error.row)).size, duplicateIdentities: duplicates.size, missingCommercialData, vatFreeCount: retained.filter(row => row.purchaseVatRate === 0).length, standardVatCount: retained.filter(row => row.purchaseVatRate === 0.2).length } };
+}
+
+export type SupplierPricingOffer = {
+  id: string; club_product_id: string | null; supplier: string; brand: string | null; name: string; variant: string | null; size: string | null; category: string | null;
+  supplier_sku: string | null; barcode: string | null; availability_status: SupplierStockStatus; availability_checked_at: string | null;
+  member_orderable_unit: string | null; pack_quantity: number | null; trade_cost_minor: number | null; vat_rate: number | null;
+  retail_price_minor: number | null; manual_price: boolean; local_stock: number; cost_source: string | null;
+  cost_history: Array<{ cost_minor: number; supplied_vat_rate: number | null; source_reference: string | null; observed_at: string; created_at: string }>;
+};
