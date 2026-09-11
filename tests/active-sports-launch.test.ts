@@ -255,8 +255,8 @@ test("supplier import queue has an automatic scheduled worker boundary", async (
 test("enqueue immediately kicks the worker without requiring cron", async () => {
   const action = readFileSync("app/club/products/actions.ts", "utf8");
   assert.match(action, /club_enqueue_supplier_import_job/);
-  assert.match(action, /after\(async \(\) =>/);
+  assert.doesNotMatch(action, /after\(async \(\) =>/);
   assert.match(action, /runQueuedSupplierImportWorker/);
-  assert.match(action, /worker started after publish response/);
+  assert.match(action, /await runQueuedSupplierImportWorker\(jobId\)/);
   assert.doesNotMatch(action, /fetch\([^\n]+supplier-import-worker/);
 });
