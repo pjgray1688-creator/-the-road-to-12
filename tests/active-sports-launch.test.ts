@@ -280,3 +280,11 @@ test("worker completion requires an explicit valid terminal payload", () => {
   assert.match(worker, /!\("summary" in value\)/);
   assert.match(worker, /status: payload\?\.status \?\? null/);
 });
+
+test("worker failure payload includes stage and SQL error context", () => {
+  const sql = readFileSync("supabase/migrations/2026-10-27-import-worker-failure-details.sql", "utf8");
+  assert.match(sql, /'status','failed'/);
+  assert.match(sql, /'stage',coalesce\(stage/);
+  assert.match(sql, /'sqlError',jsonb_build_object\('state',sqlstate/);
+  assert.match(sql, /'failingProductCount',0/);
+});
