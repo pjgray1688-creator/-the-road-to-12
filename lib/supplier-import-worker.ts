@@ -12,6 +12,14 @@ async function log(client: ReturnType<typeof workerClient>, jobIds: string[], me
   await client.from("club_import_job_logs").insert(jobIds.map(job_id => ({ job_id, level: "info", message, metadata }))).then(() => undefined, () => undefined);
 }
 
+function completionError(payload: unknown) {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return "Worker returned an invalid payload";
+  const value = payload as Record<string, unknown>;
+  if (value.status !== "completed") return `Worker returned non-terminal status: ${String(value.status ?? "undefined")}`;
+  if (typeof value.jobId !== "string" || !("summary" in value)) return "Worker completion payload is missing expected fields";
+  return undefined;
+}
+
 export async function runQueuedSupplierImportWorker(triggerJobId?: string) {
   try {
     console.info("[supplier-import] shared worker runner entered", { triggerJobId });
@@ -30,8 +38,11 @@ export async function runQueuedSupplierImportWorker(triggerJobId?: string) {
       await log(client, [id], "job status changed to running");
       await log(client, [id], "club_run_supplier_import_job invoked");
       const { data, error } = await client.rpc("club_run_supplier_import_job", { p_job_id: id });
-      results.push({ jobId: id, ok: !error, result: data ?? null, error: error?.message ?? null });
-      if (!error) await log(client, [id], "worker completed");
+      const invalid = error ? undefined : completionError(data);
+      const ok = !error && !invalid;
+      const payload = data && typeof data === "object" && !Array.isArray(data) ? data as Record<string, unknown> : undefined;
+      results.push({ jobId: id, ok, result: data ?? null, status: payload?.status ?? null, error: error ?? invalid ?? null });
+      if (ok) await log(client, [id], "worker completed");
     }
     const failed = results.filter(result => result.ok === false);
     return { claimed: ids.length, claimedJobIds: ids, started: ids.length > 0, completed: results.length - failed.length, failed: failed.length, error: failed[0]?.error ?? null, results };

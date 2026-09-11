@@ -272,3 +272,11 @@ test("claim RPC aggregates returned UUIDs into its uuid array", () => {
   assert.match(sql, /select coalesce\(array_agg\(id\), '\{\}'::uuid\[\]\) into ids from claimed/i);
   assert.doesNotMatch(sql, /returning j\.id into ids/i);
 });
+
+test("worker completion requires an explicit valid terminal payload", () => {
+  const worker = readFileSync("lib/supplier-import-worker.ts", "utf8");
+  assert.match(worker, /value\.status !== "completed"/);
+  assert.match(worker, /typeof value\.jobId !== "string"/);
+  assert.match(worker, /!\("summary" in value\)/);
+  assert.match(worker, /status: payload\?\.status \?\? null/);
+});
