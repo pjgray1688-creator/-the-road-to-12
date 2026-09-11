@@ -143,6 +143,16 @@ test("large publishes upsert each parent once and use scoped scan indexes", () =
   assert.match(sql, /create or replace function public\.club_reconcile_active_sports/);
 });
 
+test("reconciliation profiling exposes stage timings for Supabase diagnosis", () => {
+  const sql = readFileSync("supabase/migrations/2026-10-21-active-sports-reconcile-profiling.sql", "utf8");
+  assert.match(sql, /raise notice '\[active-sports\] csv load/);
+  assert.match(sql, /supplier product upsert/);
+  assert.match(sql, /availability and retirement/);
+  assert.match(sql, /publication/);
+  assert.match(sql, /stageTimingsMs/);
+  assert.match(sql, /totalMs/);
+});
+
 test("malformed costs, VAT, stock, missing facts and corrupt CSV fail closed", () => {
   for (const value of ["abc", "£abc", "-1", "10.001", "1e3", "1.2.3", ""]) assert.ok(prepareActiveSportsImport(csv({ ...record, "Trade Cost ex VAT": value })).errors.length, value);
   for (const value of ["twenty", "-20", "120%", "20%%"]) assert.ok(prepareActiveSportsImport(csv({ ...record, "VAT Rate": value })).errors.length, value);
