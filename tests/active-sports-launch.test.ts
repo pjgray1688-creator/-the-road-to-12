@@ -68,9 +68,16 @@ test("duplicate identity groups expose row facts and only conflicting commercial
   assert.equal(sameBarcodeDifferentSku.duplicateGroups[0].rows[0].barcode, "12345678");
   assert.equal(sameBarcodeDifferentSku.duplicateGroups[0].rows[0].variant, "Chocolate");
   assert.equal(sameBarcodeDifferentSku.duplicateGroups[0].rows[0].size, "2kg");
+  assert.equal(sameBarcodeDifferentSku.duplicateGroups[0].rows[0].stock, "available");
+  assert.equal(sameBarcodeDifferentSku.duplicateGroups[0].rows[0].costPriceMinor, 2000);
+  assert.equal(sameBarcodeDifferentSku.duplicateGroups[0].rows[0].vatRate, .2);
   const sameSkuDifferentCost = prepareActiveSportsImport(csv({ ...record, "Supplier SKU": "SKU-C" }, { ...record, "Supplier SKU": "SKU-C", "Trade Cost ex VAT": "21.00" }));
   assert.equal(sameSkuDifferentCost.duplicateGroups[0].identical, false);
   assert.equal(sameSkuDifferentCost.errors.some(error => error.reason.includes("Conflicting duplicate identity")), true);
+  const chosen = prepareActiveSportsImport(csv({ ...record, "Supplier SKU": "SKU-C" }, { ...record, "Supplier SKU": "SKU-C", "Trade Cost ex VAT": "21.00" }), { duplicateChoices: { [sameSkuDifferentCost.duplicateGroups[0].identityKey]: 3 } });
+  assert.equal(chosen.errors.some(error => error.reason.includes("Conflicting duplicate identity")), false);
+  assert.deepEqual(chosen.duplicateGroups[0].autoIgnoredRows, [2]);
+  assert.equal(chosen.rows[0].currentBoldTradeCostExVatMinor, 2100);
   const duplicateBarcode = prepareActiveSportsImport(csv({ ...record, Barcode: "12345678", "Supplier SKU": "SKU-D" }, { ...record, Barcode: "12345678", "Supplier SKU": "SKU-D" }));
   assert.equal(duplicateBarcode.duplicateGroups[0].identical, true);
   const duplicateSku = prepareActiveSportsImport(csv({ ...record, "Supplier SKU": "SKU-E" }, { ...record, "Supplier SKU": "SKU-E" }));

@@ -16,4 +16,11 @@
 .facts dt { font-size:12px; color:var(--muted); }
 .facts dd { margin:4px 0 0; }
 .warning { color:#fbbf24; }
+.duplicateCompare { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:12px; margin-block:12px; }
+.duplicateColumn { border:1px solid var(--line); border-radius:10px; padding:12px; }
+.duplicateColumn h4 { margin:0 0 8px; }
+.duplicateColumn > div { padding:5px 6px; border-radius:6px; }
+.duplicateColumn dt { color:var(--muted); font-size:12px; }
+.duplicateColumn dd { margin:2px 0 0; overflow-wrap:anywhere; }
+.diffField { background:rgba(251,191,36,.14); outline:1px solid rgba(251,191,36,.4); }
 .history { padding-left:20px; overflow-wrap:anywhere; }
