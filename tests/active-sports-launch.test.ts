@@ -266,3 +266,9 @@ test("worker failure response preserves the original error value", () => {
   assert.match(worker, /failed: 1, error, results: \[\]/);
   assert.doesNotMatch(worker, /failed: 1, error: .*String\(error\)/);
 });
+
+test("claim RPC aggregates returned UUIDs into its uuid array", () => {
+  const sql = readFileSync("supabase/migrations/2026-10-25-fix-import-job-claim-array.sql", "utf8");
+  assert.match(sql, /select coalesce\(array_agg\(id\), '\{\}'::uuid\[\]\) into ids from claimed/i);
+  assert.doesNotMatch(sql, /returning j\.id into ids/i);
+});
