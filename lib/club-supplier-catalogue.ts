@@ -232,7 +232,7 @@ export function activeSportsIdentity(row: SupplierCatalogueImportRow) {
   const size = normal(row.size);
   const reference = row.supplierSku ? `sku:${normal(row.supplierSku)}` : row.barcode ? `barcode:${normal(row.barcode)}` : "facts";
   const product = reference === "facts" ? `|product:${normal(row.name)}` : "";
-  return `${reference}${product}|variant:${variant}|size:${size}|pack:${row.packQuantity ?? 1}|unit:${normal(row.memberOrderableUnit)}`;
+  return `${reference}|brand:${normal(row.brand)}${product}|variant:${variant}|size:${size}|pack:${row.packQuantity ?? 1}|unit:${normal(row.memberOrderableUnit)}`;
 }
 
 /** Final-file gate. Historical review exports can still be inspected by the legacy parser,
@@ -268,7 +268,7 @@ export function prepareActiveSportsImport(csv: string, options: { duplicateChoic
     const variant = normal(candidate.flavour) || normal(candidate.name);
     const reference = candidate.supplierSku ? `sku:${normal(candidate.supplierSku)}` : candidate.barcode ? `barcode:${normal(candidate.barcode)}` : "facts";
     const product = reference === "facts" ? `:product:${normal(candidate.name)}` : "";
-    const keys = [`${candidate.supplier.toLowerCase()}:${reference}${product}:variant:${variant}:size:${normal(candidate.size)}:pack:${candidate.packQuantity || 1}:unit:${normal(candidate.memberOrderableUnit)}`];
+    const keys = [`${candidate.supplier.toLowerCase()}:${reference}:brand:${normal(candidate.brand)}${product}:variant:${variant}:size:${normal(candidate.size)}:pack:${candidate.packQuantity || 1}:unit:${normal(candidate.memberOrderableUnit)}`];
     const signature = JSON.stringify({ ...Object.fromEntries(Object.entries(record).map(([key, value]) => [key, value.trim()])), commercial: fields.fields });
     duplicateCandidates.push({ detail: { row, productName: candidate.name, brand: candidate.brand, supplier: candidate.supplier, sku: candidate.supplierSku, barcode: candidate.barcode, variant: candidate.flavour, size: candidate.size, stock: candidate.stockStatus, costPriceMinor: fields.fields.currentBoldTradeCostExVatMinor, retailPriceMinor: fields.fields.finalRetailMinor, vatRate: fields.fields.purchaseVatRate, identityKey: keys[0] ?? "" }, keys, signature });
   });

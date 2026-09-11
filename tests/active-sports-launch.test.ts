@@ -48,6 +48,10 @@ test("variant identity includes flavour and size while barcode/SKU remain linkin
   assert.deepEqual(differentSize.duplicateRows, []);
   const barcodeFlavours = prepareActiveSportsImport(csv({ ...record, Barcode: "12345678", "Supplier SKU": "A" }, { ...record, Barcode: "12345678", "Supplier SKU": "B", "Variant / Flavour": "Vanilla" }));
   assert.deepEqual(barcodeFlavours.duplicateRows, []);
+  const differentBrand = prepareActiveSportsImport(csv({ ...record, "Supplier SKU": "BRAND-1", Brand: "10X Athletic" }, { ...record, "Supplier SKU": "BRAND-1", Brand: "Mountain Joe's" }));
+  assert.deepEqual(differentBrand.duplicateRows, []);
+  const sameBrand = prepareActiveSportsImport(csv({ ...record, "Supplier SKU": "BRAND-2", Brand: "10X Athletic" }, { ...record, "Supplier SKU": "BRAND-2", Brand: "10X Athletic", "Trade Cost ex VAT": "21.00" }));
+  assert.deepEqual(sameBrand.duplicateRows, [2, 3]);
 });
 
 test("identical duplicates are grouped, first row is kept, and validation remains importable", () => {
