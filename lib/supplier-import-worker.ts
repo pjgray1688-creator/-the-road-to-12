@@ -42,6 +42,9 @@ export async function runQueuedSupplierImportWorker(triggerJobId?: string) {
       const ok = !error && !invalid;
       const payload = data && typeof data === "object" && !Array.isArray(data) ? data as Record<string, unknown> : undefined;
       results.push({ jobId: id, ok, result: data ?? null, status: payload?.status ?? null, error: error ?? invalid ?? null, validationError: invalid ?? null });
+      const summary = payload?.summary && typeof payload.summary === "object" ? payload.summary as Record<string, unknown> : payload;
+      const timings = summary?.stageTimingsMs && typeof summary.stageTimingsMs === "object" ? summary.stageTimingsMs as Record<string, unknown> : undefined;
+      if (timings) for (const [stage, durationMs] of Object.entries(timings)) await log(client, [id], "reconciliation stage completed", { stage, durationMs });
       if (ok) await log(client, [id], "worker completed");
     }
     const failed = results.filter(result => result.ok === false);

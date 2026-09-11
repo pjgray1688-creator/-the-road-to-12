@@ -300,6 +300,13 @@ test("reconciliation stages supplier products before row matching", () => {
   assert.match(sql, /from worker_supplier_products sp/);
 });
 
+test("worker persists reconciliation stage timings returned by the RPC", () => {
+  const worker = readFileSync("lib/supplier-import-worker.ts", "utf8");
+  assert.match(worker, /stageTimingsMs/);
+  assert.match(worker, /reconciliation stage completed/);
+  assert.match(worker, /durationMs/);
+});
+
 test("worker failure payload includes stage and SQL error context", () => {
   const sql = readFileSync("supabase/migrations/2026-10-27-import-worker-failure-details.sql", "utf8");
   assert.match(sql, /'status','failed'/);
