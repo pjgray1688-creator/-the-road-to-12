@@ -119,6 +119,11 @@ test("database duplicate validation returns every group with both source records
   assert.match(sql, /jsonb_build_object\('identityKey'/);
   assert.match(sql, /jsonb_build_array\(seen_records/);
   assert.match(sql, /jsonb_array_length\(duplicate_diagnostics\)>0/);
+  const forward = readFileSync("supabase/migrations/2026-10-18-active-sports-duplicate-diagnostics.sql", "utf8");
+  assert.match(forward, /create or replace function public\.club_reconcile_active_sports/);
+  assert.match(forward, /duplicate_diagnostics/);
+  assert.match(forward, /seen_records/);
+  assert.match(forward, /grant execute on function public\.club_reconcile_active_sports/);
 });
 
 test("malformed costs, VAT, stock, missing facts and corrupt CSV fail closed", () => {
