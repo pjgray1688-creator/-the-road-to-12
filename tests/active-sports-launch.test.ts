@@ -98,6 +98,18 @@ test("duplicate identity groups expose row facts and only conflicting commercial
   assert.equal(mixed.duplicateGroups.length, 0);
 });
 
+test("catalogue validation preserves duplicate reports and exposes diagnostic failures", () => {
+  const action = readFileSync("app/club/products/actions.ts", "utf8");
+  assert.match(action, /diagnostic: detail/);
+  assert.match(action, /summary: parsed\.summary/);
+  assert.match(action, /identityKey/);
+  assert.doesNotMatch(action, /The catalogue contains conflicting or incomplete identities/);
+  const panel = readFileSync("components/club-supplier-pricing.tsx", "utf8");
+  assert.match(panel, /Validation diagnostics/);
+  assert.match(panel, /CSV rows/);
+  assert.match(panel, /Identity key/);
+});
+
 test("malformed costs, VAT, stock, missing facts and corrupt CSV fail closed", () => {
   for (const value of ["abc", "£abc", "-1", "10.001", "1e3", "1.2.3", ""]) assert.ok(prepareActiveSportsImport(csv({ ...record, "Trade Cost ex VAT": value })).errors.length, value);
   for (const value of ["twenty", "-20", "120%", "20%%"]) assert.ok(prepareActiveSportsImport(csv({ ...record, "VAT Rate": value })).errors.length, value);
