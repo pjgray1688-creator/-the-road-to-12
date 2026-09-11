@@ -36,6 +36,6 @@ export async function runQueuedSupplierImportWorker(triggerJobId?: string) {
     const failed = results.filter(result => result.ok === false);
     return { claimed: ids.length, claimedJobIds: ids, started: ids.length > 0, completed: results.length - failed.length, failed: failed.length, error: failed[0]?.error ?? null, results };
   } catch (error) {
-    return { claimed: 0, claimedJobIds: [], started: false, completed: 0, failed: 1, error: error instanceof Error ? error.message : String(error), results: [] };
+    return { claimed: 0, claimedJobIds: [], started: false, completed: 0, failed: 1, error, results: [] };
   }
 }

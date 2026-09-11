@@ -260,3 +260,9 @@ test("enqueue immediately kicks the worker without requiring cron", async () => 
   assert.match(action, /await runQueuedSupplierImportWorker\(jobId\)/);
   assert.doesNotMatch(action, /fetch\([^\n]+supplier-import-worker/);
 });
+
+test("worker failure response preserves the original error value", () => {
+  const worker = readFileSync("lib/supplier-import-worker.ts", "utf8");
+  assert.match(worker, /failed: 1, error, results: \[\]/);
+  assert.doesNotMatch(worker, /failed: 1, error: .*String\(error\)/);
+});
