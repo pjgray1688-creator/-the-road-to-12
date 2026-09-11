@@ -19,6 +19,8 @@ const unitValues = new Set(["unit", "case", "pack", "box", "tub", "each"]);
 const validUrl = (value: string) => { try { const url = new URL(value); return url.protocol === "http:" || url.protocol === "https:"; } catch { return false; } };
 export type ActiveSportsNormalisedRow = SupplierCatalogueImportRow & { notes?: string; imageStatus?: string; supplierStock: SupplierStockStatus; parentImageReference?: string; variantImageReference?: string } & ActiveSportsCommercialFields;
 export type ActiveSportsImportResult = { rows: ActiveSportsNormalisedRow[]; errors: Array<{ row: number; reason: string }>; duplicateRows: number[]; headers: string[] };
+export type ActiveSportsDuplicateRow = { row: number; productName: string; brand?: string; supplier: string; sku?: string; barcode?: string; variant?: string; size?: string; identityKey: string };
+export type ActiveSportsDuplicateGroup = { identityKey: string; rows: ActiveSportsDuplicateRow[]; identical: boolean; autoIgnoredRows: number[]; conflictingRows: number[] };
 export type CatalogueOperatorFilter = { query?: string; supplierId?: string; brand?: string; category?: string; availability?: SupplierStockStatus; priced?: boolean; memberOrderable?: boolean; sort?: "name" | "brand" | "unpriced" | "available" };
 export function filterSupplierParents(parents: DurableSupplierParentRow[], filter: CatalogueOperatorFilter = {}) { const query = filter.query?.trim().toLowerCase(); const matches = parents.filter(parent => (!filter.supplierId || parent.supplierId === filter.supplierId) && (!filter.brand || parent.brand === filter.brand) && (!filter.category || parent.category === filter.category) && parent.variants.some(variant => (!filter.availability || variant.stockStatus === filter.availability) && (!filter.memberOrderable || parent.memberOrderable) && (!filter.priced || variant.retailPriceMinor !== undefined) && (!query || [parent.name,parent.brand,parent.category,parent.subcategory,variant.flavour,variant.size,variant.supplierSku,variant.barcode].some(value => value?.toLowerCase().includes(query))))); return matches.sort((a,b)=> filter.sort === "brand" ? (a.brand??"").localeCompare(b.brand??"") || a.name.localeCompare(b.name) : filter.sort === "unpriced" ? Number(a.variants.every(v=>v.retailPriceMinor!==undefined))-Number(b.variants.every(v=>v.retailPriceMinor!==undefined)) || a.name.localeCompare(b.name) : filter.sort === "available" ? Number(b.variants.some(v=>v.stockStatus === "available"))-Number(a.variants.some(v=>v.stockStatus === "available")) || a.name.localeCompare(b.name) : a.name.localeCompare(b.name)); }
 
@@ -235,10 +237,10 @@ export function activeSportsIdentity(row: SupplierCatalogueImportRow) {
 export function prepareActiveSportsImport(csv: string) {
   let sourceRows = 0;
   try { sourceRows = parseCsvRecords(csv, true).length; } catch (error) {
-    return { rows: [], errors: [{ row: 1, reason: String(error instanceof Error ? error.message : error) }], duplicateRows: [], summary: { sourceRows: 0, retainedParentProducts: 0, exactVariants: 0, supplierOrderableVariants: 0, unavailableSiblingsRetained: 0, excludedParents: 0, rejectedRows: 1, duplicateIdentities: 0, missingCommercialData: 0, vatFreeCount: 0, standardVatCount: 0 } };
+    return { rows: [], errors: [{ row: 1, reason: String(error instanceof Error ? error.message : error) }], duplicateRows: [], duplicateGroups: [] as ActiveSportsDuplicateGroup[], summary: { sourceRows: 0, retainedParentProducts: 0, exactVariants: 0, supplierOrderableVariants: 0, unavailableSiblingsRetained: 0, excludedParents: 0, rejectedRows: 1, duplicateIdentities: 0, missingCommercialData: 0, vatFreeCount: 0, standardVatCount: 0, autoIgnoredDuplicates: 0, conflictingDuplicates: 0 } };
   }
   const result = normalizeActiveSportsCsv(csv);
-  const errors = [...result.errors]; const seen = new Set<string>(); const duplicates = new Set(result.duplicateRows);
+  const errors = [...result.errors]; const duplicates = new Set<number>();
   const rows = result.rows.map(row => {
     const trade = row.currentBoldTradeCostExVatMinor;
     // Explicit VAT FREE remains zero. Blank VAT defaults to 20%; never replace explicit rates.
@@ -246,6 +248,7 @@ export function prepareActiveSportsImport(csv: string) {
     return { ...row, purchaseVatRate: vat, purchaseVatTreatment: vat === 0 ? "vat_free" as const : "standard" as const, currentBoldTradeCostExVatMinor: trade, memberOrderableUnit: row.memberOrderableUnit?.toLowerCase(), identity: activeSportsIdentity(row) };
   });
   const records = parseCsvRecords(csv);
+  const duplicateCandidates: Array<{ detail: ActiveSportsDuplicateRow; keys: string[]; signature: string }> = [];
   let missingCommercialData = 0;
   records.forEach((record, index) => {
     const row = index + 2;
@@ -256,13 +259,45 @@ export function prepareActiveSportsImport(csv: string) {
     for (const key of ["brand", "category", "size / format", "member order unit", "stock checked", "cost source / snapshot"]) if (!record[key]?.trim()) errors.push({ row, reason: `${key} is required` });
     if (!/^(available|in stock|unavailable|out of stock|unavailable\s*-\s*dated\s*clearance)$/i.test(record["supplier stock"] ?? "")) errors.push({ row, reason: "Supplier Stock must be In stock or Out of stock" });
     if (/^(case|box|pack)$/i.test(record["member order unit"] ?? "") && !/^\d+$/.test(record["pack qty"] ?? "")) errors.push({ row, reason: "Pack Qty is required for a case, box or pack" });
-    const candidate = { supplier: "Active Sports", name: cleanSupplierProductName(record["parent product"] ?? ""), brand: record.brand, size: record["size / format"], flavour: record["variant / flavour"], packQuantity: Number(record["pack qty"] || 1), memberOrderableUnit: record["member order unit"], supplierSku: record["supplier sku"] || undefined, barcode: record.barcode || undefined, stockStatus: stock(record["supplier stock"]) };
-    // Report strong identity collisions even if display facts differ.
-    for (const key of [activeSportsIdentity(candidate), candidate.barcode ? `barcode:${candidate.barcode}` : undefined].filter((key): key is string => Boolean(key)).filter((key, i, keys) => keys.indexOf(key) === i)) { if (seen.has(key)) duplicates.add(row); seen.add(key); }
+    const candidate = { supplier: record.supplier || "", name: cleanSupplierProductName(record["parent product"] ?? ""), brand: record.brand || undefined, size: record["size / format"] || undefined, flavour: record["variant / flavour"] || undefined, packQuantity: Number(record["pack qty"] || 1), memberOrderableUnit: record["member order unit"] || undefined, supplierSku: record["supplier sku"] || undefined, barcode: record.barcode || undefined, stockStatus: stock(record["supplier stock"]) };
+    const normal = (value?: string) => value?.trim().toLowerCase() ?? "";
+    const keys = [candidate.supplier && candidate.supplier.toLowerCase() + ":sku:" + normal(candidate.supplierSku), candidate.supplier && candidate.supplier.toLowerCase() + ":barcode:" + normal(candidate.barcode), `${candidate.supplier.toLowerCase()}:facts:${JSON.stringify([normal(candidate.brand), normal(candidate.name), normal(candidate.size), normal(candidate.flavour), candidate.packQuantity || 1, normal(candidate.memberOrderableUnit)])}`].filter((key): key is string => Boolean(key && !key.endsWith(":sku:") && !key.endsWith(":barcode:")));
+    const signature = JSON.stringify({ ...Object.fromEntries(Object.entries(record).map(([key, value]) => [key, value.trim()])), commercial: fields.fields });
+    duplicateCandidates.push({ detail: { row, productName: candidate.name, brand: candidate.brand, supplier: candidate.supplier, sku: candidate.supplierSku, barcode: candidate.barcode, variant: candidate.flavour, size: candidate.size, identityKey: keys[0] ?? "" }, keys, signature });
   });
+  const baseInvalidRows = new Set(errors.map(error => error.row));
+  const duplicateGroups: ActiveSportsDuplicateGroup[] = [];
+  const visited = new Set<number>();
+  for (const candidate of duplicateCandidates) {
+    if (visited.has(candidate.detail.row)) continue;
+    const group = [candidate];
+    let expanded = true;
+    while (expanded) {
+      expanded = false;
+      for (const other of duplicateCandidates) {
+        if (!group.includes(other) && other.keys.some(key => group.some(item => item.keys.includes(key)))) {
+          group.push(other);
+          expanded = true;
+        }
+      }
+    }
+    if (group.length < 2) continue;
+    group.forEach(item => visited.add(item.detail.row));
+    const identical = group.every(item => item.signature === group[0].signature);
+    const commonKeys = [...new Set(group.flatMap(item => item.keys).filter(key => group.every(item => item.keys.includes(key))))];
+    const identityKey = commonKeys.find(key => key.includes(":sku:")) ?? commonKeys.find(key => key.includes(":barcode:")) ?? commonKeys.find(key => key.includes(":facts:")) ?? candidate.detail.identityKey;
+    const autoIgnoredRows = identical ? group.slice(1).map(item => item.detail.row) : [];
+    const conflictingRows = identical ? [] : group.map(item => item.detail.row);
+    duplicateGroups.push({ identityKey, rows: group.map(item => ({ ...item.detail, identityKey })), identical, autoIgnoredRows, conflictingRows });
+    if (identical) autoIgnoredRows.forEach(rowNumber => duplicates.add(rowNumber));
+    else conflictingRows.forEach(rowNumber => { duplicates.add(rowNumber); errors.push({ row: rowNumber, reason: `Conflicting duplicate identity ${identityKey}` }); });
+  }
+  const ignoredRows = new Set(duplicateGroups.flatMap(group => group.autoIgnoredRows));
+  const validRowNumbers = records.map((_, index) => index + 2).filter(rowNumber => !baseInvalidRows.has(rowNumber));
+  const dedupedRows = rows.filter((_, index) => !ignoredRows.has(validRowNumbers[index]));
   const availableParents = new Set(rows.filter(row => row.stockStatus === "available").map(row => row.parentKey));
-  const retained = rows.filter(row => availableParents.has(row.parentKey));
-  return { rows, errors, duplicateRows: [...duplicates], summary: { sourceRows, retainedParentProducts: availableParents.size, exactVariants: retained.length, supplierOrderableVariants: retained.filter(row => row.stockStatus === "available").length, unavailableSiblingsRetained: retained.filter(row => row.stockStatus === "unavailable").length, excludedParents: new Set(rows.filter(row => !availableParents.has(row.parentKey)).map(row => row.parentKey)).size, rejectedRows: new Set(errors.map(error => error.row)).size, duplicateIdentities: duplicates.size, missingCommercialData, vatFreeCount: retained.filter(row => row.purchaseVatRate === 0).length, standardVatCount: retained.filter(row => row.purchaseVatRate === 0.2).length } };
+  const retained = dedupedRows.filter(row => availableParents.has(row.parentKey));
+  return { rows: dedupedRows, errors, duplicateRows: [...duplicates].filter(rowNumber => !ignoredRows.has(rowNumber)), duplicateGroups, summary: { sourceRows, retainedParentProducts: availableParents.size, exactVariants: retained.length, supplierOrderableVariants: retained.filter(row => row.stockStatus === "available").length, unavailableSiblingsRetained: retained.filter(row => row.stockStatus === "unavailable").length, excludedParents: new Set(rows.filter(row => !availableParents.has(row.parentKey)).map(row => row.parentKey)).size, rejectedRows: new Set(errors.map(error => error.row)).size, duplicateIdentities: duplicateGroups.length, autoIgnoredDuplicates: duplicateGroups.reduce((count, group) => count + group.autoIgnoredRows.length, 0), conflictingDuplicates: duplicateGroups.reduce((count, group) => count + group.conflictingRows.length, 0), missingCommercialData, vatFreeCount: retained.filter(row => row.purchaseVatRate === 0).length, standardVatCount: retained.filter(row => row.purchaseVatRate === 0.2).length } };
 }
 
 export type SupplierPricingOffer = {

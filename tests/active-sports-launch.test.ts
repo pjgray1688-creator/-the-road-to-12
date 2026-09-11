@@ -40,8 +40,43 @@ test("strong identity is stable across display changes; duplicate SKU and barcod
   const a = { supplier: "Active Sports", name: "Whey", supplierSku: "000123", stockStatus: "available" as const };
   assert.equal(activeSportsIdentity(a), activeSportsIdentity({ ...a, name: "Updated whey" }));
   const parsed = prepareActiveSportsImport(csv({ ...record, "Supplier SKU": "000123" }, { ...record, "Supplier SKU": "000123", "Parent Product": "Renamed" }));
-  assert.deepEqual(parsed.duplicateRows, [3]);
-  assert.deepEqual(prepareActiveSportsImport(csv({ ...record, Barcode: "00123", "Supplier SKU": "A" }, { ...record, Barcode: "00123", "Supplier SKU": "B" })).duplicateRows, [3]);
+  assert.deepEqual(parsed.duplicateRows, [2, 3]);
+  assert.deepEqual(prepareActiveSportsImport(csv({ ...record, Barcode: "00123", "Supplier SKU": "A" }, { ...record, Barcode: "00123", "Supplier SKU": "B" })).duplicateRows, [2, 3]);
+});
+
+test("identical duplicates are grouped, first row is kept, and validation remains importable", () => {
+  const parsed = prepareActiveSportsImport(csv(record, { ...record }));
+  assert.equal(parsed.errors.length, 0);
+  assert.deepEqual(parsed.duplicateRows, []);
+  assert.equal(parsed.duplicateGroups.length, 1);
+  assert.equal(parsed.duplicateGroups[0].identical, true);
+  assert.deepEqual(parsed.duplicateGroups[0].autoIgnoredRows, [3]);
+  assert.equal(parsed.summary.autoIgnoredDuplicates, 1);
+  assert.equal(parsed.rows.length, 1);
+});
+
+test("duplicate identity groups expose row facts and only conflicting commercial data fails", () => {
+  const sameBarcodeDifferentSku = prepareActiveSportsImport(csv({ ...record, Barcode: "12345678", "Supplier SKU": "SKU-A" }, { ...record, Barcode: "12345678", "Supplier SKU": "SKU-B" }));
+  assert.equal(sameBarcodeDifferentSku.duplicateGroups.length, 1);
+  assert.equal(sameBarcodeDifferentSku.duplicateGroups[0].identical, false);
+  assert.deepEqual(sameBarcodeDifferentSku.duplicateGroups[0].conflictingRows, [2, 3]);
+  assert.match(sameBarcodeDifferentSku.duplicateGroups[0].identityKey, /barcode/);
+  assert.equal(sameBarcodeDifferentSku.duplicateGroups[0].rows[0].productName, "Whey");
+  assert.equal(sameBarcodeDifferentSku.duplicateGroups[0].rows[0].brand, "Per4m Nutrition");
+  assert.equal(sameBarcodeDifferentSku.duplicateGroups[0].rows[0].supplier, "Active Sports");
+  assert.equal(sameBarcodeDifferentSku.duplicateGroups[0].rows[0].sku, "SKU-A");
+  assert.equal(sameBarcodeDifferentSku.duplicateGroups[0].rows[0].barcode, "12345678");
+  assert.equal(sameBarcodeDifferentSku.duplicateGroups[0].rows[0].variant, "Chocolate");
+  assert.equal(sameBarcodeDifferentSku.duplicateGroups[0].rows[0].size, "2kg");
+  const sameSkuDifferentCost = prepareActiveSportsImport(csv({ ...record, "Supplier SKU": "SKU-C" }, { ...record, "Supplier SKU": "SKU-C", "Trade Cost ex VAT": "21.00" }));
+  assert.equal(sameSkuDifferentCost.duplicateGroups[0].identical, false);
+  assert.equal(sameSkuDifferentCost.errors.some(error => error.reason.includes("Conflicting duplicate identity")), true);
+  const duplicateBarcode = prepareActiveSportsImport(csv({ ...record, Barcode: "12345678", "Supplier SKU": "SKU-D" }, { ...record, Barcode: "12345678", "Supplier SKU": "SKU-D" }));
+  assert.equal(duplicateBarcode.duplicateGroups[0].identical, true);
+  const duplicateSku = prepareActiveSportsImport(csv({ ...record, "Supplier SKU": "SKU-E" }, { ...record, "Supplier SKU": "SKU-E" }));
+  assert.equal(duplicateSku.duplicateGroups[0].identical, true);
+  const mixed = prepareActiveSportsImport(csv({ ...record, Barcode: "12345678", "Supplier SKU": "SKU-F" }, { ...record, Barcode: "12345678", "Supplier SKU": "SKU-G" }));
+  assert.equal(mixed.duplicateGroups[0].identical, false);
 });
 
 test("malformed costs, VAT, stock, missing facts and corrupt CSV fail closed", () => {

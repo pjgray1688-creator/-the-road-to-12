@@ -59,6 +59,8 @@ Next, in **Products & Pricing → Supplier products & pricing → Import reviewe
 
 Identity uses supplier SKU first, barcode next, and exact brand/product/size/flavour/pack/order-unit facts otherwise. Conflicting references fail closed. With no stable identifiers, a changed product identity must be reviewed: it may appear as a new variant while the old variant is retired. The importer does not hard-code brand or catalogue counts.
 
+Duplicate identities are grouped during validation with the CSV row, product, brand, supplier, SKU, barcode, flavour, size and resolved identity key. Rows whose identity and commercial data are identical keep the first row and auto-ignore later rows; they do not block import. A shared SKU or barcode with different product or commercial facts is shown as a conflicting group and blocks confirmation until reviewed. Mixed SKU/barcode collisions are grouped by either shared key.
+
 ## Pricing and stock contracts
 
 Current supplier trade cost and VAT remain private. R12 rounds unrecoverable VAT-inclusive cost to integer pennies, then calculates `ceil(true_cost_minor / 70) * 100` as the upward whole-pound floor for 30% gross margin. A zero-cost row may be retained but cannot be ordered until it has a positive live price.
