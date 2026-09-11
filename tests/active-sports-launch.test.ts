@@ -293,6 +293,13 @@ test("worker qualifies stage column and PL/pgSQL variable", () => {
   assert.match(sql, /e2\.stage=worker\.stage/);
 });
 
+test("reconciliation stages supplier products before row matching", () => {
+  const sql = readFileSync("supabase/migrations/2026-10-30-stage-supplier-products.sql", "utf8");
+  assert.match(sql, /create temporary table worker_supplier_products/i);
+  assert.match(sql, /create index worker_supplier_products_identity_idx/i);
+  assert.match(sql, /from worker_supplier_products sp/);
+});
+
 test("worker failure payload includes stage and SQL error context", () => {
   const sql = readFileSync("supabase/migrations/2026-10-27-import-worker-failure-details.sql", "utf8");
   assert.match(sql, /'status','failed'/);
