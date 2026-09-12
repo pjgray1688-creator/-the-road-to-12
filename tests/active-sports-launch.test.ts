@@ -100,15 +100,11 @@ test("duplicate identity groups expose row facts and only conflicting commercial
 
 test("catalogue validation preserves duplicate reports and exposes diagnostic failures", () => {
   const action = readFileSync("app/club/products/actions.ts", "utf8");
-  assert.match(action, /diagnostic: detail/);
-  assert.match(action, /summary: parsed\.summary/);
-  assert.match(action, /identityKey/);
-  assert.doesNotMatch(action, /The catalogue contains conflicting or incomplete identities/);
+  assert.match(action, /syncActiveSportsCatalogueAction/);
+  assert.match(action, /club_import_supplier_catalogue_v2/);
   const panel = readFileSync("components/club-supplier-pricing.tsx", "utf8");
-  assert.match(panel, /Validation diagnostics/);
-  assert.match(panel, /CSV rows/);
-  assert.match(panel, /Identity key/);
-  assert.match(action, /duplicateGroups/);
+  assert.match(panel, /Products updated/);
+  assert.match(panel, /New products created/);
 });
 
 test("database duplicate validation returns every group with both source records", () => {

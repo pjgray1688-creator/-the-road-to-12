@@ -17,6 +17,23 @@ function diagnostic(error: unknown, category: ActiveSportsDiagnostic["category"]
   return { category, message, ...(code ? { code } : {}), ...(rows.length ? { rows: [...new Set(rows)] } : {}), ...(identityKey ? { identityKey } : {}), ...(field ? { field } : {}), ...(duplicateGroups?.length ? { duplicateGroups } : {}) };
 }
 
+export async function syncActiveSportsCatalogueAction(input: { organisationId: string; csv: string; fileName: string }) {
+  const started = Date.now();
+  const client = await serverSupabase();
+  const { data: { user } } = await client.auth.getUser();
+  if (!user) return { ok: false as const, error: "Sign in with catalogue access." };
+  const context = await resolveClubOrganisationContext(client, user.id, input.organisationId);
+  if (!context || !(await context.repository.hasCapability(input.organisationId, user.id, "supplier.catalogue_manage"))) return { ok: false as const, error: "Catalogue access required." };
+  if (typeof input.csv !== "string" || Buffer.byteLength(input.csv, "utf8") > 8000000 || !input.csv.trim()) return { ok: false as const, error: "Choose a CSV smaller than 8 MB." };
+  const parsed = prepareActiveSportsImport(input.csv);
+  if (parsed.errors.length || !parsed.rows.length) return { ok: false as const, error: "The Active Sports CSV contains invalid rows.", errors: parsed.errors };
+  const rows = parsed.rows.map(row => ({ ...row, supplier: "Active Sports", parentImageUrl: resolveValidatedSupplierImage({ supplierId: "active-sports", parentKey: row.parentKey ?? "", name: row.name, imageReference: row.parentImageReference, variants: [] }), variantImageUrl: resolveValidatedSupplierImage({ supplierId: "active-sports", parentKey: row.parentKey ?? "", name: row.name, imageReference: row.variantImageReference, variants: [] }), availabilityStatus: row.supplierStock, tradeCostExVatMinor: row.currentBoldTradeCostExVatMinor, suppliedVatRate: row.purchaseVatRate }));
+  const { data, error } = await client.rpc("club_import_supplier_catalogue_v2", { p_organisation_id: input.organisationId, p_supplier_name: "Active Sports", p_file_name: input.fileName.slice(0, 200), p_rows: rows, p_reconcile: false });
+  if (error) return { ok: false as const, error: "Active Sports catalogue could not be imported." };
+  const result = (data ?? {}) as Record<string, unknown>;
+  return { ok: true as const, updated: Number(result.updated ?? 0), created: Number(result.created ?? 0), discontinued: Number(result.discontinued ?? 0), skipped: Number(result.invalid ?? 0), durationMs: Date.now() - started };
+}
+
 export async function reconcileActiveSportsAction(input: { organisationId: string; csv: string; fileName: string; revision?: string; confirm?: boolean; duplicateChoices?: Record<string, number> }) {
   console.info("[supplier-import] reconcileActiveSportsAction entered", { organisationId: input.organisationId, confirm: input.confirm === true });
   const client = await serverSupabase();
