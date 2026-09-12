@@ -25,11 +25,12 @@ export async function syncActiveSportsCatalogueAction(input: { organisationId: s
   const context = await resolveClubOrganisationContext(client, user.id, input.organisationId);
   if (!context || !(await context.repository.hasCapability(input.organisationId, user.id, "supplier.catalogue_manage"))) return { ok: false as const, error: "Catalogue access required." };
   if (typeof input.csv !== "string" || Buffer.byteLength(input.csv, "utf8") > 8000000 || !input.csv.trim()) return { ok: false as const, error: "Choose a CSV smaller than 8 MB." };
-  const parsed = prepareActiveSportsImport(input.csv);
-  if (parsed.errors.length || !parsed.rows.length) return { ok: false as const, error: "The Active Sports CSV contains invalid rows.", errors: parsed.errors };
+  let parsed: ReturnType<typeof prepareActiveSportsImport>;
+  try { parsed = prepareActiveSportsImport(input.csv); } catch (error) { const value = error as { name?: unknown; message?: unknown; stack?: unknown }; return { ok: false as const, error: "Import failed", diagnostic: { operation: "CSV parsing", name: typeof value.name === "string" ? value.name : "Error", message: typeof value.message === "string" ? value.message : String(error), ...(process.env.NODE_ENV === "development" && typeof value.stack === "string" ? { stack: value.stack } : {}) } }; }
+  if (parsed.errors.length || !parsed.rows.length) return { ok: false as const, error: "Import failed", diagnostic: { operation: "CSV parsing", message: "The Active Sports CSV contains invalid rows.", rows: parsed.errors } };
   const rows = parsed.rows.map(row => ({ ...row, supplier: "Active Sports", parentImageUrl: resolveValidatedSupplierImage({ supplierId: "active-sports", parentKey: row.parentKey ?? "", name: row.name, imageReference: row.parentImageReference, variants: [] }), variantImageUrl: resolveValidatedSupplierImage({ supplierId: "active-sports", parentKey: row.parentKey ?? "", name: row.name, imageReference: row.variantImageReference, variants: [] }), availabilityStatus: row.supplierStock, tradeCostExVatMinor: row.currentBoldTradeCostExVatMinor, suppliedVatRate: row.purchaseVatRate }));
   const { data, error } = await client.rpc("club_import_supplier_catalogue_v2", { p_organisation_id: input.organisationId, p_supplier_name: "Active Sports", p_file_name: input.fileName.slice(0, 200), p_rows: rows, p_reconcile: false });
-  if (error) return { ok: false as const, error: "Active Sports catalogue could not be imported." };
+  if (error) return { ok: false as const, error: "Import failed", diagnostic: { operation: "club_import_supplier_catalogue_v2", sqlState: error.code, message: error.message, ...(error.details ? { detail: error.details } : {}), ...(error.hint ? { hint: error.hint } : {}) } };
   const result = (data ?? {}) as Record<string, unknown>;
   return { ok: true as const, updated: Number(result.updated ?? 0), created: Number(result.created ?? 0), discontinued: Number(result.discontinued ?? 0), skipped: Number(result.invalid ?? 0), durationMs: Date.now() - started };
 }
