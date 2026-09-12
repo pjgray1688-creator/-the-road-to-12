@@ -1,7 +1,6 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { runQueuedSupplierImportWorker } from "@/lib/supplier-import-worker";
 import { serverSupabase } from "@/lib/supabase-server";
 import { resolveClubOrganisationContext } from "@/lib/club-server-context";
 import { prepareActiveSportsImport, resolveValidatedSupplierImage } from "@/lib/club-supplier-catalogue";
@@ -32,27 +31,13 @@ export async function reconcileActiveSportsAction(input: { organisationId: strin
   if (parsed.errors.length || parsed.duplicateRows.length || !parsed.rows.length) return { ok: false as const, error: parsed.duplicateGroups?.some(group => !group.identical) ? "Conflicting duplicate identities require review." : "Correct the source rows before importing.", summary: parsed.summary, errors: parsed.errors, duplicateRows: parsed.duplicateRows, duplicateGroups: parsed.duplicateGroups };
   const rows = parsed.rows.map(row => ({ ...row, supplier: "Active Sports", parentImageReference: resolveValidatedSupplierImage({ supplierId: "active-sports", parentKey: row.parentKey ?? "", name: row.name, imageReference: row.parentImageReference, variants: [] }), variantImageReference: resolveValidatedSupplierImage({ supplierId: "active-sports", parentKey: row.parentKey ?? "", name: row.name, imageReference: row.variantImageReference, variants: [] }), finalRetailMinor: undefined, suggestedRetailMinor: undefined, trueCostMinor: undefined }));
   if (input.confirm === true) {
-    const supplier = await client.from("club_suppliers").select("id").eq("organisation_id", input.organisationId).ilike("name", "Active Sports%").maybeSingle();
-    const { data: queued, error: queueError } = await client.rpc("club_enqueue_supplier_import_job", { p_organisation_id: input.organisationId, p_supplier_id: supplier.data?.id ?? null, p_filename: input.fileName.slice(0, 200), p_payload: { supplier: "Active Sports", rows, revision: input.revision ?? null } });
-    if (queueError) return { ok: false as const, error: "Import job could not be queued. No changes were applied." };
-    const jobId = String((queued as Record<string, unknown> | null)?.jobId ?? "");
-    console.info("[supplier-import] job queued", { jobId, organisationId: input.organisationId });
-    void Promise.resolve(client.from("club_import_job_logs").insert({ job_id: jobId, level: "info", message: "reconcileActiveSportsAction entered", metadata: { organisationId: input.organisationId } })).then(() => undefined, () => undefined);
-    console.info("[supplier-import] worker called", { jobId });
-    void Promise.resolve(client.from("club_import_job_logs").insert({ job_id: jobId, level: "info", message: "worker called", metadata: {} })).then(() => undefined, () => undefined);
-    let workerResult: Awaited<ReturnType<typeof runQueuedSupplierImportWorker>> | undefined;
-    try { workerResult = await runQueuedSupplierImportWorker(jobId); }
-    catch (error) { console.warn("[supplier-import] worker failed; claim result unavailable", { jobId, error: error instanceof Error ? error.message : String(error) }); }
-    return { ok: true as const, summary: parsed.summary, duplicateGroups: parsed.duplicateGroups, comparison: { ...(queued as Record<string, unknown>), applied: false, queued: true, worker: workerResult ?? { claimed: 0, claimedJobIds: [], started: false, completed: 0, failed: 1, error: "Worker did not return a result" } } as Record<string, unknown> };
+    const importRows = rows.map(row => ({ ...row, parentImageUrl: row.parentImageReference, variantImageUrl: row.variantImageReference, availabilityStatus: row.supplierStock, availabilityCheckedAt: row.availabilityCheckedAt, tradeCostExVatMinor: row.currentBoldTradeCostExVatMinor, suppliedVatRate: row.purchaseVatRate }));
+    const { data, error } = await client.rpc("club_import_supplier_catalogue_v2", { p_organisation_id: input.organisationId, p_supplier_name: "Active Sports", p_file_name: input.fileName.slice(0, 200), p_rows: importRows, p_reconcile: false });
+    if (error) return { ok: false as const, error: "Active Sports catalogue could not be imported." };
+    for (const path of ["/club/products", "/club/shop", "/club/shop/supplier-catalogue", "/member-hub/shop"]) revalidatePath(path);
+    return { ok: true as const, summary: parsed.summary, duplicateGroups: parsed.duplicateGroups, comparison: { ...(data as Record<string, unknown>), applied: true, queued: false } as Record<string, unknown> };
   }
-  const { data, error } = await client.rpc("club_reconcile_active_sports", { p_organisation_id: input.organisationId, p_file_name: input.fileName.slice(0, 200), p_rows: rows, p_apply: false, p_expected_revision: input.revision ?? null });
-  if (error) {
-    console.error("[active-sports-reconcile]", { code: error.code, message: error.message });
-    const detail = diagnostic(error.message || "Catalogue reconciliation failed", error.code === "22023" ? "validation" : "database", error.code);
-    return { ok: false as const, error: error.code === "40001" ? "Catalogue changed since review. Run the comparison again." : `Catalogue reconciliation failed (${detail.category}). ${detail.message}`, diagnostic: detail, summary: parsed.summary, errors: parsed.errors, duplicateRows: parsed.duplicateRows, duplicateGroups: parsed.duplicateGroups };
-  }
-  if (input.confirm) for (const path of ["/club/products", "/club/shop", "/club/shop/supplier-catalogue", "/member-hub/shop"]) revalidatePath(path);
-  return { ok: true as const, summary: parsed.summary, duplicateGroups: parsed.duplicateGroups, comparison: data as Record<string, number | string | boolean> };
+  return { ok: true as const, summary: parsed.summary, duplicateGroups: parsed.duplicateGroups, comparison: { applied: false, queued: false } as Record<string, number | string | boolean> };
 }
 
 export async function getSupplierImportJobAction(input: { organisationId: string; jobId: string }) {

@@ -252,13 +252,12 @@ test("supplier import queue has an automatic scheduled worker boundary", async (
   assert.match(worker, /club_run_supplier_import_job/);
 });
 
-test("enqueue immediately kicks the worker without requiring cron", async () => {
+test("Active Sports uses the direct weekly catalogue synchroniser", async () => {
   const action = readFileSync("app/club/products/actions.ts", "utf8");
-  assert.match(action, /club_enqueue_supplier_import_job/);
-  assert.doesNotMatch(action, /after\(async \(\) =>/);
-  assert.match(action, /runQueuedSupplierImportWorker/);
-  assert.match(action, /await runQueuedSupplierImportWorker\(jobId\)/);
-  assert.doesNotMatch(action, /fetch\([^\n]+supplier-import-worker/);
+  assert.match(action, /club_import_supplier_catalogue_v2/);
+  assert.doesNotMatch(action, /club_enqueue_supplier_import_job/);
+  assert.doesNotMatch(action, /runQueuedSupplierImportWorker/);
+  assert.doesNotMatch(action, /club_reconcile_active_sports/);
 });
 
 test("worker failure response preserves the original error value", () => {
