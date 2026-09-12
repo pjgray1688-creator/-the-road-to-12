@@ -343,3 +343,10 @@ test("worker failure payload includes stage and SQL error context", () => {
   assert.match(sql, /'sqlError',jsonb_build_object\('state',sqlstate/);
   assert.match(sql, /'failingProductCount',0/);
 });
+
+test("supplier default retail pricing rounds up to the next whole pound", () => {
+  assert.equal(supplierPricing(1021, 0).recommendedFloorMinor, 1500);
+  assert.equal(supplierPricing(2399, 0).recommendedFloorMinor, 3500);
+  assert.equal(supplierPricing(5039, 0).recommendedFloorMinor, 7200);
+  assert.equal(supplierPricing(6240, 0).recommendedFloorMinor, 9000);
+});
