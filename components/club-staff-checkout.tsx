@@ -3,6 +3,7 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 import { useEffect, useMemo, useState, useTransition } from "react";
 import type { ClubCommerceProduct } from "@/lib/club-commerce";
+import { catalogueSearchMatches } from "@/lib/club-commerce";
 import type { ClubCustomer } from "@/lib/club-operations";
 import { ensureStaffMemberCustomerAction, evaluateCommercePromotionsAction, getStaffCustomerBalanceAction, searchStaffCustomersAction, staffCashSaleAction, staffBalanceSaleAction, staffSplitSaleAction } from "@/app/club/shop/actions";
 import type { StaffMemberSearchResult } from "@/lib/club-member-search";
@@ -14,7 +15,7 @@ import type { MemberAvailabilityState } from "@/lib/club-member-availability";
 
 export function filterStaffCheckoutProducts(products: ClubCommerceProduct[], query: string) {
   const needle = query.trim().toLowerCase();
-  return needle ? products.filter(product => [product.name, product.brand, product.category, product.sku, product.barcode, product.description].some(value => value?.toLowerCase().includes(needle))) : products;
+  return needle ? products.filter(product => catalogueSearchMatches(product, query)) : products;
 }
 type Basket = Record<string, number>;
 type SaleLocation = { id: string; name: string; active: boolean };

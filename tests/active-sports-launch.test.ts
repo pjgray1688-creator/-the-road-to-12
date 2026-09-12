@@ -412,3 +412,22 @@ test("member and reception shops expose alphabetised brand filters", async () =>
   assert.match(reception, /Filter products by brand/);
   assert.match(reception, /localeCompare\(b\)/);
 });
+
+test("catalogue search ignores punctuation and spacing", async () => {
+  const { catalogueSearchMatches } = await import("../lib/club-commerce");
+  const product = { id: "beef", organisationId: "o", name: "Beef-XP Clear Protein", brand: "Brand", active: true, stockTracked: false, sellPriceMinor: 1000, currency: "GBP", createdAt: "", updatedAt: "" } as any;
+  for (const query of ["Beef-XP", "Beef XP", "BeefXP", "beef xp"]) assert.equal(catalogueSearchMatches(product, query), true);
+});
+
+test("Beef-XP formats remain separate family cards", async () => {
+  const { groupProductFamilies } = await import("../lib/club-product-families");
+  const base = { organisationId: "org", familyId: "beef-xp", brand: "Brand", active: true, stockTracked: false, currency: "GBP", sellPriceMinor: 1000, createdAt: "", updatedAt: "" };
+  const products = [
+    { ...base, id: "rtd", name: "Beef-XP", variantOptions: { size: "12 x 500ml", orderUnit: "case" } },
+    { ...base, id: "tub18", name: "Beef-XP", variantOptions: { size: "1.8kg", orderUnit: "tub" } },
+    { ...base, id: "sachet", name: "Beef-XP", variantOptions: { size: "30g single serving sachet", orderUnit: "each" } },
+    { ...base, id: "tub09", name: "Beef-XP", variantOptions: { size: "900g", orderUnit: "tub" } },
+  ] as any;
+  const cards = groupProductFamilies(products, [{ id: "beef-xp", organisationId: "org", name: "Beef-XP", active: true, sortPosition: 0 }], "org");
+  assert.equal(cards.length, 4);
+});

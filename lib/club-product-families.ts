@@ -8,7 +8,7 @@ const stable = (a: ClubCommerceProduct, b: ClubCommerceProduct) => a.id.localeCo
 const formatKey = (product: ClubCommerceProduct) => {
   const options = product.variantOptions ?? {};
   const text = `${product.name} ${options.size ?? ""}`.toLowerCase();
-  if (!/\b(?:single|sachet|shot|shots|can|cans|gel|gels|shaker|rtd)\b|\b\d+\s*x\s*\d+(?:\.\d+)?\s*ml\b/.test(text)) return "";
+  if (!/\b(?:single|sachet|shot|shots|can|cans|gel|gels|shaker|rtd|tablet|capsule|tub)\b|\b\d+\s*x\s*\d+(?:\.\d+)?\s*(?:ml|g)\b|\b\d+(?:\.\d+)?\s*(?:kg|g|ml)\b/.test(text)) return "";
   return [options.size, options.packQuantity, options.orderUnit].map(value => value?.trim().toLowerCase() ?? "").join("|");
 };
 export function groupProductFamilies(products: ClubCommerceProduct[], families: ClubProductFamily[], organisationId: string): FamilyCard[] {
