@@ -313,6 +313,14 @@ test("reconciliation writes each completed stage immediately", () => {
   assert.match(sql, /insert into public\.club_import_job_logs/);
 });
 
+test("reconciliation persists statement-level timings immediately", () => {
+  const sql = readFileSync("supabase/migrations/2026-11-01-reconcile-statement-timings.sql", "utf8");
+  assert.match(sql, /supplier identity match/);
+  assert.match(sql, /stage supplier products/);
+  assert.match(sql, /prior supplier projection/);
+  assert.match(sql, /statement completed/);
+});
+
 test("worker failure payload includes stage and SQL error context", () => {
   const sql = readFileSync("supabase/migrations/2026-10-27-import-worker-failure-details.sql", "utf8");
   assert.match(sql, /'status','failed'/);
