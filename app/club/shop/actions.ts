@@ -154,6 +154,20 @@ export async function reconcileCashAction(input: { organisationId: string; decla
   try { const value = await context(input.organisationId); if (!value || !["gym_staff", "gym_admin", "owner"].includes(value.member.role) || !(await value.repository.hasCapability(value.organisation.id, value.userId, "cash.reconcile"))) return { ok: false, error: "You don’t have permission to reconcile cash." }; const declaration = await value.repository.reconcileCash(input.declarationId, input.status, input.notes, input.discrepancyMinor); await value.repository.appendAuditEvent({ organisationId: value.organisation.id, action: input.status === "confirmed" ? "cash.declaration_confirmed" : input.status === "discrepancy" ? "cash.discrepancy_recorded" : "cash.declaration_rejected", targetType: "cash_declaration", targetId: declaration.id, reason: input.notes }); revalidatePath("/club/shop"); revalidatePath("/club/reception"); return { ok: true }; } catch (error) { console.error("[club-shop] cash reconciliation failed", { operation: "reconcile_cash" }); return { ok: false, error: "Cash declaration couldn’t be updated." }; }
 }
 
+export async function linkProductBarcodeAction(input: { organisationId: string; productId: string; barcode: string }): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    const value = await context(input.organisationId); const barcode = normalizeBarcode(input.barcode);
+    if (!value || !barcode || !(await value.repository.hasCapability(value.organisation.id, value.userId, "inventory.adjust"))) return { ok: false, error: "You don’t have permission to link barcodes." };
+    const product = (await value.repository.listCommerceProducts(value.organisation.id)).find(item => item.id === input.productId && item.active);
+    if (!product) return { ok: false, error: "Product not found." };
+    const existing = (await value.repository.listCommerceProducts(value.organisation.id)).find(item => item.id !== product.id && item.barcode === barcode);
+    if (existing) return { ok: false, error: `Barcode is already linked to ${existing.name}.` };
+    await value.repository.saveCommerceProduct({ ...product, barcode });
+    revalidatePath("/club/shop"); revalidatePath("/club/products");
+    return { ok: true };
+  } catch { return { ok: false, error: "Barcode could not be linked." }; }
+}
+
 export async function adjustStockAction(input: { organisationId: string; locationId: string; productId: string; quantityDelta?: number; countedQuantity?: number; reason: string }): Promise<{ ok: true } | { ok: false; error: string }> {
   try {
     const value = await context(input.organisationId);

@@ -5,6 +5,7 @@ import { parseMinorUnits } from "../lib/club-money";
 import { normalizeBarcode } from "../lib/club-barcode";
 import { filterStaffCheckoutProducts } from "../components/club-staff-checkout";
 import { mapCommerceProduct } from "../lib/supabase-club-repository";
+import { sortCommerceProductsForOperations } from "../lib/club-commerce";
 
 const component = readFileSync(new URL("../components/club-catalogue.tsx", import.meta.url), "utf8");
 const action = readFileSync(new URL("../app/club/shop/actions.ts", import.meta.url), "utf8");
@@ -54,4 +55,11 @@ test("commerce product mapping preserves optional brand and media", () => {
   const product = mapCommerceProduct({ id: "p", organisation_id: "o", name: "Creatine Gummies", brand: "Applied Nutrition", active: true, stock_tracked: true, sell_price_minor: 1500, currency: "GBP", media: { url: "/products/creatine.png" }, created_at: "", updated_at: "" });
   assert.equal(product.brand, "Applied Nutrition");
   assert.deepEqual(product.media, { url: "/products/creatine.png" });
+});
+
+
+test("operational product lists keep physical club products before supplier-only products", () => {
+  const supplier = { id: "supplier", organisationId: "o", name: "Supplier", active: true, stockTracked: false, sellPriceMinor: 1000, currency: "GBP", createdAt: "", updatedAt: "" };
+  const local = { ...supplier, id: "local", name: "Local", stockTracked: true };
+  assert.deepEqual(sortCommerceProductsForOperations([supplier, local]).map(product => product.id), ["local", "supplier"]);
 });

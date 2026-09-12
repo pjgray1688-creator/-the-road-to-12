@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { ClubCommerceProduct } from "@/lib/club-commerce";
+import { sortCommerceProductsForOperations } from "@/lib/club-commerce";
 import styles from "./club-products-pricing.module.css";
 
 type AlertFilter = "attention" | "margin" | "cost" | "override";
@@ -14,7 +15,7 @@ function money(minor: number) { return `£${(minor / 100).toFixed(2)}`; }
 export function ClubProductsPricing({ products }: { products: ClubCommerceProduct[] }) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<AlertFilter | "all">("all");
-  const rows = useMemo(() => products.filter(product => [product.name, product.brand, product.category, product.sku, product.barcode, product.supplierReference].some(value => value?.toLowerCase().includes(query.trim().toLowerCase()))), [products, query]);
+  const rows = useMemo(() => sortCommerceProductsForOperations(products.filter(product => [product.name, product.brand, product.category, product.sku, product.barcode, product.supplierReference].some(value => value?.toLowerCase().includes(query.trim().toLowerCase())))), [products, query]);
   const alerts = useMemo(() => products.flatMap(product => {
     const missingCost = product.costPriceMinor === undefined;
     const margin = product.costPriceMinor !== undefined && product.sellPriceMinor > 0 ? (product.sellPriceMinor - product.costPriceMinor) / product.sellPriceMinor * 100 : undefined;

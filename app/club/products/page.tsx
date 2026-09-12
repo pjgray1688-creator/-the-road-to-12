@@ -8,6 +8,7 @@ import type { SupplierPricingOffer } from "@/lib/club-supplier-catalogue";
 import { ClubProductsPricing } from "@/components/club-products-pricing";
 import { resolveClubOrganisationContext } from "@/lib/club-server-context";
 import { serverSupabase } from "@/lib/supabase-server";
+import { sortCommerceProductsForOperations } from "@/lib/club-commerce";
 
 export default async function ClubProductsPage({ searchParams }: { searchParams?: Promise<{ org?: string }> }) {
   const client = await serverSupabase();
@@ -20,7 +21,7 @@ export default async function ClubProductsPage({ searchParams }: { searchParams?
   const canManageSupplier = await context.repository.hasCapability(context.organisation.id, user.id, "supplier.catalogue_manage");
   const [products, pricing] = await Promise.all([context.repository.listCommerceProducts(context.organisation.id), canManageSupplier ? client.rpc("club_list_supplier_pricing", { p_organisation_id: context.organisation.id }) : Promise.resolve({ data: [], error: null })]);
   const offers = Array.isArray(pricing.data) ? pricing.data as SupplierPricingOffer[] : [];
-  const localProducts = products.filter(product => product.stockTracked || !offers.some(offer => offer.club_product_id === product.id));
+  const localProducts = sortCommerceProductsForOperations(products);
   const query = `?org=${encodeURIComponent(context.organisation.id)}`;
   return <AppShell className="module-page club-page"><PageHeader eyebrow="R12 CLUB · COMMERCE" title="Products & Pricing" description="The management control centre for retail products, pricing and commercial health." /><ClubSectionNav organisation={context.organisation} role={context.role} contexts={context.availableContexts} /><ClubProductsPricing products={localProducts} />{canManageSupplier ? pricing.error ? <EmptyState title="Supplier pricing is unavailable">Ask an administrator to check catalogue setup before importing.</EmptyState> : <ClubSupplierPricing organisationId={context.organisation.id} offers={offers} /> : null}<ClubCatalogue organisationId={context.organisation.id} products={localProducts} /><BackButton href={`/club${query}`}>Back to Club</BackButton><AppNav /></AppShell>;
 }

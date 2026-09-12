@@ -5,6 +5,11 @@ export type ClubCommercePaymentMethod = "card" | "wallet" | "direct_debit" | "ca
 export type ClubCommercePaymentStatus = "pending" | "paid" | "failed" | "refunded" | "partially_refunded" | "cancelled";
 export type ClubCommerceMovementType = "sale" | "delivery" | "transfer_in" | "transfer_out" | "return" | "waste" | "damage" | "complimentary" | "stocktake_adjustment" | "manual_adjustment";
 export type ClubCommerceProduct = { id: string; organisationId: string; sku?: string; barcode?: string; name: string; brand?: string; description?: string; category?: string; active: boolean; stockTracked: boolean; sellPriceMinor: number; costPriceMinor?: number; currency: string; taxCode?: string; supplierReference?: string; supplierMemberOrderable?: boolean; supplierAvailabilityStatus?: "available" | "unavailable" | "unknown"; variantImageReference?: string; media?: Record<string, unknown>; enrichment?: { nutrition?: Record<string, unknown>; ingredients?: string; allergens?: string; servingSize?: string; servings?: number }; familyId?: string; variantOptions?: Record<string, string>; createdAt: string; updatedAt: string };
+
+/** Keep physical club inventory at the front of operational catalogues. */
+export function sortCommerceProductsForOperations(products: ClubCommerceProduct[]) {
+  return products.slice().sort((a, b) => Number(b.stockTracked) - Number(a.stockTracked) || a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
+}
 export type SaveClubCommerceProductInput = Omit<ClubCommerceProduct, "id" | "createdAt" | "updatedAt"> & { id?: string };
 export type ClubPaymentAccount = { id: string; organisationId: string; provider: string; purpose: string; capabilities: string[]; externalAccountReference?: string; status: string; createdAt: string; updatedAt: string };
 export type ClubOrderItem = { id: string; orderId: string; productId: string; productName: string; sku?: string; quantity: number; unitPriceMinor: number; lineTotalMinor: number; stockTracked: boolean };

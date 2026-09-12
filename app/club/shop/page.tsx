@@ -15,6 +15,7 @@ import { ClubDeliveryHistory } from "@/components/club-delivery-history";
 import { ClubBalanceTopUp } from "@/components/club-balance-top-up";
 import { ClubStockRemoval } from "@/components/club-stock-removal";
 import type { ClubProductFamily } from "@/lib/club-product-families";
+import { sortCommerceProductsForOperations } from "@/lib/club-commerce";
 import { mapPromotionRecord } from "@/lib/club-promotions";
 import { durableSupplierRowsToProducts, type DurableSupplierParentRow } from "@/lib/club-supplier-catalogue";
 
@@ -25,7 +26,7 @@ async function loadShop(client: Awaited<ReturnType<typeof serverSupabase>>, user
   const staff = ["gym_staff", "gym_admin", "owner"].includes(member.role);
   const [localProducts, locations, balance, orders, declarations, customers, canRecordCash, canReconcile, deliveries, promotionRows, supplierRows] = await Promise.all([repository.listCommerceProducts(organisation.id), repository.listLocations(organisation.id), repository.getBalanceAccount(organisation.id, userId), repository.listOrders(organisation.id), staff ? repository.listCashDeclarations(organisation.id, "declared") : Promise.resolve([]), staff ? repository.listCustomers(organisation.id) : Promise.resolve([]), staff ? repository.hasCapability(organisation.id, userId, "payments.record_cash") : Promise.resolve(false), staff ? repository.hasCapability(organisation.id, userId, "cash.reconcile") : Promise.resolve(false), staff ? repository.listInventoryReceipts(organisation.id, locationId) : Promise.resolve([]), client.from("club_promotions").select("id,status,starts_at,ends_at,location_ids,effects,eligibility").eq("organisation_id", organisation.id).eq("status", "active"), client.rpc("club_list_member_supplier_catalogue", { p_organisation_id: organisation.id, p_location_id: locationId ?? null })]);
   const supplierProducts = durableSupplierRowsToProducts(Array.isArray(supplierRows.data) ? supplierRows.data as DurableSupplierParentRow[] : [], organisation.id);
-  const products = [...localProducts.filter(product => product.active && !supplierProducts.some(supplier => supplier.id === product.id)), ...supplierProducts];
+  const products = sortCommerceProductsForOperations([...localProducts.filter(product => product.active && !supplierProducts.some(supplier => supplier.id === product.id)), ...supplierProducts]);
   const promotions = (Array.isArray(promotionRows.data) ? promotionRows.data : []).map(value => mapPromotionRecord(value as Record<string, unknown>)).filter(rule => new Date(rule.startsAt) <= new Date() && (!rule.endsAt || new Date() < new Date(rule.endsAt)));
   const { data: familyRows } = await client.from("club_product_families").select("id,organisation_id,name,brand,description,category,active,archived_at,sort_position").eq("organisation_id", organisation.id).eq("active", true);
   const families = (Array.isArray(familyRows) ? familyRows : []).map((row) => ({ id: String(row.id), organisationId: String(row.organisation_id), name: String(row.name), ...(row.brand ? { brand: String(row.brand) } : {}), ...(row.description ? { description: String(row.description) } : {}), ...(row.category ? { category: String(row.category) } : {}), active: row.active === true, ...(row.archived_at ? { archivedAt: String(row.archived_at) } : {}), sortPosition: Number(row.sort_position ?? 0) })) satisfies ClubProductFamily[];
