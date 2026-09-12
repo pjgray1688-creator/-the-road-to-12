@@ -321,6 +321,21 @@ test("reconciliation persists statement-level timings immediately", () => {
   assert.match(sql, /statement completed/);
 });
 
+test("statement timing instrumentation emits one match and projection entry", () => {
+  const sql = readFileSync("supabase/migrations/2026-11-02-reduce-statement-timing-volume.sql", "utf8");
+  assert.match(sql, /match_logged boolean/);
+  assert.match(sql, /prior_logged boolean/);
+  assert.match(sql, /not match_logged/);
+  assert.match(sql, /not prior_logged/);
+});
+
+test("remaining reconciliation statements have one-shot timing checkpoints", () => {
+  const sql = readFileSync("supabase/migrations/2026-11-03-reconcile-remaining-statement-timings.sql", "utf8");
+  for (const statement of ["parent product upsert", "supplier variant insert or update", "commerce product lookup or creation", "availability and retirement queries", "publication updates"]) assert.match(sql, new RegExp(statement));
+  assert.match(sql, /parent_logged boolean/);
+  assert.match(sql, /publication_logged boolean/);
+});
+
 test("worker failure payload includes stage and SQL error context", () => {
   const sql = readFileSync("supabase/migrations/2026-10-27-import-worker-failure-details.sql", "utf8");
   assert.match(sql, /'status','failed'/);
