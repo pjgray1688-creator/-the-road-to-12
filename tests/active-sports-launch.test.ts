@@ -336,6 +336,11 @@ test("remaining reconciliation statements have one-shot timing checkpoints", () 
   assert.match(sql, /publication_logged boolean/);
 });
 
+test("post-reconciliation operations have completion checkpoints", () => {
+  const sql = readFileSync("supabase/migrations/2026-11-04-post-reconciliation-timings.sql", "utf8");
+  for (const marker of ["post-reconciliation result construction complete", "retire unavailable supplier variants complete", "retire unavailable parent products complete", "supplier publication flag update complete", "supplier import batch insert complete", "reconciliation function return reached"]) assert.match(sql, new RegExp(marker));
+});
+
 test("worker failure payload includes stage and SQL error context", () => {
   const sql = readFileSync("supabase/migrations/2026-10-27-import-worker-failure-details.sql", "utf8");
   assert.match(sql, /'status','failed'/);
