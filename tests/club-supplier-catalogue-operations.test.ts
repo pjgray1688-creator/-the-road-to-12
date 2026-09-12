@@ -16,9 +16,9 @@ test("supplier offers require review and dual capability before publication", ()
 });
 
 test("catalogue UI supports review, link/create and explicit publication", () => {
-  assert.match(component, /Create product/);
-  assert.match(component, /Publish/);
-  assert.match(component, /supplier_cost|wholesale_cost_minor/);
+  assert.match(component, /Edit product information/);
+  assert.match(component, /Set price for all variants/);
+  assert.match(component, /setSupplierVariantRetailPriceAction/);
   assert.match(component, /retail_price_minor/);
 });
 

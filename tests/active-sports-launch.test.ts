@@ -394,3 +394,21 @@ test("Active Sports coverage reports supplier, commerce, family and hidden count
   const result = activeSportsCoverage(rows, [{ ...base, id: "v", supplierReference: "supplier_product:v", supplierAvailabilityStatus: "available", sellPriceMinor: 100 }, { ...base, id: "x", supplierReference: "supplier_product:x", supplierAvailabilityStatus: "unavailable", sellPriceMinor: 0 }, { ...base, id: "d", supplierReference: "supplier_product:d", supplierAvailabilityStatus: "available", sellPriceMinor: 100, active: false }], [{ id: "f", organisationId: "o", name: "P", active: true, sortPosition: 0 }]);
   assert.deepEqual(result, { supplierVariants: 1, commerceProducts: 3, families: 1, visible: 1, hiddenMissingPrice: 1, hiddenUnavailable: 1, hiddenDiscontinued: 1 });
 });
+
+test("shop selector uses compact flavour select and keeps missing media sellable", async () => {
+  const fs = await import("node:fs/promises");
+  const selector = await fs.readFile("components/club-product-family-selector.tsx", "utf8");
+  const pricing = await fs.readFile("components/club-products-pricing.tsx", "utf8");
+  assert.match(selector, /key === \"flavour\" \? <select className=\"club-family-select-control\"/);
+  assert.doesNotMatch(pricing, /label: "Missing image"/);
+});
+
+test("member and reception shops expose alphabetised brand filters", async () => {
+  const fs = await import("node:fs/promises");
+  const member = await fs.readFile("components/club-shop.tsx", "utf8");
+  const reception = await fs.readFile("components/club-staff-checkout.tsx", "utf8");
+  assert.match(member, /Filter by brand/);
+  assert.match(member, /localeCompare\(b\)/);
+  assert.match(reception, /Filter products by brand/);
+  assert.match(reception, /localeCompare\(b\)/);
+});
