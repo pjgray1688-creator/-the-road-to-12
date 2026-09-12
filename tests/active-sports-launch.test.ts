@@ -350,3 +350,9 @@ test("supplier default retail pricing rounds up to the next whole pound", () => 
   assert.equal(supplierPricing(5039, 0).recommendedFloorMinor, 7200);
   assert.equal(supplierPricing(6240, 0).recommendedFloorMinor, 9000);
 });
+
+test("Active Sports linker backfills generated prices without touching manual prices", () => {
+  const migration = readFileSync(new URL("../supabase/migrations/2026-11-10-backfill-active-sports-generated-prices.sql", import.meta.url), "utf8");
+  assert.match(migration, /sell_price_minor=case when not sp\.manual_price then v_price else sell_price_minor end/);
+  assert.match(migration, /ceil\(round\(sp\.trade_cost_ex_vat_minor\*\(1\+coalesce\(sp\.supplied_vat_rate,0\.2\)\)\)\/70\.0\)\*100/);
+});
