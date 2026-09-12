@@ -10,6 +10,21 @@ export type ClubCommerceProduct = { id: string; organisationId: string; sku?: st
 export function sortCommerceProductsForOperations(products: ClubCommerceProduct[]) {
   return products.slice().sort((a, b) => Number(b.stockTracked) - Number(a.stockTracked) || a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
 }
+
+/** Overlay member-safe supplier presentation metadata on an existing commerce
+ * row without replacing its authoritative retail price or local stock flags. */
+export function mergeSupplierPresentation(product: ClubCommerceProduct, supplier: ClubCommerceProduct): ClubCommerceProduct {
+  return {
+    ...product,
+    supplierMemberOrderable: supplier.supplierMemberOrderable,
+    supplierAvailabilityStatus: supplier.supplierAvailabilityStatus,
+    supplierReference: product.supplierReference ?? supplier.supplierReference,
+    variantImageReference: product.variantImageReference ?? supplier.variantImageReference,
+    media: product.media ?? supplier.media,
+    familyId: product.familyId ?? supplier.familyId,
+    variantOptions: product.variantOptions ?? supplier.variantOptions,
+  };
+}
 export type SaveClubCommerceProductInput = Omit<ClubCommerceProduct, "id" | "createdAt" | "updatedAt"> & { id?: string };
 export type ClubPaymentAccount = { id: string; organisationId: string; provider: string; purpose: string; capabilities: string[]; externalAccountReference?: string; status: string; createdAt: string; updatedAt: string };
 export type ClubOrderItem = { id: string; orderId: string; productId: string; productName: string; sku?: string; quantity: number; unitPriceMinor: number; lineTotalMinor: number; stockTracked: boolean };
