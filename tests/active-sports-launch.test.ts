@@ -431,3 +431,10 @@ test("Beef-XP formats remain separate family cards", async () => {
   const cards = groupProductFamilies(products, [{ id: "beef-xp", organisationId: "org", name: "Beef-XP", active: true, sortPosition: 0 }], "org");
   assert.equal(cards.length, 4);
 });
+
+test("GSN standalone commerce products are not collapsed into one family", async () => {
+  const { groupProductFamilies } = await import("../lib/club-product-families");
+  const base = { organisationId: "org", familyId: "gsn-family", brand: "GSN", active: true, stockTracked: true, currency: "GBP", sellPriceMinor: 400, createdAt: "", updatedAt: "" };
+  const cards = groupProductFamilies([{ ...base, id: "one", name: "Katsu" }, { ...base, id: "two", name: "Tikka" }] as any, [{ id: "gsn-family", organisationId: "org", name: "Meals", active: true, sortPosition: 0 }], "org");
+  assert.equal(cards.length, 2);
+});
