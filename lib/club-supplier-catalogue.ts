@@ -1,6 +1,8 @@
 import { normalizeBarcode } from "./club-barcode";
 import { parseMinorUnits } from "./club-money";
 import { parseCsvRecords } from "./club-csv";
+import type { ClubCommerceProduct } from "./club-commerce";
+import type { ClubProductFamily } from "./club-product-families";
 
 export type SupplierStockStatus = "available" | "unavailable" | "unknown";
 export type ClubSupplier = { id: string; name: string; memberOrderable: boolean; catalogueUrl?: string; replenishmentOnly?: boolean };
@@ -79,6 +81,13 @@ export function supplierVariantOrderable(supplier: ClubSupplier, variant: Suppli
 /** Convert member-safe durable rows into the existing grouped commerce-product shape. */
 export function durableSupplierRowsToProducts(rows: DurableSupplierParentRow[], organisationId: string) {
   return rows.filter(parent => parent.memberOrderable && parent.variants.some(variant => variant.stockStatus === "available")).flatMap(parent => parent.variants.map(variant => ({ id: variant.clubProductId ?? variant.id, organisationId, sku: variant.supplierSku, barcode: variant.barcode, name: parent.name, brand: parent.brand, description: parent.description, category: parent.category, active: true, stockTracked: variant.localStockTracked === true, sellPriceMinor: variant.retailPriceMinor ?? 0, currency: "GBP", supplierReference: variant.supplierSku, supplierMemberOrderable: parent.memberOrderable, supplierAvailabilityStatus: variant.stockStatus, variantImageReference: variant.imageReference, media: parent.imageReference ? { url: parent.imageReference } : undefined, familyId: `${parent.supplierId}:${parent.parentKey}`, variantOptions: Object.fromEntries([["orderUnit", variant.memberOrderableUnit], ["flavour", variant.flavour], ["size", variant.size], ["packQuantity", variant.packQuantity ? String(variant.packQuantity) : undefined]].filter((entry): entry is [string, string] => Boolean(entry[1]))), createdAt: "", updatedAt: "" })));
+}
+
+export function activeSportsCoverage(rows: DurableSupplierParentRow[], commerceProducts: ClubCommerceProduct[], families: ClubProductFamily[]) {
+  const variants = rows.reduce((total, parent) => total + parent.variants.length, 0);
+  const activeSportsCommerce = commerceProducts.filter(product => product.supplierReference?.startsWith("supplier_product:"));
+  const visible = activeSportsCommerce.filter(product => product.active && product.sellPriceMinor > 0 && product.supplierAvailabilityStatus === "available");
+  return { supplierVariants: variants, commerceProducts: activeSportsCommerce.length, families: families.length, visible: visible.length, hiddenMissingPrice: activeSportsCommerce.filter(product => product.sellPriceMinor <= 0).length, hiddenUnavailable: activeSportsCommerce.filter(product => product.supplierAvailabilityStatus !== "available" && !product.stockTracked).length, hiddenDiscontinued: activeSportsCommerce.filter(product => !product.active).length };
 }
 
 /** Return only real variants for a selected size; never cross-product flavours. */

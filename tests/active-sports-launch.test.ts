@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { ACTIVE_SPORTS_HEADERS, prepareActiveSportsImport, supplierPricing, parseActiveSportsCommercialFields, durableSupplierRowsToProducts, supplierVariantOrderable, activeSportsIdentity, type DurableSupplierParentRow } from "../lib/club-supplier-catalogue";
+import { ACTIVE_SPORTS_HEADERS, prepareActiveSportsImport, supplierPricing, parseActiveSportsCommercialFields, durableSupplierRowsToProducts, activeSportsCoverage, supplierVariantOrderable, activeSportsIdentity, type DurableSupplierParentRow } from "../lib/club-supplier-catalogue";
 import { supplierOrderable } from "../lib/club-member-availability";
 
 const headers = [...ACTIVE_SPORTS_HEADERS, "Trade Cost ex VAT", "VAT Rate", "Cost Source / Snapshot"];
@@ -371,4 +371,26 @@ test("supplier case pricing remains a case price and is never divided into singl
   assert.equal(product.sellPriceMinor, 1500);
   assert.equal(product.variantOptions?.orderUnit, "case");
   assert.equal(product.variantOptions?.packQuantity, "12");
+});
+
+test("ABE formats remain separate families while same-format flavours stay grouped", async () => {
+  const { groupProductFamilies } = await import("../lib/club-product-families");
+  const base = { organisationId: "org", familyId: "active:abe", brand: "Applied Nutrition", active: true, stockTracked: false, currency: "GBP", sellPriceMinor: 1000, createdAt: "", updatedAt: "" };
+  const products = [
+    { ...base, id: "sachet", name: "ABE Pre Workout", variantOptions: { size: "1 x Single Serving Sachet 12.5g", orderUnit: "each" } },
+    { ...base, id: "tub", name: "ABE Pre Workout", variantOptions: { size: "30 Servings 250g", orderUnit: "tub" } },
+    { ...base, id: "shot100", name: "ABE Pre Workout", variantOptions: { size: "12 x 100ml", orderUnit: "case" } },
+    { ...base, id: "shot60", name: "ABE Pre Workout", variantOptions: { size: "12 x 60ml", orderUnit: "case" } },
+    { ...base, id: "choc", name: "ABE Pre Workout", variantOptions: { size: "30 Servings 250g", flavour: "Chocolate", orderUnit: "tub" } },
+  ] as any;
+  const cards = groupProductFamilies(products as any, [{ id: "active:abe", organisationId: "org", name: "ABE Pre Workout", active: true, sortPosition: 0 }], "org");
+  assert.equal(cards.length, 4);
+  assert.ok(cards.some(card => card.variants.length === 2));
+});
+
+test("Active Sports coverage reports supplier, commerce, family and hidden counts", () => {
+  const rows: DurableSupplierParentRow[] = [{ parentKey: "p", supplierId: "s", supplierName: "Active Sports", memberOrderable: true, name: "P", variants: [{ id: "v", supplierId: "s", parentKey: "p", stockStatus: "available" }] }];
+  const base = { organisationId: "o", name: "P", active: true, stockTracked: false, currency: "GBP", createdAt: "", updatedAt: "" };
+  const result = activeSportsCoverage(rows, [{ ...base, id: "v", supplierReference: "supplier_product:v", supplierAvailabilityStatus: "available", sellPriceMinor: 100 }, { ...base, id: "x", supplierReference: "supplier_product:x", supplierAvailabilityStatus: "unavailable", sellPriceMinor: 0 }, { ...base, id: "d", supplierReference: "supplier_product:d", supplierAvailabilityStatus: "available", sellPriceMinor: 100, active: false }], [{ id: "f", organisationId: "o", name: "P", active: true, sortPosition: 0 }]);
+  assert.deepEqual(result, { supplierVariants: 1, commerceProducts: 3, families: 1, visible: 1, hiddenMissingPrice: 1, hiddenUnavailable: 1, hiddenDiscontinued: 1 });
 });
