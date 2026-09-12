@@ -356,3 +356,19 @@ test("Active Sports linker backfills generated prices without touching manual pr
   assert.match(migration, /sell_price_minor=case when not sp\.manual_price then v_price else sell_price_minor end/);
   assert.match(migration, /ceil\(round\(sp\.trade_cost_ex_vat_minor\*\(1\+coalesce\(sp\.supplied_vat_rate,0\.2\)\)\)\/70\.0\)\*100/);
 });
+
+test("shared family selector exposes persisted prices and real size/flavour choices", () => {
+  const source = readFileSync(new URL("../components/club-product-family-selector.tsx", import.meta.url), "utf8");
+  assert.match(source, /priceFor\(card, availability\)/);
+  assert.match(source, /club-family-option/);
+  assert.match(source, /key !== "orderUnit"/);
+  assert.doesNotMatch(source, /Price not set/);
+});
+
+test("supplier case pricing remains a case price and is never divided into singles", () => {
+  const parent: DurableSupplierParentRow = { parentKey: "abe", supplierId: "active", supplierName: "Active Sports", memberOrderable: true, name: "ABE Pre Workout", variants: [{ id: "case", supplierId: "active", parentKey: "abe", size: "12 x 55g", flavour: "Blue Raspberry", packQuantity: 12, memberOrderableUnit: "case", stockStatus: "available", retailPriceMinor: 1500 }] };
+  const product = durableSupplierRowsToProducts([parent], "org")[0];
+  assert.equal(product.sellPriceMinor, 1500);
+  assert.equal(product.variantOptions?.orderUnit, "case");
+  assert.equal(product.variantOptions?.packQuantity, "12");
+});
