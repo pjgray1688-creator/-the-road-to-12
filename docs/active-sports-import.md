@@ -91,3 +91,13 @@ R12_TEST_DATABASE_URL=postgresql://localhost/r12_test node --import tsx --test t
 ```
 
 Without a configured local PostgreSQL database this integration test is explicitly skipped, not reported as a pass.
+
+## Active Sports image enrichment (local audit)
+
+The optional image enrichment crawler is read-only and never changes pricing or product names. Export the reviewed workbook as UTF-8 CSV, then run:
+
+```bash
+npm run active-sports:images -- /path/to/catalogue.csv /tmp/active-sports-enriched https://www.activesportsnutrition.co.uk/
+```
+
+It follows same-host links, handles `src`, `srcset`, `data-src`, `data-original`, lazy-loading attributes and `<picture>/<source>` tags, and writes an enriched CSV plus unmatched workbook/source audit CSVs and a JSON summary. Review confidence and URLs before using the normal import workflow. A workbook can be opened/exported to CSV for this dependency-free local step; no production import is performed by the crawler.

@@ -13,6 +13,12 @@ export function sortCommerceProductsForOperations(products: ClubCommerceProduct[
   return products.slice().sort((a, b) => Number(b.stockTracked) - Number(a.stockTracked) || a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
 }
 
+/** Legacy catalogue examples must never leak into live commerce surfaces. */
+export function isLegacyDemoCommerceProduct(product: ClubCommerceProduct) {
+  const text = `${product.name} ${product.category ?? ""}`.toLocaleLowerCase();
+  return /(^|\b)(demo|test product|sample product)\b/.test(text) || /\b1kg\s+whey\s+isolate\b/.test(text);
+}
+
 /** Overlay member-safe supplier presentation metadata on an existing commerce
  * row without replacing its authoritative retail price or local stock flags. */
 export function mergeSupplierPresentation(product: ClubCommerceProduct, supplier: ClubCommerceProduct): ClubCommerceProduct {
