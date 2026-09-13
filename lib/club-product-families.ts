@@ -5,6 +5,7 @@ export type FamilyCard = { family?: ClubProductFamily; variants: ClubCommercePro
 
 const selectable = (p: ClubCommerceProduct) => p.active;
 const stable = (a: ClubCommerceProduct, b: ClubCommerceProduct) => a.id.localeCompare(b.id);
+const isGsnProduct = (product: ClubCommerceProduct) => product.brand?.trim().toLowerCase() === "gsn" || product.category?.trim().toLowerCase().startsWith("gsn:");
 const formatKey = (product: ClubCommerceProduct) => {
   const options = product.variantOptions ?? {};
   const text = `${product.name} ${options.size ?? ""}`.toLowerCase();
@@ -15,7 +16,7 @@ export function groupProductFamilies(products: ClubCommerceProduct[], families: 
   const allowed = new Map(families.filter(f => f.organisationId === organisationId && f.active && !f.archivedAt).map(f => [f.id, f]));
   const grouped = new Map<string, ClubCommerceProduct[]>(); const ungrouped: ClubCommerceProduct[] = [];
   for (const product of products.filter(p => p.organisationId === organisationId && selectable(p))) {
-    if (product.familyId) { if (!allowed.has(product.familyId)) allowed.set(product.familyId, { id: product.familyId, organisationId, name: product.name, ...(product.brand ? { brand: product.brand } : {}), ...(product.category ? { category: product.category } : {}), active: true, sortPosition: 0 }); const gsnStandalone = product.brand?.trim().toLowerCase() === "gsn"; const key = gsnStandalone ? `${product.familyId}::${product.id}` : `${product.familyId}::${formatKey(product)}`; const list = grouped.get(key) ?? []; list.push(product); grouped.set(key, list); } else ungrouped.push(product);
+    if (product.familyId) { if (!allowed.has(product.familyId)) allowed.set(product.familyId, { id: product.familyId, organisationId, name: product.name, ...(product.brand ? { brand: product.brand } : {}), ...(product.category ? { category: product.category } : {}), active: true, sortPosition: 0 }); const gsnStandalone = isGsnProduct(product); const key = gsnStandalone ? `${product.familyId}::${product.id}` : `${product.familyId}::${formatKey(product)}`; const list = grouped.get(key) ?? []; list.push(product); grouped.set(key, list); } else ungrouped.push(product);
   }
   const cards: FamilyCard[] = [];
   for (const [groupKey, variants] of grouped) { const family = allowed.get(variants[0].familyId!)!; const ordered = variants.slice().sort(stable); const prices = [...new Set(ordered.map(v => v.sellPriceMinor))].sort((a, b) => a - b); cards.push({ family: { ...family, id: groupKey }, variants: ordered, label: formatKey(ordered[0]) ? `${family.name} · ${ordered[0].variantOptions?.size ?? ""}` : family.name, priceLabel: prices.length === 1 ? money(prices[0]) : `From ${money(prices[0])}` }); }
