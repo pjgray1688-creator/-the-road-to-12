@@ -207,3 +207,13 @@ test("membership cash keeps obligation and declaration settlement distinct", () 
   assert.match(migration, /club_location_authorized/);
   assert.doesNotMatch(migration.slice(migration.indexOf("club_declare_membership_cash_drop")), /update public\.club_membership_billing_obligations set state='paid'/);
 });
+
+test("GSN morning stocktake migration is exact, idempotent, and isolated", () => {
+  const sql = readFileSync(new URL("../supabase/migrations/2026-09-13-gsn-morning-stocktake.sql", import.meta.url), "utf8");
+  assert.match(sql, /cp\.brand = 'GSN'/);
+  assert.match(sql, /cp\.name = c\.name/);
+  assert.match(sql, /gsn-stocktake-rotherham-2026-09-13/);
+  assert.match(sql, /on conflict \(organisation_id, idempotency_key\) do nothing/);
+  assert.match(sql, /13 Sep morning Rotherham gym stocktake/);
+  assert.doesNotMatch(sql, /club_supplier_products|club_supplier_parent_products|sell_price_minor|cost_price_minor/);
+});
