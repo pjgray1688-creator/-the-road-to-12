@@ -12,7 +12,7 @@ function money(minor: number) { return `£${(minor / 100).toFixed(2)}`; }
 /** Management-only overview. Economics are deliberately absent from member
  * catalogue contracts; this surface is mounted only behind the pricing
  * capability on the Club route. */
-export function ClubProductsPricing({ products, diagnostics }: { products: ClubCommerceProduct[]; diagnostics?: { serverLoaded: number; serverGsn: number } }) {
+export function ClubProductsPricing({ products }: { products: ClubCommerceProduct[] }) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<AlertFilter | "all">("all");
   const [limit, setLimit] = useState(50);
@@ -28,7 +28,6 @@ export function ClubProductsPricing({ products, diagnostics }: { products: ClubC
   const visibleAlerts = filter === "all" ? alerts : alerts.filter(alert => alert.kind === filter || filter === "attention" && alert.kind === "cost");
   const gsnFiltered = rows.filter(product => product.brand?.trim().toLowerCase() === "gsn" || product.category?.trim().toLowerCase().startsWith("gsn:")).length;
   return <div className={styles.overview} data-testid="products-pricing-overview">
-    {diagnostics ? <p className="r12-shop-debug" data-r12-shop-debug="products-pricing">Products &amp; Pricing · server {diagnostics.serverLoaded} (GSN {diagnostics.serverGsn}) · filtered {rows.length} (GSN {gsnFiltered}) · rendered {Math.min(rows.length, limit)}</p> : null}
     <section className="products-pricing-alerts" aria-label="Pricing alerts">
       <div className="section-heading"><div><span className="eyebrow">COMMERCIAL CONTROL</span><h2>Products &amp; Pricing</h2></div><span className="muted">Management view · GBP · Products &amp; Services</span></div>
       <p className="muted">Review the exceptions that need a decision, then open a product to update its retail price and cost evidence.</p>

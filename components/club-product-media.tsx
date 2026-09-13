@@ -23,5 +23,5 @@ function ProductImageWithFallback({ product, src, className, style }: { product:
   if (failedSrc === src) return <div className="club-product-placeholder" role="img" aria-label={`Image unavailable for ${product.name}`}>Image unavailable</div>;
   // Product media URLs are managed catalogue assets and may be hosted outside Next's image domains.
   // eslint-disable-next-line @next/next/no-img-element
-  return <img data-r12-image-debug="contain-v2" className={className} style={style} src={src} alt={product.name} loading="lazy" onError={() => setFailedSrc(src)} />;
+  return <img className={className} style={style} src={src} alt={product.name} loading="lazy" onError={() => setFailedSrc(src)} />;
 }
