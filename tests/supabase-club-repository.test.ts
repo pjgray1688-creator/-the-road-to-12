@@ -11,7 +11,7 @@ type RpcCall = { name: string; args: Record<string, unknown> };
 
 function query(result: Result) {
   const chain: Record<string, unknown> = {};
-  for (const method of ["select", "eq", "is", "order", "maybeSingle"]) chain[method] = () => chain;
+  for (const method of ["select", "eq", "is", "order", "range", "maybeSingle"]) chain[method] = () => chain;
   chain.then = (resolve: (value: Result) => unknown, reject: (reason: unknown) => unknown) => Promise.resolve(result).then(resolve, reject);
   return chain;
 }
@@ -65,6 +65,16 @@ test("malformed organisation branding falls back to constrained R12 branding", (
   const organisation = mapOrganisation({ id: "org", name: "Unsafe", slug: "unsafe", active: true, branding: { coBranding: "white_label", primaryAccent: "red", logoSrc: "javascript:alert(1)", backgroundSrc: "https://remote.invalid/a" } });
   assert.deepEqual(organisation.branding, { coBranding: "r12" });
   const theme = resolveOrganisationTheme(organisation); assert.equal(theme.platform, "R12"); assert.equal(theme.coBranding, "r12"); assert.equal(theme.primaryAccent, "#a855f7"); assert.equal(theme.logoSrc, undefined);
+});
+
+test("commerce product listing paginates beyond Supabase's 1000-row response window", async () => {
+  const base = { organisation_id: "org-1", active: true, stock_tracked: true, sell_price_minor: 400, currency: "GBP", media: {}, created_at: "", updated_at: "" };
+  const first = Array.from({ length: 1000 }, (_, i) => ({ ...base, id: `p-${i}`, name: `Legacy ${i}`, brand: "Legacy" }));
+  const gsn = Array.from({ length: 33 }, (_, i) => ({ ...base, id: `gsn-${i}`, name: `Meal ${i}`, brand: "GSN", category: "GSN: Pot O Gold" }));
+  const fake = fakeClient({ tables: { club_commerce_products: [{ data: first, error: null }, { data: gsn, error: null }] } });
+  const products = await new SupabaseClubRepository(fake.client).listCommerceProducts("org-1");
+  assert.equal(products.length, 1033);
+  assert.equal(products.filter(product => product.brand === "GSN").length, 33);
 });
 
 test("Supabase products reconstruct definitions in position order with allowance and discount metadata", async () => {
