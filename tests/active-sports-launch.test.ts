@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { ACTIVE_SPORTS_HEADERS, prepareActiveSportsImport, supplierPricing, parseActiveSportsCommercialFields, durableSupplierRowsToProducts, supplierCatalogueOffersToDurableRows, activeSportsCoverage, supplierVariantOrderable, activeSportsIdentity, type DurableSupplierParentRow } from "../lib/club-supplier-catalogue";
+import { ACTIVE_SPORTS_HEADERS, prepareActiveSportsImport, supplierPricing, parseActiveSportsCommercialFields, durableSupplierRowsToProducts, supplierCatalogueOffersToDurableRows, buildClubShopProductUniverse, activeSportsCoverage, supplierVariantOrderable, activeSportsIdentity, type DurableSupplierParentRow } from "../lib/club-supplier-catalogue";
 import { supplierOrderable } from "../lib/club-member-availability";
 
 const headers = [...ACTIVE_SPORTS_HEADERS, "Trade Cost ex VAT", "VAT Rate", "Cost Source / Snapshot"];
@@ -456,6 +456,16 @@ test("staff supplier RPC payload preserves available supplier-only products", ()
   assert.equal(products.length, 1);
   assert.equal(products[0].supplierMemberOrderable, true);
   assert.equal(products[0].supplierAvailabilityStatus, "available");
+});
+
+test("member and reception share the same sellable product universe", () => {
+  const local = Array.from({ length: 19 }, (_, index) => ({ id: `gsn-${index}`, organisationId: "org", name: `GSN ${index}`, active: true, stockTracked: true, sellPriceMinor: 400, currency: "GBP", createdAt: "", updatedAt: "" } as any));
+  const supplierRows = supplierCatalogueOffersToDurableRows([{ id: "offer-1", supplier_id: "active", supplier: "Active Sports", brand: "NXT Nutrition", name: "Beef Protein Isolate", size: "900g", variant: "Chocolate", supplier_availability: "available", sellable: true, discontinued: false, supplier_sku: "NXT-900" }]);
+  const member = buildClubShopProductUniverse(local, supplierRows, "org");
+  const reception = buildClubShopProductUniverse(local, supplierRows, "org");
+  assert.deepEqual(reception.map(product => product.id), member.map(product => product.id));
+  assert.equal(member.some(product => product.brand === "NXT Nutrition"), true);
+  assert.equal(member.length, 20);
 });
 
 test("canonical commerce media accepts parent images and ignores empty media during merge", async () => {

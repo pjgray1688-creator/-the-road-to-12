@@ -15,9 +15,9 @@ import { ClubDeliveryHistory } from "@/components/club-delivery-history";
 import { ClubBalanceTopUp } from "@/components/club-balance-top-up";
 import { ClubStockRemoval } from "@/components/club-stock-removal";
 import type { ClubProductFamily } from "@/lib/club-product-families";
-import { isActiveSportsMonsterCaseProduct, isLegacyDemoCommerceProduct, mergeSupplierPresentation, sortCommerceProductsForOperations } from "@/lib/club-commerce";
+import { buildClubShopProductUniverse } from "@/lib/club-supplier-catalogue";
 import { mapPromotionRecord } from "@/lib/club-promotions";
-import { durableSupplierRowsToProducts, supplierRowsToDurableRows } from "@/lib/club-supplier-catalogue";
+import { supplierRowsToDurableRows } from "@/lib/club-supplier-catalogue";
 
 async function loadShop(client: Awaited<ReturnType<typeof serverSupabase>>, userId: string, organisationId?: string, locationId?: string) {
   const context = await resolveClubOrganisationContext(client, userId, organisationId);
@@ -35,9 +35,7 @@ async function loadShop(client: Awaited<ReturnType<typeof serverSupabase>>, user
     else durableByKey.set(key, { ...existing, memberOrderable: existing.memberOrderable || row.memberOrderable, imageReference: existing.imageReference ?? row.imageReference, variants: [...existing.variants, ...row.variants.filter(incoming => !existing.variants.some(current => current.id === incoming.id))] });
   }
   const durableRows = [...durableByKey.values()];
-  const supplierProducts = durableSupplierRowsToProducts(durableRows, organisation.id);
-  const supplierById = new Map(supplierProducts.map(product => [product.id, product]));
-  const products = sortCommerceProductsForOperations([...localProducts.filter(product => product.active && !isLegacyDemoCommerceProduct(product) && !isActiveSportsMonsterCaseProduct(product)).map(product => { const supplier = supplierById.get(product.id); return supplier ? mergeSupplierPresentation(product, supplier) : product; }), ...supplierProducts.filter(product => product.active && !localProducts.some(local => local.id === product.id) && !isLegacyDemoCommerceProduct(product) && !isActiveSportsMonsterCaseProduct(product))]);
+  const products = buildClubShopProductUniverse(localProducts, durableRows, organisation.id);
   const promotions = (Array.isArray(promotionRows.data) ? promotionRows.data : []).map(value => mapPromotionRecord(value as Record<string, unknown>)).filter(rule => new Date(rule.startsAt) <= new Date() && (!rule.endsAt || new Date() < new Date(rule.endsAt)));
   const { data: familyRows } = await client.from("club_product_families").select("id,organisation_id,name,brand,description,category,active,archived_at,sort_position").eq("organisation_id", organisation.id).eq("active", true);
   const families = (Array.isArray(familyRows) ? familyRows : []).map((row) => ({ id: String(row.id), organisationId: String(row.organisation_id), name: String(row.name), ...(row.brand ? { brand: String(row.brand) } : {}), ...(row.description ? { description: String(row.description) } : {}), ...(row.category ? { category: String(row.category) } : {}), active: row.active === true, ...(row.archived_at ? { archivedAt: String(row.archived_at) } : {}), sortPosition: Number(row.sort_position ?? 0) })) satisfies ClubProductFamily[];

@@ -1,7 +1,7 @@
 import { normalizeBarcode } from "./club-barcode";
 import { parseMinorUnits } from "./club-money";
 import { parseCsvRecords } from "./club-csv";
-import type { ClubCommerceProduct } from "./club-commerce";
+import { isActiveSportsMonsterCaseProduct, isLegacyDemoCommerceProduct, mergeSupplierPresentation, sortCommerceProductsForOperations, usableCommerceImageUrl, type ClubCommerceProduct } from "./club-commerce";
 import type { ClubProductFamily } from "./club-product-families";
 
 export type SupplierStockStatus = "available" | "unavailable" | "unknown";
@@ -38,6 +38,25 @@ export function supplierRowsToDurableRows(rows: unknown): DurableSupplierParentR
   if (!Array.isArray(rows)) return [];
   if (rows.some(row => row && typeof row === "object" && Array.isArray((row as Record<string, unknown>).variants))) return rows as DurableSupplierParentRow[];
   return supplierCatalogueOffersToDurableRows(rows as Array<Record<string, unknown>>);
+}
+
+/** Build the single sellable catalogue shared by member and staff shops. */
+export function buildClubShopProductUniverse(localProducts: ClubCommerceProduct[], durableRows: DurableSupplierParentRow[], organisationId: string, enrichmentRows: unknown[] = []) {
+  const enrichment = new Map(enrichmentRows.map(item => { const value = item as Record<string, unknown>; return [String(value.variantId), value]; }));
+  const supplierProducts = durableSupplierRowsToProducts(durableRows, organisationId).map(product => {
+    const info = enrichment.get(product.id);
+    if (!info) return product;
+    return { ...product, description: typeof info.description === "string" ? info.description : product.description, ...(usableCommerceImageUrl(info.variantImageUrl) ? { media: { url: info.variantImageUrl } } : {}), enrichment: { nutrition: info.nutrition && typeof info.nutrition === "object" ? info.nutrition as Record<string, unknown> : undefined, ingredients: typeof info.ingredients === "string" ? info.ingredients : undefined, allergens: typeof info.allergens === "string" ? info.allergens : undefined } };
+  });
+  const supplierById = new Map(supplierProducts.map(product => [product.id, product]));
+  const localById = new Map(localProducts.map(product => [product.id, product]));
+  return sortCommerceProductsForOperations([
+    ...localProducts.filter(product => product.active && !isLegacyDemoCommerceProduct(product) && !isActiveSportsMonsterCaseProduct(product)).map(product => {
+      const supplier = supplierById.get(product.id);
+      return supplier ? mergeSupplierPresentation({ ...product, costPriceMinor: undefined }, supplier) : { ...product, costPriceMinor: undefined };
+    }),
+    ...supplierProducts.filter(product => product.active && !localById.has(product.id) && !isLegacyDemoCommerceProduct(product) && !isActiveSportsMonsterCaseProduct(product)),
+  ]);
 }
 
 const clean = (value: unknown) => typeof value === "string" && value.trim() ? value.trim() : undefined;
