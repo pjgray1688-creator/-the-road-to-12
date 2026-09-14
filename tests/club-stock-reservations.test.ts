@@ -20,6 +20,6 @@ test("member checkout requests a reservation before payment", () => {
 
 test("stock balance repository subtracts active reservations", () => {
   const source = readFileSync(new URL("../lib/supabase-club-repository.ts", import.meta.url), "utf8");
-  assert.match(source, /club_stock_reservations/);
-  assert.match(source, /status.*active/);
+  assert.match(source, /club_list_stock_reservation_totals/);
+  assert.doesNotMatch(source, /from\("club_stock_reservations"\)/);
 });
