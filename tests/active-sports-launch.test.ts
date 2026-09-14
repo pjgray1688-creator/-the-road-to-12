@@ -434,6 +434,16 @@ test("supplier parent media fills a linked commerce row without replacing existi
   assert.equal(mergeSupplierPresentation({ ...base, media: { url: "https://img.test/local.jpg" } }, supplier).media?.url, "https://img.test/local.jpg");
 });
 
+test("stock view keeps historical local products by default and exposes never-stocked suppliers to search", async () => {
+  const { stockProductsForView } = await import("../components/club-stock-panel");
+  const base = (id: string, name: string, supplierReference?: string) => ({ id, organisationId: "org", name, active: true, stockTracked: !supplierReference, supplierReference, sellPriceMinor: 1000, currency: "GBP", createdAt: "", updatedAt: "" } as any);
+  const local = base("local", "GSN Meal");
+  const supplier = { ...base("supplier", "Active Sports Powder", "supplier_product:supplier"), stockTracked: false, variantOptions: { size: "900g", flavour: "Chocolate" } };
+  const balances = [{ organisationId: "org", locationId: "r", productId: local.id, onHand: 0, reserved: 0, availableToSell: 0 }];
+  assert.deepEqual(stockProductsForView([local, supplier], balances, "").map(item => item.product.id), ["local"]);
+  assert.deepEqual(stockProductsForView([local, supplier], balances, "powder").map(item => item.product.id), ["supplier"]);
+});
+
 test("canonical commerce media accepts parent images and ignores empty media during merge", async () => {
   const { mergeSupplierPresentation } = await import("../lib/club-commerce");
   const base = { id: "v", organisationId: "org", name: "Product", active: true, stockTracked: false, sellPriceMinor: 1000, currency: "GBP", createdAt: "", updatedAt: "", media: { url: "" } } as any;

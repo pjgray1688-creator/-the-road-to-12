@@ -13,6 +13,22 @@ export type SupplierCatalogueStore = { suppliers: ClubSupplier[]; products: Supp
 export type SupplierCatalogueImportSummary = { suppliers: number; parents: number; variants: number; created: number; updated: number; unchanged: number; errors: string[] };
 export type DurableSupplierParentRow = { parentKey: string; supplierId: string; supplierName: string; memberOrderable: boolean; brand?: string; name: string; description?: string; category?: string; subcategory?: string; sourceUrl?: string; imageReference?: string; variants: Array<SupplierCatalogueVariant & { id: string; retailPriceMinor?: number; clubProductId?: string; localStockTracked?: boolean }> };
 
+/** Convert the staff catalogue RPC's flat offers into the shared durable
+ * representation when the member-scoped catalogue RPC is unavailable. */
+export function supplierCatalogueOffersToDurableRows(rows: Array<Record<string, unknown>>): DurableSupplierParentRow[] {
+  const groups = new Map<string, DurableSupplierParentRow>();
+  for (const row of rows) {
+    const supplierId = String(row.supplier_id ?? "").trim(); const supplierName = String(row.supplier ?? "").trim(); const name = String(row.name ?? "").trim();
+    if (!supplierId || !supplierName || !name) continue;
+    const brand = String(row.brand ?? "").trim() || undefined; const parentKey = `${brand ?? ""}|${name}`.toLowerCase(); const key = `${supplierId}:${parentKey}`;
+    const parent = groups.get(key) ?? { parentKey, supplierId, supplierName, memberOrderable: true, ...(brand ? { brand } : {}), name, ...(row.category ? { category: String(row.category) } : {}), variants: [] };
+    const status = String(row.supplier_availability ?? row.availability_status ?? "unknown").toLowerCase();
+    parent.variants.push({ id: String(row.id), supplierId, parentKey, ...(row.variant ? { flavour: String(row.variant) } : {}), ...(row.size ? { size: String(row.size) } : {}), ...(row.pack_quantity != null ? { packQuantity: Number(row.pack_quantity) } : {}), ...(row.supplier_sku ? { supplierSku: String(row.supplier_sku) } : {}), ...(row.barcode ? { barcode: String(row.barcode) } : {}), stockStatus: status === "available" ? "available" : status === "unavailable" ? "unavailable" : "unknown", ...(row.member_orderable_unit ? { memberOrderableUnit: String(row.member_orderable_unit) } : {}), ...(row.retail_price_minor != null ? { retailPriceMinor: Number(row.retail_price_minor) } : {}), ...(row.club_product_id ? { clubProductId: String(row.club_product_id) } : {}) });
+    groups.set(key, parent);
+  }
+  return [...groups.values()].filter(parent => parent.variants.some(variant => variant.stockStatus === "available"));
+}
+
 const clean = (value: unknown) => typeof value === "string" && value.trim() ? value.trim() : undefined;
 const stock = (value: unknown): SupplierStockStatus => /^(available|in stock|yes|true|1)$/i.test(String(value ?? "").trim()) ? "available" : /^(unavailable|out of stock|no|false|0|unavailable\s*-\s*dated\s*clearance)$/i.test(String(value ?? "").trim()) ? "unavailable" : "unknown";
 export const ACTIVE_SPORTS_HEADERS = ["Supplier", "Brand", "Parent Product", "Category", "Subcategory", "Description", "Size / Format", "Variant / Flavour", "Pack Qty", "Member Order Unit", "Supplier Stock", "Stock Checked", "Supplier SKU", "Barcode", "Source URL", "Notes", "Parent Image URL", "Variant Image URL", "Image Status"] as const;
