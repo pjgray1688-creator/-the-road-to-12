@@ -472,13 +472,15 @@ test("member and reception call the shared durable shop catalogue RPC", async ()
   const [memberPage, clubPage, migration] = await Promise.all([
     import("node:fs/promises").then(fs => fs.readFile("app/member-hub/shop/page.tsx", "utf8")),
     import("node:fs/promises").then(fs => fs.readFile("app/club/shop/page.tsx", "utf8")),
-    import("node:fs/promises").then(fs => fs.readFile("supabase/migrations/2026-09-15-shared-shop-supplier-catalogue.sql", "utf8")),
+    import("node:fs/promises").then(fs => fs.readFile("supabase/migrations/2026-09-17-fix-shared-shop-staff-authorization.sql", "utf8")),
   ]);
   assert.equal((memberPage.match(/club_list_shop_supplier_catalogue/g) ?? []).length, 1);
   assert.equal((clubPage.match(/club_list_shop_supplier_catalogue/g) ?? []).length, 1);
   assert.match(migration, /returns jsonb/);
   assert.match(migration, /memberOrderable/);
   assert.match(migration, /variants/);
+  assert.match(migration, /m\.role in \('member','gym_staff','gym_admin','owner'\)/);
+  assert.doesNotMatch(migration, /commerce\.collections_manage/);
   assert.match(clubPage, /durableRows = Array\.isArray\(supplierRows\.data\)/);
   assert.doesNotMatch(clubPage, /club_list_supplier_catalogue/);
 });
