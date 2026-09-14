@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { ACTIVE_SPORTS_HEADERS, prepareActiveSportsImport, supplierPricing, parseActiveSportsCommercialFields, durableSupplierRowsToProducts, activeSportsCoverage, supplierVariantOrderable, activeSportsIdentity, type DurableSupplierParentRow } from "../lib/club-supplier-catalogue";
+import { ACTIVE_SPORTS_HEADERS, prepareActiveSportsImport, supplierPricing, parseActiveSportsCommercialFields, durableSupplierRowsToProducts, supplierCatalogueOffersToDurableRows, activeSportsCoverage, supplierVariantOrderable, activeSportsIdentity, type DurableSupplierParentRow } from "../lib/club-supplier-catalogue";
 import { supplierOrderable } from "../lib/club-member-availability";
 
 const headers = [...ACTIVE_SPORTS_HEADERS, "Trade Cost ex VAT", "VAT Rate", "Cost Source / Snapshot"];
@@ -432,6 +432,29 @@ test("supplier parent media fills a linked commerce row without replacing existi
   const supplier = { ...base, media: { url: "https://img.test/parent.jpg" }, supplierAvailabilityStatus: "available" };
   assert.equal(mergeSupplierPresentation(base, supplier).media?.url, "https://img.test/parent.jpg");
   assert.equal(mergeSupplierPresentation({ ...base, media: { url: "https://img.test/local.jpg" } }, supplier).media?.url, "https://img.test/local.jpg");
+});
+
+test("staff catalogue offers retain supplier-only products when the member catalogue RPC is unavailable", () => {
+  const rows = supplierCatalogueOffersToDurableRows([{ id: "offer-1", supplier_id: "active", supplier: "Active Sports", brand: "NXT Nutrition", name: "Beef Protein Isolate", size: "1.8kg", supplier_availability: "available", retail_price_minor: 5500 }], "org");
+  const products = durableSupplierRowsToProducts(rows, "org");
+  assert.equal(products.length, 1);
+  assert.equal(products[0].supplierAvailabilityStatus, "available");
+  assert.equal(products[0].supplierMemberOrderable, true);
+});
+
+test("canonical commerce media accepts parent images and ignores empty media during merge", async () => {
+  const { mergeSupplierPresentation } = await import("../lib/club-commerce");
+  const base = { id: "v", organisationId: "org", name: "Product", active: true, stockTracked: false, sellPriceMinor: 1000, currency: "GBP", createdAt: "", updatedAt: "", media: { url: "" } } as any;
+  const supplier = { ...base, media: { url: "https://img.test/parent.jpg" } };
+  assert.equal(mergeSupplierPresentation(base, supplier).media?.url, "https://img.test/parent.jpg");
+});
+
+test("supplier-linked products are stockable on the stock page even at zero balance", async () => {
+  const { isStockableCommerceProduct } = await import("../lib/club-commerce");
+  const supplier = { id: "supplier", organisationId: "org", name: "Powder", active: true, stockTracked: false, supplierReference: "supplier_product:1", supplierAvailabilityStatus: "available", sellPriceMinor: 2000, currency: "GBP", createdAt: "", updatedAt: "" } as any;
+  assert.equal(isStockableCommerceProduct(supplier), true);
+  const fs = await import("node:fs/promises");
+  assert.match(await fs.readFile("components/club-stock-panel.tsx", "utf8"), /isStockableCommerceProduct\(p\)/);
 });
 
 test("Active Sports coverage reports supplier, commerce, family and hidden counts", () => {

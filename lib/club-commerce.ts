@@ -7,6 +7,9 @@ export type ClubCommerceMovementType = "sale" | "delivery" | "transfer_in" | "tr
 export type ClubCommerceProduct = { id: string; organisationId: string; sku?: string; barcode?: string; name: string; brand?: string; description?: string; category?: string; active: boolean; stockTracked: boolean; sellPriceMinor: number; costPriceMinor?: number; currency: string; taxCode?: string; supplierReference?: string; supplierMemberOrderable?: boolean; supplierAvailabilityStatus?: "available" | "unavailable" | "unknown"; variantImageReference?: string; media?: Record<string, unknown>; enrichment?: { nutrition?: Record<string, unknown>; ingredients?: string; allergens?: string; servingSize?: string; servings?: number }; familyId?: string; variantOptions?: Record<string, string>; createdAt: string; updatedAt: string };
 export function normalizeCatalogueSearch(value: string) { return value.toLocaleLowerCase().replace(/[\s\-_.\/]+/g, "").trim(); }
 export function catalogueSearchMatches(product: ClubCommerceProduct, query: string) { const needle = normalizeCatalogueSearch(query); if (!needle) return true; return [product.name, product.brand, product.category, product.description, product.sku, product.barcode, product.supplierReference, ...Object.values(product.variantOptions ?? {})].some(value => normalizeCatalogueSearch(value ?? "").includes(needle)); }
+export function usableCommerceImageUrl(value: unknown): value is string { if (typeof value !== "string" || !value.trim()) return false; try { const url = new URL(value); return url.protocol === "http:" || url.protocol === "https:"; } catch { return false; } }
+/** Supplier-linked physical products remain stockable at zero local balance. */
+export function isStockableCommerceProduct(product: ClubCommerceProduct) { return product.stockTracked || Boolean(product.supplierReference) || product.supplierAvailabilityStatus !== undefined; }
 
 /** Keep physical club inventory at the front of operational catalogues. */
 export function sortCommerceProductsForOperations(products: ClubCommerceProduct[]) {
@@ -31,13 +34,15 @@ export function isActiveSportsMonsterCaseProduct(product: ClubCommerceProduct) {
 /** Overlay member-safe supplier presentation metadata on an existing commerce
  * row without replacing its authoritative retail price or local stock flags. */
 export function mergeSupplierPresentation(product: ClubCommerceProduct, supplier: ClubCommerceProduct): ClubCommerceProduct {
+  const localUrl = usableCommerceImageUrl(product.media?.url) ? product.media.url : undefined;
+  const supplierUrl = usableCommerceImageUrl(supplier.media?.url) ? supplier.media.url : undefined;
   return {
     ...product,
     supplierMemberOrderable: supplier.supplierMemberOrderable,
     supplierAvailabilityStatus: supplier.supplierAvailabilityStatus,
     supplierReference: product.supplierReference ?? supplier.supplierReference,
     variantImageReference: product.variantImageReference ?? supplier.variantImageReference,
-    media: typeof product.media?.url === "string" && product.media.url.trim() ? product.media : supplier.media ?? product.media,
+    ...(localUrl ? { media: { url: localUrl } } : supplierUrl ? { media: { url: supplierUrl } } : {}),
     familyId: product.familyId ?? supplier.familyId,
     variantOptions: product.variantOptions ?? supplier.variantOptions,
   };
