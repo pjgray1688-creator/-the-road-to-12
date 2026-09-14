@@ -80,7 +80,11 @@ export function supplierVariantOrderable(supplier: ClubSupplier, variant: Suppli
 
 /** Convert member-safe durable rows into the existing grouped commerce-product shape. */
 export function durableSupplierRowsToProducts(rows: DurableSupplierParentRow[], organisationId: string) {
-  return rows.filter(parent => parent.memberOrderable && parent.variants.some(variant => variant.stockStatus === "available")).flatMap(parent => parent.variants.map(variant => ({ id: variant.clubProductId ?? variant.id, organisationId, sku: variant.supplierSku, barcode: variant.barcode, name: parent.name, brand: parent.brand, description: parent.description, category: parent.category, active: true, stockTracked: variant.localStockTracked === true, sellPriceMinor: variant.retailPriceMinor ?? 0, currency: "GBP", supplierReference: variant.supplierSku, supplierMemberOrderable: parent.memberOrderable, supplierAvailabilityStatus: variant.stockStatus, variantImageReference: variant.imageReference, media: parent.imageReference ? { url: parent.imageReference } : undefined, familyId: `${parent.supplierId}:${parent.parentKey}`, variantOptions: Object.fromEntries([["orderUnit", variant.memberOrderableUnit], ["flavour", variant.flavour], ["size", variant.size], ["packQuantity", variant.packQuantity ? String(variant.packQuantity) : undefined]].filter((entry): entry is [string, string] => Boolean(entry[1]))), createdAt: "", updatedAt: "" })));
+  return rows.filter(parent => parent.memberOrderable && !isActiveSportsMonsterCase(parent) && parent.variants.some(variant => variant.stockStatus === "available")).flatMap(parent => parent.variants.map(variant => ({ id: variant.clubProductId ?? variant.id, organisationId, sku: variant.supplierSku, barcode: variant.barcode, name: parent.name, brand: parent.brand, description: parent.description, category: parent.category, active: true, stockTracked: variant.localStockTracked === true, sellPriceMinor: variant.retailPriceMinor ?? 0, currency: "GBP", supplierReference: variant.supplierSku, supplierMemberOrderable: parent.memberOrderable, supplierAvailabilityStatus: variant.stockStatus, variantImageReference: variant.imageReference, media: variant.imageReference ? { url: variant.imageReference } : parent.imageReference ? { url: parent.imageReference } : undefined, familyId: `${parent.supplierId}:${parent.parentKey}`, variantOptions: Object.fromEntries([["orderUnit", variant.memberOrderableUnit], ["flavour", variant.flavour], ["size", variant.size], ["packQuantity", variant.packQuantity ? String(variant.packQuantity) : undefined]].filter((entry): entry is [string, string] => Boolean(entry[1]))), createdAt: "", updatedAt: "" })));
+}
+
+function isActiveSportsMonsterCase(parent: DurableSupplierParentRow) {
+  return parent.supplierName.trim().toLowerCase() === "active sports" && parent.brand?.trim().toLowerCase() === "monster energy" && parent.variants.some(variant => /(?:case|box|pack)/i.test(variant.memberOrderableUnit ?? "") && /12\s*x\s*500\s*ml/i.test(`${variant.size ?? ""} ${parent.name}`));
 }
 
 export function activeSportsCoverage(rows: DurableSupplierParentRow[], commerceProducts: ClubCommerceProduct[], families: ClubProductFamily[]) {
@@ -216,7 +220,8 @@ const likelyPlaceholderImage = /placeholder|no[-_ ]?image|coming[-_ ]?soon|defau
  * catalogue; invalid/placeholder URLs fall back to parent or no image. */
 export function resolveValidatedSupplierImage(product: SupplierCatalogueProduct, variant?: SupplierCatalogueVariant) {
   const candidates = [variant?.imageReference, product.imageReference].filter((value): value is string => Boolean(value));
-  return candidates.find(value => { try { const url = new URL(value); return (url.protocol === "https:" || url.protocol === "http:") && !likelyPlaceholderImage.test(url.pathname + url.search); } catch { return false; } });
+  const activeSports = /active[ -]?sports/i.test(product.supplierId);
+  return candidates.find(value => { try { const url = new URL(value); return (url.protocol === "https:" || url.protocol === "http:") && (activeSports || !likelyPlaceholderImage.test(url.pathname + url.search)); } catch { return false; } });
 }
 
 export function activeSportsReconciliationReport(rows: ActiveSportsNormalisedRow[], errors: Array<{ row: number; reason: string }> = [], duplicateRows: number[] = []) {

@@ -10,7 +10,7 @@ const stateFor = (product: ClubCommerceProduct, availability: Record<string, Mem
 const familyState = (card: FamilyCard, availability: Record<string, MemberAvailabilityState>) => card.variants.some(p => stateFor(p, availability) === "IN_GYM") ? "IN_GYM" : card.variants.some(p => stateFor(p, availability) === "SUPPLIER_ORDER") ? "SUPPLIER_ORDER" : "UNAVAILABLE";
 export function ClubProductFamilySelector({ compact = false, products, families = [], cards: suppliedCards, organisationId, availability = {}, onAdd }: Props) {
   const [picked, setPicked] = useState<FamilyCard>(); const [selection, setSelection] = useState<Record<string, string>>({});
-  const cards = suppliedCards ?? groupProductFamilies(products, families, organisationId);
+  const cards = suppliedCards ?? groupProductFamilies(products, families, organisationId, availability);
   const choices = picked ? memberVariantChoices(picked.variants, selection, p => stateFor(p, availability) !== "UNAVAILABLE" && p.sellPriceMinor > 0) : undefined;
   const resolved = choices?.resolved;
   const controls = choices?.controls.filter(control => control.key !== "orderUnit" && control.key !== "packQuantity");

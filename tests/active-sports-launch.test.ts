@@ -210,14 +210,14 @@ test("database reconciliation protects permissions, audited manual pricing, idem
   assert.match(memberRead, /available.availability_status='available'/);
 });
 
-test("member selector chooses size first and disables only genuine unavailable flavours", async () => {
+test("member selector chooses size first and hides dead flavour choices", async () => {
   const { memberVariantChoices } = await import("../lib/club-product-families");
   const base = { id: "one", organisationId: "org", name: "Whey", active: true, stockTracked: false, sellPriceMinor: 2900, currency: "GBP", createdAt: "", updatedAt: "" };
   const variants = [{ ...base, variantOptions: { size: "2kg", flavour: "Chocolate", orderUnit: "tub" } }, { ...base, id: "out", variantOptions: { size: "2kg", flavour: "Vanilla", orderUnit: "tub" } }, { ...base, id: "three", variantOptions: { size: "1kg", flavour: "Banana", orderUnit: "tub" } }];
   const canOrder = (product: { id: string }) => product.id !== "out";
   assert.deepEqual(memberVariantChoices(variants, {}, canOrder).controls.map(control => control.key), ["size"]);
   const choices = memberVariantChoices(variants, { size: "2kg" }, canOrder);
-  assert.deepEqual(choices.controls.find(control => control.key === "flavour")?.values, [{ value: "Chocolate", disabled: false }, { value: "Vanilla", disabled: true }]);
+  assert.deepEqual(choices.controls.find(control => control.key === "flavour")?.values, [{ value: "Chocolate", disabled: false }]);
   assert.equal(memberVariantChoices(variants, { size: "1kg", flavour: "Chocolate" }, canOrder).resolved?.id, "three");
 });
 
@@ -386,6 +386,44 @@ test("ABE formats remain separate families while same-format flavours stay group
   const cards = groupProductFamilies(products as any, [{ id: "active:abe", organisationId: "org", name: "ABE Pre Workout", active: true, sortPosition: 0 }], "org");
   assert.equal(cards.length, 4);
   assert.ok(cards.some(card => card.variants.length === 2));
+});
+
+test("Active Sports parent families group sizes while retaining variant choices", async () => {
+  const { groupProductFamilies } = await import("../lib/club-product-families");
+  const base = { organisationId: "org", familyId: "active:nxt-beef", brand: "NXT Nutrition", active: true, stockTracked: false, supplierMemberOrderable: true, currency: "GBP", createdAt: "", updatedAt: "" };
+  const products = [
+    { ...base, id: "540", name: "Beef Protein Isolate", sellPriceMinor: 2400, variantOptions: { size: "540g", orderUnit: "tub" } },
+    { ...base, id: "1800", name: "Beef Protein Isolate", sellPriceMinor: 4200, variantOptions: { size: "1.8kg", orderUnit: "tub" } },
+  ] as any;
+  const cards = groupProductFamilies(products, [{ id: "active:nxt-beef", organisationId: "org", name: "Beef Protein Isolate", brand: "NXT Nutrition", active: true, sortPosition: 0 }], "org");
+  assert.equal(cards.length, 1);
+  assert.deepEqual(cards[0].variants.map(v => v.variantOptions?.size).sort(), ["1.8kg", "540g"]);
+  assert.equal(cards[0].label, "Beef Protein Isolate");
+});
+
+test("dead supplier sizes and unavailable parents do not create customer controls", async () => {
+  const { groupProductFamilies, memberVariantChoices } = await import("../lib/club-product-families");
+  const base = { organisationId: "org", familyId: "active:p", brand: "Brand", name: "Powder", active: true, stockTracked: false, supplierMemberOrderable: true, currency: "GBP", sellPriceMinor: 2000, createdAt: "", updatedAt: "" };
+  const products = [{ ...base, id: "live", variantOptions: { size: "540g", flavour: "Chocolate" } }, { ...base, id: "dead", sellPriceMinor: 2100, supplierAvailabilityStatus: "unavailable", variantOptions: { size: "1.8kg", flavour: "Vanilla" } }] as any;
+  const availability = { live: "SUPPLIER_ORDER", dead: "UNAVAILABLE" };
+  const cards = groupProductFamilies(products, [{ id: "active:p", organisationId: "org", name: "Powder", active: true, sortPosition: 0 }], "org", availability);
+  assert.equal(cards.length, 1);
+  const choices = memberVariantChoices(products, {}, product => availability[product.id as keyof typeof availability] !== "UNAVAILABLE");
+  assert.deepEqual(choices.controls[0].values.map(value => value.value), ["540g"]);
+});
+
+test("Active Sports Monster Energy cases are excluded without affecting local or Scitec products", () => {
+  const monster = { parentKey: "monster", supplierId: "s", supplierName: "Active Sports", memberOrderable: true, brand: "Monster Energy", name: "Monster Energy", variants: [{ id: "case", supplierId: "s", parentKey: "monster", size: "12 x 500ml", memberOrderableUnit: "case", stockStatus: "available" as const, retailPriceMinor: 2000 }] };
+  const local = { ...monster, variants: [{ ...monster.variants[0], size: "500ml", memberOrderableUnit: "each" }] };
+  const scitec = { ...monster, brand: "Scitec Nutrition", name: "Monster Pak" };
+  assert.equal(durableSupplierRowsToProducts([monster], "org").length, 0);
+  assert.equal(durableSupplierRowsToProducts([local], "org").length, 1);
+  assert.equal(durableSupplierRowsToProducts([scitec], "org").length, 1);
+});
+
+test("supplier parent imagery becomes commerce media with variant override", () => {
+  const parent: DurableSupplierParentRow = { parentKey: "p", supplierId: "active", supplierName: "Active Sports", memberOrderable: true, name: "Product", imageReference: "https://img.test/parent.jpg", variants: [{ id: "v", supplierId: "active", parentKey: "p", stockStatus: "available", retailPriceMinor: 1000 }] };
+  assert.equal(durableSupplierRowsToProducts([parent], "org")[0].media?.url, "https://img.test/parent.jpg");
 });
 
 test("Active Sports coverage reports supplier, commerce, family and hidden counts", () => {

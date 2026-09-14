@@ -65,7 +65,7 @@ function ClubShopBase({ organisationId, userId, products, families = [], locatio
     const stateFor = (item: ClubCommerceProduct): MemberAvailabilityState => item.sellPriceMinor <= 0 ? "UNAVAILABLE" : resolveMemberProductAvailability({ availableLocalQuantity: availabilityByProduct.get(item.id), supplierOrderable: supplierOrderable(item) });
     const availability = new Map(filtered.map(item => [item.id, { localAvailable: stateFor(item) === "IN_GYM", supplierAvailable: stateFor(item) === "SUPPLIER_ORDER" }]));
     const visible = sortMemberShopProducts(filtered, availability);
-    const cards = groupProductFamilies(visible, families, organisationId);
+    const cards = groupProductFamilies(visible, families, organisationId, Object.fromEntries(visible.map(item => [item.id, stateFor(item)])));
     const gsnFiltered = filtered.filter(item => item.brand?.trim().toLowerCase() === "gsn" || item.category?.trim().toLowerCase().startsWith("gsn:")).length;
     return <div className={`${styles.shop} ${styles.memberShop}`} style={{ "--club-accent": accent } as React.CSSProperties}>
       <div className={styles.memberShopTop}><div><span className="eyebrow">MEMBER SHOP</span><h2>Find something for your training</h2></div><button type="button" className={styles.cartButton} aria-label={`Open basket${basketQuantity ? `, ${basketQuantity} item${basketQuantity === 1 ? "" : "s"}` : ""}`} onClick={() => setCartOpen(true)}><ShoppingCartIcon />{basketQuantity ? <b>{basketQuantity}</b> : null}</button></div>

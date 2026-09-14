@@ -88,9 +88,16 @@ test("supplier order quantity keeps case/box ordering explicit and imagery rejec
   const mod = await import("../lib/club-supplier-catalogue");
   assert.deepEqual(mod.supplierOrderQuantity({ memberOrderableUnit: "Case", packQuantity: 12 }, 1), { quantity: 1, unit: "case", packQuantity: 12, isCaseOrBox: true });
   assert.throws(() => mod.supplierOrderQuantity({ memberOrderableUnit: undefined, packQuantity: 1 }, 1), /supplier_order_unit_required/);
-  const product = { parentKey: "p", supplierId: "active", name: "Product", imageReference: "https://img.test/no-image.png", variants: [] };
+  const product = { parentKey: "p", supplierId: "other-supplier", name: "Product", imageReference: "https://img.test/no-image.png", variants: [] };
   assert.equal(mod.resolveValidatedSupplierImage(product), undefined);
   assert.equal(mod.resolveValidatedSupplierImage({ ...product, imageReference: "https://img.test/parent.jpg" }), "https://img.test/parent.jpg");
+});
+
+test("Active Sports reviewed placeholder imagery is retained while invalid URLs remain rejected", async () => {
+  const mod = await import("../lib/club-supplier-catalogue");
+  const product = { parentKey: "p", supplierId: "Active Sports", name: "Product", imageReference: "https://img.test/placeholder.png", variants: [] };
+  assert.equal(mod.resolveValidatedSupplierImage(product), "https://img.test/placeholder.png");
+  assert.equal(mod.resolveValidatedSupplierImage({ ...product, imageReference: "javascript:alert(1)" }), undefined);
 });
 
 test("reviewed Active Sports reconciliation reports commercial counts from parsed fields", async () => {
