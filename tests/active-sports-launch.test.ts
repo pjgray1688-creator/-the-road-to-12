@@ -468,14 +468,14 @@ test("member and reception share the same sellable product universe", () => {
   assert.equal(member.length, 20);
 });
 
-test("member and reception call the shared durable shop catalogue RPC", async () => {
+test("member and reception call the canonical durable member catalogue RPC", async () => {
   const [memberPage, clubPage, migration] = await Promise.all([
     import("node:fs/promises").then(fs => fs.readFile("app/member-hub/shop/page.tsx", "utf8")),
     import("node:fs/promises").then(fs => fs.readFile("app/club/shop/page.tsx", "utf8")),
-    import("node:fs/promises").then(fs => fs.readFile("supabase/migrations/2026-09-17-fix-shared-shop-staff-authorization.sql", "utf8")),
+    import("node:fs/promises").then(fs => fs.readFile("supabase/migrations/2026-09-17-fix-member-supplier-catalogue-staff-auth.sql", "utf8")),
   ]);
-  assert.equal((memberPage.match(/club_list_shop_supplier_catalogue/g) ?? []).length, 1);
-  assert.equal((clubPage.match(/club_list_shop_supplier_catalogue/g) ?? []).length, 1);
+  assert.equal((memberPage.match(/club_list_member_supplier_catalogue/g) ?? []).length, 1);
+  assert.equal((clubPage.match(/club_list_member_supplier_catalogue/g) ?? []).length, 1);
   assert.match(migration, /returns jsonb/);
   assert.match(migration, /memberOrderable/);
   assert.match(migration, /variants/);
