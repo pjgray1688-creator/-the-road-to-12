@@ -15,7 +15,7 @@ import { ClubDeliveryHistory } from "@/components/club-delivery-history";
 import { ClubBalanceTopUp } from "@/components/club-balance-top-up";
 import { ClubStockRemoval } from "@/components/club-stock-removal";
 import type { ClubProductFamily } from "@/lib/club-product-families";
-import { buildClubShopProductUniverse } from "@/lib/club-supplier-catalogue";
+import { buildClubShopProductUniverse, type DurableSupplierParentRow } from "@/lib/club-supplier-catalogue";
 import { mapPromotionRecord } from "@/lib/club-promotions";
 import { supplierRowsToDurableRows } from "@/lib/club-supplier-catalogue";
 
@@ -24,17 +24,8 @@ async function loadShop(client: Awaited<ReturnType<typeof serverSupabase>>, user
   if (!context) return undefined;
   const { repository, organisation, member } = context;
   const staff = ["gym_staff", "gym_admin", "owner"].includes(member.role);
-  const [localProducts, locations, balance, orders, declarations, customers, canRecordCash, canReconcile, deliveries, promotionRows, supplierRows, staffSupplierRows] = await Promise.all([repository.listCommerceProducts(organisation.id), repository.listLocations(organisation.id), repository.getBalanceAccount(organisation.id, userId), repository.listOrders(organisation.id), staff ? repository.listCashDeclarations(organisation.id, "declared") : Promise.resolve([]), staff ? repository.listCustomers(organisation.id) : Promise.resolve([]), staff ? repository.hasCapability(organisation.id, userId, "payments.record_cash") : Promise.resolve(false), staff ? repository.hasCapability(organisation.id, userId, "cash.reconcile") : Promise.resolve(false), staff ? repository.listInventoryReceipts(organisation.id, locationId) : Promise.resolve([]), client.from("club_promotions").select("id,status,starts_at,ends_at,location_ids,effects,eligibility").eq("organisation_id", organisation.id).eq("status", "active"), client.rpc("club_list_member_supplier_catalogue", { p_organisation_id: organisation.id, p_location_id: null }), staff ? client.rpc("club_list_supplier_catalogue", { p_organisation_id: organisation.id }) : Promise.resolve({ data: null })]);
-  const memberDurableRows = supplierRowsToDurableRows(supplierRows.data);
-  const staffDurableRows = staff ? supplierRowsToDurableRows(staffSupplierRows.data) : [];
-  const durableByKey = new Map<string, (typeof memberDurableRows)[number]>();
-  for (const row of [...memberDurableRows, ...staffDurableRows]) {
-    const key = `${row.supplierId}:${row.parentKey}`;
-    const existing = durableByKey.get(key);
-    if (!existing) durableByKey.set(key, row);
-    else durableByKey.set(key, { ...existing, memberOrderable: existing.memberOrderable || row.memberOrderable, imageReference: existing.imageReference ?? row.imageReference, variants: [...existing.variants, ...row.variants.filter(incoming => !existing.variants.some(current => current.id === incoming.id))] });
-  }
-  const durableRows = [...durableByKey.values()];
+  const [localProducts, locations, balance, orders, declarations, customers, canRecordCash, canReconcile, deliveries, promotionRows, supplierRows] = await Promise.all([repository.listCommerceProducts(organisation.id), repository.listLocations(organisation.id), repository.getBalanceAccount(organisation.id, userId), repository.listOrders(organisation.id), staff ? repository.listCashDeclarations(organisation.id, "declared") : Promise.resolve([]), staff ? repository.listCustomers(organisation.id) : Promise.resolve([]), staff ? repository.hasCapability(organisation.id, userId, "payments.record_cash") : Promise.resolve(false), staff ? repository.hasCapability(organisation.id, userId, "cash.reconcile") : Promise.resolve(false), staff ? repository.listInventoryReceipts(organisation.id, locationId) : Promise.resolve([]), client.from("club_promotions").select("id,status,starts_at,ends_at,location_ids,effects,eligibility").eq("organisation_id", organisation.id).eq("status", "active"), client.rpc("club_list_shop_supplier_catalogue", { p_organisation_id: organisation.id, p_location_id: null })]);
+  const durableRows = Array.isArray(supplierRows.data) ? supplierRows.data as DurableSupplierParentRow[] : [];
   const products = buildClubShopProductUniverse(localProducts, durableRows, organisation.id);
   const promotions = (Array.isArray(promotionRows.data) ? promotionRows.data : []).map(value => mapPromotionRecord(value as Record<string, unknown>)).filter(rule => new Date(rule.startsAt) <= new Date() && (!rule.endsAt || new Date() < new Date(rule.endsAt)));
   const { data: familyRows } = await client.from("club_product_families").select("id,organisation_id,name,brand,description,category,active,archived_at,sort_position").eq("organisation_id", organisation.id).eq("active", true);
