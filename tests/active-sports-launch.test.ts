@@ -455,6 +455,15 @@ test("canonical commerce media accepts parent images and ignores empty media dur
   assert.equal(mergeSupplierPresentation(base, supplier).media?.url, "https://img.test/parent.jpg");
 });
 
+test("Active Sports commerce media migration backfills and protects valid media", async () => {
+  const fs = await import("node:fs/promises");
+  const sql = await fs.readFile("supabase/migrations/2026-09-16-active-sports-commerce-media.sql", "utf8");
+  assert.match(sql, /club_sync_supplier_commerce_media/);
+  assert.match(sql, /club_sync_parent_commerce_media/);
+  assert.match(sql, /coalesce\(cp\.media->>'url',''\) ~\* '\^https\?:\/\/'/);
+  assert.match(sql, /coalesce\(nullif\(sp\.variant_image_url, ''\), nullif\(pp\.parent_image_url, ''\)\)/);
+});
+
 test("supplier-linked products are stockable on the stock page even at zero balance", async () => {
   const { isStockableCommerceProduct } = await import("../lib/club-commerce");
   const supplier = { id: "supplier", organisationId: "org", name: "Powder", active: true, stockTracked: false, supplierReference: "supplier_product:1", supplierAvailabilityStatus: "available", sellPriceMinor: 2000, currency: "GBP", createdAt: "", updatedAt: "" } as any;
