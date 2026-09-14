@@ -6,7 +6,21 @@ export type FamilyCard = { family?: ClubProductFamily; variants: ClubCommercePro
 const selectable = (p: ClubCommerceProduct) => p.active;
 const stable = (a: ClubCommerceProduct, b: ClubCommerceProduct) => a.id.localeCompare(b.id);
 const isGsnProduct = (product: ClubCommerceProduct) => product.brand?.trim().toLowerCase() === "gsn" || product.category?.trim().toLowerCase().startsWith("gsn:");
-const isSupplierFamilyProduct = (product: ClubCommerceProduct) => Boolean(product.supplierMemberOrderable && product.familyId);
+/** Supplier provenance is carried by the linked supplier reference/status.  Do
+ * not infer it from orderability: a local product may be orderable too. */
+const isSupplierFamilyProduct = (product: ClubCommerceProduct) => Boolean(product.familyId && (product.supplierAvailabilityStatus !== undefined || product.supplierReference?.startsWith("supplier_product:")));
+export function supplierFormatClass(product: ClubCommerceProduct): string {
+  const options = product.variantOptions ?? {};
+  const text = `${product.name} ${options.size ?? ""} ${options.orderUnit ?? ""}`.toLowerCase();
+  const pack = /\b(?:case|box|pack)\b/.test(text) || /\b\d+\s*x\s*\d+(?:\.\d+)?\s*(?:ml|g|kg)\b/.test(text);
+  if (/\b(?:sachet|single serving)\b/.test(text)) return pack ? "sachet-case" : "single-sachet";
+  if (/\b(?:can|cans|rtd)\b/.test(text)) return pack ? "can-case" : "single-can";
+  if (/\b(?:shot|shots)\b/.test(text)) return pack ? "shot-case" : "single-shot";
+  if (/\b(?:gel|gels)\b/.test(text)) return pack ? "gel-case" : "gel";
+  if (/\bshaker\b/.test(text)) return "shaker";
+  if (/\b(?:tablet|tablets|capsule|capsules|caps)\b/.test(text)) return "tablets";
+  return "tub";
+}
 const formatKey = (product: ClubCommerceProduct) => {
   const options = product.variantOptions ?? {};
   const text = `${product.name} ${options.size ?? ""}`.toLowerCase();
@@ -17,13 +31,13 @@ export function groupProductFamilies(products: ClubCommerceProduct[], families: 
   const allowed = new Map(families.filter(f => f.organisationId === organisationId && f.active && !f.archivedAt).map(f => [f.id, f]));
   const grouped = new Map<string, ClubCommerceProduct[]>(); const ungrouped: ClubCommerceProduct[] = [];
   for (const product of products.filter(p => p.organisationId === organisationId && selectable(p))) {
-    if (product.familyId) { if (!allowed.has(product.familyId)) allowed.set(product.familyId, { id: product.familyId, organisationId, name: product.name, ...(product.brand ? { brand: product.brand } : {}), ...(product.category ? { category: product.category } : {}), active: true, sortPosition: 0 }); const gsnStandalone = isGsnProduct(product); const supplierFamily = isSupplierFamilyProduct(product); const key = gsnStandalone ? `${product.familyId}::${product.id}` : supplierFamily ? product.familyId : `${product.familyId}::${formatKey(product)}`; const list = grouped.get(key) ?? []; list.push(product); grouped.set(key, list); } else ungrouped.push(product);
+    if (product.familyId) { if (!allowed.has(product.familyId)) allowed.set(product.familyId, { id: product.familyId, organisationId, name: product.name, ...(product.brand ? { brand: product.brand } : {}), ...(product.category ? { category: product.category } : {}), active: true, sortPosition: 0 }); const gsnStandalone = isGsnProduct(product); const supplierFamily = isSupplierFamilyProduct(product); const supplierFormat = supplierFamily ? supplierFormatClass(product) : ""; const key = gsnStandalone ? `${product.familyId}::${product.id}` : supplierFamily ? `${product.familyId}::${supplierFormat}` : `${product.familyId}::${formatKey(product)}`; const list = grouped.get(key) ?? []; list.push(product); grouped.set(key, list); } else ungrouped.push(product);
   }
   const cards: FamilyCard[] = [];
-  for (const [groupKey, variants] of grouped) { const family = allowed.get(variants[0].familyId!)!; const ordered = variants.slice().sort(stable); const prices = [...new Set(ordered.map(v => v.sellPriceMinor))].sort((a, b) => a - b); const supplierFamily = isSupplierFamilyProduct(ordered[0]); cards.push({ family: { ...family, id: groupKey }, variants: ordered, label: supplierFamily || !formatKey(ordered[0]) ? family.name : `${family.name} · ${ordered[0].variantOptions?.size ?? ""}`, priceLabel: prices.length === 1 ? money(prices[0]) : `From ${money(prices[0])}` }); }
+  for (const [groupKey, variants] of grouped) { const orderable = variants.some(v => availability[v.id] !== "UNAVAILABLE" && v.sellPriceMinor > 0); if (Object.keys(availability).length && !orderable) continue; const family = allowed.get(variants[0].familyId!)!; const ordered = variants.slice().sort(stable); const prices = [...new Set(ordered.filter(v => availability[v.id] !== "UNAVAILABLE").map(v => v.sellPriceMinor).filter(v => v > 0))].sort((a, b) => a - b); const supplierFamily = isSupplierFamilyProduct(ordered[0]); const format = supplierFamily ? supplierFormatClass(ordered[0]) : ""; const label = supplierFamily && format === "tub" ? family.name : supplierFamily || !formatKey(ordered[0]) ? family.name : `${family.name} · ${ordered[0].variantOptions?.size ?? ""}`; cards.push({ family: { ...family, id: groupKey }, variants: ordered, label, priceLabel: prices.length === 1 ? money(prices[0]) : prices.length ? `From ${money(prices[0])}` : "" }); }
   for (const product of ungrouped.sort((a, b) => a.name.localeCompare(b.name) || stable(a, b))) cards.push({ variants: [product], label: product.name, priceLabel: money(product.sellPriceMinor) });
   return cards.sort((a, b) => {
-    const priority = (card: FamilyCard) => card.variants.some(v => availability[v.id] === "IN_GYM") ? 0 : card.variants.some(v => availability[v.id] === "SUPPLIER_ORDER") ? 1 : 2;
+    const priority = (card: FamilyCard) => card.variants.some(v => availability[v.id] === "IN_GYM") ? 0 : card.variants.some(v => availability[v.id] === "OTHER_GYM") ? 1 : card.variants.some(v => availability[v.id] === "SUPPLIER_ORDER") ? 2 : 3;
     return priority(a) - priority(b) || a.label.localeCompare(b.label);
   });
 }

@@ -390,7 +390,7 @@ test("ABE formats remain separate families while same-format flavours stay group
 
 test("Active Sports parent families group sizes while retaining variant choices", async () => {
   const { groupProductFamilies } = await import("../lib/club-product-families");
-  const base = { organisationId: "org", familyId: "active:nxt-beef", brand: "NXT Nutrition", active: true, stockTracked: false, supplierMemberOrderable: true, currency: "GBP", createdAt: "", updatedAt: "" };
+  const base = { organisationId: "org", familyId: "active:nxt-beef", brand: "NXT Nutrition", active: true, stockTracked: false, supplierMemberOrderable: true, supplierAvailabilityStatus: "available", currency: "GBP", createdAt: "", updatedAt: "" };
   const products = [
     { ...base, id: "540", name: "Beef Protein Isolate", sellPriceMinor: 2400, variantOptions: { size: "540g", orderUnit: "tub" } },
     { ...base, id: "1800", name: "Beef Protein Isolate", sellPriceMinor: 4200, variantOptions: { size: "1.8kg", orderUnit: "tub" } },
@@ -424,6 +424,14 @@ test("Active Sports Monster Energy cases are excluded without affecting local or
 test("supplier parent imagery becomes commerce media with variant override", () => {
   const parent: DurableSupplierParentRow = { parentKey: "p", supplierId: "active", supplierName: "Active Sports", memberOrderable: true, name: "Product", imageReference: "https://img.test/parent.jpg", variants: [{ id: "v", supplierId: "active", parentKey: "p", stockStatus: "available", retailPriceMinor: 1000 }] };
   assert.equal(durableSupplierRowsToProducts([parent], "org")[0].media?.url, "https://img.test/parent.jpg");
+});
+
+test("supplier parent media fills a linked commerce row without replacing existing media", async () => {
+  const { mergeSupplierPresentation } = await import("../lib/club-commerce");
+  const base = { id: "v", organisationId: "org", name: "Product", active: true, stockTracked: false, sellPriceMinor: 1000, currency: "GBP", createdAt: "", updatedAt: "" } as any;
+  const supplier = { ...base, media: { url: "https://img.test/parent.jpg" }, supplierAvailabilityStatus: "available" };
+  assert.equal(mergeSupplierPresentation(base, supplier).media?.url, "https://img.test/parent.jpg");
+  assert.equal(mergeSupplierPresentation({ ...base, media: { url: "https://img.test/local.jpg" } }, supplier).media?.url, "https://img.test/local.jpg");
 });
 
 test("Active Sports coverage reports supplier, commerce, family and hidden counts", () => {

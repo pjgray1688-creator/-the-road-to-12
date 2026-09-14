@@ -19,6 +19,15 @@ export function isLegacyDemoCommerceProduct(product: ClubCommerceProduct) {
   return /(^|\b)(demo|test product|sample product)\b/.test(text) || /\b1kg\s+whey\s+isolate\b/.test(text);
 }
 
+/** Active Sports Monster 12-can cases are not a customer-orderable format. */
+export function isActiveSportsMonsterCaseProduct(product: ClubCommerceProduct) {
+  if (!product.supplierReference?.startsWith("supplier_product:")) return false;
+  if (product.brand?.trim().toLocaleLowerCase() !== "monster energy") return false;
+  const options = product.variantOptions ?? {};
+  const text = `${product.name} ${options.size ?? ""} ${options.orderUnit ?? ""}`.toLocaleLowerCase();
+  return /\b(?:case|box|pack)\b/.test(text) && /\b12\s*x\s*500\s*ml\b/.test(text);
+}
+
 /** Overlay member-safe supplier presentation metadata on an existing commerce
  * row without replacing its authoritative retail price or local stock flags. */
 export function mergeSupplierPresentation(product: ClubCommerceProduct, supplier: ClubCommerceProduct): ClubCommerceProduct {
@@ -28,7 +37,7 @@ export function mergeSupplierPresentation(product: ClubCommerceProduct, supplier
     supplierAvailabilityStatus: supplier.supplierAvailabilityStatus,
     supplierReference: product.supplierReference ?? supplier.supplierReference,
     variantImageReference: product.variantImageReference ?? supplier.variantImageReference,
-    media: product.media ?? supplier.media,
+    media: typeof product.media?.url === "string" && product.media.url.trim() ? product.media : supplier.media ?? product.media,
     familyId: product.familyId ?? supplier.familyId,
     variantOptions: product.variantOptions ?? supplier.variantOptions,
   };
