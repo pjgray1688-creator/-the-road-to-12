@@ -442,6 +442,10 @@ test("stock view keeps historical local products by default and exposes never-st
   const balances = [{ organisationId: "org", locationId: "r", productId: local.id, onHand: 0, reserved: 0, availableToSell: 0 }];
   assert.deepEqual(stockProductsForView([local, supplier], balances, "").map(item => item.product.id), ["local"]);
   assert.deepEqual(stockProductsForView([local, supplier], balances, "powder").map(item => item.product.id), ["supplier"]);
+  const fs = await import("node:fs/promises");
+  const panel = await fs.readFile("components/club-stock-panel.tsx", "utf8");
+  assert.match(panel, /Stock adjustment location/);
+  assert.match(panel, /canAdjust\?<button type="button" className="secondary"/);
 });
 
 test("canonical commerce media accepts parent images and ignores empty media during merge", async () => {
