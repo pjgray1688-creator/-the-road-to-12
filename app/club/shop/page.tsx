@@ -17,7 +17,7 @@ import { ClubStockRemoval } from "@/components/club-stock-removal";
 import type { ClubProductFamily } from "@/lib/club-product-families";
 import { isActiveSportsMonsterCaseProduct, isLegacyDemoCommerceProduct, mergeSupplierPresentation, sortCommerceProductsForOperations } from "@/lib/club-commerce";
 import { mapPromotionRecord } from "@/lib/club-promotions";
-import { durableSupplierRowsToProducts, supplierCatalogueOffersToDurableRows, type DurableSupplierParentRow } from "@/lib/club-supplier-catalogue";
+import { durableSupplierRowsToProducts, supplierRowsToDurableRows } from "@/lib/club-supplier-catalogue";
 
 async function loadShop(client: Awaited<ReturnType<typeof serverSupabase>>, userId: string, organisationId?: string, locationId?: string) {
   const context = await resolveClubOrganisationContext(client, userId, organisationId);
@@ -25,7 +25,16 @@ async function loadShop(client: Awaited<ReturnType<typeof serverSupabase>>, user
   const { repository, organisation, member } = context;
   const staff = ["gym_staff", "gym_admin", "owner"].includes(member.role);
   const [localProducts, locations, balance, orders, declarations, customers, canRecordCash, canReconcile, deliveries, promotionRows, supplierRows, staffSupplierRows] = await Promise.all([repository.listCommerceProducts(organisation.id), repository.listLocations(organisation.id), repository.getBalanceAccount(organisation.id, userId), repository.listOrders(organisation.id), staff ? repository.listCashDeclarations(organisation.id, "declared") : Promise.resolve([]), staff ? repository.listCustomers(organisation.id) : Promise.resolve([]), staff ? repository.hasCapability(organisation.id, userId, "payments.record_cash") : Promise.resolve(false), staff ? repository.hasCapability(organisation.id, userId, "cash.reconcile") : Promise.resolve(false), staff ? repository.listInventoryReceipts(organisation.id, locationId) : Promise.resolve([]), client.from("club_promotions").select("id,status,starts_at,ends_at,location_ids,effects,eligibility").eq("organisation_id", organisation.id).eq("status", "active"), client.rpc("club_list_member_supplier_catalogue", { p_organisation_id: organisation.id, p_location_id: null }), staff ? client.rpc("club_list_supplier_catalogue", { p_organisation_id: organisation.id }) : Promise.resolve({ data: null })]);
-  const durableRows = Array.isArray(supplierRows.data) && supplierRows.data.length ? supplierRows.data as DurableSupplierParentRow[] : staff ? supplierCatalogueOffersToDurableRows(Array.isArray(staffSupplierRows.data) ? staffSupplierRows.data as Array<Record<string, unknown>> : []) : [];
+  const memberDurableRows = supplierRowsToDurableRows(supplierRows.data);
+  const staffDurableRows = staff ? supplierRowsToDurableRows(staffSupplierRows.data) : [];
+  const durableByKey = new Map<string, (typeof memberDurableRows)[number]>();
+  for (const row of [...memberDurableRows, ...staffDurableRows]) {
+    const key = `${row.supplierId}:${row.parentKey}`;
+    const existing = durableByKey.get(key);
+    if (!existing) durableByKey.set(key, row);
+    else durableByKey.set(key, { ...existing, memberOrderable: existing.memberOrderable || row.memberOrderable, imageReference: existing.imageReference ?? row.imageReference, variants: [...existing.variants, ...row.variants.filter(incoming => !existing.variants.some(current => current.id === incoming.id))] });
+  }
+  const durableRows = [...durableByKey.values()];
   const supplierProducts = durableSupplierRowsToProducts(durableRows, organisation.id);
   const supplierById = new Map(supplierProducts.map(product => [product.id, product]));
   const products = sortCommerceProductsForOperations([...localProducts.filter(product => product.active && !isLegacyDemoCommerceProduct(product) && !isActiveSportsMonsterCaseProduct(product)).map(product => { const supplier = supplierById.get(product.id); return supplier ? mergeSupplierPresentation(product, supplier) : product; }), ...supplierProducts.filter(product => product.active && !localProducts.some(local => local.id === product.id) && !isLegacyDemoCommerceProduct(product) && !isActiveSportsMonsterCaseProduct(product))]);

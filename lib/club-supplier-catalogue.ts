@@ -22,11 +22,22 @@ export function supplierCatalogueOffersToDurableRows(rows: Array<Record<string, 
     if (!supplierId || !supplierName || !name) continue;
     const brand = String(row.brand ?? "").trim() || undefined; const parentKey = `${brand ?? ""}|${name}`.toLowerCase(); const key = `${supplierId}:${parentKey}`;
     const parent = groups.get(key) ?? { parentKey, supplierId, supplierName, memberOrderable: true, ...(brand ? { brand } : {}), name, ...(row.category ? { category: String(row.category) } : {}), variants: [] };
-    const status = String(row.supplier_availability ?? row.availability_status ?? "unknown").toLowerCase();
-    parent.variants.push({ id: String(row.id), supplierId, parentKey, ...(row.variant ? { flavour: String(row.variant) } : {}), ...(row.size ? { size: String(row.size) } : {}), ...(row.pack_quantity != null ? { packQuantity: Number(row.pack_quantity) } : {}), ...(row.supplier_sku ? { supplierSku: String(row.supplier_sku) } : {}), ...(row.barcode ? { barcode: String(row.barcode) } : {}), stockStatus: status === "available" ? "available" : status === "unavailable" ? "unavailable" : "unknown", ...(row.member_orderable_unit ? { memberOrderableUnit: String(row.member_orderable_unit) } : {}), ...(row.retail_price_minor != null ? { retailPriceMinor: Number(row.retail_price_minor) } : {}), ...(row.club_product_id ? { clubProductId: String(row.club_product_id) } : {}) });
+    const status = String(row.supplier_availability ?? row.availability_status ?? "unknown").trim().toLowerCase();
+    const available = /^(available|in stock|in_stock|yes|true|1|orderable)$/i.test(status);
+    const unavailable = /^(unavailable|out of stock|out_of_stock|no|false|0|discontinued)$/i.test(status);
+    if (row.sellable === false || row.discontinued === true) continue;
+    parent.variants.push({ id: String(row.id), supplierId, parentKey, ...(row.variant ? { flavour: String(row.variant) } : {}), ...(row.size ? { size: String(row.size) } : {}), ...(row.pack_quantity != null ? { packQuantity: Number(row.pack_quantity) } : {}), ...(row.supplier_sku ? { supplierSku: String(row.supplier_sku) } : {}), ...(row.barcode ? { barcode: String(row.barcode) } : {}), stockStatus: available ? "available" : unavailable ? "unavailable" : "unknown", ...(row.member_orderable_unit ? { memberOrderableUnit: String(row.member_orderable_unit) } : {}), ...(row.retail_price_minor != null ? { retailPriceMinor: Number(row.retail_price_minor) } : {}), ...(row.club_product_id ? { clubProductId: String(row.club_product_id) } : {}) });
     groups.set(key, parent);
   }
   return [...groups.values()].filter(parent => parent.variants.some(variant => variant.stockStatus === "available"));
+}
+
+/** Accept either the member RPC's durable camelCase payload or the staff RPC's
+ * flat catalogue rows. This keeps both shop surfaces on one conversion path. */
+export function supplierRowsToDurableRows(rows: unknown): DurableSupplierParentRow[] {
+  if (!Array.isArray(rows)) return [];
+  if (rows.some(row => row && typeof row === "object" && Array.isArray((row as Record<string, unknown>).variants))) return rows as DurableSupplierParentRow[];
+  return supplierCatalogueOffersToDurableRows(rows as Array<Record<string, unknown>>);
 }
 
 const clean = (value: unknown) => typeof value === "string" && value.trim() ? value.trim() : undefined;
@@ -96,7 +107,8 @@ export function supplierVariantOrderable(supplier: ClubSupplier, variant: Suppli
 
 /** Convert member-safe durable rows into the existing grouped commerce-product shape. */
 export function durableSupplierRowsToProducts(rows: DurableSupplierParentRow[], organisationId: string) {
-  return rows.filter(parent => parent.memberOrderable && !isActiveSportsMonsterCase(parent) && parent.variants.some(variant => variant.stockStatus === "available")).flatMap(parent => parent.variants.map(variant => ({ id: variant.clubProductId ?? variant.id, organisationId, sku: variant.supplierSku, barcode: variant.barcode, name: parent.name, brand: parent.brand, description: parent.description, category: parent.category, active: true, stockTracked: variant.localStockTracked === true, sellPriceMinor: variant.retailPriceMinor ?? 0, currency: "GBP", supplierReference: variant.supplierSku, supplierMemberOrderable: parent.memberOrderable, supplierAvailabilityStatus: variant.stockStatus, variantImageReference: variant.imageReference, media: variant.imageReference ? { url: variant.imageReference } : parent.imageReference ? { url: parent.imageReference } : undefined, familyId: `${parent.supplierId}:${parent.parentKey}`, variantOptions: Object.fromEntries([["orderUnit", variant.memberOrderableUnit], ["flavour", variant.flavour], ["size", variant.size], ["packQuantity", variant.packQuantity ? String(variant.packQuantity) : undefined]].filter((entry): entry is [string, string] => Boolean(entry[1]))), createdAt: "", updatedAt: "" })));
+  const available = (value: unknown) => /^(available|in stock|in_stock|yes|true|1|orderable)$/i.test(String(value ?? "").trim());
+  return rows.filter(parent => parent.memberOrderable !== false && !isActiveSportsMonsterCase(parent) && parent.variants.some(variant => available(variant.stockStatus))).flatMap(parent => parent.variants.map(variant => ({ id: variant.clubProductId ?? variant.id, organisationId, sku: variant.supplierSku, barcode: variant.barcode, name: parent.name, brand: parent.brand, description: parent.description, category: parent.category, active: true, stockTracked: variant.localStockTracked === true, sellPriceMinor: variant.retailPriceMinor ?? 0, currency: "GBP", supplierReference: variant.supplierSku, supplierMemberOrderable: parent.memberOrderable !== false, supplierAvailabilityStatus: available(variant.stockStatus) ? "available" as const : "unavailable" as const, variantImageReference: variant.imageReference, media: variant.imageReference ? { url: variant.imageReference } : parent.imageReference ? { url: parent.imageReference } : undefined, familyId: `${parent.supplierId}:${parent.parentKey}`, variantOptions: Object.fromEntries([["orderUnit", variant.memberOrderableUnit], ["flavour", variant.flavour], ["size", variant.size], ["packQuantity", variant.packQuantity ? String(variant.packQuantity) : undefined]].filter((entry): entry is [string, string] => Boolean(entry[1]))), createdAt: "", updatedAt: "" })));
 }
 
 function isActiveSportsMonsterCase(parent: DurableSupplierParentRow) {
