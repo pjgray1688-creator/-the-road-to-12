@@ -272,6 +272,22 @@ test("Active Sports linking refreshes supplier-managed media from parent or vari
   assert.match(sql, /stock_tracked,[\s\S]*?false/);
 });
 
+test("supplier projection carries exact status and current media onto linked commerce rows", () => {
+  const parent: DurableSupplierParentRow = { parentKey: "scitec-professional", supplierId: "active", supplierName: "Active Sports", memberOrderable: true, brand: "Scitec Nutrition", name: "100% Whey Protein Professional", imageReference: "https://img.test/professional.jpg", variants: [
+    { id: "banana", clubProductId: "commerce-banana", supplierId: "active", parentKey: "scitec-professional", size: "780g", flavour: "Banana", stockStatus: "unavailable", retailPriceMinor: 3000 },
+    { id: "chocolate", clubProductId: "commerce-chocolate", supplierId: "active", parentKey: "scitec-professional", size: "780g", flavour: "Chocolate", stockStatus: "available", retailPriceMinor: 3000 },
+  ] };
+  const local = [
+    { id: "commerce-banana", organisationId: "org", name: parent.name, active: true, stockTracked: false, sellPriceMinor: 3000, currency: "GBP", supplierReference: "supplier_product:banana", media: { url: "https://old.test/red.jpg" }, createdAt: "", updatedAt: "" },
+    { id: "commerce-chocolate", organisationId: "org", name: parent.name, active: true, stockTracked: false, sellPriceMinor: 3000, currency: "GBP", supplierReference: "supplier_product:chocolate", media: { url: "https://old.test/red.jpg" }, createdAt: "", updatedAt: "" },
+  ] as any;
+  const products = buildClubShopProductUniverse(local, [parent], "org");
+  assert.equal(products.find(product => product.id === "commerce-banana")?.supplierAvailabilityStatus, "unavailable");
+  assert.equal(products.find(product => product.id === "commerce-chocolate")?.supplierAvailabilityStatus, "available");
+  assert.equal(products.find(product => product.id === "commerce-banana")?.media?.url, "https://img.test/professional.jpg");
+  assert.equal(products.find(product => product.id === "commerce-chocolate")?.media?.url, "https://img.test/professional.jpg");
+});
+
 test("database reconciliation protects permissions, audited manual pricing, idempotency and local stock", () => {
   const sql = readFileSync("supabase/migrations/2026-10-17-active-sports-pricing-reconciliation.sql", "utf8");
   assert.match(sql, /p_expected_revision is distinct from revision/);

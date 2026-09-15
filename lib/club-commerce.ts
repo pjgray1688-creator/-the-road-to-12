@@ -36,13 +36,14 @@ export function isActiveSportsMonsterCaseProduct(product: ClubCommerceProduct) {
 export function mergeSupplierPresentation(product: ClubCommerceProduct, supplier: ClubCommerceProduct): ClubCommerceProduct {
   const localUrl = usableCommerceImageUrl(product.media?.url) ? product.media.url : undefined;
   const supplierUrl = usableCommerceImageUrl(supplier.media?.url) ? supplier.media.url : undefined;
+  const supplierManaged = supplier.supplierReference?.startsWith("supplier_product:") === true;
   return {
     ...product,
     supplierMemberOrderable: supplier.supplierMemberOrderable,
     supplierAvailabilityStatus: supplier.supplierAvailabilityStatus,
     supplierReference: product.supplierReference ?? supplier.supplierReference,
-    variantImageReference: product.variantImageReference ?? supplier.variantImageReference,
-    ...(localUrl ? { media: { url: localUrl } } : supplierUrl ? { media: { url: supplierUrl } } : {}),
+    variantImageReference: supplierManaged && supplier.variantImageReference ? supplier.variantImageReference : product.variantImageReference ?? supplier.variantImageReference,
+    ...(supplierManaged && supplierUrl ? { media: { url: supplierUrl } } : localUrl ? { media: { url: localUrl } } : supplierUrl ? { media: { url: supplierUrl } } : {}),
     familyId: product.familyId ?? supplier.familyId,
     variantOptions: product.variantOptions ?? supplier.variantOptions,
   };
