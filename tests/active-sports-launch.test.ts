@@ -3,10 +3,20 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { ACTIVE_SPORTS_HEADERS, prepareActiveSportsImport, supplierPricing, parseActiveSportsCommercialFields, durableSupplierRowsToProducts, supplierCatalogueOffersToDurableRows, buildClubShopProductUniverse, activeSportsCoverage, supplierVariantOrderable, activeSportsIdentity, type DurableSupplierParentRow } from "../lib/club-supplier-catalogue";
 import { supplierOrderable } from "../lib/club-member-availability";
+import { paginateCards } from "../lib/club-pagination";
 
 const headers = [...ACTIVE_SPORTS_HEADERS, "Trade Cost ex VAT", "VAT Rate", "Cost Source / Snapshot"];
 const record: Record<string, string> = { Supplier: "Active Sports", Brand: "Per4m Nutrition", "Parent Product": "Whey", Category: "Supplements", "Size / Format": "2kg", "Variant / Flavour": "Chocolate", "Pack Qty": "1", "Member Order Unit": "Tub", "Supplier Stock": "In stock", "Stock Checked": "2026-09-10", "Trade Cost ex VAT": "20.00", "VAT Rate": "20%", "Cost Source / Snapshot": "Reviewed final supplier snapshot" };
 function csv(...rows: Array<Record<string, string>>) { const escape = (value: string) => `"${value.replaceAll('"','""')}"`; return [headers.map(escape).join(","), ...rows.map(row => headers.map(key => escape(row[key] ?? "")).join(","))].join("\n"); }
+
+test("shop pagination pages family cards in groups of 48", () => {
+  const cards = Array.from({ length: 100 }, (_, index) => index);
+  assert.deepEqual(paginateCards(cards, 1).items, cards.slice(0, 48));
+  assert.deepEqual(paginateCards(cards, 2).items, cards.slice(48, 96));
+  assert.deepEqual(paginateCards(cards, 3).items, cards.slice(96));
+  assert.equal(paginateCards(cards, 3).totalPages, 3);
+  assert.equal(paginateCards(cards.slice(0, 48), 1).totalPages, 1);
+});
 
 test("20% and VAT FREE costs feed 30% gross margin and upward whole-pound floor", () => {
   assert.deepEqual(supplierPricing(2000, 0), { trueCostMinor: 2000, recommendedFloorMinor: 2900, livePriceMinor: 2900, marginPercent: 900 / 2900 * 100, belowFloor: false });
