@@ -261,6 +261,17 @@ test("Scitec whey family image migration keeps Professional and Isolate distinct
   assert.doesNotMatch(sql, /set name=/);
 });
 
+test("Active Sports linking refreshes supplier-managed media from parent or variant images", () => {
+  const sql = readFileSync("supabase/migrations/2026-11-14-active-sports-image-sync.sql", "utf8");
+  assert.match(sql, /parent_image_url/);
+  assert.match(sql, /variant_image_url/);
+  assert.match(sql, /media=case when v_image is null then media else jsonb_build_object\('url',v_image\)/);
+  assert.match(sql, /coalesce\(nullif\(btrim\(sp\.variant_image_url\),''\), nullif\(btrim\(pp\.parent_image_url\),''\)\)/);
+  assert.match(sql, /~\* '\^https\?:\/\/'/);
+  assert.match(sql, /not sp\.manual_price then v_price else sell_price_minor/);
+  assert.match(sql, /stock_tracked,[\s\S]*?false/);
+});
+
 test("database reconciliation protects permissions, audited manual pricing, idempotency and local stock", () => {
   const sql = readFileSync("supabase/migrations/2026-10-17-active-sports-pricing-reconciliation.sql", "utf8");
   assert.match(sql, /p_expected_revision is distinct from revision/);
@@ -544,7 +555,7 @@ test("reception uses shared supplierOrderable fallback for zero-stock supplier i
   const { supplierOrderable } = await import("../lib/club-member-availability");
   const { filterStaffCheckoutProducts } = await import("../components/club-staff-checkout");
   const product = { id: "abe-pump", organisationId: "org", name: "ABE Pump", active: true, stockTracked: false, supplierReference: "supplier_product:abe-pump", sellPriceMinor: 2500, currency: "GBP", createdAt: "", updatedAt: "" } as any;
-  assert.equal(supplierOrderable(product), true);
+  assert.equal(supplierOrderable(product), false);
   assert.equal(supplierOrderable({ ...product, supplierAvailabilityStatus: "available", supplierMemberOrderable: true }), true);
   assert.equal(supplierOrderable({ ...product, supplierAvailabilityStatus: "unavailable", supplierMemberOrderable: true }), false);
   assert.deepEqual(filterStaffCheckoutProducts([product], "ABE Pump"), [product]);
