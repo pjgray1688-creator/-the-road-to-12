@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { ACTIVE_SPORTS_HEADERS, prepareActiveSportsImport, supplierPricing, parseActiveSportsCommercialFields, durableSupplierRowsToProducts, supplierCatalogueOffersToDurableRows, buildClubShopProductUniverse, activeSportsCoverage, supplierVariantOrderable, activeSportsIdentity, type DurableSupplierParentRow } from "../lib/club-supplier-catalogue";
 import { resolveMemberProductAvailability, supplierOrderable } from "../lib/club-member-availability";
 import { paginateCards } from "../lib/club-pagination";
+import { groupProductFamilies, memberVariantChoices } from "../lib/club-product-families";
 
 const headers = [...ACTIVE_SPORTS_HEADERS, "Trade Cost ex VAT", "VAT Rate", "Cost Source / Snapshot"];
 const record: Record<string, string> = { Supplier: "Active Sports", Brand: "Per4m Nutrition", "Parent Product": "Whey", Category: "Supplements", "Size / Format": "2kg", "Variant / Flavour": "Chocolate", "Pack Qty": "1", "Member Order Unit": "Tub", "Supplier Stock": "In stock", "Stock Checked": "2026-09-10", "Trade Cost ex VAT": "20.00", "VAT Rate": "20%", "Cost Source / Snapshot": "Reviewed final supplier snapshot" };
@@ -323,6 +324,65 @@ test("legacy links without a supplier reference match by exact variant facts", (
   const products = buildClubShopProductUniverse([local], [row], "org");
   assert.equal(products.length, 2);
   assert.equal(products.find(product => product.id === "old-commerce-id")?.supplierAvailabilityStatus, "unavailable");
+});
+
+test("production Scitec identifiers project exact status and media onto the live commerce rows", () => {
+  const parent: DurableSupplierParentRow = { parentKey: "scitec-professional", supplierId: "active-sports", supplierName: "Active Sports", memberOrderable: true, brand: "Scitec Nutrition", name: "100% Whey Protein Professional", imageReference: "https://www.activesportstrade.co.uk/images/XL/scitech-100-whey-1816g.jpg", variants: [
+    { id: "ca65565f-300d-4330-84b7-97a9ef55cee9", clubProductId: "1b47df7b-f936-47c8-afd6-0ac3f5c0322f", supplierId: "active-sports", parentKey: "scitec-professional", size: "780g", flavour: "Banana", stockStatus: "unavailable", retailPriceMinor: 3000 },
+    { id: "1d80d685-f0df-4496-811c-a4fd0c718d33", clubProductId: "ca8601dd-4c5b-4a55-8496-0f7ec3c59005", supplierId: "active-sports", parentKey: "scitec-professional", size: "780g", flavour: "Chocolate", stockStatus: "available", retailPriceMinor: 3000 },
+  ] };
+  const base = (id: string, reference: string) => ({ id, organisationId: "org", name: parent.name, brand: parent.brand, active: true, stockTracked: false, sellPriceMinor: 3000, currency: "GBP", supplierReference: reference, media: { url: "https://m.media-amazon.com/images/I/71bN8dWgz%2BL._AC_SL1500_.jpg" }, createdAt: "", updatedAt: "" } as any);
+  const products = buildClubShopProductUniverse([
+    base("1b47df7b-f936-47c8-afd6-0ac3f5c0322f", "supplier_product:ca65565f-300d-4330-84b7-97a9ef55cee9"),
+    base("ca8601dd-4c5b-4a55-8496-0f7ec3c59005", "supplier_product:1d80d685-f0df-4496-811c-a4fd0c718d33"),
+  ], [parent], "org");
+  const banana = products.find(product => product.id === "1b47df7b-f936-47c8-afd6-0ac3f5c0322f")!;
+  const chocolate = products.find(product => product.id === "ca8601dd-4c5b-4a55-8496-0f7ec3c59005")!;
+  assert.equal(products.filter(product => product.id === banana.id).length, 1);
+  assert.deepEqual({ id: banana.id, supplierReference: banana.supplierReference, status: banana.supplierAvailabilityStatus, memberOrderable: banana.supplierMemberOrderable, url: banana.media?.url }, { id: "1b47df7b-f936-47c8-afd6-0ac3f5c0322f", supplierReference: "supplier_product:ca65565f-300d-4330-84b7-97a9ef55cee9", status: "unavailable", memberOrderable: false, url: "https://www.activesportstrade.co.uk/images/XL/scitech-100-whey-1816g.jpg" });
+  assert.equal(chocolate.supplierAvailabilityStatus, "available");
+  assert.equal(chocolate.supplierMemberOrderable, true);
+  assert.equal(chocolate.media?.url, "https://www.activesportstrade.co.uk/images/XL/scitech-100-whey-1816g.jpg");
+});
+
+test("full Scitec families retain exact availability and family media through presentation", () => {
+  const status = (flavour: string) => flavour === "Banana" ? "unavailable" as const : "available" as const;
+  const professionalFlavours = ["Banana", "Chocolate", "Chocolate Cookies & Cream", "Chocolate Hazelnut", "Coconut", "Ice Coffee", "Lemon Cheesecake", "Pistachio White Chocolate", "Salted Caramel", "Strawberry", "Vanilla", "White Chocolate"];
+  const parent = (parentKey: string, name: string, imageReference: string, sizes: Array<[string, string[]]>) => ({ parentKey, supplierId: "active-sports", supplierName: "Active Sports", memberOrderable: true, brand: "Scitec Nutrition", name, imageReference, variants: sizes.flatMap(([size, flavours]) => flavours.map((flavour, index) => ({ id: `${parentKey}-${size}-${index}`, supplierId: "active-sports", parentKey, size, flavour, stockStatus: name.includes("Professional") ? status(flavour) : "available", retailPriceMinor: 3000 }))) });
+  const professional = parent("professional", "100% Whey Protein Professional", "https://www.activesportstrade.co.uk/images/XL/scitech-100-whey-1816g.jpg", [["780g", professionalFlavours], ["1816g", ["Banana", "Chocolate"]], ["4000g", ["Chocolate"]]]);
+  const isolate = parent("isolate", "100% Whey Isolate", "https://www.activesportstrade.co.uk/images/XL/scitech-whey-isolate-2000g_4.jpg", [["1816g", ["Chocolate", "Vanilla"]], ["700g", ["Chocolate"]]]);
+  const radical = parent("radical", "Radical Whey", "https://www.activesportstrade.co.uk/images/XL/scitec-radical-whey-2000g.jpg", [["2000g", ["Chocolate", "Vanilla", "Strawberry", "Banana", "Cookies"]]]);
+  const stale = (id: string, name: string, size: string, flavour: string, image: string) => ({ id, organisationId: "org", name, brand: "Scitec Nutrition", active: true, stockTracked: false, sellPriceMinor: 3000, currency: "GBP", supplierReference: `supplier_product:${id}`, variantOptions: { size, flavour, orderUnit: "Tub" }, media: { url: image }, createdAt: "", updatedAt: "" } as any);
+  const rows = [professional, isolate, radical];
+  (professional.variants as Array<any>)[0].clubProductId = "1b47df7b-f936-47c8-afd6-0ac3f5c0322f";
+  (professional.variants as Array<any>)[1].clubProductId = "ca8601dd-4c5b-4a55-8496-0f7ec3c59005";
+  const local = [
+    stale("1b47df7b-f936-47c8-afd6-0ac3f5c0322f", professional.name, "780g", "Banana", "https://old.test/red.jpg"),
+    stale("ca8601dd-4c5b-4a55-8496-0f7ec3c59005", professional.name, "780g", "Chocolate", "https://old.test/red.jpg"),
+    ...isolate.variants.map(variant => { const id = `legacy-${variant.id}`; (variant as any).clubProductId = id; return stale(id, isolate.name, variant.size!, variant.flavour!, "https://m.media-amazon.com/images/I/71bN8dWgz%2BL._AC_SL1500_.jpg"); }),
+    ...radical.variants.map(variant => { const id = `legacy-${variant.id}`; (variant as any).clubProductId = id; return stale(id, radical.name, variant.size!, variant.flavour!, "https://m.media-amazon.com/images/I/71bN8dWgz%2BL._AC_SL1500_.jpg"); }),
+  ];
+  const products = buildClubShopProductUniverse(local, rows, "org");
+  const availability = Object.fromEntries(products.map(product => [product.id, product.supplierAvailabilityStatus === "available" ? "SUPPLIER_ORDER" : "UNAVAILABLE"]));
+  const families = groupProductFamilies(products, [], "org", availability);
+  const professionalCard = families.find(card => card.label === professional.name)!;
+  const choices = memberVariantChoices(professionalCard.variants, { size: "780g" }, product => availability[product.id] !== "UNAVAILABLE");
+  const flavourControl = choices.controls.find(control => control.key === "flavour");
+  assert.ok(professionalCard);
+  assert.equal(flavourControl?.values.some(option => option.value === "Banana"), false);
+  assert.equal(flavourControl?.values.some(option => option.value === "Chocolate"), true);
+  assert.equal(families.find(card => card.label === isolate.name)?.variants[0].media?.url, "https://www.activesportstrade.co.uk/images/XL/scitech-whey-isolate-2000g_4.jpg");
+  assert.equal(families.find(card => card.label === radical.name)?.variants[0].media?.url, "https://www.activesportstrade.co.uk/images/XL/scitec-radical-whey-2000g.jpg");
+});
+
+test("supplier diagnostics are opt-in and restricted to senior staff", async () => {
+  const source = await (await import("node:fs/promises")).readFile("app/club/shop/page.tsx", "utf8");
+  assert.match(source, /params\?\.supplierDebug === "1"/);
+  assert.match(source, /loaded\.role === "owner" \|\| loaded\.role === "gym_admin"/);
+  assert.match(source, /R12_SUPPLIER_DEBUG/);
+  assert.match(source, /rawSupplierDurableData/);
+  assert.match(source, /finalUniverseData/);
+  assert.match(source, /professional780gFlavours/);
 });
 
 test("database reconciliation protects permissions, audited manual pricing, idempotency and local stock", () => {
