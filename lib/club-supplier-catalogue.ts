@@ -50,13 +50,48 @@ export function buildClubShopProductUniverse(localProducts: ClubCommerceProduct[
   });
   const supplierById = new Map(supplierProducts.map(product => [product.id, product]));
   const supplierByReference = new Map(supplierProducts.filter(product => product.supplierReference).map(product => [product.supplierReference as string, product]));
+  // Older Active Sports link runs created commerce rows with a null or raw
+  // supplier_reference. Resolve those rows through the durable variant's
+  // stable SKU/barcode aliases as well, while refusing ambiguous aliases.
+  const aliasOwners = new Map<string, ClubCommerceProduct | null>();
+  const factKey = (product: ClubCommerceProduct) => {
+    const options = product.variantOptions ?? {};
+    return `facts:${(product.brand ?? "").trim().toLowerCase()}|${product.name.trim().toLowerCase()}|${(options.size ?? "").trim().toLowerCase()}|${(options.flavour ?? "").trim().toLowerCase()}|${(options.packQuantity ?? "").trim().toLowerCase()}|${(options.orderUnit ?? "").trim().toLowerCase()}`;
+  };
+  const addAlias = (alias: string | undefined, product: ClubCommerceProduct) => {
+    const key = alias?.trim();
+    if (!key) return;
+    const prior = aliasOwners.get(key);
+    aliasOwners.set(key, prior && prior.id !== product.id ? null : product);
+  };
+  for (const product of supplierProducts) {
+    addAlias(product.id, product);
+    addAlias(product.supplierReference, product);
+    addAlias(product.supplierReference?.replace(/^supplier_product:/, ""), product);
+    addAlias(product.sku, product);
+    addAlias(product.barcode, product);
+    addAlias(factKey(product), product);
+  }
+  const supplierForLocal = (product: ClubCommerceProduct) => {
+    const direct = supplierById.get(product.id) ?? (product.supplierReference ? supplierByReference.get(product.supplierReference) : undefined);
+    if (direct) return direct;
+    const aliases = [product.supplierReference, product.supplierReference?.replace(/^supplier_product:/, ""), product.sku, product.barcode, factKey(product)];
+    const matches = aliases.map(alias => aliasOwners.get(alias?.trim() ?? "")).filter((match): match is ClubCommerceProduct => Boolean(match));
+    return matches.find((match, index) => matches.findIndex(other => other.id === match.id) === index);
+  };
   const localById = new Map(localProducts.map(product => [product.id, product]));
+  const matchedSupplierIds = new Set<string>();
+  const eligibleLocal = localProducts.filter(product => product.active && !isLegacyDemoCommerceProduct(product) && !isActiveSportsMonsterCaseProduct(product));
+  const mergedLocal: ClubCommerceProduct[] = [];
+  for (const product of eligibleLocal) {
+    const supplier = supplierForLocal(product);
+    if (supplier && matchedSupplierIds.has(supplier.id)) continue;
+    if (supplier) matchedSupplierIds.add(supplier.id);
+    mergedLocal.push(supplier ? mergeSupplierPresentation({ ...product, costPriceMinor: undefined }, supplier) : { ...product, costPriceMinor: undefined });
+  }
   return sortCommerceProductsForOperations([
-    ...localProducts.filter(product => product.active && !isLegacyDemoCommerceProduct(product) && !isActiveSportsMonsterCaseProduct(product)).map(product => {
-      const supplier = supplierById.get(product.id) ?? (product.supplierReference ? supplierByReference.get(product.supplierReference) : undefined);
-      return supplier ? mergeSupplierPresentation({ ...product, costPriceMinor: undefined }, supplier) : { ...product, costPriceMinor: undefined };
-    }),
-    ...supplierProducts.filter(product => product.active && !localById.has(product.id) && !isLegacyDemoCommerceProduct(product) && !isActiveSportsMonsterCaseProduct(product)),
+    ...mergedLocal,
+    ...supplierProducts.filter(product => product.active && !localById.has(product.id) && !matchedSupplierIds.has(product.id) && !isLegacyDemoCommerceProduct(product) && !isActiveSportsMonsterCaseProduct(product)),
   ]);
 }
 

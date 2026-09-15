@@ -288,6 +288,43 @@ test("supplier projection carries exact status and current media onto linked com
   assert.equal(products.find(product => product.id === "commerce-chocolate")?.media?.url, "https://img.test/professional.jpg");
 });
 
+test("historical Active Sports links match by legacy SKU and replace stale family media", () => {
+  const rows: DurableSupplierParentRow[] = [
+    { parentKey: "scitec-professional", supplierId: "active", supplierName: "Active Sports", memberOrderable: true, brand: "Scitec Nutrition", name: "100% Whey Protein Professional", imageReference: "https://img.test/professional-red.jpg", variants: [
+      { id: "sp-banana", supplierId: "active", parentKey: "scitec-professional", supplierSku: "SC-BANANA", size: "780g", flavour: "Banana", stockStatus: "unavailable", retailPriceMinor: 3000 },
+      { id: "sp-chocolate", supplierId: "active", parentKey: "scitec-professional", supplierSku: "SC-CHOC", size: "780g", flavour: "Chocolate", stockStatus: "available", retailPriceMinor: 3000 },
+    ] },
+    { parentKey: "scitec-isolate", supplierId: "active", supplierName: "Active Sports", memberOrderable: true, brand: "Scitec Nutrition", name: "100% Whey Isolate", imageReference: "https://www.activesportstrade.co.uk/images/XL/scitech-whey-isolate-2000g_4.jpg", variants: [{ id: "sp-isolate", supplierId: "active", parentKey: "scitec-isolate", supplierSku: "SC-ISO", size: "2000g", flavour: "Chocolate", stockStatus: "available", retailPriceMinor: 4000 }] },
+    { parentKey: "scitec-radical", supplierId: "active", supplierName: "Active Sports", memberOrderable: true, brand: "Scitec Nutrition", name: "Radical Whey", imageReference: "https://www.activesportstrade.co.uk/images/XL/scitec-radical-whey-2000g.jpg", variants: [{ id: "sp-radical", supplierId: "active", parentKey: "scitec-radical", supplierSku: "SC-RAD", size: "2000g", flavour: "Chocolate", stockStatus: "available", retailPriceMinor: 3500 }] },
+  ];
+  const base = (id: string, name: string, sku: string, image: string) => ({ id, organisationId: "org", name, brand: "Scitec Nutrition", active: true, stockTracked: false, sku, supplierReference: sku, sellPriceMinor: 3000, currency: "GBP", media: { url: image }, createdAt: "", updatedAt: "" } as any);
+  const products = buildClubShopProductUniverse([
+    base("legacy-banana", rows[0].name, "SC-BANANA", "https://old.test/red.jpg"),
+    base("legacy-banana-duplicate", rows[0].name, "SC-BANANA", "https://older.test/red.jpg"),
+    base("legacy-chocolate", rows[0].name, "SC-CHOC", "https://old.test/red.jpg"),
+    base("legacy-isolate", rows[1].name, "SC-ISO", "https://old.test/red.jpg"),
+    base("legacy-radical", rows[2].name, "SC-RAD", "https://old.test/red.jpg"),
+  ], rows, "org");
+  const banana = products.find(product => product.id === "legacy-banana")!;
+  const chocolate = products.find(product => product.id === "legacy-chocolate")!;
+  assert.equal(products.filter(product => product.sku === "SC-BANANA").length, 1);
+  assert.equal(banana.supplierAvailabilityStatus, "unavailable");
+  assert.equal(banana.supplierMemberOrderable, false);
+  assert.equal(chocolate.supplierAvailabilityStatus, "available");
+  assert.equal(chocolate.supplierMemberOrderable, true);
+  assert.equal(products.find(product => product.id === "legacy-isolate")?.media?.url, "https://www.activesportstrade.co.uk/images/XL/scitech-whey-isolate-2000g_4.jpg");
+  assert.equal(products.find(product => product.id === "legacy-radical")?.media?.url, "https://www.activesportstrade.co.uk/images/XL/scitec-radical-whey-2000g.jpg");
+  assert.equal(products.find(product => product.id === "legacy-banana")?.media?.url, "https://img.test/professional-red.jpg");
+});
+
+test("legacy links without a supplier reference match by exact variant facts", () => {
+  const row: DurableSupplierParentRow = { parentKey: "abe", supplierId: "active", supplierName: "Active Sports", memberOrderable: true, brand: "ABE", name: "Pump", variants: [{ id: "supplier-variant", supplierId: "active", parentKey: "abe", size: "30 servings", flavour: "Blue", stockStatus: "unavailable", retailPriceMinor: 2000 }, { id: "supplier-available", supplierId: "active", parentKey: "abe", size: "30 servings", flavour: "Red", stockStatus: "available", retailPriceMinor: 2000 }] };
+  const local = { id: "old-commerce-id", organisationId: "org", name: "Pump", brand: "ABE", active: true, stockTracked: false, sellPriceMinor: 2000, currency: "GBP", variantOptions: { size: "30 servings", flavour: "Blue" }, createdAt: "", updatedAt: "" } as any;
+  const products = buildClubShopProductUniverse([local], [row], "org");
+  assert.equal(products.length, 2);
+  assert.equal(products.find(product => product.id === "old-commerce-id")?.supplierAvailabilityStatus, "unavailable");
+});
+
 test("database reconciliation protects permissions, audited manual pricing, idempotency and local stock", () => {
   const sql = readFileSync("supabase/migrations/2026-10-17-active-sports-pricing-reconciliation.sql", "utf8");
   assert.match(sql, /p_expected_revision is distinct from revision/);
