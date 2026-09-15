@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { ACTIVE_SPORTS_HEADERS, prepareActiveSportsImport, supplierPricing, parseActiveSportsCommercialFields, durableSupplierRowsToProducts, supplierCatalogueOffersToDurableRows, buildClubShopProductUniverse, activeSportsCoverage, supplierVariantOrderable, activeSportsIdentity, type DurableSupplierParentRow } from "../lib/club-supplier-catalogue";
-import { supplierOrderable } from "../lib/club-member-availability";
+import { resolveMemberProductAvailability, supplierOrderable } from "../lib/club-member-availability";
 import { paginateCards } from "../lib/club-pagination";
 
 const headers = [...ACTIVE_SPORTS_HEADERS, "Trade Cost ex VAT", "VAT Rate", "Cost Source / Snapshot"];
@@ -237,6 +237,28 @@ test("supplier case is a distinct sales unit; unavailable sibling cannot be sele
   const prepared = prepareActiveSportsImport(csv({ ...record, "Pack Qty": "12", "Member Order Unit": "Case" }));
   assert.equal(prepared.rows[0].packQuantity, 12);
   assert.equal(prepared.rows[0].currentBoldTradeCostExVatMinor, 2000);
+});
+
+test("supplier availability is resolved per exact variant and local stock overrides supplier OOS", () => {
+  const parent: DurableSupplierParentRow = { parentKey: "scitec-professional", supplierId: "active", supplierName: "Active Sports", memberOrderable: true, brand: "Scitec Nutrition", name: "100% Whey Protein Professional", variants: [
+    { id: "choc", supplierId: "active", parentKey: "scitec-professional", size: "780g", flavour: "Chocolate", stockStatus: "available", retailPriceMinor: 3000 },
+    { id: "banana", supplierId: "active", parentKey: "scitec-professional", size: "780g", flavour: "Banana", stockStatus: "out of stock" as any, retailPriceMinor: 3000 },
+    { id: "local-banana", clubProductId: "local-banana", supplierId: "active", parentKey: "scitec-professional", size: "1816g", flavour: "Banana", stockStatus: "out-of-stock" as any, localStockTracked: true, retailPriceMinor: 5000 },
+  ] };
+  const products = durableSupplierRowsToProducts([parent], "org");
+  assert.equal(supplierOrderable(products.find(product => product.id === "banana")!), false);
+  assert.equal(supplierOrderable(products.find(product => product.id === "choc")!), true);
+  assert.equal(products.find(product => product.id === "local-banana")?.supplierMemberOrderable, false);
+  assert.equal(resolveMemberProductAvailability({ availableLocalQuantity: 1, supplierOrderable: false }), "IN_GYM");
+});
+
+test("Scitec whey family image migration keeps Professional and Isolate distinct", () => {
+  const sql = readFileSync("supabase/migrations/2026-09-15-fix-scitec-whey-family-images.sql", "utf8");
+  assert.match(sql, /scitech-whey-isolate-2000g_4\.jpg/);
+  assert.match(sql, /scitec-100-whey-1816g\.jpg/);
+  assert.match(sql, /pp\.name='100% Whey Isolate'/);
+  assert.match(sql, /pp\.name='100% Whey Protein Professional'/);
+  assert.doesNotMatch(sql, /set name=/);
 });
 
 test("database reconciliation protects permissions, audited manual pricing, idempotency and local stock", () => {
