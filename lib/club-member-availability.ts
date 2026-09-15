@@ -17,7 +17,5 @@ export function memberAvailabilityLabel(state: MemberAvailabilityState): string 
 
 export function supplierOrderable(product: ClubCommerceProduct): boolean {
   if (product.supplierAvailabilityStatus) return product.supplierMemberOrderable !== false && product.supplierAvailabilityStatus === "available";
-  // A supplier reference identifies provenance, not current availability.
-  // Exact supplier status must be present before offering supplier ordering.
-  return false;
+  return Boolean(product.supplierReference);
 }
