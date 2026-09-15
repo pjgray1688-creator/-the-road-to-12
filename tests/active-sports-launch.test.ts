@@ -35,6 +35,8 @@ test("Rotherham Active Sports stocktake reconciles exact quantities by ledger de
   assert.match(sql, /set parent_product_id=v_professional_id/);
   assert.match(sql, /parent_product_id=v_isolate_id/);
   assert.match(sql, /match count %/);
+  assert.match(sql, /not exists \(\s*select 1\s+from public\.club_stock_movements existing_move/s);
+  assert.doesNotMatch(sql, /on conflict\s*\(\s*organisation_id\s*,\s*idempotency_key\s*\)/i);
   assert.match(sql, /100% Whey Protein Professional/);
   assert.match(sql, /Loaded H2O/);
   assert.match(sql, /Blue Bears/);

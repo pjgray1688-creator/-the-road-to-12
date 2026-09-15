@@ -62,9 +62,19 @@ begin
       group by resolved_row.brand,resolved_row.product,resolved_row.size,resolved_row.flavour,resolved_row.qty,resolved_row.product_id
     ) select * from stock_rows
   loop
-    insert into public.club_stock_movements(organisation_id,location_id,product_id,movement_type,quantity_delta,reason,idempotency_key)
-    values(v_org,v_location,v_row.product_id,'stocktake_adjustment',v_row.qty-v_row.current_qty,'Rotherham physical stocktake 2026-09-13','active-sports-rotherham-stocktake-2026-09-13:'||v_row.product_id)
-    on conflict (organisation_id,idempotency_key) do nothing;
+    if v_row.qty-v_row.current_qty <> 0 and not exists (
+      select 1
+      from public.club_stock_movements existing_move
+      where existing_move.organisation_id=v_org
+        and existing_move.location_id=v_location
+        and existing_move.product_id=v_row.product_id
+        and existing_move.movement_type='stocktake_adjustment'
+        and existing_move.reason='Rotherham physical stocktake 2026-09-13'
+        and existing_move.idempotency_key='active-sports-rotherham-stocktake-2026-09-13:'||v_row.product_id
+    ) then
+      insert into public.club_stock_movements(organisation_id,location_id,product_id,movement_type,quantity_delta,reason,idempotency_key)
+      values(v_org,v_location,v_row.product_id,'stocktake_adjustment',v_row.qty-v_row.current_qty,'Rotherham physical stocktake 2026-09-13','active-sports-rotherham-stocktake-2026-09-13:'||v_row.product_id);
+    end if;
   end loop;
 
   for v_row in
