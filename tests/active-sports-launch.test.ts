@@ -467,6 +467,19 @@ test("staff supplier RPC payload preserves available supplier-only products", ()
   assert.equal(products[0].supplierAvailabilityStatus, "available");
 });
 
+test("reception uses shared supplierOrderable fallback for zero-stock supplier items", async () => {
+  const { supplierOrderable } = await import("../lib/club-member-availability");
+  const { filterStaffCheckoutProducts } = await import("../components/club-staff-checkout");
+  const product = { id: "abe-pump", organisationId: "org", name: "ABE Pump", active: true, stockTracked: false, supplierReference: "supplier_product:abe-pump", sellPriceMinor: 2500, currency: "GBP", createdAt: "", updatedAt: "" } as any;
+  assert.equal(supplierOrderable(product), true);
+  assert.equal(supplierOrderable({ ...product, supplierAvailabilityStatus: "available", supplierMemberOrderable: true }), true);
+  assert.equal(supplierOrderable({ ...product, supplierAvailabilityStatus: "unavailable", supplierMemberOrderable: true }), false);
+  assert.deepEqual(filterStaffCheckoutProducts([product], "ABE Pump"), [product]);
+  const source = await (await import("node:fs/promises")).readFile("components/club-staff-checkout.tsx", "utf8");
+  assert.match(source, /supplierOrderable\(product\) \? "SUPPLIER_ORDER"/);
+  assert.match(source, /local\.get\(product\.id\)! > 0 \? "IN_GYM"/);
+});
+
 test("member and reception share the same sellable product universe", () => {
   const local = Array.from({ length: 19 }, (_, index) => ({ id: `gsn-${index}`, organisationId: "org", name: `GSN ${index}`, active: true, stockTracked: true, sellPriceMinor: 400, currency: "GBP", createdAt: "", updatedAt: "" } as any));
   const supplierRows = supplierCatalogueOffersToDurableRows([{ id: "offer-1", supplier_id: "active", supplier: "Active Sports", brand: "NXT Nutrition", name: "Beef Protein Isolate", size: "900g", variant: "Chocolate", supplier_availability: "available", sellable: true, discontinued: false, supplier_sku: "NXT-900" }]);
