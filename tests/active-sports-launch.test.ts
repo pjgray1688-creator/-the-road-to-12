@@ -207,7 +207,16 @@ test("database reconciliation protects permissions, audited manual pricing, idem
   }
   const memberRead = sql.slice(sql.indexOf("create or replace function public.club_list_member_supplier_catalogue")).split("$$;")[0];
   assert.doesNotMatch(memberRead, /trade_cost|wholesale_cost|supplied_vat|manual_price|cost_history/);
-  assert.match(memberRead, /available.availability_status='available'/);
+  assert.match(memberRead, /available\.availability_status='available'/);
+});
+
+test("canonical supplier catalogue query is restored with staff role authorization", () => {
+  const sql = readFileSync("supabase/migrations/2026-09-18-restore-member-supplier-catalogue-query.sql", "utf8");
+  assert.match(sql, /club_list_member_supplier_catalogue/);
+  assert.match(sql, /coalesce\(\(select p\.retail_price_minor/);
+  assert.doesNotMatch(sql, /s\.member_orderable\s*$/m);
+  assert.doesNotMatch(sql, /available\.availability_status='available'/);
+  assert.match(sql, /m\.role in \('member','gym_staff','gym_admin','owner'\)/);
 });
 
 test("member selector chooses size first and hides dead flavour choices", async () => {
