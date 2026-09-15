@@ -18,6 +18,22 @@ test("shop pagination pages family cards in groups of 48", () => {
   assert.equal(paginateCards(cards.slice(0, 48), 1).totalPages, 1);
 });
 
+test("Rotherham Active Sports stocktake reconciles exact quantities by ledger delta", () => {
+  const sql = readFileSync("supabase/migrations/2026-09-15-active-sports-rotherham-stocktake.sql", "utf8");
+  for (const name of ["Creatine Gummies", "Cream of Rice", "Vitamin D3 + K2", "Shilajit", "Lions Mane", "Ashwa+", "Glutamine", "Loaded H2O", "Creatine Monohydrate Powder", "Loaded EAA", "100% Whey Protein Professional", "Performance Protein", "Instant Mass Heavyweight"]) assert.match(sql, new RegExp(name.replace(/[+%]/g, "\\$&")));
+  assert.match(sql, /Rotherham physical stocktake 2026-09-13/);
+  assert.match(sql, /stocktake_adjustment/);
+  assert.match(sql, /r\.qty-r\.current_qty/);
+  assert.match(sql, /lower\(btrim\(name\)\)='rotherham'/);
+  assert.doesNotMatch(sql, /carlton/);
+  assert.match(sql, /Scitec Nutrition/);
+  assert.match(sql, /100% Whey Protein Professional/);
+  assert.match(sql, /Loaded H2O/);
+  assert.match(sql, /Blue Bears/);
+  assert.match(sql, /Conteh Sports/);
+  assert.match(sql, /Salted Caramel/);
+});
+
 test("20% and VAT FREE costs feed 30% gross margin and upward whole-pound floor", () => {
   assert.deepEqual(supplierPricing(2000, 0), { trueCostMinor: 2000, recommendedFloorMinor: 2900, livePriceMinor: 2900, marginPercent: 900 / 2900 * 100, belowFloor: false });
   assert.equal(supplierPricing(2000, .2).trueCostMinor, 2400);
