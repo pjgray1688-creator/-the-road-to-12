@@ -44,6 +44,21 @@ test("Rotherham Active Sports stocktake reconciles exact quantities by ledger de
   assert.match(sql, /Salted Caramel/);
 });
 
+test("missing-seven stocktake is narrowly scoped and normalizes exact identities", () => {
+  const sql = readFileSync("supabase/migrations/2026-09-16-active-sports-rotherham-stocktake-missing-seven.sql", "utf8");
+  for (const name of ["Conteh Sports", "DNA Sports", "Lions Mane", "Zinc, Magnesium and Vitamin B6", "Ashwa+", "Glutamine", "100% Whey Protein Professional"]) assert.match(sql, new RegExp(name.replace(/[+%]/g, "\\$&")));
+  assert.match(sql, /regexp_replace\(lower\(coalesce\(pp\.brand,''\)\)/);
+  assert.match(sql, /'default','noflavour','unflavoured','unflavored','none'/);
+  assert.match(sql, /set parent_product_id=professional_parent\.id/);
+  assert.match(sql, /100% whey isolate/);
+  assert.match(sql, /strawberrywhitechocolate/);
+  assert.match(sql, /target_qty-v_row\.current_qty/);
+  assert.match(sql, /organisation_id=v_org and (?:sm\.)?location_id=v_location/);
+  assert.doesNotMatch(sql, /on conflict\s*\(/i);
+  assert.doesNotMatch(sql, /Carlton|carlton/);
+  assert.doesNotMatch(sql, /Apex|Vorplex|Warrior|Monster|fridge/i);
+});
+
 test("20% and VAT FREE costs feed 30% gross margin and upward whole-pound floor", () => {
   assert.deepEqual(supplierPricing(2000, 0), { trueCostMinor: 2000, recommendedFloorMinor: 2900, livePriceMinor: 2900, marginPercent: 900 / 2900 * 100, belowFloor: false });
   assert.equal(supplierPricing(2000, .2).trueCostMinor, 2400);
