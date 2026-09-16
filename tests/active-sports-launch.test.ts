@@ -425,6 +425,15 @@ test("canonical supplier catalogue query is restored with staff role authorizati
   assert.match(sql, /m\.role in \('member','gym_staff','gym_admin','owner'\)/);
 });
 
+test("supplier catalogue discovery does not require sellable or local availability filters", () => {
+  const sql = readFileSync("supabase/migrations/2026-09-19-restore-supplier-availability-projection.sql", "utf8");
+  assert.doesNotMatch(sql, /s\.member_orderable\s+and\s+exists/);
+  assert.doesNotMatch(sql, /available\.availability_status='available'/);
+  assert.doesNotMatch(sql, /available\.sellable/);
+  assert.match(sql, /sp\.availability_status/);
+  assert.match(sql, /m\.role in \('member','gym_staff','gym_admin','owner'\)/);
+});
+
 test("member selector chooses size first and hides dead flavour choices", async () => {
   const { memberVariantChoices } = await import("../lib/club-product-families");
   const base = { id: "one", organisationId: "org", name: "Whey", active: true, stockTracked: false, sellPriceMinor: 2900, currency: "GBP", createdAt: "", updatedAt: "" };
