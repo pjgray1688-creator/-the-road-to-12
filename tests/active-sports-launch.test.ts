@@ -434,6 +434,15 @@ test("supplier catalogue discovery does not require sellable or local availabili
   assert.match(sql, /m\.role in \('member','gym_staff','gym_admin','owner'\)/);
 });
 
+test("Madhouse Active Sports supplier remains member-orderable across importer upserts", () => {
+  const sql = readFileSync("supabase/migrations/2026-09-20-enable-active-sports-member-ordering.sql", "utf8");
+  assert.match(sql, /fa44592a-1593-4ad3-a621-63a4a4bcbceb/);
+  assert.match(sql, /set member_orderable=true/);
+  assert.match(sql, /club_keep_madhouse_active_sports_orderable/);
+  assert.match(sql, /before insert or update of name,organisation_id,member_orderable/);
+  assert.doesNotMatch(sql, /update public\.club_suppliers[\s\S]*where organisation_id is null/);
+});
+
 test("member selector chooses size first and hides dead flavour choices", async () => {
   const { memberVariantChoices } = await import("../lib/club-product-families");
   const base = { id: "one", organisationId: "org", name: "Whey", active: true, stockTracked: false, sellPriceMinor: 2900, currency: "GBP", createdAt: "", updatedAt: "" };
