@@ -1,4 +1,6 @@
 "use client";
+/* Pagination state resets when the filtered card set changes. */
+/* eslint-disable react-hooks/set-state-in-effect */
 import { useEffect, useState } from "react";
 import type { ClubCommerceProduct } from "@/lib/club-commerce";
 import type { FamilyCard } from "@/lib/club-product-families";

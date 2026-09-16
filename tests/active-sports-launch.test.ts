@@ -273,6 +273,15 @@ test("Active Sports linking refreshes supplier-managed media from parent or vari
   assert.match(sql, /stock_tracked,[\s\S]*?false/);
 });
 
+test("Active Sports image sync treats current valid supplier imagery as authoritative", () => {
+  const sql = readFileSync("supabase/migrations/2026-09-17-active-sports-authoritative-image-sync.sql", "utf8");
+  assert.match(sql, /set media=jsonb_build_object\('url',v_url\)/);
+  assert.match(sql, /set media=jsonb_build_object\('url',btrim\(new\.parent_image_url\)\)/);
+  assert.match(sql, /coalesce\(nullif\(sp\.variant_image_url,''\),nullif\(pp\.parent_image_url,''\)\)/);
+  assert.doesNotMatch(sql, /case when coalesce\(cp\.media->>'url'/);
+  assert.match(sql, /revoke all on function public\.club_sync_supplier_commerce_media\(\)/);
+});
+
 test("supplier projection carries exact status and current media onto linked commerce rows", () => {
   const parent: DurableSupplierParentRow = { parentKey: "scitec-professional", supplierId: "active", supplierName: "Active Sports", memberOrderable: true, brand: "Scitec Nutrition", name: "100% Whey Protein Professional", imageReference: "https://img.test/professional.jpg", variants: [
     { id: "banana", clubProductId: "commerce-banana", supplierId: "active", parentKey: "scitec-professional", size: "780g", flavour: "Banana", stockStatus: "unavailable", retailPriceMinor: 3000 },
@@ -673,8 +682,22 @@ test("reception requires explicit supplier availability for zero-stock supplier 
   assert.equal(supplierOrderable({ ...product, supplierAvailabilityStatus: "unavailable", supplierMemberOrderable: true }), false);
   assert.deepEqual(filterStaffCheckoutProducts([product], "ABE Pump"), [product]);
   const source = await (await import("node:fs/promises")).readFile("components/club-staff-checkout.tsx", "utf8");
-  assert.match(source, /supplierOrderable\(product\) \? "SUPPLIER_ORDER"/);
-  assert.match(source, /local\.get\(product\.id\)! > 0 \? "IN_GYM"/);
+  assert.match(source, /resolveMemberProductAvailability\(\{ availableLocalQuantity:/);
+  assert.match(source, /availableLocalQuantity: local\.get\(product\.id\) \?\? 0/);
+});
+
+test("supplier-available variants survive the final universe without local inventory", () => {
+  const rows: DurableSupplierParentRow[] = [{ parentKey: "abe", supplierId: "active", supplierName: "Active Sports", memberOrderable: true, brand: "ABE", name: "Pump", variants: [
+    { id: "abe-blue", supplierId: "active", parentKey: "abe", size: "30 servings", flavour: "Blue", stockStatus: "unavailable", retailPriceMinor: 2000 },
+    { id: "abe-red", supplierId: "active", parentKey: "abe", size: "30 servings", flavour: "Red", stockStatus: "available", retailPriceMinor: 2000 },
+  ] }];
+  const products = buildClubShopProductUniverse([], rows, "org");
+  assert.equal(products.length, 2);
+  const availability = Object.fromEntries(products.map(product => [product.id, supplierOrderable(product) ? "SUPPLIER_ORDER" : "UNAVAILABLE"]));
+  const cards = groupProductFamilies(products, [], "org", availability);
+  assert.equal(cards.length, 1);
+  assert.equal(availability["abe-red"], "SUPPLIER_ORDER");
+  assert.equal(availability["abe-blue"], "UNAVAILABLE");
 });
 
 test("member and reception share the same sellable product universe", () => {

@@ -158,7 +158,7 @@ export function upsertSupplierCatalogue(store: SupplierCatalogueStore, rows: Sup
 
 /** The member resolver should receive this boolean; unknown supplier stock is never orderable. */
 export function supplierVariantOrderable(supplier: ClubSupplier, variant: SupplierCatalogueVariant) {
-  return supplier.memberOrderable && variant.stockStatus === "available";
+  return supplier.memberOrderable && normaliseSupplierStockStatus(variant.stockStatus) === "available";
 }
 
 /** Convert member-safe durable rows into the existing grouped commerce-product shape. */
