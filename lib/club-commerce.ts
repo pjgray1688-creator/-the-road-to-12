@@ -44,7 +44,11 @@ export function mergeSupplierPresentation(product: ClubCommerceProduct, supplier
     supplierReference: product.supplierReference ?? supplier.supplierReference,
     variantImageReference: supplierManaged && supplier.variantImageReference ? supplier.variantImageReference : product.variantImageReference ?? supplier.variantImageReference,
     ...(supplierManaged && supplierUrl ? { media: { url: supplierUrl } } : localUrl ? { media: { url: localUrl } } : supplierUrl ? { media: { url: supplierUrl } } : {}),
-    familyId: product.familyId ?? supplier.familyId,
+    // A confidently matched supplier row owns the parent/family identity for
+    // supplier-managed products.  Local commerce rows can carry a stale or
+    // generic family id from an earlier link; retaining it would merge
+    // unrelated supplier parents that happen to share a product name.
+    familyId: supplierManaged && supplier.familyId ? supplier.familyId : product.familyId ?? supplier.familyId,
     variantOptions: product.variantOptions ?? supplier.variantOptions,
   };
 }

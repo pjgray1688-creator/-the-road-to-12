@@ -659,6 +659,24 @@ test("supplier parent imagery becomes commerce media with variant override", () 
   assert.equal(durableSupplierRowsToProducts([parent], "org")[0].media?.url, "https://img.test/parent.jpg");
 });
 
+test("supplier parent identity prevents same-name cross-brand family collisions", () => {
+  const base = { organisationId: "org", active: true, stockTracked: false, currency: "GBP", sellPriceMinor: 2500, createdAt: "", updatedAt: "" };
+  const rows: DurableSupplierParentRow[] = [
+    { parentKey: "tbjp|cream of rice", supplierId: "active", supplierName: "Active Sports", memberOrderable: true, brand: "Trained By JP", name: "Cream of Rice", variants: [{ id: "tbjp-v", clubProductId: "tbjp-v", supplierId: "active", parentKey: "tbjp|cream of rice", size: "2kg", flavour: "Chocolate Hazelnut Spread", stockStatus: "available", retailPriceMinor: 2500 }] },
+    { parentKey: "conteh|cream of rice", supplierId: "active", supplierName: "Active Sports", memberOrderable: true, brand: "Conteh Sports", name: "Cream of Rice", variants: [{ id: "conteh-v", clubProductId: "conteh-v", supplierId: "active", parentKey: "conteh|cream of rice", size: "2kg", flavour: "Caramel Biscuit", stockStatus: "available", retailPriceMinor: 2500 }] },
+  ];
+  const local = [{ ...base, id: "tbjp-v", name: "Cream of Rice", brand: "Trained By JP", supplierReference: "supplier_product:tbjp-v", familyId: "active:conteh|cream of rice", media: { url: "https://img.test/tbjp.jpg" }, variantOptions: { size: "2kg", flavour: "Chocolate Hazelnut Spread" } }] as any;
+  const products = buildClubShopProductUniverse(local, rows, "org");
+  const tbjp = products.find(product => product.id === "tbjp-v");
+  const conteh = products.find(product => product.id === "conteh-v");
+  assert.equal(tbjp?.familyId, "active:tbjp|cream of rice");
+  assert.equal(conteh?.familyId, "active:conteh|cream of rice");
+  const cards = groupProductFamilies(products, [], "org", { "tbjp-v": "IN_GYM", "conteh-v": "SUPPLIER_ORDER" });
+  assert.equal(cards.length, 2);
+  assert.deepEqual(cards.find(card => card.variants.some(product => product.id === "tbjp-v"))?.variants.map(product => product.variantOptions?.flavour), ["Chocolate Hazelnut Spread"]);
+  assert.deepEqual(cards.find(card => card.variants.some(product => product.id === "conteh-v"))?.variants.map(product => product.variantOptions?.flavour), ["Caramel Biscuit"]);
+});
+
 test("supplier parent media fills a linked commerce row without replacing existing media", async () => {
   const { mergeSupplierPresentation } = await import("../lib/club-commerce");
   const base = { id: "v", organisationId: "org", name: "Product", active: true, stockTracked: false, sellPriceMinor: 1000, currency: "GBP", createdAt: "", updatedAt: "" } as any;
