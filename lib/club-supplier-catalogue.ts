@@ -79,7 +79,6 @@ export function buildClubShopProductUniverse(localProducts: ClubCommerceProduct[
     const matches = aliases.map(alias => aliasOwners.get(alias?.trim() ?? "")).filter((match): match is ClubCommerceProduct => Boolean(match));
     return matches.find((match, index) => matches.findIndex(other => other.id === match.id) === index);
   };
-  const localById = new Map(localProducts.map(product => [product.id, product]));
   const matchedSupplierIds = new Set<string>();
   const eligibleLocal = localProducts.filter(product => product.active && !isLegacyDemoCommerceProduct(product) && !isActiveSportsMonsterCaseProduct(product));
   const mergedLocal: ClubCommerceProduct[] = [];
@@ -91,7 +90,11 @@ export function buildClubShopProductUniverse(localProducts: ClubCommerceProduct[
   }
   return sortCommerceProductsForOperations([
     ...mergedLocal,
-    ...supplierProducts.filter(product => product.active && !localById.has(product.id) && !matchedSupplierIds.has(product.id) && !isLegacyDemoCommerceProduct(product) && !isActiveSportsMonsterCaseProduct(product)),
+    // A commerce row with the same id is not proof that its supplier
+    // presentation was matched. Keep the supplier row unless it was actually
+    // consumed by a confident merge, so supplier-only availability survives
+    // missing/legacy local metadata.
+    ...supplierProducts.filter(product => product.active && !matchedSupplierIds.has(product.id) && !isLegacyDemoCommerceProduct(product) && !isActiveSportsMonsterCaseProduct(product)),
   ]);
 }
 
