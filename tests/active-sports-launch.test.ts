@@ -664,11 +664,11 @@ test("staff supplier RPC payload preserves available supplier-only products", ()
   assert.equal(products[0].supplierAvailabilityStatus, "available");
 });
 
-test("reception uses shared supplierOrderable fallback for zero-stock supplier items", async () => {
+test("reception requires explicit supplier availability for zero-stock supplier items", async () => {
   const { supplierOrderable } = await import("../lib/club-member-availability");
   const { filterStaffCheckoutProducts } = await import("../components/club-staff-checkout");
   const product = { id: "abe-pump", organisationId: "org", name: "ABE Pump", active: true, stockTracked: false, supplierReference: "supplier_product:abe-pump", sellPriceMinor: 2500, currency: "GBP", createdAt: "", updatedAt: "" } as any;
-  assert.equal(supplierOrderable(product), true);
+  assert.equal(supplierOrderable(product), false);
   assert.equal(supplierOrderable({ ...product, supplierAvailabilityStatus: "available", supplierMemberOrderable: true }), true);
   assert.equal(supplierOrderable({ ...product, supplierAvailabilityStatus: "unavailable", supplierMemberOrderable: true }), false);
   assert.deepEqual(filterStaffCheckoutProducts([product], "ABE Pump"), [product]);

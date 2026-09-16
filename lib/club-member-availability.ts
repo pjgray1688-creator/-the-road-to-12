@@ -16,6 +16,5 @@ export function memberAvailabilityLabel(state: MemberAvailabilityState): string 
 }
 
 export function supplierOrderable(product: ClubCommerceProduct): boolean {
-  if (product.supplierAvailabilityStatus) return product.supplierMemberOrderable !== false && product.supplierAvailabilityStatus === "available";
-  return Boolean(product.supplierReference);
+  return product.supplierAvailabilityStatus === "available" && product.supplierMemberOrderable !== false;
 }
