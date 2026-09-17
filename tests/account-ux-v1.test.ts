@@ -19,3 +19,8 @@ test("WHOOP status remains a concise consumer state", () => {
   assert.match(source, /Connected/); assert.match(source, /Not connected/); assert.match(source, /integrations\/whoop\/status/);
   assert.doesNotMatch(source, /access_token|refresh_token|webhook|raw API/i);
 });
+
+test("WHOOP disconnect control invokes the server disconnect action", () => {
+  assert.match(source, /onClick=\{\(\) => void disconnectWhoop\(\)\}/);
+  assert.doesNotMatch(source, /onClick=\{\(\) => void disconnectWhoop\}/);
+});
