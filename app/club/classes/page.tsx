@@ -32,7 +32,7 @@ async function loadClasses(supabase: Awaited<ReturnType<typeof serverSupabase>>,
   const context = await resolveClubOrganisationContext(supabase, userId, organisationId);
   if (!context) return null;
   const [classTypes, locations, sessions] = await Promise.all([context.repository.listClassTypes(context.organisation.id), context.repository.listLocations(context.organisation.id), context.repository.listClassSessions(context.organisation.id)]);
-  const today = londonDay(); const visibleSessions = sessions.filter(session => londonDay(new Date(session.startsAt)) >= today).sort((a, b) => a.startsAt.localeCompare(b.startsAt));
+  const today = londonDay(); const memberView = context.role === "member" || context.role === "guest"; const visibleSessions = sessions.filter(session => memberView ? session.status === "scheduled" && new Date(session.startsAt).getTime() >= Date.now() : londonDay(new Date(session.startsAt)) >= today).sort((a, b) => a.startsAt.localeCompare(b.startsAt));
   const availabilityResults = await Promise.allSettled(visibleSessions.map(session => context.repository.getClassAvailability(session.id)));
   const availability = Object.fromEntries(visibleSessions.map((session, index) => [session.id, availabilityResults[index].status === "fulfilled" ? availabilityResults[index].value : null]));
   const profile = ["gym_staff", "gym_admin", "owner", "trainer"].includes(context.role) ? undefined : await context.repository.getMemberOperationalProfile(context.organisation.id, userId);

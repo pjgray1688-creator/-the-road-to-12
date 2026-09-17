@@ -32,6 +32,11 @@ test("timetable loads privacy-safe availability RPC data instead of aggregating 
   assert.match(components, /Availability is temporarily unavailable\./);
 });
 
+test("member timetable excludes cancelled, completed and already-started sessions", () => {
+  assert.match(page, /memberView/);
+  assert.match(page, /memberView \? session\.status === "scheduled" && new Date\(session\.startsAt\)\.getTime\(\) >= Date\.now\(\)/);
+});
+
 test("class type and session editors map through repository-backed server actions", () => {
   assert.match(actions, /context\.repository\.saveClassType\(/);
   assert.match(actions, /context\.repository\.saveClassSession\(/);
