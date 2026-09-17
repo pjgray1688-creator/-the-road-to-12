@@ -1,7 +1,7 @@
 import { normalizeBarcode } from "./club-barcode";
 import { parseMinorUnits } from "./club-money";
 import { parseCsvRecords } from "./club-csv";
-import { isActiveSportsMonsterCaseProduct, isLegacyDemoCommerceProduct, mergeSupplierPresentation, sortCommerceProductsForOperations, usableCommerceImageUrl, type ClubCommerceProduct } from "./club-commerce";
+import { canonicalSupplierFamilyBaseName, isActiveSportsMonsterCaseProduct, isLegacyDemoCommerceProduct, mergeSupplierPresentation, sortCommerceProductsForOperations, usableCommerceImageUrl, type ClubCommerceProduct } from "./club-commerce";
 import type { ClubProductFamily } from "./club-product-families";
 
 export type SupplierStockStatus = "available" | "unavailable" | "unknown";
@@ -171,7 +171,7 @@ export function durableSupplierRowsToProducts(rows: DurableSupplierParentRow[], 
     // Some suppliers publish one RTD line as separate strength parents (for
     // example UFIT 25g and 50g). Treat a leading strength as a variant of the
     // same branded product while retaining the supplier and brand namespace.
-    const baseName = parent.name.trim().toLowerCase().replace(/^\d+(?:\.\d+)?\s*(?:mg|g|kg)\s+/, "");
+    const baseName = canonicalSupplierFamilyBaseName(parent.name);
     return `${parent.supplierId}:${(parent.brand ?? "").trim().toLowerCase()}:${baseName}`;
   };
   return rows.filter(parent => parent.memberOrderable !== false && !isActiveSportsMonsterCase(parent) && parent.variants.some(variant => available(variant.stockStatus))).flatMap(parent => parent.variants.map(variant => ({ id: variant.clubProductId ?? variant.id, organisationId, sku: variant.supplierSku, barcode: variant.barcode, name: parent.name, brand: parent.brand, description: parent.description, category: parent.category, active: true, stockTracked: variant.localStockTracked === true, sellPriceMinor: variant.retailPriceMinor ?? 0, currency: "GBP", supplierReference: `supplier_product:${variant.id}`, supplierMemberOrderable: parent.memberOrderable !== false && normaliseSupplierStockStatus(variant.stockStatus) === "available", supplierAvailabilityStatus: normaliseSupplierStockStatus(variant.stockStatus), variantImageReference: variant.imageReference, media: variant.imageReference ? { url: variant.imageReference } : parent.imageReference ? { url: parent.imageReference } : undefined, familyId: familyId(parent), variantOptions: Object.fromEntries([["orderUnit", variant.memberOrderableUnit], ["flavour", variant.flavour], ["size", variant.size], ["packQuantity", variant.packQuantity ? String(variant.packQuantity) : undefined]].filter((entry): entry is [string, string] => Boolean(entry[1]))), createdAt: "", updatedAt: "" })));

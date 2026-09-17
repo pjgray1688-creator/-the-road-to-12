@@ -684,6 +684,21 @@ test("UFIT RTD strength parents share one family while keeping exact variants", 
   assert.equal(cards.length, 1);
   assert.equal(new Set(cards[0].variants.map(product => `${product.variantOptions?.size}|${product.variantOptions?.flavour}`)).size, 4);
   assert.deepEqual(cards[0].variants.map(product => product.variantOptions?.flavour).sort(), ["Chocolate", "Chocolate", "Salted Caramel", "Vanilla"]);
+  assert.equal(cards[0].label, "Protein Drink");
+  assert.equal(cards[0].family?.name, "Protein Drink");
+});
+
+test("reviewed family image correction migration targets only the three supplied families", async () => {
+  const sql = await (await import("node:fs/promises")).readFile("supabase/migrations/2026-11-15-active-sports-reviewed-family-images.sql", "utf8");
+  for (const url of [
+    "https://www.activesportstrade.co.uk/images/XL/black-mamba-glutamine.jpg",
+    "https://www.activesportstrade.co.uk/images/XL/jp-performance-protein-1kg.jpg",
+    "https://www.activesportstrade.co.uk/images/XL/conteh-d3-k2.jpg",
+  ]) assert.match(sql, new RegExp(url.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.match(sql, /club_supplier_parent_products/);
+  assert.match(sql, /club_product_families/);
+  assert.match(sql, /club_commerce_products/);
+  assert.match(sql, /v_org uuid/);
 });
 
 test("supplier parent media fills a linked commerce row without replacing existing media", async () => {

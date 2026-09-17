@@ -6,6 +6,15 @@ export type ClubCommercePaymentStatus = "pending" | "paid" | "failed" | "refunde
 export type ClubCommerceMovementType = "sale" | "delivery" | "transfer_in" | "transfer_out" | "return" | "waste" | "damage" | "complimentary" | "stocktake_adjustment" | "manual_adjustment";
 export type ClubCommerceProduct = { id: string; organisationId: string; sku?: string; barcode?: string; name: string; brand?: string; description?: string; category?: string; active: boolean; stockTracked: boolean; sellPriceMinor: number; costPriceMinor?: number; currency: string; taxCode?: string; supplierReference?: string; supplierMemberOrderable?: boolean; supplierAvailabilityStatus?: "available" | "unavailable" | "unknown"; variantImageReference?: string; media?: Record<string, unknown>; enrichment?: { nutrition?: Record<string, unknown>; ingredients?: string; allergens?: string; servingSize?: string; servings?: number }; familyId?: string; variantOptions?: Record<string, string>; createdAt: string; updatedAt: string };
 export function normalizeCatalogueSearch(value: string) { return value.toLocaleLowerCase().replace(/[\s\-_.\/]+/g, "").trim(); }
+/** Canonical supplier family name used when a supplier publishes strengths as
+ * separate parent rows.  The strength remains in each child product; the
+ * shared family title does not. */
+export function canonicalSupplierFamilyBaseName(name: string) {
+  return name.trim().toLowerCase().replace(/^\d+(?:\.\d+)?\s*(?:mg|g|kg)\s+/, "");
+}
+export function canonicalSupplierFamilyDisplayName(name: string) {
+  return canonicalSupplierFamilyBaseName(name).replace(/\s+\brtd\b$/i, "").trim().replace(/\b\w/g, character => character.toUpperCase());
+}
 export function catalogueSearchMatches(product: ClubCommerceProduct, query: string) { const needle = normalizeCatalogueSearch(query); if (!needle) return true; return [product.name, product.brand, product.category, product.description, product.sku, product.barcode, product.supplierReference, ...Object.values(product.variantOptions ?? {})].some(value => normalizeCatalogueSearch(value ?? "").includes(needle)); }
 export function usableCommerceImageUrl(value: unknown): value is string { if (typeof value !== "string" || !value.trim()) return false; try { const url = new URL(value); return url.protocol === "http:" || url.protocol === "https:"; } catch { return false; } }
 /** Supplier-linked physical products remain stockable at zero local balance. */
