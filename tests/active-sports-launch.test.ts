@@ -669,12 +669,21 @@ test("supplier parent identity prevents same-name cross-brand family collisions"
   const products = buildClubShopProductUniverse(local, rows, "org");
   const tbjp = products.find(product => product.id === "tbjp-v");
   const conteh = products.find(product => product.id === "conteh-v");
-  assert.equal(tbjp?.familyId, "active:tbjp|cream of rice");
-  assert.equal(conteh?.familyId, "active:conteh|cream of rice");
+  assert.equal(tbjp?.familyId, "active:trained by jp:cream of rice");
+  assert.equal(conteh?.familyId, "active:conteh sports:cream of rice");
   const cards = groupProductFamilies(products, [], "org", { "tbjp-v": "IN_GYM", "conteh-v": "SUPPLIER_ORDER" });
   assert.equal(cards.length, 2);
   assert.deepEqual(cards.find(card => card.variants.some(product => product.id === "tbjp-v"))?.variants.map(product => product.variantOptions?.flavour), ["Chocolate Hazelnut Spread"]);
   assert.deepEqual(cards.find(card => card.variants.some(product => product.id === "conteh-v"))?.variants.map(product => product.variantOptions?.flavour), ["Caramel Biscuit"]);
+});
+
+test("UFIT RTD strength parents share one family while keeping exact variants", () => {
+  const parent = (name: string, size: string, variants: string[]) => ({ parentKey: `ufit|${name.toLowerCase()}`, supplierId: "active", supplierName: "Active Sports", memberOrderable: true, brand: "UFIT", name, variants: variants.map((flavour, index) => ({ id: `${name}-${index}`, supplierId: "active", parentKey: `ufit|${name.toLowerCase()}`, size, flavour, memberOrderableUnit: "Case", stockStatus: "available" as const, retailPriceMinor: 1200 })) });
+  const products = durableSupplierRowsToProducts([parent("25g Protein Drink RTD", "10 x 330ml", ["Chocolate", "Salted Caramel"]), parent("50g Protein Drink RTD", "8 x 500ml", ["Chocolate", "Vanilla"])], "org");
+  const cards = groupProductFamilies(products, [], "org", Object.fromEntries(products.map(product => [product.id, "SUPPLIER_ORDER"])));
+  assert.equal(cards.length, 1);
+  assert.equal(new Set(cards[0].variants.map(product => `${product.variantOptions?.size}|${product.variantOptions?.flavour}`)).size, 4);
+  assert.deepEqual(cards[0].variants.map(product => product.variantOptions?.flavour).sort(), ["Chocolate", "Chocolate", "Salted Caramel", "Vanilla"]);
 });
 
 test("supplier parent media fills a linked commerce row without replacing existing media", async () => {
