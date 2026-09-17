@@ -2,21 +2,15 @@
 
 import { useMemo, useState } from "react";
 import type { ClubCommerceProduct } from "@/lib/club-commerce";
-import { sortCommerceProductsForOperations } from "@/lib/club-commerce";
 import styles from "./club-products-pricing.module.css";
 
 type AlertFilter = "attention" | "margin" | "cost" | "override";
-
-function money(minor: number) { return `£${(minor / 100).toFixed(2)}`; }
 
 /** Management-only overview. Economics are deliberately absent from member
  * catalogue contracts; this surface is mounted only behind the pricing
  * capability on the Club route. */
 export function ClubProductsPricing({ products }: { products: ClubCommerceProduct[] }) {
-  const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<AlertFilter | "all">("all");
-  const [limit, setLimit] = useState(50);
-  const rows = useMemo(() => sortCommerceProductsForOperations(products.filter(product => [product.name, product.brand, product.category, product.sku, product.barcode, product.supplierReference].some(value => value?.toLowerCase().includes(query.trim().toLowerCase())) && (filter === "all" || filter === "cost" && product.costPriceMinor === undefined || filter === "margin" && product.costPriceMinor !== undefined && product.sellPriceMinor > 0 && (product.sellPriceMinor - product.costPriceMinor) / product.sellPriceMinor * 100 < 30 || filter === "attention" && product.costPriceMinor === undefined))), [products, query, filter]);
   const alerts = useMemo(() => products.flatMap(product => {
     const missingCost = product.costPriceMinor === undefined;
     const margin = product.costPriceMinor !== undefined && product.sellPriceMinor > 0 ? (product.sellPriceMinor - product.costPriceMinor) / product.sellPriceMinor * 100 : undefined;
@@ -26,7 +20,6 @@ export function ClubProductsPricing({ products }: { products: ClubCommerceProduc
     return output;
   }), [products]);
   const visibleAlerts = filter === "all" ? alerts : alerts.filter(alert => alert.kind === filter || filter === "attention" && alert.kind === "cost");
-  const gsnFiltered = rows.filter(product => product.brand?.trim().toLowerCase() === "gsn" || product.category?.trim().toLowerCase().startsWith("gsn:")).length;
   return <div className={styles.overview} data-testid="products-pricing-overview">
     <section className="products-pricing-alerts" aria-label="Pricing alerts">
       <div className="section-heading"><div><span className="eyebrow">COMMERCIAL CONTROL</span><h2>Products &amp; Pricing</h2></div><span className="muted">Management view · GBP · Products &amp; Services</span></div>
@@ -36,6 +29,6 @@ export function ClubProductsPricing({ products }: { products: ClubCommerceProduc
       </div>
       {visibleAlerts.length ? <div className="products-pricing-alert-list">{visibleAlerts.map((alert, index) => <div className="club-detail-row" key={`${alert.product.id}-${alert.kind}-${index}`}><span><strong>{alert.label}</strong><small>{alert.product.brand ? `${alert.product.brand} · ` : ""}{alert.product.name}</small></span><button type="button" className="secondary" onClick={() => window.dispatchEvent(new CustomEvent("r12:open-product", { detail: alert.product.id }))}>Review</button></div>)}</div> : <p className="muted">No pricing exceptions need attention.</p>}
     </section>
-      <section aria-label="Product search"><div className="section-heading"><div><span className="eyebrow">PRODUCT SEARCH</span><h2>Find a product</h2></div></div><input className={styles.search} aria-label="Search products by name, brand, SKU or barcode" placeholder="Name, brand, variant, supplier, SKU or barcode" value={query} onChange={event => { setQuery(event.target.value); setLimit(50); }} />{rows.length ? <div className={styles.results}>{rows.slice(0, limit).map(product => <div className="club-detail-row" key={product.id}><span><strong>{product.brand ? `${product.brand} · ` : ""}{product.name}</strong><small>{product.category ?? "Uncategorised"}{product.sku ? ` · SKU ${product.sku}` : ""}{product.barcode ? ` · Barcode ${product.barcode}` : ""}</small></span><span><strong>{money(product.sellPriceMinor)}</strong><small>{product.costPriceMinor === undefined ? "Cost missing" : `Cost ${money(product.costPriceMinor)}`}</small></span></div>)}</div> : <p className="muted">No products match this search.</p>}{rows.length > limit ? <button type="button" className="secondary" onClick={() => setLimit(limit + 50)}>Show 50 more</button> : null}</section>
+
   </div>;
 }

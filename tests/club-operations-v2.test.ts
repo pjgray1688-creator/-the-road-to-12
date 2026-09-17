@@ -90,7 +90,7 @@ test("Club venue context is explicit, role-aware and preserved in navigation", (
 
 test("owner Club navigation exposes the consolidated operational sections", () => {
   const shell = read("components/club-shell.tsx");
-  for (const label of ["Overview", "Reception", "Members", "Shop", "Classes", "Services", "Finance", "More"]) {
+  for (const label of ["Overview", "Reception", "Members", "Shop", "GLOW ZONE", "Classes", "Finance", "My Work", "More"]) {
     assert.match(shell, new RegExp(`\\[\\"${label}\\"`));
   }
   assert.doesNotMatch(shell, /\[\"Payments\"/);

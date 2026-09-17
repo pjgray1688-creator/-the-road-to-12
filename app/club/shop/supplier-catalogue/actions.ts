@@ -75,20 +75,3 @@ export async function importGsnCatalogueAction(input: { organisationId: string; 
   }
   revalidatePath("/club/shop"); revalidatePath("/member-hub/shop"); return { ok: true, created, updated, unchanged };
 }
-
-export async function loadGsnDemoStockAction(input: { organisationId: string; locationId: string; productIds: string[]; targetQuantity?: number }) {
-  const value = await authorised(input.organisationId, false);
-  const target = input.targetQuantity ?? 10;
-  if (!value || !(await value.context.repository.hasCapability(input.organisationId, (await value.client.auth.getUser()).data.user!.id, "inventory.adjust")) || !input.locationId || !input.productIds.length || !Number.isInteger(target) || target < 0) return { ok: false, error: "Demo stock access required." };
-  const balances = await value.context.repository.listStockBalances(input.organisationId, input.locationId);
-  const byProduct = new Map(balances.map(item => [item.productId, item.onHand ?? 0]));
-  let updated = 0;
-  for (const productId of [...new Set(input.productIds)]) {
-    const delta = target - (byProduct.get(productId) ?? 0);
-    if (delta === 0) continue;
-    const { error } = await value.client.rpc("club_adjust_inventory", { p_organisation_id: input.organisationId, p_location_id: input.locationId, p_product_id: productId, p_movement_type: "stocktake_adjustment", p_quantity_delta: delta, p_reason: "GSN demo opening stock (temporary)", p_idempotency_key: `gsn-demo-stock:${input.organisationId}:${input.locationId}:${productId}:${target}` });
-    if (error) return { ok: false, error: "Demo stock could not be loaded." };
-    updated++;
-  }
-  revalidatePath("/club/shop"); revalidatePath("/member-hub/shop"); return { ok: true, updated, targetQuantity: target };
-}
