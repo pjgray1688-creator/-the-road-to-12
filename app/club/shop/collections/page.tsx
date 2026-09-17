@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { serverSupabase } from "@/lib/supabase-server";
 import { resolveClubOrganisationContext } from "@/lib/club-server-context";
 import { AppNav } from "@/components/app-nav";
-import { AppShell, EmptyState, PageHeader, Surface } from "@/components/ui";
+import { AppShell, BackButton, EmptyState, PageHeader, Surface } from "@/components/ui";
 import { ClubSectionNav } from "@/components/club-shell";
 import { ClubCollections } from "@/components/club-collections";
 
@@ -17,5 +17,5 @@ export default async function CollectionsPage({ searchParams }: { searchParams?:
   }
   const { data } = await client.rpc("club_list_collection_shelf_queue", { p_organisation_id: context.organisation.id, p_location_id: params?.location ?? null });
   const collections = Array.isArray(data) ? data as Array<Record<string, unknown>> : [];
-  return <AppShell className="module-page club-page"><PageHeader eyebrow="R12 CLUB · FULFILMENT" title="Collection shelf" description="Confirm bagged customer orders are on the shelf. Members collect independently." /><ClubSectionNav organisation={context.organisation} role={context.role} contexts={context.availableContexts} locations={await context.repository.listLocations(context.organisation.id)} locationId={params?.location} /><Surface>{collections.length ? <ClubCollections organisationId={context.organisation.id} collections={collections} locationId={params?.location} /> : <EmptyState title="Nothing ready for the shelf">Customer allocations will appear here after goods are received.</EmptyState>}</Surface><AppNav /></AppShell>;
+  return <AppShell className="module-page club-page"><PageHeader eyebrow="R12 CLUB · FULFILMENT" title="Collection shelf" description="Confirm bagged customer orders are on the shelf. Members collect independently." /><ClubSectionNav organisation={context.organisation} role={context.role} contexts={context.availableContexts} locations={await context.repository.listLocations(context.organisation.id)} locationId={params?.location} /><Surface>{collections.length ? <ClubCollections organisationId={context.organisation.id} collections={collections} locationId={params?.location} /> : <EmptyState title="Nothing ready for the shelf">Customer allocations will appear here after goods are received.</EmptyState>}</Surface><BackButton href={`/club/shop?org=${encodeURIComponent(context.organisation.id)}&view=sell`}>Back to Shop</BackButton><AppNav /></AppShell>;
 }
