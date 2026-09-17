@@ -41,7 +41,7 @@ test("couples membership keeps one membership with multiple user holders", () =>
 test("onboarding does not require an account before recording membership", () => {
   const source = readFileSync("components/club-member-onboarding.tsx", "utf8");
   assert.doesNotMatch(source, /before assigning a membership/);
-  assert.match(source, /membership can be recorded now/);
+  assert.match(source, /The member can be linked to an R12 account after they are added/);
 });
 
 test("membership administration exposes linking and fixed-term handling", () => {
