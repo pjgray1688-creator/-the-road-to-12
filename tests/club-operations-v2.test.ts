@@ -85,26 +85,25 @@ test("Club venue context is explicit, role-aware and preserved in navigation", (
   assert.match(shell, /All locations/);
   assert.match(shell, /location=/);
   assert.match(shell, /locations\.filter\(location => location\.active\)/);
-  assert.match(shell, /More/);
+  assert.doesNotMatch(shell, /\["More"/);
 });
 
 test("owner Club navigation exposes the consolidated operational sections", () => {
   const shell = read("components/club-shell.tsx");
-  for (const label of ["Overview", "Reception", "Members", "Shop", "GLOW ZONE", "Classes", "Finance", "My Work", "More"]) {
+  for (const label of ["Overview", "Shop", "GLOW ZONE", "Classes", "Finance", "My Work"]) {
     assert.match(shell, new RegExp(`\\[\\"${label}\\"`));
   }
   assert.doesNotMatch(shell, /\[\"Payments\"/);
   assert.doesNotMatch(shell, /\[\"Locations\"/);
   assert.doesNotMatch(shell, /\[\"Inductions?\"/);
   assert.doesNotMatch(shell, /\[\"Staff\"/);
-  assert.match(shell, /club\/more/);
+  assert.doesNotMatch(shell, /club\/more/);
 });
 
 test("Club navigation maps lifecycle and administration routes to one primary section", () => {
   const shell = read("components/club-shell.tsx");
-  assert.ok(shell.includes('pathname.startsWith("/club/induction")') && shell.includes('? "Members"'));
-  assert.ok(shell.includes('pathname.startsWith("/club/locations")') && shell.includes('? "More"'));
-  assert.ok(shell.includes('pathname.startsWith("/club/staff")') && shell.includes('? "More"'));
+  assert.ok(shell.includes('pathname.startsWith("/club/induction")') && shell.includes('? "Overview"'));
+  assert.doesNotMatch(shell, /pathname.startsWith\("\/club\/(locations|staff)\"\)/);
   assert.ok(shell.includes('pathname.startsWith("/club/payments")') && shell.includes('? "Finance"'));
   assert.ok(shell.includes("Boolean(link && link[0] === activeSection)"));
 });
@@ -116,7 +115,7 @@ test("More and Members expose lower-frequency and lifecycle destinations", () =>
   assert.ok(more.includes("/club/staff"));
   assert.ok(more.includes("Manage venues and operational location settings"));
   assert.ok(more.includes("Manage staff access and Club roles"));
-  assert.ok(members.includes("/club/induction"));
+  assert.ok(members.includes("redirect"));
 });
 
 test("Overview and Finance expose operational drill-downs without duplicating systems", () => {
@@ -124,10 +123,11 @@ test("Overview and Finance expose operational drill-downs without duplicating sy
   const finance = read("app/club/payments/page.tsx");
   const shopTabs = read("components/club-shop-tabs.tsx");
   assert.match(overview, /ClubMembersDirectory/);
-  assert.match(overview, /New membership \/ members/);
+  assert.match(overview, /MEMBER SEARCH/);
   assert.match(overview, /Shop sale/);
-  assert.match(overview, /PT and services/);
-  assert.match(overview, /view=cash/);
+  assert.match(overview, /Inductions/);
+  assert.match(overview, /<strong>Staff<\/strong>/);
+  assert.match(overview, /ClubMemberOnboarding/);
   assert.match(finance, /title=\"Finance\"/);
   assert.match(finance, /Transactions/);
   assert.match(finance, /Membership payments/);

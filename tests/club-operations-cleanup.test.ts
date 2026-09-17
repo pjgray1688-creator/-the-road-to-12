@@ -20,9 +20,9 @@ test("shop sub-pages have Back to Shop and Promotions belongs to Finance", () =>
 });
 
 test("staff management is exposed from Reception with capability protection", () => {
-  assert.match(read("app/club/reception/page.tsx"), /staff\.permissions_manage/);
-  assert.match(read("components/club-reception.tsx"), /Management · Staff/);
-  assert.match(read("components/club-reception.tsx"), /canManageStaff/);
+  assert.match(read("app/club/page.tsx"), /staff\.permissions_manage/);
+  assert.match(read("app/club/page.tsx"), /<strong>Staff<\/strong>/);
+  assert.match(read("app/club/page.tsx"), /canManageStaff/);
   assert.doesNotMatch(read("components/club-shell.tsx"), /\["More"/);
 });
 
