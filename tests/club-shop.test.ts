@@ -195,6 +195,14 @@ test("checkout balance reads the customer ledger after account ensure", () => {
   assert.match(source, /balanceMinor: account\?\.balanceMinor \?\? 0/);
 });
 
+test("staff checkout ignores stale promotion responses after a basket change", () => {
+  const checkout = readFileSync(new URL("../components/club-staff-checkout.tsx", import.meta.url), "utf8");
+  const pricingEffect = checkout.slice(checkout.indexOf("evaluateCommercePromotionsAction"), checkout.indexOf("useEffect(() => { const resolved"));
+  assert.match(pricingEffect, /let cancelled = false/);
+  assert.match(pricingEffect, /if \(cancelled\) return/);
+  assert.match(pricingEffect, /return \(\) => \{ cancelled = true; \}/);
+});
+
 test("membership cash keeps obligation and declaration settlement distinct", () => {
   const migration = readFileSync(new URL("../supabase/migrations/2026-10-05-club-membership-cash-settlement.sql", import.meta.url), "utf8");
   assert.match(migration, /club_membership_billing_obligations/);
