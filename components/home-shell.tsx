@@ -6,7 +6,7 @@ import { TrainingApp } from "./training-app";
 import { activeWeek } from "@/lib/active-programme";
 import { resolveToday, selectCompletedWorkout } from "@/lib/schedule";
 import { fetchServerWorkouts, importLocalWorkouts, cacheServerWorkouts } from "@/lib/workout-sync";
-import { loadData, saveData } from "@/lib/storage";
+import { loadData, saveData, saveRecoveryActivity } from "@/lib/storage";
 import { mondayExercises } from "@/lib/workout";
 import type { Workout } from "@/lib/types";
 import { AppNav } from "./app-nav";
@@ -41,8 +41,19 @@ function RecoverySheet({ onClose }: { onClose: () => void }) {
   const [effort, setEffort] = useState("");
   const [notes, setNotes] = useState("");
   const [saved, setSaved] = useState(false);
-  if (saved) return <div className="modal" role="dialog" aria-modal="true" aria-label="Recovery activity logged"><section><div className="sheet-heading"><div><span className="eyebrow">RECOVERY ACTIVITY</span><h2>Noted</h2></div><button className="text-button" onClick={onClose}>Close</button></div><p>{activity}{duration ? ` · ${duration} min` : ""} is ready to be added to your activity history when recovery-activity persistence is enabled.</p><button className="primary" onClick={onClose}>Done</button></section></div>;
-  return <div className="modal" role="dialog" aria-modal="true" aria-label="Log recovery activity"><section><div className="sheet-heading"><div><span className="eyebrow">RECOVERY ACTIVITY</span><h2>Log recovery work</h2></div><button className="text-button" onClick={onClose}>Close</button></div><p>Keep it easy and supportive of today&apos;s completed training.</p><label className="sheet-input">Activity<select value={activity} onChange={event => setActivity(event.target.value)}>{["Walk", "Mobility", "Stretching", "Yoga", "Easy cycling", "Other"].map(item => <option key={item}>{item}</option>)}</select></label><label className="sheet-input">Duration<input inputMode="numeric" value={duration} onChange={event => setDuration(event.target.value)} placeholder="Minutes" /></label><label className="sheet-input">Perceived effort <input inputMode="numeric" value={effort} onChange={event => setEffort(event.target.value)} placeholder="Optional 1–5" /></label><label className="sheet-input">Notes <input value={notes} onChange={event => setNotes(event.target.value)} placeholder="Optional" /></label><button className="primary" onClick={() => setSaved(true)}>Log activity</button></section></div>;
+  const [saveError, setSaveError] = useState("");
+  const logActivity = () => {
+    const durationValue = duration.trim() ? Number(duration) : undefined;
+    const effortValue = effort.trim() ? Number(effort) : undefined;
+    if (durationValue !== undefined && (!Number.isFinite(durationValue) || durationValue <= 0)) { setSaveError("Enter a valid duration in minutes."); return; }
+    if (effortValue !== undefined && (!Number.isFinite(effortValue) || effortValue < 1 || effortValue > 5)) { setSaveError("Perceived effort must be between 1 and 5."); return; }
+    try {
+      saveRecoveryActivity({ id: crypto.randomUUID(), date: new Date().toISOString().slice(0, 10), activity, durationMinutes: durationValue, perceivedEffort: effortValue, notes: notes.trim() || undefined, createdAt: new Date().toISOString() });
+      setSaved(true); setSaveError("");
+    } catch { setSaveError("We couldn’t save that activity. Please try again."); }
+  };
+  if (saved) return <div className="modal" role="dialog" aria-modal="true" aria-label="Recovery activity logged"><section><div className="sheet-heading"><div><span className="eyebrow">RECOVERY ACTIVITY</span><h2>Saved</h2></div><button className="text-button" onClick={onClose}>Close</button></div><p>{activity}{duration ? ` · ${duration} min` : ""} has been added to your local activity history.</p><button className="primary" onClick={onClose}>Done</button></section></div>;
+  return <div className="modal" role="dialog" aria-modal="true" aria-label="Log recovery activity"><section><div className="sheet-heading"><div><span className="eyebrow">RECOVERY ACTIVITY</span><h2>Log recovery work</h2></div><button className="text-button" onClick={onClose}>Close</button></div><p>Keep it easy and supportive of today&apos;s completed training.</p>{saveError && <p role="alert">{saveError}</p>}<label className="sheet-input">Activity<select value={activity} onChange={event => setActivity(event.target.value)}>{["Walk", "Mobility", "Stretching", "Yoga", "Easy cycling", "Other"].map(item => <option key={item}>{item}</option>)}</select></label><label className="sheet-input">Duration<input inputMode="numeric" value={duration} onChange={event => setDuration(event.target.value)} placeholder="Minutes" /></label><label className="sheet-input">Perceived effort <input inputMode="numeric" value={effort} onChange={event => setEffort(event.target.value)} placeholder="Optional 1–5" /></label><label className="sheet-input">Notes <input value={notes} onChange={event => setNotes(event.target.value)} placeholder="Optional" /></label><button className="primary" onClick={logActivity}>Log activity</button></section></div>;
 }
 
 export function HomeShell() {

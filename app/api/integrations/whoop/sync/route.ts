@@ -1,11 +1,11 @@
-import { NextResponse } from "next/server";
+import { privateJson } from "@/lib/private-response";
 import { accessToken, markSynced, normalizeWhoop, persistRecords } from "@/lib/whoop-server";
 import { serverSupabase } from "@/lib/supabase-server";
 export async function POST() {
   try {
     const supabase = await serverSupabase();
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+    if (!user) return privateJson({ error: "Authentication required" }, { status: 401 });
     const token = await accessToken(user.id);
     const end = new Date().toISOString();
     const start = new Date(Date.now() - 7 * 86400000).toISOString();
@@ -16,7 +16,7 @@ export async function POST() {
       fetch(`https://api.prod.whoop.com/developer/v2/activity/sleep?${query}`, { headers }),
       fetch(`https://api.prod.whoop.com/developer/v2/cycle?${query}`, { headers }),
     ]);
-    if (!recoveryResponse.ok) return NextResponse.json({ error: `WHOOP sync failed (${recoveryResponse.status})` }, { status: recoveryResponse.status });
+    if (!recoveryResponse.ok) return privateJson({ error: `WHOOP sync failed (${recoveryResponse.status})` }, { status: recoveryResponse.status });
     const recovery = await recoveryResponse.json();
     const sleep = sleepResponse.ok ? await sleepResponse.json() : { records: [] };
     const cycles = cycleResponse.ok ? await cycleResponse.json() : { records: [] };
@@ -27,6 +27,6 @@ export async function POST() {
     const snapshots = [...merged.values()].map(normalizeWhoop);
     await persistRecords(user.id, snapshots);
     const syncedAt = await markSynced(user.id);
-    return NextResponse.json({ syncedAt, snapshots });
-  } catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : "WHOOP sync failed" }, { status: 401 }); }
+    return privateJson({ syncedAt, snapshots });
+  } catch (error) { return privateJson({ error: error instanceof Error ? error.message : "WHOOP sync failed" }, { status: 401 }); }
 }

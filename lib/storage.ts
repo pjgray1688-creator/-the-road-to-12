@@ -1,10 +1,12 @@
 import type { AppData, Workout } from "./types";
+import type { RecoveryActivity } from "./domain";
 const KEY = "road-to-12-data-v1";
 const ACTIVE_KEY = "road-to-12-active";
 const defaultData = (): AppData => ({ version: 2, workouts: [], bodyMetrics: [], meals: [] });
-export function loadData(): AppData { if (typeof window === "undefined") return defaultData(); try { const data = JSON.parse(localStorage.getItem(KEY) || "null") ?? defaultData(); return { ...defaultData(), ...data, version: 2, workouts: data.workouts ?? [], bodyMetrics: data.bodyMetrics ?? [], meals: data.meals ?? [], recoverySnapshots: data.recoverySnapshots ?? [], cardioSessions: data.cardioSessions ?? [], dailyActivity: data.dailyActivity ?? [] }; } catch { return defaultData(); } }
+export function loadData(): AppData { if (typeof window === "undefined") return defaultData(); try { const data = JSON.parse(localStorage.getItem(KEY) || "null") ?? defaultData(); return { ...defaultData(), ...data, version: 2, workouts: data.workouts ?? [], bodyMetrics: data.bodyMetrics ?? [], meals: data.meals ?? [], recoverySnapshots: data.recoverySnapshots ?? [], recoveryActivities: data.recoveryActivities ?? [], cardioSessions: data.cardioSessions ?? [], dailyActivity: data.dailyActivity ?? [] }; } catch { return defaultData(); } }
 export function saveData(data: AppData) { localStorage.setItem(KEY, JSON.stringify(data)); }
 export function saveTrainingProfile(profile: import("./training-profile").TrainingProfile, programme: import("./programme-generator").GeneratedProgramme) { const data = loadData(); saveData({ ...data, trainingProfile: profile, generatedProgramme: programme, activeProgrammeId: programme.id }); }
+export function saveRecoveryActivity(activity: RecoveryActivity) { const data = loadData(); saveData({ ...data, recoveryActivities: [activity, ...(data.recoveryActivities ?? []).filter(item => item.id !== activity.id)] }); }
 /** Returns the locally cached generated programme only when it is still the server-selected programme. */
 export function loadGeneratedProgramme() { const data = loadData(); if (data.activeProgrammeId === "legacy-personal-programme") return undefined; if (data.activeProgrammeId && data.generatedProgramme?.id !== data.activeProgrammeId) return undefined; return data.generatedProgramme; }
 export function saveWorkout(workout: Workout) { const data = loadData(); const record = { ...workout, origin: workout.origin ?? "real" }; const index = data.workouts.findIndex(item => item.id === workout.id); if (index === -1) data.workouts.unshift(record); else data.workouts[index] = record; saveData(data); }

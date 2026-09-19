@@ -1,13 +1,13 @@
-import { NextResponse } from "next/server";
 import { serverSupabase } from "@/lib/supabase-server";
+import { privateJson } from "@/lib/private-response";
 
 /** Minimal member-safe context for lightweight Today surfaces. */
 export async function GET() {
   const client = await serverSupabase();
   const { data: { user } } = await client.auth.getUser();
-  if (!user) return NextResponse.json({ organisations: [] }, { status: 401 });
+  if (!user) return privateJson({ organisations: [] }, { status: 401 });
   const { data, error } = await client.rpc("club_list_my_memberships");
-  if (error || !Array.isArray(data)) return NextResponse.json({ organisations: [] });
+  if (error || !Array.isArray(data)) return privateJson({ organisations: [] });
   const organisations = data.flatMap(value => {
     if (!value || typeof value !== "object") return [];
     const organisation = (value as { organisation?: unknown }).organisation;
@@ -16,5 +16,5 @@ export async function GET() {
     if (typeof record.id !== "string" || typeof record.name !== "string") return [];
     return [{ id: record.id, name: record.name, slug: typeof record.slug === "string" ? record.slug : undefined }];
   }).filter((item, index, all) => all.findIndex(candidate => candidate.id === item.id) === index);
-  return NextResponse.json({ organisations });
+  return privateJson({ organisations });
 }
