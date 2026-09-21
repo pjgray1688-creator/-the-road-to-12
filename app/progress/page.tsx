@@ -5,12 +5,12 @@ import { AppShell, EmptyState, NavigationRow, PageHeader, Surface } from "@/comp
 import { loadData, saveData } from "@/lib/storage";
 import { appendBodyMetric, latestMeasurement, measurementDelta, measurementEntries, measurementGuidance, measurementLabels, progressPhotoAvailability, removeBodyMetric, weightSummary } from "@/lib/progress";
 import { personalBests } from "@/lib/training-history";
-import { cmToIn, defaultBodyUnits, displayCircumference, displayWeight, formatDisplayDate, formatNumber, inToCm, lbToKg } from "@/lib/locale";
+import { cmToIn, defaultBodyUnits, displayCircumference, displayWeight, formatDisplayDate, formatNumber, inToCm, lbToKg, localCalendarDate } from "@/lib/locale";
 import type { BodyMeasurementType } from "@/lib/domain";
 import type { BodyUnitPreference } from "@/lib/locale";
 
 const groups: Array<[string, BodyMeasurementType[]]> = [["TORSO", ["waist_navel", "waist_trouser", "chest", "shoulders"]], ["ARMS", ["upper_arm_left", "upper_arm_right"]], ["LEGS", ["thigh_left", "thigh_right", "calf_left", "calf_right"]]];
-const today = () => new Date().toISOString().slice(0, 10);
+const today = localCalendarDate;
 
 export default function ProgressPage() {
   const [data, setData] = useState(() => loadData()); const [weight, setWeight] = useState(""); const [weightDate, setWeightDate] = useState(today()); const [type, setType] = useState<BodyMeasurementType>("waist_navel"); const [value, setValue] = useState("");

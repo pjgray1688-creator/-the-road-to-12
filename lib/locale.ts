@@ -1,5 +1,6 @@
 export type BodyUnitPreference = { weight: "kg" | "lb"; circumference: "cm" | "in" };
 export function defaultBodyUnits(locale = typeof navigator !== "undefined" ? navigator.language : "en-GB"): BodyUnitPreference { return /^(en-US|en-CA|en-LR|my)/i.test(locale) ? { weight: "lb", circumference: "in" } : { weight: "kg", circumference: "cm" }; }
+export function localCalendarDate(value = new Date()) { const year = value.getFullYear(); const month = String(value.getMonth() + 1).padStart(2, "0"); const day = String(value.getDate()).padStart(2, "0"); return `${year}-${month}-${day}`; }
 export function formatDisplayDate(value: string, locale = typeof navigator !== "undefined" ? navigator.language : "en-GB") { const date = new Date(`${value}T12:00:00`); if (Number.isNaN(date.getTime())) return value; return new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", year: "numeric" }).format(date); }
 export function formatNumber(value: number, locale = typeof navigator !== "undefined" ? navigator.language : "en-GB", maximumFractionDigits = 1) { return new Intl.NumberFormat(locale, { maximumFractionDigits, minimumFractionDigits: 0 }).format(value); }
 export function kgToLb(value: number) { return value * 2.2046226218; }
