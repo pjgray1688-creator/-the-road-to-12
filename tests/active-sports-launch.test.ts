@@ -478,6 +478,7 @@ test("supplier import queue has an automatic scheduled worker boundary", async (
   assert.match(migration, /club_claim_supplier_import_jobs/);
   assert.match(migration, /for update skip locked/i);
   assert.match(route, /runQueuedSupplierImportWorker/);
+  assert.match(route, /if \(!secret \|\| request\.headers\.get\("authorization"\) !== `Bearer \$\{secret\}`\)/);
   assert.match(worker, /club_run_supplier_import_job/);
 });
 
