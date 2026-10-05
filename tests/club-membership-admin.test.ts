@@ -19,7 +19,7 @@ test("member onboarding is repository-backed and avoids fabricated accounts", ()
   assert.match(component, /assignMembershipAction/);
   assert.match(actions, /createCustomer/);
   assert.match(actions, /assignMembership|assignProduct/);
-  assert.match(actions, /gym_admin.*owner/);
+  assert.match(actions, /hasCapability\(context\.organisation\.id, user\.id, "memberships\.assign"\)/);
 });
 
 test("membership management exposes active staff-assignment products without making them customer-sellable", () => {

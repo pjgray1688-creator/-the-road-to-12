@@ -8,7 +8,7 @@ export async function saveInductionPolicyAction(input: { organisationId: string;
   try {
     const supabase = await serverSupabase(); const { data: { user } } = await supabase.auth.getUser(); if (!user) return { ok: false as const, error: "Sign in to manage induction." };
     const context = await resolveClubOperationalContext(supabase, user.id, input.organisationId);
-    if (!context || !["gym_admin", "owner"].includes(context.role)) return { ok: false as const, error: "You don’t have permission to manage induction." };
+    if (!context || !(await context.repository.hasCapability(context.organisation.id, user.id, "induction.manage_policy"))) return { ok: false as const, error: "You don’t have permission to manage induction." };
     if (!Number.isInteger(input.graceDays) || input.graceDays < 0 || (input.maxAppointmentExtensionDays !== undefined && (!Number.isInteger(input.maxAppointmentExtensionDays) || input.maxAppointmentExtensionDays < 0))) return { ok: false as const, error: "Check the induction settings." };
     await context.repository.saveInductionPolicy({ organisationId: context.organisation.id, requirement: input.requirement, graceDays: input.graceDays, overdueAccess: input.overdueAccess, appointmentExtensionEnabled: input.appointmentExtensionEnabled, maxAppointmentExtensionDays: input.maxAppointmentExtensionDays, requiresReacknowledgement: input.requiresReacknowledgement, active: input.requirement !== "none" });
     revalidatePath(`/club/induction?org=${encodeURIComponent(input.organisationId)}`); return { ok: true as const };

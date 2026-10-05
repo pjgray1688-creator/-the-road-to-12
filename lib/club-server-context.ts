@@ -41,4 +41,4 @@ export async function resolveClubOperationalContext(client: SupabaseClient, user
 }
 
 export function isClubOperationalRole(role: ClubRole) { return operationalRoles.includes(role); }
-export function isClubStaffRole(role: ClubRole) { return role === "gym_staff" || role === "gym_admin" || role === "owner"; }
+export function isClubStaffRole(role: ClubRole) { return operationalRoles.includes(role); }

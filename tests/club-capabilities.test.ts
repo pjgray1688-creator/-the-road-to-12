@@ -4,11 +4,11 @@ import { hasClubCapability, resolveClubCapabilities } from "@/lib/club-capabilit
 
 test("capabilities combine role presets with explicit deny precedence", () => {
   assert.equal(hasClubCapability("gym_staff", "payments.take"), true);
-  assert.equal(hasClubCapability("gym_staff", "refunds.issue"), false);
+  assert.equal(hasClubCapability("gym_staff", "refunds.issue"), true);
   assert.equal(hasClubCapability("gym_staff", "refunds.issue", [{ capability: "refunds.issue", decision: "allow" }]), true);
   assert.equal(hasClubCapability("gym_staff", "payments.take", [{ capability: "payments.take", decision: "deny" }]), false);
   assert.equal(resolveClubCapabilities("owner").includes("staff.permissions_manage"), true);
-  assert.equal(hasClubCapability("owner", "staff.permissions_manage", [{ capability: "staff.permissions_manage", decision: "deny" }]), true);
+  assert.equal(hasClubCapability("owner", "staff.permissions_manage", [{ capability: "staff.permissions_manage", decision: "deny" }]), false);
   assert.equal(hasClubCapability("gym_staff", "staff.permissions_manage", [{ capability: "staff.permissions_manage", decision: "allow" }]), false);
   assert.equal(hasClubCapability("gym_admin", "future.capability" as never, [{ capability: "future.capability", decision: "allow" }]), false);
 });

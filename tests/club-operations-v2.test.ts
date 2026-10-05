@@ -30,9 +30,10 @@ test("Locations management is protected at the route boundary", () => {
 
 test("Club navigation keeps management areas away from member and trainer roles", () => {
   const shell = read("components/club-shell.tsx");
-  assert.match(shell, /role === "trainer"/);
+  assert.match(shell, /\["trainer", "gym_staff", "gym_admin", "owner"\]\.includes\(role\)/);
+  assert.match(shell, /admin \? \[\["Finance"/);
   assert.match(shell, /\["Classes"/);
-  assert.doesNotMatch(shell, /role === "trainer"[^]*Locations/);
+  assert.doesNotMatch(shell, /role === "trainer"[^]*Finance/);
   assert.doesNotMatch(shell, /role === "member"[^]*Members/);
 });
 

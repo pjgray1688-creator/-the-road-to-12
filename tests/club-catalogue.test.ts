@@ -10,9 +10,9 @@ import { sortCommerceProductsForOperations } from "../lib/club-commerce";
 const component = readFileSync(new URL("../components/club-catalogue.tsx", import.meta.url), "utf8");
 const action = readFileSync(new URL("../app/club/shop/actions.ts", import.meta.url), "utf8");
 
-test("catalogue management uses the authoritative owner boundary and exact GBP minor units", () => {
+test("catalogue management uses the authoritative pricing capability and exact GBP minor units", () => {
   assert.match(action, /saveCommerceProduct/);
-  assert.match(action, /\["gym_admin", "owner"\]/);
+  assert.match(action, /hasCapability\(value\.organisation\.id, value\.userId, "commerce\.pricing_manage"\)/);
   assert.equal(parseMinorUnits("22.00"), 2200);
   assert.equal(parseMinorUnits("15"), 1500);
   assert.equal(parseMinorUnits("10.001"), undefined);

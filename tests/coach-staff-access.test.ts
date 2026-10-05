@@ -35,7 +35,7 @@ test("Coach permission grants and status reads stay within the selected organisa
   assert.match(migration, /where p\.organisation_id=p_organisation_id/i);
   assert.match(migration, /organisation_id=p_organisation_id and user_id=p_user_id/i);
   assert.match(staffPage, /p_organisation_id: context\.organisation\.id/);
-  assert.match(staffActions, /p_organisation_id: context\.organisation\.id/);
+  assert.match(staffActions, /p_organisation_id: manager\.context\.organisation\.id/);
 });
 
 test("eligible roles do not inherit Coach access while ordinary staff and members stay excluded", () => {
