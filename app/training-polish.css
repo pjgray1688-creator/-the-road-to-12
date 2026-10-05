@@ -376,6 +376,7 @@ main.legal-page { display: flex; flex-direction: column; }
 .app-nav a span { font-size: 20px; line-height: 1; }
 .app-nav a small { font-size: 11px; font-weight: 700; }
 .app-nav a.selected { color: var(--accent-bright); background: rgba(168,85,247,.12); }
+.app-nav.has-coach { grid-template-columns: repeat(5, 1fr); }
 .check-in-sheet { max-height: min(90svh, 720px); overflow-y: auto; }
 .check-in-field { border: 0; padding: 0; margin: 0; display: grid; gap: 8px; }
 .check-in-field legend { color: var(--text-primary); font-size: 14px; font-weight: 700; }
