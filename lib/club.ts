@@ -35,7 +35,7 @@ export function consumeAllowance(grant: EntitlementGrant, quantity: number, usag
 export const clubAcceptanceFixtures = {
   dayPass: { kind: "membership", billing: "one_off", durationDays: 1, priceMinor: 500 },
   monthlyClasses: { kind: "membership", billing: "recurring", priceMinor: 2700, classCredits: 4, period: "month" },
-  yearlyClasses: { kind: "membership", billing: "recurring", priceMinor: 25000, classCredits: 1, period: "week" },
+  yearlyClasses: { kind: "membership", billing: "one_off", durationDays: 365, priceMinor: 25000, classCredits: 1, period: "week" },
   bronze: { kind: "transformation", billing: "one_off", durationDays: 70, ptPerWeek: 1 },
   silver: { kind: "transformation", billing: "one_off", durationDays: 70, ptPerWeek: 2 },
   gold: { kind: "transformation", billing: "one_off", durationDays: 70, ptPerWeek: 3 },

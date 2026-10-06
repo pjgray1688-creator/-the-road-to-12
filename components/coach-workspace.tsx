@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { exerciseById } from "@/lib/workout";
+import Link from "next/link";
 
 type Client = { clientUserId: string; organisationId: string; assignmentId: string; name: string; relationship: "primary" | "cover"; programmeName: string; programmeOwnerName: string };
 type PlannedDay = { id?: string; name?: string; exerciseIds?: string[]; exerciseOverrides?: Record<string, { name?: string; target?: string; sets?: number }> };
@@ -76,7 +77,7 @@ export function CoachWorkspace({ initialClients }: { initialClients: Client[] })
   };
 
   return <main className="coach-shell">
-    <header className="coach-header"><div><span className="eyebrow">R12 COACH</span><h1>Coach workspace</h1><p>Read the client plan, coach today’s session, and keep permanent programme ownership with the primary PT.</p></div></header>
+    <header className="coach-header"><div><span className="eyebrow">R12 COACH</span><h1>Coach workspace</h1><p>Read the client plan, coach today’s session, and keep permanent programme ownership with the primary PT.</p><Link className="text-button" href="/tutorial/coach">Replay Coach tutorial</Link></div></header>
     <div className="coach-grid">
       <aside className="coach-client-list" aria-label="Authorised clients"><span className="eyebrow">CLIENTS</span>{clients.length ? clients.map(client => { const identity = `${client.organisationId}:${client.assignmentId}`; return <button type="button" className={selected && `${selected.organisationId}:${selected.assignmentId}` === identity ? "coach-client selected" : "coach-client"} key={identity} onClick={() => selectClient(client)}><strong>{client.name}</strong><small>{client.relationship === "cover" ? "Cover PT · " : "Primary PT · "}{client.programmeName}</small></button>; }) : <p className="muted">No authorised clients yet.</p>}</aside>
       <section className="coach-content" aria-live="polite">

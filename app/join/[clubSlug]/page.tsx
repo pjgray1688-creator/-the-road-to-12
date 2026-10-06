@@ -14,7 +14,7 @@ export default async function GymJoinPage({ params }: { params: Promise<{ clubSl
     supabase.rpc("club_list_join_locations", { p_organisation_id: org.id }),
     user ? supabase.rpc("club_get_my_join_state", { p_organisation_id: org.id }) : Promise.resolve({ data: null }),
   ]);
-  const products = (Array.isArray(productData) ? productData : []).map(value => { const item = value as Record<string, unknown>; return { id: String(item.id), name: String(item.name), priceMinor: Number(item.price_minor), billing: String(item.billing), ...(item.duration_days != null ? { durationDays: Number(item.duration_days) } : {}) }; });
+  const products = (Array.isArray(productData) ? productData : []).map(value => { const item = value as Record<string, unknown>; return { id: String(item.id), name: String(item.name), priceMinor: Number(item.price_minor), joiningFeeMinor: Number(item.joining_fee_minor ?? 0), joiningFeeConfigured: item.joining_fee_configured !== false, checkoutKind: String(item.checkout_kind ?? "one_off"), billing: String(item.billing), ...(item.duration_days != null ? { durationDays: Number(item.duration_days) } : {}) }; });
   const locations = (Array.isArray(locationData) ? locationData : []).map(value => ({ id: String(value.id), name: String(value.name) }));
   const returnTo = `/join/${encodeURIComponent(org.slug)}`;
   return <AppShell className="module-page join-page"><PageHeader eyebrow="MADHOUSE MEMBERSHIP" title={`Join ${org.name}`} description="Join in your browser, then use the same personal R12 account on any device." />

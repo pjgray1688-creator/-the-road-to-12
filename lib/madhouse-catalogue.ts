@@ -23,7 +23,7 @@ export const madhouseCatalogue: readonly CatalogueProduct[] = [
   { name: "Concession Monthly", kind: "membership", priceMinor: 2200, currency: "GBP", billing: "recurring", sellable: true, entitlements: [gymAccess] },
   { name: "Standard Monthly", kind: "membership", priceMinor: 2700, currency: "GBP", billing: "recurring", sellable: true, entitlements: [gymAccess, { entitlementKey: "class_access", scope: "organisation", allowance: { quantity: 4, period: "month" } }] },
   { name: "Couples Membership", kind: "membership", priceMinor: 4500, currency: "GBP", billing: "recurring", sellable: true, entitlements: [gymAccess] },
-  { name: "Yearly Membership", kind: "membership", priceMinor: 25000, currency: "GBP", billing: "recurring", sellable: true, entitlements: [gymAccess, { entitlementKey: "class_access", scope: "organisation", allowance: { quantity: 1, period: "week" } }] },
+  { name: "Yearly Membership", kind: "membership", priceMinor: 25000, currency: "GBP", billing: "one_off", durationDays: 365, sellable: true, entitlements: [gymAccess, { entitlementKey: "class_access", scope: "organisation", allowance: { quantity: 1, period: "week" } }] },
   { name: "Transformation Bronze", kind: "transformation", priceMinor: 25000, currency: "GBP", billing: "one_off", durationDays: 70, sellable: true, entitlements: transformation(1) },
   { name: "Transformation Silver", kind: "transformation", priceMinor: 40000, currency: "GBP", billing: "one_off", durationDays: 70, sellable: true, entitlements: transformation(2) },
   { name: "Transformation Gold", kind: "transformation", priceMinor: 52500, currency: "GBP", billing: "one_off", durationDays: 70, sellable: true, entitlements: transformation(3) },

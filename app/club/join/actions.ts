@@ -3,13 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { serverSupabase } from "@/lib/supabase-server";
 
-export type JoiningActionResult = { ok: true; requestId: string; status: string; paymentState: string; productName: string; amountMinor: number; billing: string; durationDays?: number } | { ok: false; error: string; existingMember?: boolean };
+export type JoiningActionResult = { ok: true; requestId: string; status: string; paymentState: string; productName: string; amountMinor: number; upfrontAmountMinor: number; checkoutKind: string; billing: string; durationDays?: number } | { ok: false; error: string; existingMember?: boolean };
 export type JoinDetails = {
   organisationId: string; productId: string; locationId: string; firstName: string; lastName: string;
   email: string; phone: string; dateOfBirth: string; addressLine1: string; addressLine2?: string;
   townCity?: string; postcode: string; emergencyName: string; emergencyPhone: string;
   termsAccepted: boolean; privacyAccepted: boolean; marketingConsent: boolean;
-  paymentMethod: "card" | "direct_debit" | "staff_manual"; idempotencyKey: string;
+  paymentMethod: "card" | "direct_debit" | "card_and_direct_debit" | "staff_manual"; idempotencyKey: string;
 };
 
 export async function startClubJoiningAction(input: JoinDetails): Promise<JoiningActionResult> {
@@ -39,7 +39,7 @@ export async function startClubJoiningAction(input: JoinDetails): Promise<Joinin
       status = "active"; paymentState = "not_required";
     }
     revalidatePath("/join"); revalidatePath("/member-hub");
-    return { ok: true, requestId: String(request.id), status, paymentState, productName: String(product.name), amountMinor: Number(product.price_minor), billing: String(product.billing), ...(product.duration_days != null ? { durationDays: Number(product.duration_days) } : {}) };
+    return { ok: true, requestId: String(request.id), status, paymentState, productName: String(product.name), amountMinor: Number(product.price_minor), upfrontAmountMinor: Number(request.upfront_amount_minor ?? product.price_minor), checkoutKind: String(request.checkout_kind ?? "one_off"), billing: String(product.billing), ...(product.duration_days != null ? { durationDays: Number(product.duration_days) } : {}) };
   } catch { return { ok: false, error: "Joining could not be saved." }; }
 }
 
