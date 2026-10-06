@@ -4422,7 +4422,7 @@ begin
   end if;
 end $$;
 revoke all on function public.club_import_supplier_catalogue_legacy_v1(uuid,text,text,jsonb) from public,anon,authenticated;
-create function public.club_import_supplier_catalogue(p_organisation_id uuid,p_supplier_name text,p_file_name text,p_rows jsonb)
+create or replace function public.club_import_supplier_catalogue(p_organisation_id uuid,p_supplier_name text,p_file_name text,p_rows jsonb)
 returns jsonb language plpgsql security definer set search_path=pg_catalog,public as $$
 begin
   if auth.uid() is null or not public.club_capability_allowed(p_organisation_id,auth.uid(),'supplier.catalogue_manage') then raise exception 'Catalogue access required' using errcode='42501'; end if;
@@ -4439,7 +4439,7 @@ begin
   end if;
 end $$;
 revoke all on function public.club_import_supplier_catalogue_legacy_v2(uuid,text,text,jsonb,boolean) from public,anon,authenticated;
-create function public.club_import_supplier_catalogue_v2(p_organisation_id uuid,p_supplier_name text,p_file_name text,p_rows jsonb,p_reconcile boolean default false)
+create or replace function public.club_import_supplier_catalogue_v2(p_organisation_id uuid,p_supplier_name text,p_file_name text,p_rows jsonb,p_reconcile boolean default false)
 returns jsonb language plpgsql security definer set search_path=pg_catalog,public as $$
 begin
   if auth.uid() is null or not public.club_capability_allowed(p_organisation_id,auth.uid(),'supplier.catalogue_manage') then raise exception 'Catalogue access required' using errcode='42501'; end if;

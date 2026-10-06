@@ -213,6 +213,26 @@ test("final-state package handles the staff-permission return-type transition", 
 
 test("final-state schema objects are replay-safe", () => {
   const lines = finalBundle.split(/\r?\n/);
+
+  assert.match(
+    finalBundle,
+    /create or replace function public\.club_import_supplier_catalogue\(p_organisation_id uuid,p_supplier_name text,p_file_name text,p_rows jsonb\)/i,
+  );
+  assert.match(
+    finalBundle,
+    /create or replace function public\.club_import_supplier_catalogue_v2\(p_organisation_id uuid,p_supplier_name text,p_file_name text,p_rows jsonb,p_reconcile boolean default false\)/i,
+  );
+
+  const bareFunctions = lines
+    .map((line, index) => ({ line, index }))
+    .filter(({ line }) => /^\s*create function\s+public\./i.test(line));
+  for (const { line, index } of bareFunctions) {
+    const name = line.match(/^\s*create function\s+public\.([a-z0-9_]+)/i)?.[1];
+    assert.ok(name, `function declaration is parseable: ${line}`);
+    const surrounding = lines.slice(Math.max(0, index - 12), index + 1).join("\n");
+    assert.match(surrounding, new RegExp(`drop function if exists public\\.${name}`, "i"), line);
+  }
+
   const policyCreations = lines
     .map((line, index) => ({ line, index }))
     .filter(({ line }) => /^\s*create policy\s+/i.test(line));
