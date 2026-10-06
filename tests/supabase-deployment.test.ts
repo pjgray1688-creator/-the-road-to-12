@@ -10,6 +10,8 @@ const runner = readFileSync("scripts/apply-madhouse-schema.sh", "utf8");
 const profile = readFileSync("supabase/deployment/2026-11-22-r12-profile-foundation.sql", "utf8");
 const manualBundlePath = "supabase/deployment/2026-11-22-madhouse-manual-reconciliation.sql";
 const manualBundle = readFileSync(manualBundlePath, "utf8");
+const commerceFoundation = readFileSync("supabase/migrations/2026-09-08-club-commerce-payments-inventory.sql", "utf8");
+const commerceBrand = readFileSync("supabase/migrations/2026-09-20-club-commerce-product-brand.sql", "utf8");
 
 test("deployment manifest contains existing files in dependency order", () => {
   assert.ok(migrations.length > 70);
@@ -96,4 +98,28 @@ test("manual bundle contains the missing foundations before dependent historical
   assert.ok(position("-- === APPLY supabase/migrations/2026-11-20-club-venue-checks-maintenance.sql ===") < position("-- === APPLY supabase/migrations/2026-11-21-notification-engine.sql ==="));
   assert.match(manualBundle, /create table if not exists public\.club_member_notification_intents/);
   assert.match(manualBundle, /create table if not exists public\.club_checklist_templates/);
+});
+
+test("supplier RPCs use the final commerce and supplier column contracts", () => {
+  for (const column of ["id", "organisation_id", "sku", "barcode", "name", "description", "category", "active", "stock_tracked", "sell_price_minor", "cost_price_minor", "currency", "tax_code", "supplier_reference", "media"]) {
+    assert.match(commerceFoundation, new RegExp(`\\b${column}\\b`));
+  }
+  assert.match(commerceBrand, /add column if not exists brand text/);
+  const aliases: Record<string, string[]> = {
+    cp: ["brand", "category", "id", "media", "name", "organisation_id", "sell_price_minor", "stock_tracked"],
+    sp: ["active", "availability_checked_at", "availability_status", "barcode", "brand", "category", "club_product_id", "cost_source", "created_at", "description", "discontinued", "fulfilment_type", "id", "import_identity", "local_product_id", "manual_price", "member_orderable_unit", "name", "organisation_id", "pack_quantity", "parent_product_id", "retail_price_minor", "sellable", "size", "supplied_vat_rate", "supplier_availability", "supplier_id", "supplier_rrp_minor", "supplier_sku", "trade_cost_ex_vat_minor", "variant", "variant_image_url", "wholesale_cost_minor"],
+    pp: ["active", "archived_at", "brand", "category", "description", "id", "name", "organisation_id", "parent_image_url", "parent_key", "source_url", "subcategory", "supplier_id"],
+  };
+  const supplierContract = manualBundle.slice(0, manualBundle.indexOf("-- === APPLY supabase/migrations/2026-11-16-club-staff-permission-model.sql ==="));
+  for (const [alias, allowed] of Object.entries(aliases)) {
+    const used = new Set([...supplierContract.matchAll(new RegExp(`\\b${alias}\\.([a-z_][a-z0-9_]*)`, "gi"))].map(match => match[1].toLowerCase()));
+    for (const column of used) assert.ok(allowed.includes(column), `${alias}.${column} is not in the final table contract`);
+  }
+  const brandSection = manualBundle.indexOf("-- === APPLY supabase/migrations/2026-09-20-club-commerce-product-brand.sql ===");
+  const supplierSection = manualBundle.indexOf("-- === APPLY supabase/migrations/2026-09-22-club-supplier-commerce.sql ===");
+  const demandFunction = manualBundle.indexOf("create or replace function public.club_list_supplier_demand");
+  assert.ok(brandSection < supplierSection);
+  assert.ok(supplierSection < demandFunction);
+  assert.match(manualBundle, /club_list_supplier_demand[\s\S]*'brand',coalesce\(cp\.brand,sp\.brand\)/);
+  assert.match(manualBundle, /do \$constraint\$[\s\S]*club_commerce_products_brand_length/);
 });

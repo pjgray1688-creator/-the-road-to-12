@@ -13,7 +13,7 @@ The known manual baseline is recorded, not replayed:
 
 The manifest deliberately excludes the go-live reset, physical stocktakes, reviewed image/data backfills, and the Active Sports generated-price backfill. Those are separate reviewed operational actions and must not be part of schema deployment.
 
-It is intentionally not pure filename order. Supplier-commerce tables are created before the later parent/variant tables, and those tables are created before the older September supplier RPCs that reference them. The Glow Zone transaction tables likewise precede its September read RPC. This resolves the historical filename/dependency mismatch.
+It is intentionally not pure filename order. The commerce-product brand contract is applied before supplier commerce because the supplier-demand RPC reads `club_commerce_products.brand`. Supplier-commerce tables are then created before the later parent/variant tables, and those tables are created before the older September supplier RPCs that reference them. The Glow Zone transaction tables likewise precede its September read RPC. This resolves the historical filename/column/dependency mismatches.
 
 ## Peter's primary workflow: one SQL Editor paste/run
 
