@@ -15,15 +15,28 @@ The manifest deliberately excludes the go-live reset, physical stocktakes, revie
 
 It is intentionally not pure filename order. Supplier-commerce tables are created before the later parent/variant tables, and those tables are created before the older September supplier RPCs that reference them. The Glow Zone transaction tables likewise precede its September read RPC. This resolves the historical filename/dependency mismatch.
 
-## One controlled pass
+## Peter's primary workflow: one SQL Editor paste/run
 
-After review, run from the repository root on a machine with `psql` and a trusted Supabase database connection string:
+Peter should use the raw SQL bundle, not local tooling:
+
+1. Open [`2026-11-22-madhouse-manual-reconciliation.sql`](../supabase/deployment/2026-11-22-madhouse-manual-reconciliation.sql) as a raw text file.
+2. Copy the entire file into the Supabase SQL Editor.
+3. Run it once.
+4. Review the final read-only result sets and the `SCHEMA READY — RUN MADHOUSE BOOTSTRAP NEXT` marker.
+
+The bundle assumes the known manual baseline below. It contains the remaining schema/RPC contract in dependency order, the final additive profiles shape, a reconciliation marker, and read-only readiness diagnostics. It does not create organisations, members, memberships, payments, Auth users, or Coach grants.
+
+The SQL bundle is the established deployment workflow and requires no `psql`, Homebrew, Supabase CLI, local PostgreSQL, Docker, or local database connection.
+
+## Optional advanced route
+
+The shell runner remains available for an operator who deliberately has `psql` and a trusted database connection string:
 
 ```bash
 R12_DATABASE_URL='[reviewed connection string]' ./scripts/apply-madhouse-schema.sh
 ```
 
-The script runs the additive profile foundation, creates the migration ledger, records the known manual baseline, and applies the manifest in order with `ON_ERROR_STOP=1`. A failed migration stops the process; it is not skipped. Re-running is safe for files already recorded with the same checksum.
+It runs the same additive profile foundation and manifest in order with `ON_ERROR_STOP=1`. It is not required for Peter's normal workflow.
 
 Do not run the old migration files manually after this process has started. If the database differs from the stated baseline, stop and review the diagnostic output before adding a deliberate baseline entry.
 

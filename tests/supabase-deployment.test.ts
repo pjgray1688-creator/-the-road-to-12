@@ -8,6 +8,8 @@ const manifest = readFileSync(manifestPath, "utf8");
 const migrations = manifest.split(/\r?\n/).map(line => line.trim()).filter(line => line && !line.startsWith("#"));
 const runner = readFileSync("scripts/apply-madhouse-schema.sh", "utf8");
 const profile = readFileSync("supabase/deployment/2026-11-22-r12-profile-foundation.sql", "utf8");
+const manualBundlePath = "supabase/deployment/2026-11-22-madhouse-manual-reconciliation.sql";
+const manualBundle = readFileSync(manualBundlePath, "utf8");
 
 test("deployment manifest contains existing files in dependency order", () => {
   assert.ok(migrations.length > 70);
@@ -42,4 +44,40 @@ test("profile foundation is additive and preserves existing accounts and rows", 
   for (const field of ["email", "display_name", "first_name", "last_name", "timezone", "step_goal", "goals", "training_profile", "generated_programme", "active_programme_id", "updated_at"]) assert.match(profile, new RegExp(`add column if not exists ${field}`));
   assert.match(profile, /on delete cascade/);
   assert.doesNotMatch(profile, /insert into auth\.users/i);
+});
+
+test("manual reconciliation bundle is a single-paste schema contract", () => {
+  assert.ok(existsSync(manualBundlePath));
+  assert.match(manualBundle, /R12 MADHOUSE MANUAL SCHEMA RECONCILIATION/);
+  assert.match(manualBundle, /2026-11-22-r12-profile-foundation\.sql/);
+  assert.match(manualBundle, /2026-11-22-r12-deployment-ledger\.sql/);
+  for (const required of [
+    "2026-11-16-club-staff-permission-model.sql",
+    "2026-11-17-club-staff-account-onboarding.sql",
+    "2026-11-18-member-acquisition-onboarding.sql",
+    "2026-11-19-madhouse-billing-and-tutorials.sql",
+    "2026-11-20-club-venue-checks-maintenance.sql",
+    "2026-11-21-notification-engine.sql",
+    "2026-10-13-club-supplier-catalogue-parent-variants.sql",
+  ]) assert.match(manualBundle, new RegExp(required.replaceAll(".", "\\.")));
+  for (const baseline of [
+    "2026-09-03-club-foundation.sql",
+    "2026-09-06-club-staff-access-grants.sql",
+    "2026-09-26-coach-safe-workflow.sql",
+    "2026-10-05-coach-organisation-boundary.sql",
+    "2026-10-05-coach-staff-access-management.sql",
+  ]) assert.doesNotMatch(manualBundle, new RegExp(`APPLY supabase/migrations/${baseline}`));
+  for (const excluded of [
+    "club-go-live-reset.sql",
+    "morning-stocktake.sql",
+    "rotherham-stocktake.sql",
+    "reviewed-family-images.sql",
+    "backfill-active-sports-generated-prices.sql",
+  ]) assert.doesNotMatch(manualBundle, new RegExp(excluded));
+  assert.match(manualBundle, /create table if not exists public\.profiles/);
+  assert.match(manualBundle, /READ-ONLY READINESS DIAGNOSTICS/);
+  assert.match(manualBundle, /SCHEMA READY — RUN MADHOUSE BOOTSTRAP NEXT/);
+  assert.doesNotMatch(manualBundle, /insert into auth\.users/i);
+  assert.doesNotMatch(manualBundle, /insert into public\.club_organisations\s*\([^)]*\)\s*values/i);
+  assert.match(manualBundle, /r12_schema_migrations/);
 });
