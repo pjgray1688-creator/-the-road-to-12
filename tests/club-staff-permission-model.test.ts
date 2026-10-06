@@ -61,7 +61,7 @@ test("database evaluator is organisation-scoped, closed, and capability-authorit
 test("management grants provision exact role packages and staff RPCs remain server-authorised", () => {
   assert.match(staffActions, /staffManager\(input\.organisationId\)/);
   assert.match(staffActions, /hasCapability\(context\.organisation\.id, user\.id, "staff\.permissions_manage"\)/);
-  assert.match(staffActions, /standard permission package for this role/);
+  assert.match(staffActions, /p_capabilities: expected/);
   assert.match(migration, /expected:=public\.club_capabilities_for_role\(p_role\)/);
   assert.match(migration, /The role permission package is invalid/);
   assert.doesNotMatch(staffActions, /\["owner", "gym_admin"\]\.includes/);
@@ -92,8 +92,8 @@ test("Coach access remains an explicit organisation permission, independent of C
 
 test("Staff UI exposes package state, individual overrides, and separate Coach state", () => {
   assert.match(staffPage, /Coach\/PT: \{coachEligible \? coachEnabled \? "Enabled" : "Disabled"/);
-  assert.match(staffPage, /Grant Coach access/);
-  assert.match(staffPage, /Revoke Coach access/);
+  assert.match(staffPage, /Enable Coach access/);
+  assert.match(staffPage, /Disable Coach access/);
   assert.match(staffEditor, /Individual permissions/);
   assert.match(staffEditor, /checked=\{effective\.includes\(capability\)\}/);
   assert.match(staffEditor, /management only/);

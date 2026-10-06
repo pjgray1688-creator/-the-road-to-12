@@ -27,7 +27,7 @@ test("authorised owners and managers may explicitly grant themselves Coach acces
   assert.doesNotMatch(migration, /p_user_id\s*(?:<>|is distinct from)\s*auth\.uid\(\)/i);
   assert.match(migration, /active and role in \('trainer','gym_admin','owner'\)/i);
   assert.match(staffPage, /\["trainer", "gym_admin", "owner"\]\.includes\(member\.role\)/);
-  assert.match(staffPage, /userId: member\.userId, active: !coachEnabled/);
+  assert.match(staffPage, /userId: member\.user_id, active: !coachEnabled/);
 });
 
 test("Coach permission grants and status reads stay within the selected organisation", () => {
@@ -49,9 +49,9 @@ test("eligible roles do not inherit Coach access while ordinary staff and member
 
 test("Club staff UI reports enabled, disabled and ineligible Coach states", () => {
   assert.match(staffPage, /Coach\/PT: \{coachEligible \? coachEnabled \? "Enabled" : "Disabled" : "Not eligible"\}/);
-  assert.match(staffPage, /Grant Coach access/);
-  assert.match(staffPage, /Revoke Coach access/);
-  assert.match(staffPage, /coachEligible && canManageCoach/);
+  assert.match(staffPage, /Enable Coach access/);
+  assert.match(staffPage, /Disable Coach access/);
+  assert.match(staffPage, /coachEligible && member\.active/);
   assert.match(staffPage, /\["trainer", "gym_admin", "owner"\]\.includes\(member\.role\)/);
 });
 

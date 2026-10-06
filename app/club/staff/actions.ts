@@ -14,13 +14,22 @@ async function staffManager(organisationId: string) {
   return { client, context, user };
 }
 
-export async function createStaffAccessGrant(input: { organisationId: string; email: string; displayName: string; role: "gym_staff" | "gym_admin" | "trainer"; locationIds: string[]; capabilities: string[] }) {
+export async function createStaffAccessGrant(input: { organisationId: string; email: string; displayName: string; role: "gym_staff" | "gym_admin" | "trainer"; locationIds: string[]; coachRequested: boolean; memberIntent: boolean }) {
   const manager = await staffManager(input.organisationId);
   if (!manager) return { ok: false as const, error: "You don’t have permission to manage staff access." };
-  if (input.capabilities.some(value => !clubCapabilities.includes(value as never))) return { ok: false as const, error: "Choose valid permissions." };
   const expected = resolveClubCapabilities(input.role);
-  if (input.capabilities.length !== expected.length || input.capabilities.some(value => !expected.includes(value as never))) return { ok: false as const, error: "Choose the standard permission package for this role." };
-  const { error } = await manager.client.rpc("club_create_staff_access_grant", { p_organisation_id: manager.context.organisation.id, p_email: input.email, p_display_name: input.displayName, p_role: input.role, p_location_ids: input.locationIds, p_capabilities: input.capabilities });
+  if (input.coachRequested && input.role === "gym_staff") return { ok: false as const, error: "Coach access is available only to Managers and PTs." };
+  const { error } = await manager.client.rpc("club_create_staff_access_grant", {
+    p_organisation_id: manager.context.organisation.id,
+    p_email: input.email,
+    p_display_name: input.displayName,
+    p_role: input.role,
+    p_location_ids: input.locationIds,
+    p_capabilities: expected,
+    p_coach_requested: input.coachRequested,
+    p_member_intent: input.memberIntent,
+  });
+  if (error?.code === "23505") return { ok: false as const, error: "Active or pending staff access already exists for that email." };
   if (error) return { ok: false as const, error: "Staff access could not be prepared." };
   revalidatePath("/club/staff");
   return { ok: true as const };

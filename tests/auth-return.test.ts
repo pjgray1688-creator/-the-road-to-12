@@ -15,4 +15,5 @@ test("account sign-in consumes a validated next path and retains the normal fall
   const source = readFileSync("app/account/page.tsx", "utf8");
   assert.match(source, /safeInternalReturnTo/);
   assert.match(source, /router\.push\(next \?\? "/);
+  assert.match(source, /if \(next\) \{ router\.replace\(next\); return; \}/);
 });
