@@ -197,3 +197,16 @@ test("final-state package has no historical string-repair blocks and keeps boots
   assert.match(finalBundle, /select count\(\*\) as organisations/);
   assert.match(finalBundle, /select count\(\*\) as coach_permissions/);
 });
+
+test("final-state package handles the staff-permission return-type transition", () => {
+  const legacy = readFileSync("supabase/migrations/2026-09-13-club-staff-capabilities-audit.sql", "utf8");
+  const current = readFileSync("supabase/migrations/2026-11-16-club-staff-permission-model.sql", "utf8");
+  const returnType = (sql: string) => sql.match(/create(?: or replace)? function public\.club_save_staff_permission\([^)]*\)\s*returns\s+(\w+)/i)?.[1];
+
+  assert.equal(returnType(legacy), "jsonb");
+  assert.equal(returnType(current), "void");
+  assert.equal((finalBundle.match(/drop function if exists public\.club_save_staff_permission\(uuid,uuid,text,text\);/g) ?? []).length, 1);
+  assert.match(finalBundle, /drop function if exists public\.club_save_staff_permission\(uuid,uuid,text,text\);\s*create or replace function public\.club_save_staff_permission\([^)]*\)\s*returns void/i);
+  assert.match(finalBundle, /revoke all on function public\.club_save_staff_permission\(uuid,uuid,text,text\)/i);
+  assert.match(finalBundle, /grant execute on function public\.club_save_staff_permission\(uuid,uuid,text,text\) to authenticated/i);
+});

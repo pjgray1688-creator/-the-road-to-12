@@ -5237,6 +5237,10 @@ $$;
 revoke all on function public.club_capability_allowed(uuid,uuid,text) from public,anon;
 grant execute on function public.club_capability_allowed(uuid,uuid,text) to authenticated;
 
+-- Return type changed from jsonb in the applied staff-audit contract to void
+-- in the canonical capability model. PostgreSQL requires an exact-signature
+-- drop before the final definition; no unrelated overload is touched.
+drop function if exists public.club_save_staff_permission(uuid,uuid,text,text);
 create or replace function public.club_save_staff_permission(p_organisation_id uuid,p_user_id uuid,p_capability text,p_decision text)
 returns void language plpgsql security definer set search_path=pg_catalog,public as $$
 declare target_role text;
