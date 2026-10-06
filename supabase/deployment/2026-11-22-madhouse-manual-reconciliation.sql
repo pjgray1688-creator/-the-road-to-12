@@ -62,6 +62,51 @@ alter table public.r12_schema_migrations enable row level security;
 revoke all on public.r12_schema_migrations from public,anon,authenticated;
 
 
+-- === R12 WHOOP FOUNDATION ===
+-- The historical 2026-08-30 patch assumes these tables already exist. The
+-- current application contract is the same as the repository schema contract.
+create table if not exists public.whoop_connections (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  access_token_encrypted text not null,
+  refresh_token_encrypted text,
+  expires_at timestamptz,
+  scopes text[] not null default '{}',
+  connected_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  last_sync_at timestamptz
+);
+alter table public.whoop_connections add column if not exists user_id uuid;
+alter table public.whoop_connections add column if not exists access_token_encrypted text;
+alter table public.whoop_connections add column if not exists refresh_token_encrypted text;
+alter table public.whoop_connections add column if not exists expires_at timestamptz;
+alter table public.whoop_connections add column if not exists scopes text[] not null default '{}';
+alter table public.whoop_connections add column if not exists connected_at timestamptz not null default now();
+alter table public.whoop_connections add column if not exists updated_at timestamptz not null default now();
+alter table public.whoop_connections add column if not exists last_sync_at timestamptz;
+create unique index if not exists whoop_connections_user_id_key on public.whoop_connections (user_id);
+alter table public.whoop_connections enable row level security;
+revoke all on public.whoop_connections from anon,authenticated;
+
+create table if not exists public.whoop_records (
+  user_id uuid not null references auth.users(id) on delete cascade,
+  provider_id text not null,
+  record_type text not null,
+  provider_timestamp timestamptz,
+  payload jsonb not null,
+  synced_at timestamptz not null default now(),
+  primary key (user_id, provider_id, record_type)
+);
+alter table public.whoop_records add column if not exists user_id uuid;
+alter table public.whoop_records add column if not exists provider_id text;
+alter table public.whoop_records add column if not exists record_type text;
+alter table public.whoop_records add column if not exists provider_timestamp timestamptz;
+alter table public.whoop_records add column if not exists payload jsonb;
+alter table public.whoop_records add column if not exists synced_at timestamptz not null default now();
+create unique index if not exists whoop_records_identity_key on public.whoop_records (user_id, provider_id, record_type);
+alter table public.whoop_records enable row level security;
+revoke all on public.whoop_records from anon,authenticated;
+
+
 -- === APPLY supabase/migrations/2026-08-30-whoop-persistence.sql ===
 alter table if exists public.whoop_connections add column if not exists updated_at timestamptz not null default now();
 alter table if exists public.whoop_connections add column if not exists last_sync_at timestamptz;

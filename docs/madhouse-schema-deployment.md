@@ -24,9 +24,11 @@ Peter should use the raw SQL bundle, not local tooling:
 3. Run it once.
 4. Review the final read-only result sets and the `SCHEMA READY — RUN MADHOUSE BOOTSTRAP NEXT` marker.
 
-The bundle assumes the known manual baseline below. It contains the remaining schema/RPC contract in dependency order, the final additive profiles shape, a reconciliation marker, and read-only readiness diagnostics. It does not create organisations, members, memberships, payments, Auth users, or Coach grants.
+The bundle assumes the known manual baseline below. It contains the remaining schema/RPC contract in dependency order, the final additive profiles shape, an explicit WHOOP foundation required by the historical WHOOP patch, a reconciliation marker, and read-only readiness diagnostics. It does not create organisations, members, memberships, payments, Auth users, or Coach grants.
 
 The SQL bundle is the established deployment workflow and requires no `psql`, Homebrew, Supabase CLI, local PostgreSQL, Docker, or local database connection.
+
+The bundle is safe to start again after the earlier WHOOP failure: the only sections before that failure were the additive profile reconciliation and deployment-ledger creation. Both are guarded and contain no operational Club/member/payment mutations. The corrected bundle also guards the WHOOP tables and proceeds from the top.
 
 ## Optional advanced route
 

@@ -81,3 +81,19 @@ test("manual reconciliation bundle is a single-paste schema contract", () => {
   assert.doesNotMatch(manualBundle, /insert into public\.club_organisations\s*\([^)]*\)\s*values/i);
   assert.match(manualBundle, /r12_schema_migrations/);
 });
+
+test("manual bundle contains the missing foundations before dependent historical patches", () => {
+  const position = (value: string) => manualBundle.indexOf(value);
+  assert.ok(position("-- === R12 WHOOP FOUNDATION ===") > 0);
+  assert.ok(position("create table if not exists public.whoop_connections") < position("-- === APPLY supabase/migrations/2026-08-30-whoop-persistence.sql ==="));
+  assert.ok(position("create table if not exists public.whoop_records") < position("-- === APPLY supabase/migrations/2026-08-30-whoop-persistence.sql ==="));
+  for (const field of ["access_token_encrypted", "refresh_token_encrypted", "expires_at", "scopes", "connected_at", "last_sync_at"]) assert.match(manualBundle, new RegExp(`whoop_connections[\\s\\S]{0,1800}${field}`));
+  for (const field of ["provider_id", "record_type", "provider_timestamp", "payload", "synced_at"]) assert.match(manualBundle, new RegExp(`whoop_records[\\s\\S]{0,1800}${field}`));
+  assert.ok(position("-- === APPLY supabase/migrations/2026-08-31-workout-persistence.sql ===") < position("-- === APPLY supabase/migrations/2026-09-01-training-programmes.sql ==="));
+  assert.ok(migrations.indexOf("supabase/migrations/2026-08-31-workout-persistence.sql") < migrations.indexOf("supabase/migrations/2026-09-26-coach-safe-workflow.sql"));
+  assert.ok(position("-- === APPLY supabase/migrations/2026-10-13-club-supplier-catalogue-parent-variants.sql ===") < position("-- === APPLY supabase/migrations/2026-09-15-shared-shop-supplier-catalogue.sql ==="));
+  assert.ok(position("-- === APPLY supabase/migrations/2026-10-13-glow-zone-transactional.sql ===") < position("-- === APPLY supabase/migrations/2026-09-17-glow-age-status-read.sql ==="));
+  assert.ok(position("-- === APPLY supabase/migrations/2026-11-20-club-venue-checks-maintenance.sql ===") < position("-- === APPLY supabase/migrations/2026-11-21-notification-engine.sql ==="));
+  assert.match(manualBundle, /create table if not exists public\.club_member_notification_intents/);
+  assert.match(manualBundle, /create table if not exists public\.club_checklist_templates/);
+});
