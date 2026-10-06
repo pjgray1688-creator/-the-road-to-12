@@ -112,5 +112,6 @@ test("first Madhouse bootstrap is explicit, idempotent and never fabricates iden
   assert.match(bootstrap, /values\(v_organisation_id,'Rotherham',true\)/);
   assert.match(bootstrap, /values\(v_organisation_id,v_user_id,'gym_admin',true\)/);
   assert.doesNotMatch(bootstrap, /insert into auth\.users/i);
-  assert.doesNotMatch(bootstrap, /coach_permissions|club_memberships|club_membership_holders/);
+  assert.doesNotMatch(bootstrap, /club_memberships|club_membership_holders/);
+  assert.match(bootstrap, /v_grant_coach boolean := false/);
 });
