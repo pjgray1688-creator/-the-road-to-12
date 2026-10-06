@@ -10,6 +10,8 @@ const runner = readFileSync("scripts/apply-madhouse-schema.sh", "utf8");
 const profile = readFileSync("supabase/deployment/2026-11-22-r12-profile-foundation.sql", "utf8");
 const manualBundlePath = "supabase/deployment/2026-11-22-madhouse-manual-reconciliation.sql";
 const manualBundle = readFileSync(manualBundlePath, "utf8");
+const finalBundlePath = "supabase/deployment/2026-11-22-madhouse-final-state-reconciliation.sql";
+const finalBundle = readFileSync(finalBundlePath, "utf8");
 const commerceFoundation = readFileSync("supabase/migrations/2026-09-08-club-commerce-payments-inventory.sql", "utf8");
 const commerceBrand = readFileSync("supabase/migrations/2026-09-20-club-commerce-product-brand.sql", "utf8");
 
@@ -122,4 +124,76 @@ test("supplier RPCs use the final commerce and supplier column contracts", () =>
   assert.ok(supplierSection < demandFunction);
   assert.match(manualBundle, /club_list_supplier_demand[\s\S]*'brand',coalesce\(cp\.brand,sp\.brand\)/);
   assert.match(manualBundle, /do \$constraint\$[\s\S]*club_commerce_products_brand_length/);
+});
+
+test("final-state reconciliation is the smaller canonical deployment package", () => {
+  assert.ok(existsSync(finalBundlePath));
+  assert.ok(finalBundle.split(/\r?\n/).length < manualBundle.split(/\r?\n/).length);
+  assert.match(finalBundle, /R12 MADHOUSE FINAL-STATE RECONCILIATION/);
+  assert.match(finalBundle, /Copy this entire file into Supabase SQL Editor and run once/);
+  assert.match(finalBundle, /FINAL RECONCILIATION MARKER/);
+  assert.match(finalBundle, /READ-ONLY FINAL CONTRACT DIAGNOSTICS/);
+  assert.match(finalBundle, /SCHEMA READY — RUN MADHOUSE BOOTSTRAP NEXT/);
+  assert.doesNotMatch(finalBundle, /pg_get_functiondef/i);
+  assert.doesNotMatch(finalBundle, /Expected promotion alias was not found/i);
+  assert.doesNotMatch(finalBundle, /Expected finalisation promotion alias was not found/i);
+  assert.doesNotMatch(finalBundle, /historical function-definition string replacement/i);
+  assert.doesNotMatch(finalBundle, /club-go-live-reset|morning-stocktake|rotherham-stocktake|backfill-active-sports-generated-prices/i);
+  assert.doesNotMatch(finalBundle, /insert into auth\.users/i);
+  assert.doesNotMatch(finalBundle, /insert into public\.club_organisations\s*\([^)]*\)\s*values/i);
+});
+
+test("final-state package contains the current launch contract and canonical repair-chain results", () => {
+  for (const objectName of [
+    "public.profiles",
+    "public.whoop_connections",
+    "public.whoop_records",
+    "public.workout_sessions",
+    "public.club_organisations",
+    "public.club_locations",
+    "public.club_members",
+    "public.club_customers",
+    "public.club_memberships",
+    "public.club_orders",
+    "public.club_commerce_products",
+    "public.club_supplier_products",
+    "public.club_supplier_parent_products",
+    "public.club_supplier_variant_prices",
+    "public.coach_permissions",
+    "public.club_checklist_templates",
+    "public.club_equipment_assets",
+    "public.club_maintenance_issues",
+    "public.club_member_notification_intents",
+  ]) assert.match(finalBundle, new RegExp(objectName.replaceAll(".", "\\.")), objectName);
+
+  for (const routineName of [
+    "club_evaluate_commerce_promotions",
+    "club_finalize_paid_order",
+    "club_list_supplier_demand",
+    "club_create_staff_access_grant",
+    "club_claim_staff_access_grant",
+    "club_start_membership_joining",
+    "club_claim_existing_member",
+    "club_submit_daily_check",
+    "club_claim_notification_intents",
+  ]) assert.match(finalBundle, new RegExp(`function public\\.${routineName}`), routineName);
+
+  assert.match(finalBundle, /alter table public\.club_commerce_products add column if not exists brand text/);
+  assert.match(finalBundle, /'brand',coalesce\(cp\.brand,sp\.brand\)/);
+  assert.match(finalBundle, /applied_promotion\.promotion_id/);
+  assert.match(finalBundle, /as applied_item/);
+  assert.match(finalBundle, /club_stock_movements_idempotency_unique/);
+  assert.match(finalBundle, /club_stock_movements[\s\S]*on conflict[\s\S]*where idempotency_key is not null/);
+  assert.doesNotMatch(finalBundle, /FINAL CONTRACT: 2026-10-06-fix-commerce-promotion-alias\.sql/);
+  assert.doesNotMatch(finalBundle, /FINAL CONTRACT: 2026-10-07-fix-finalise-promotion-alias\.sql/);
+  assert.doesNotMatch(finalBundle, /FINAL CONTRACT: 2026-10-08-fix-stock-idempotency-constraint\.sql/);
+  assert.doesNotMatch(finalBundle, /FINAL CONTRACT: 2026-10-09-fix-stock-conflict-target\.sql/);
+});
+
+test("final-state package has no historical string-repair blocks and keeps bootstrap separate", () => {
+  assert.doesNotMatch(finalBundle, /declare\s+definition\s+text[\s\S]{0,600}execute\s+definition/i);
+  assert.doesNotMatch(finalBundle, /madhouse-first-organisation-bootstrap\.sql/i);
+  assert.match(finalBundle, /no Auth users, tenants, members, memberships, payments/);
+  assert.match(finalBundle, /select count\(\*\) as organisations/);
+  assert.match(finalBundle, /select count\(\*\) as coach_permissions/);
 });

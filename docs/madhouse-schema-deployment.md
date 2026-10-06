@@ -1,34 +1,34 @@
 # Madhouse schema deployment
 
-This is the reviewed path from the known partially-applied Supabase state to the current R12 launch schema. It is repository-only until a trusted operator deliberately supplies a database connection string. It does not create Auth users, staff, members, memberships, supplier data, payments, or stock.
+This is the reviewed path from the known partially-applied Supabase state to the current R12 launch schema. It is repository-only until a trusted operator deliberately opens the raw SQL in Supabase. It does not create Auth users, staff, members, memberships, supplier data, payments, or stock.
 
 ## What was reconciled
 
-The repository contains 106 migration files. The launch manifest contains 98 ordered schema and RPC contract files, including the later corrective replacements. The runner records successful files in `public.r12_schema_migrations` and verifies the file checksum on every later run.
+The repository contains historical migration files, but the launch path is now a final-state reconciliation package. Historical replay is deliberately retired: repair migrations depended on exact intermediate function text and failed against the partially-applied database. The final package defines the current additive schema/RPC contract directly and records one reconciliation marker in `public.r12_schema_migrations`.
 
 The known manual baseline is recorded, not replayed:
 
 - Club foundation, branding, entitlement, transactional RPC, authenticated privileges, staff grants, classes/services, finance, member hub, commerce/inventory, shifts, cash/promotions, and staff capability audit.
 - Coach safe workflow, organisation boundary, and staff access management.
 
-The manifest deliberately excludes the go-live reset, physical stocktakes, reviewed image/data backfills, and the Active Sports generated-price backfill. Those are separate reviewed operational actions and must not be part of schema deployment.
+The final package deliberately excludes the go-live reset, physical stocktakes, reviewed image/data backfills, supplier imports, Active Sports reconciliation/timing work, generated-price backfills, and all tenant/bootstrap data. Those are separate reviewed operational actions and must not be part of schema deployment.
 
-It is intentionally not pure filename order. The commerce-product brand contract is applied before supplier commerce because the supplier-demand RPC reads `club_commerce_products.brand`. Supplier-commerce tables are then created before the later parent/variant tables, and those tables are created before the older September supplier RPCs that reference them. The Glow Zone transaction tables likewise precede its September read RPC. This resolves the historical filename/column/dependency mismatches.
+The final package is grouped by dependency rather than filename. Commerce product columns, supplier tables, parent/variant tables, Glow tables, Coach dependencies, and launch-era Club domains are established before the canonical RPCs that use them. It contains no `pg_get_functiondef` or historical text-replacement repair block.
 
 ## Peter's primary workflow: one SQL Editor paste/run
 
 Peter should use the raw SQL bundle, not local tooling:
 
-1. Open [`2026-11-22-madhouse-manual-reconciliation.sql`](../supabase/deployment/2026-11-22-madhouse-manual-reconciliation.sql) as a raw text file.
+1. Open [`2026-11-22-madhouse-final-state-reconciliation.sql`](../supabase/deployment/2026-11-22-madhouse-final-state-reconciliation.sql) as a raw text file.
 2. Copy the entire file into the Supabase SQL Editor.
 3. Run it once.
 4. Review the final read-only result sets and the `SCHEMA READY — RUN MADHOUSE BOOTSTRAP NEXT` marker.
 
-The bundle assumes the known manual baseline below. It contains the remaining schema/RPC contract in dependency order, the final additive profiles shape, an explicit WHOOP foundation required by the historical WHOOP patch, a reconciliation marker, and read-only readiness diagnostics. It does not create organisations, members, memberships, payments, Auth users, or Coach grants.
+The final-state bundle assumes the known manual baseline below and is safe to rerun after the failed replay attempts. It contains the additive profiles/WHOOP/workout foundations and the current schema/RPC contract, a final-state marker, and read-only readiness diagnostics. It does not create organisations, members, memberships, payments, Auth users, or Coach grants.
 
 The SQL bundle is the established deployment workflow and requires no `psql`, Homebrew, Supabase CLI, local PostgreSQL, Docker, or local database connection.
 
-The bundle is safe to start again after the earlier WHOOP failure: the only sections before that failure were the additive profile reconciliation and deployment-ledger creation. Both are guarded and contain no operational Club/member/payment mutations. The corrected bundle also guards the WHOOP tables and proceeds from the top.
+The former [`2026-11-22-madhouse-manual-reconciliation.sql`](../supabase/deployment/2026-11-22-madhouse-manual-reconciliation.sql) is **SUPERSEDED — DO NOT RUN AGAIN**. It is retained only as evidence of the failed replay approach. The final-state bundle is safe to start from the top after the WHOOP, supplier, and promotion-repair failures: it uses additive guards and canonical `CREATE OR REPLACE FUNCTION` definitions, and it preserves existing rows.
 
 ## Optional advanced route
 
@@ -40,7 +40,7 @@ R12_DATABASE_URL='[reviewed connection string]' ./scripts/apply-madhouse-schema.
 
 It runs the same additive profile foundation and manifest in order with `ON_ERROR_STOP=1`. It is not required for Peter's normal workflow.
 
-Do not run the old migration files manually after this process has started. If the database differs from the stated baseline, stop and review the diagnostic output before adding a deliberate baseline entry.
+Do not run the superseded replay bundle or historical repair migrations manually. If the database differs from the stated baseline, stop and review the diagnostic output before a deliberate forward change.
 
 ## Read-only readiness checks
 
@@ -86,4 +86,4 @@ Keenan's eventual protected owner designation remains a separate reviewed action
 
 ## Future workflow
 
-Every new migration must be added to the manifest in dependency order and tested. Apply it only through the runner; the ledger and checksum make drift visible. Keep data imports, stocktakes, payment/provider events, resets, and tenant bootstrap outside the schema manifest. Never mark a migration applied unless its SQL completed successfully on the target database.
+Every future schema change must be added to a reviewed final-state/forward SQL artifact and tested against the current contract. Keep the manifest and runner as optional advanced tooling/reference; Peter's normal path remains a reviewed raw SQL file in Supabase SQL Editor. Keep data imports, stocktakes, payment/provider events, resets, and tenant bootstrap outside schema deployment. Never mark a deployment ready unless its SQL completed successfully on the target database and the read-only diagnostics pass.

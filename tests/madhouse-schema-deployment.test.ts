@@ -11,7 +11,7 @@ test("Madhouse runbook gives one controlled deployment and read-only verificatio
   assert.match(runbook, /r12_schema_migrations/);
   assert.match(runbook, /to_regclass/);
   assert.match(runbook, /club_claim_notification_intents/);
-  assert.match(runbook, /Do not run the old migration files manually/);
+  assert.match(runbook, /Do not run the superseded replay bundle or historical repair migrations manually/);
 });
 
 test("first organisation bootstrap requires a verified existing Auth identity", () => {
@@ -30,4 +30,3 @@ test("runner cannot silently continue after a migration checksum or SQL failure"
   assert.match(runner, /exit 4/);
   assert.match(runner, /psql .* -f/);
 });
-
