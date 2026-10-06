@@ -44,6 +44,15 @@ export async function revokeStaffAccessGrant(organisationId: string, grantId: st
   return { ok: true as const };
 }
 
+export async function resendStaffInvitation(organisationId: string, grantId: string) {
+  const manager = await staffManager(organisationId);
+  if (!manager) return { ok: false as const, error: "You don’t have permission to manage staff invitations." };
+  const { error } = await manager.client.rpc("club_resend_staff_invitation", { p_organisation_id: manager.context.organisation.id, p_grant_id: grantId });
+  if (error) return { ok: false as const, error: "The invitation could not be queued." };
+  revalidatePath("/club/staff");
+  return { ok: true as const };
+}
+
 export async function claimStaffAccessGrant(grantId: string) {
   const client = await serverSupabase();
   const { data: { user } } = await client.auth.getUser();
