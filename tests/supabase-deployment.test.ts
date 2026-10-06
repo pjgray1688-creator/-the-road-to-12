@@ -210,3 +210,47 @@ test("final-state package handles the staff-permission return-type transition", 
   assert.match(finalBundle, /revoke all on function public\.club_save_staff_permission\(uuid,uuid,text,text\)/i);
   assert.match(finalBundle, /grant execute on function public\.club_save_staff_permission\(uuid,uuid,text,text\) to authenticated/i);
 });
+
+test("final-state schema objects are replay-safe", () => {
+  const lines = finalBundle.split(/\r?\n/);
+  const policyCreations = lines
+    .map((line, index) => ({ line, index }))
+    .filter(({ line }) => /^\s*create policy\s+/i.test(line));
+  assert.equal(policyCreations.length, 15);
+  for (const { line, index } of policyCreations) {
+    const name = line.match(/^\s*create policy\s+(?:"([^"]+)"|([a-z0-9_]+))/i)?.[1] ?? line.match(/^\s*create policy\s+(?:"([^"]+)"|([a-z0-9_]+))/i)?.[2];
+    const table = line.match(/\bon\s+(public\.[a-z0-9_]+)/i)?.[1];
+    assert.ok(name && table, `policy declaration is parseable: ${line}`);
+    const preceding = lines.slice(Math.max(0, index - 8), index + 1).join("\n");
+    const dropPattern = new RegExp(`drop policy if exists ["']?${name!.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}["']? on ${table}`, "i");
+    const guarded = /if\s+not\s+exists\s*\(\s*select\s+1\s+from\s+pg_policies/i.test(preceding);
+    assert.ok(dropPattern.test(preceding) || guarded, `policy is not guarded or recreated: ${line}`);
+  }
+
+  const triggerCreations = lines
+    .map((line, index) => ({ line, index }))
+    .filter(({ line }) => /^\s*create trigger\s+/i.test(line));
+  for (const { line, index } of triggerCreations) {
+    const name = line.match(/^\s*create trigger\s+([a-z0-9_]+)/i)?.[1];
+    assert.ok(name, `trigger declaration is parseable: ${line}`);
+    const preceding = lines.slice(Math.max(0, index - 6), index + 1).join("\n");
+    assert.match(preceding, new RegExp(`drop trigger if exists ${name}`, "i"), line);
+  }
+
+  for (const line of lines.filter(line => /^\s*create (?:unique )?index\s+/i.test(line))) {
+    assert.match(line, /create (?:unique )?index if not exists /i, line);
+  }
+
+  for (const { line, index } of lines.map((line, index) => ({ line, index })).filter(({ line }) => /\badd constraint\s+([a-z0-9_]+)/i.test(line))) {
+    const name = line.match(/\badd constraint\s+([a-z0-9_]+)/i)![1];
+    const surrounding = lines.slice(Math.max(0, index - 20), index + 8).join("\n");
+    const guarded = /if\s+not\s+exists\s*\(\s*select\s+1\s+from\s+pg_constraint/i.test(surrounding)
+      || /exception\s+when\s+duplicate_object/i.test(surrounding);
+    assert.ok(
+      new RegExp(`drop constraint if exists ${name}`, "i").test(surrounding) || guarded,
+      `constraint is not guarded or recreated: ${line}`,
+    );
+  }
+
+  assert.doesNotMatch(finalBundle, /^\s*create (?:type|view|materialized view)\b/im);
+});

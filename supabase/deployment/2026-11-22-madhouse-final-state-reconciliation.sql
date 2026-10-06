@@ -3513,6 +3513,7 @@ create index if not exists club_join_requests_user_idx on public.club_membership
 alter table public.club_membership_join_requests enable row level security;
 revoke all on table public.club_membership_join_requests from public, anon, authenticated;
 grant select on table public.club_membership_join_requests to authenticated;
+drop policy if exists club_join_requests_subject_select on public.club_membership_join_requests;
 create policy club_join_requests_subject_select on public.club_membership_join_requests for select to authenticated using (user_id=auth.uid());
 
 create or replace function public.club_list_joinable_organisations()
@@ -3584,6 +3585,7 @@ create index if not exists club_product_families_org_idx on public.club_product_
 create index if not exists club_commerce_products_family_idx on public.club_commerce_products(organisation_id, family_id, active);
 
 alter table public.club_product_families enable row level security;
+drop policy if exists club_product_families_select on public.club_product_families;
 create policy club_product_families_select on public.club_product_families for select to authenticated using (
   public.club_has_active_role(organisation_id,array['gym_staff','gym_admin','owner']) or (active and archived_at is null and public.club_has_customer_access(organisation_id))
 );
@@ -4197,6 +4199,7 @@ begin
   return new;
 end; $$;
 revoke all on function public.club_supplier_commercial_sync() from public,anon,authenticated;
+drop trigger if exists club_supplier_commercial_sync on public.club_supplier_products;
 create trigger club_supplier_commercial_sync before insert or update on public.club_supplier_products for each row execute function public.club_supplier_commercial_sync();
 
 create or replace function public.club_supplier_commercial_audit() returns trigger
@@ -4220,6 +4223,7 @@ begin
   return new;
 end; $$;
 revoke all on function public.club_supplier_commercial_audit() from public,anon,authenticated;
+drop trigger if exists club_supplier_commercial_audit on public.club_supplier_products;
 create trigger club_supplier_commercial_audit after insert or update on public.club_supplier_products for each row execute function public.club_supplier_commercial_audit();
 
 -- This is the same importer boundary as v2 with complete validation and real reconciliation.
@@ -4350,6 +4354,7 @@ begin
   return new;
 end; $$;
 revoke all on function public.club_supplier_canonical_price_changed() from public,anon,authenticated;
+drop trigger if exists club_supplier_canonical_price_changed on public.club_commerce_products;
 create trigger club_supplier_canonical_price_changed after update of sell_price_minor,stock_tracked,cost_price_minor on public.club_commerce_products for each row execute function public.club_supplier_canonical_price_changed();
 
 -- Imported current cost is corrected through a reviewed CSV refresh. Preserve the existing
@@ -4406,6 +4411,7 @@ begin
   return new;
 end; $$;
 revoke all on function public.club_guard_supplier_order_item() from public,anon,authenticated;
+drop trigger if exists club_guard_supplier_order_item on public.club_order_items;
 create trigger club_guard_supplier_order_item before insert on public.club_order_items for each row execute function public.club_guard_supplier_order_item();
 -- Keep generic supplier imports available while requiring the final-file gate for Active Sports.
 do $$
