@@ -6270,9 +6270,10 @@ begin
     raise exception 'Joining details are incomplete' using errcode='22023';
   end if;
   if not exists(select 1 from public.club_locations where id=p_location_id and organisation_id=p_organisation_id and active) then raise exception 'Venue is unavailable' using errcode='22023'; end if;
-  select p,o.slug into v_product,v_slug from public.club_products p join public.club_organisations o on o.id=p.organisation_id
+  select p.* into v_product from public.club_products p join public.club_organisations o on o.id=p.organisation_id
     where p.id=p_product_id and p.organisation_id=p_organisation_id and p.kind='membership' and p.sellable and p.archived_at is null and o.active and o.member_joinable;
   if not found then raise exception 'Membership product is unavailable' using errcode='22023'; end if;
+  select slug into v_slug from public.club_organisations where id=v_product.organisation_id;
   v_checkout:=case when v_product.price_minor=0 then 'free' when v_product.billing='recurring' then 'monthly_recurring'
     when v_product.duration_days=1 then 'day_pass' when v_product.duration_days=7 then 'week_pass'
     when v_product.duration_days>=365 then 'annual_one_off' else 'one_off' end;

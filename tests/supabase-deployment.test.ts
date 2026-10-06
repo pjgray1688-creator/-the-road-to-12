@@ -214,6 +214,20 @@ test("final-state package handles the staff-permission return-type transition", 
 test("final-state schema objects are replay-safe", () => {
   const lines = finalBundle.split(/\r?\n/);
 
+  const rowtypeOrRecordVariables = new Set<string>();
+  for (const match of finalBundle.matchAll(/\b([a-z_][a-z0-9_]*)\s+(?:public\.[a-z_][a-z0-9_]*%rowtype|record)\b/gi)) {
+    rowtypeOrRecordVariables.add(match[1].toLowerCase());
+  }
+  for (const match of finalBundle.matchAll(/\binto\s+([a-z_][a-z0-9_]*(?:\s*,\s*[a-z_][a-z0-9_]*)+)\s*(?=from|;|\n)/gi)) {
+    const firstTarget = match[1].split(",")[0].trim().toLowerCase();
+    assert.equal(
+      rowtypeOrRecordVariables.has(firstTarget),
+      false,
+      `record/rowtype variable cannot be part of a multi-target INTO list: ${match[0]}`,
+    );
+  }
+  assert.match(finalBundle, /select p\.\* into v_product[\s\S]*?select slug into v_slug/i);
+
   assert.match(
     finalBundle,
     /create or replace function public\.club_import_supplier_catalogue\(p_organisation_id uuid,p_supplier_name text,p_file_name text,p_rows jsonb\)/i,
