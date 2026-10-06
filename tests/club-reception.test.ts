@@ -27,6 +27,9 @@ test("reception route is operationally protected and keeps organisation context"
 
 test("customer creation and account linking use the audit boundary", () => {
   const source = readFileSync("app/club/members/actions.ts", "utf8");
+  const migration = readFileSync("supabase/migrations/2026-11-18-member-acquisition-onboarding.sql", "utf8");
   assert.match(source, /action: "person\.created"/);
-  assert.match(source, /action: "customer\.account_linked"/);
+  assert.match(source, /club_staff_link_member_account/);
+  assert.match(migration, /'member\.account_staff_linked'/);
+  assert.match(migration, /auth\.uid\(\),actor_role/);
 });

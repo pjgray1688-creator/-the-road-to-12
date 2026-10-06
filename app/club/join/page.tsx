@@ -6,24 +6,18 @@ import { AppShell, EmptyState, PageHeader, Surface } from "@/components/ui";
 import { listClubOrganisationContexts } from "@/lib/club-server-context";
 import { serverSupabase } from "@/lib/supabase-server";
 import { ClubJoiningForm } from "@/components/club-joining-form";
-import { MemberClubUnavailable } from "@/components/club-member-home";
 
 export default async function ClubJoinPage({ searchParams }: { searchParams?: Promise<{ org?: string }> }) {
   const supabase = await serverSupabase(); const { data: { user } } = await supabase.auth.getUser(); if (!user) redirect("/account?mode=signIn&next=%2Fclub%2Fjoin");
-  const contexts = await listClubOrganisationContexts(supabase, user.id); const organisationId = (await searchParams)?.org; const context = organisationId ? contexts.find(item => item.organisation.id === organisationId) : contexts.length === 1 ? contexts[0] : undefined;
-  if (!context && !organisationId) {
-    const { data } = await supabase.rpc("club_list_joinable_organisations");
-    const organisations = Array.isArray(data) ? data as Array<{ id: string; name: string }> : [];
-    return <AppShell className="module-page club-page"><PageHeader eyebrow="R12 CLUB" title="Start joining" description="Choose a Club organisation to see its current membership options." />{organisations.length ? <Surface><div className="quick-grid">{organisations.map(item => <Link key={item.id} href={`/club/join?org=${encodeURIComponent(item.id)}`}><strong>{item.name}</strong><small>View membership options</small></Link>)}</div></Surface> : <MemberClubUnavailable />}<AppNav /></AppShell>;
-  }
-  if (!context && organisationId) {
-    const { data } = await supabase.rpc("club_list_joinable_organisations"); const organisation = (Array.isArray(data) ? data as Array<{ id: string; name: string; slug: string; active: boolean }> : []).find(item => item.id === organisationId);
-    if (!organisation) return <MemberClubUnavailable />;
-    const { data: productData } = await supabase.rpc("club_list_joinable_memberships", { p_organisation_id: organisationId });
-    const products = (Array.isArray(productData) ? productData : []).map(item => { const product = item as Record<string, unknown>; return { id: String(product.id), name: String(product.name), priceMinor: Number(product.price_minor), billing: String(product.billing), ...(product.duration_days != null ? { durationDays: Number(product.duration_days) } : {}) }; });
-    return <AppShell className="module-page club-page"><PageHeader eyebrow="R12 CLUB · JOINING" title={organisation.name} description="Choose a current sellable membership and record your joining details." /><ClubJoiningForm organisationId={organisationId} products={products} /><AppNav /></AppShell>;
-  }
-  const { data: productData } = await supabase.rpc("club_list_joinable_memberships", { p_organisation_id: context!.organisation.id });
-  const products = (Array.isArray(productData) ? productData : []).map(item => { const product = item as Record<string, unknown>; return { id: String(product.id), name: String(product.name), priceMinor: Number(product.price_minor), billing: String(product.billing), ...(product.duration_days != null ? { durationDays: Number(product.duration_days) } : {}) }; });
-  return <AppShell className="module-page club-page"><PageHeader eyebrow="R12 CLUB · JOINING" title="Membership options" description="Current sellable membership products from your Club catalogue." /><ClubSectionNav organisation={context!.organisation} role={context!.role} contexts={context!.availableContexts} /><ClubJoiningForm organisationId={context!.organisation.id} products={products} /><Link className="text-button" href={`/club?org=${encodeURIComponent(context!.organisation.id)}`}>Back to Club</Link><AppNav /></AppShell>;
+  const [{ data: orgData }, contexts] = await Promise.all([supabase.rpc("club_list_joinable_organisations"), listClubOrganisationContexts(supabase, user.id)]);
+  const organisations = Array.isArray(orgData) ? orgData as Array<{ id: string; name: string; slug: string }> : [];
+  const requestedId = (await searchParams)?.org; const organisation = organisations.find(item => item.id === requestedId) ?? (organisations.length === 1 ? organisations[0] : undefined);
+  if (!organisation) return <AppShell className="module-page club-page"><PageHeader eyebrow="R12 CLUB" title="Start joining" description="Choose a gym to see its current membership options." />{organisations.length ? <Surface><div className="quick-grid">{organisations.map(item => <Link key={item.id} href={`/club/join?org=${encodeURIComponent(item.id)}`}><strong>{item.name}</strong><small>View membership options</small></Link>)}</div></Surface> : <EmptyState title="Joining is not available yet">Ask your gym for the current join link.</EmptyState>}<AppNav /></AppShell>;
+  const context = contexts.find(item => item.organisation.id === organisation.id);
+  const [{ data: productData }, { data: locationData }, { data: joinState }] = await Promise.all([
+    supabase.rpc("club_list_joinable_memberships", { p_organisation_id: organisation.id }), supabase.rpc("club_list_join_locations", { p_organisation_id: organisation.id }), supabase.rpc("club_get_my_join_state", { p_organisation_id: organisation.id }),
+  ]);
+  const products = (Array.isArray(productData) ? productData : []).map(item => ({ id: String(item.id), name: String(item.name), priceMinor: Number(item.price_minor), billing: String(item.billing), ...(item.duration_days != null ? { durationDays: Number(item.duration_days) } : {}) }));
+  const locations = (Array.isArray(locationData) ? locationData : []).map(item => ({ id: String(item.id), name: String(item.name) }));
+  return <AppShell className="module-page club-page"><PageHeader eyebrow="R12 CLUB · JOINING" title={organisation.name} description="Choose a live membership and continue with your personal account." />{context ? <ClubSectionNav organisation={context.organisation} role={context.role} contexts={context.availableContexts} /> : null}<ClubJoiningForm organisationId={organisation.id} products={products} locations={locations} accountEmail={user.email ?? ""} initialState={(joinState ?? null) as never} /><AppNav /></AppShell>;
 }

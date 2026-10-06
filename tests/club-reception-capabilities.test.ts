@@ -11,13 +11,13 @@ test("reception member actions use the live capability boundary", () => {
   assert.match(source, /effectiveAt <= Date\.now\(\)/);
 });
 
-test("account linking validates active same-organisation identity before mutation", () => {
+test("account linking delegates verified identity and organisation checks to the authoritative RPC", () => {
   const source = readFileSync("app/club/members/actions.ts", "utf8");
-  assert.match(source, /listCustomers\(context\.organisation\.id\)/);
-  assert.match(source, /listMembers\(context\.organisation\.id\)/);
-  assert.match(source, /item\.userId === input\.userId && item\.active/);
-  assert.match(source, /already linked to another person/);
-  assert.match(source, /already linked to a different R12 account/);
+  const migration = readFileSync("supabase/migrations/2026-11-18-member-acquisition-onboarding.sql", "utf8");
+  assert.match(source, /club_staff_link_member_account/);
+  assert.match(migration, /email_confirmed_at is not null/);
+  assert.match(migration, /id=p_customer_id and organisation_id=p_organisation_id/);
+  assert.match(migration, /already linked to another member/);
 });
 
 test("repository capability helper calls the authenticated-actor RPC", () => {

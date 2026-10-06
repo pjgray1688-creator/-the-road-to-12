@@ -36,23 +36,16 @@ export async function assignMembershipAction(input: { organisationId: string; pr
   }
 }
 
-export async function linkClubCustomerAction(input: { organisationId: string; customerId: string; userId: string }): Promise<{ ok: boolean; error?: string }> {
+export async function linkClubCustomerAction(input: { organisationId: string; customerId: string; targetEmail: string; verificationMethod: "photo_id" | "membership_reference" | "in_person"; reason: string }): Promise<{ ok: boolean; error?: string }> {
   try {
     const supabase = await serverSupabase();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { ok: false, error: "Sign in to link an account." };
     const context = await resolveClubOperationalContext(supabase, user.id, input.organisationId);
     if (!context || !(await context.repository.hasCapability(context.organisation.id, user.id, "members.link_account"))) return { ok: false, error: "You don’t have permission to link accounts." };
-    const [customers, members] = await Promise.all([context.repository.listCustomers(context.organisation.id), context.repository.listMembers(context.organisation.id)]);
-    const customer = customers.find(item => item.id === input.customerId);
-    const target = members.find(item => item.userId === input.userId && item.active);
-    if (!customer) return { ok: false, error: "That person is not in this organisation." };
-    if (!target) return { ok: false, error: "Choose an active account in this organisation." };
-    const otherCustomer = customers.find(item => item.userId === input.userId && item.id !== input.customerId);
-    if (otherCustomer) return { ok: false, error: "That R12 account is already linked to another person." };
-    if (customer.userId && customer.userId !== input.userId) return { ok: false, error: "This person is already linked to a different R12 account." };
-    await context.repository.linkCustomerUser(input.customerId, input.userId);
-    await context.repository.appendAuditEvent({ organisationId: context.organisation.id, action: "customer.account_linked", targetType: "customer", targetId: input.customerId });
+    if (!input.targetEmail.includes("@") || input.reason.trim().length < 8) return { ok: false, error: "Enter the member’s verified R12 email and how their identity was checked." };
+    const { error } = await supabase.rpc("club_staff_link_member_account", { p_organisation_id: context.organisation.id, p_customer_id: input.customerId, p_target_email: input.targetEmail.trim(), p_verification_method: input.verificationMethod, p_reason: input.reason.trim() });
+    if (error) return { ok: false, error: "The account could not be safely linked. Confirm the verified R12 email and that it is not linked elsewhere." };
     revalidatePath(`/club/members?org=${encodeURIComponent(context.organisation.id)}`);
     revalidatePath(`/club/members/customer/${encodeURIComponent(input.customerId)}?org=${encodeURIComponent(context.organisation.id)}`);
     return { ok: true };
