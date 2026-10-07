@@ -34,7 +34,7 @@ export function renderNotification(input: NotificationTemplateInput) {
     case "member_activation":
       subject = "Activate your R12 account"; body = "Your R12 account can now be linked to your existing membership. Sign in with your verified email to continue."; path = "/member-hub/link"; break;
     case "coach_relationship_invite":
-      subject = "Your Coach has invited you to connect in R12"; body = `Your ${text(p.relationshipType, "coaching")} connection is ready to accept. Sign in or create your R12 account with this email to continue.`; path = "/coach/claim"; break;
+      subject = "Your Coach has invited you to connect in R12"; body = `Your ${text(p.relationshipType, "coaching")} connection is ready to accept. Sign in or create your R12 account with this email to continue.`; path = text(p.invitePath, text(p.claimPath, "/coach/claim")); break;
     case "join_incomplete":
       subject = "Continue joining Madhouse"; body = "You have a saved Madhouse joining application. Sign in to R12 to continue where you left off."; path = "/join/madhouse"; break;
     case "monthly_payment_failed":
