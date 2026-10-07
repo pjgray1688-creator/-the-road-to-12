@@ -9,6 +9,7 @@ test("Coach workflow keeps programme ownership separate from cover sessions", ()
   const migration = read("supabase/migrations/2026-09-26-coach-safe-workflow.sql");
   const boundaryMigration = read("supabase/migrations/2026-10-05-coach-organisation-boundary.sql");
   const workspace = read("components/coach-workspace.tsx");
+  const clientWorkspace = read("components/coach-client-workspace.tsx");
   const clientRoute = read("app/api/coach/clients/[id]/route.ts");
   const sessionRoute = read("app/api/coach/sessions/[id]/route.ts");
 
@@ -37,16 +38,16 @@ test("Coach workflow keeps programme ownership separate from cover sessions", ()
   assert.match(migration, /a\.active/);
   assert.match(migration, /l\.status='active'/);
   assert.doesNotMatch(migration, /values\(assignment\.organisation_id,assignment\.id,auth\.uid\(\),p_client_user_id,p_idempotency_key,p_programme_id\)/);
-  assert.match(workspace, /READ-ONLY PROGRAMME/);
+  assert.match(clientWorkspace, /Read only|Primary PT owned/);
   assert.match(workspace, /Session-scoped/);
   assert.match(workspace, /substitutions/);
   assert.match(workspace, /adaptations/);
   assert.match(sessionRoute, /coach_update_session/);
   assert.match(sessionRoute, /p_exercise_logs/);
   assert.match(workspace, /programmed exercises/);
-  assert.match(workspace, /programmeOwnerName/);
-  assert.match(workspace, /COACH SESSION RECORDS/);
-  assert.match(workspace, /Delivered by you/);
+  assert.match(clientWorkspace, /programmeOwnerName/);
+  assert.match(clientWorkspace, /Coached sessions/);
+  assert.match(clientWorkspace, /Delivered by you/);
   assert.match(workspace, /setNotes\(""\)/);
   assert.match(workspace, /Load/);
   assert.match(workspace, /RIR/);

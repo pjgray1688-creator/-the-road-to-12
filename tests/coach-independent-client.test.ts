@@ -7,6 +7,7 @@ const referralMigration = fs.readFileSync("supabase/migrations/2026-11-24-coach-
 const coverFixMigration = fs.readFileSync("supabase/migrations/2026-11-25-coach-cover-referral-fix.sql", "utf8");
 const invitationMigration = fs.readFileSync("supabase/migrations/2026-11-26-coach-invitation-email-polish.sql", "utf8");
 const workspace = fs.readFileSync("components/coach-workspace.tsx", "utf8");
+const clientWorkspace = fs.readFileSync("components/coach-client-workspace.tsx", "utf8");
 const page = fs.readFileSync("app/coach/page.tsx", "utf8");
 const relationshipsRoute = fs.readFileSync("app/api/coach/relationships/route.ts", "utf8");
 const claimRoute = fs.readFileSync("app/api/coach/relationships/claim/route.ts", "utf8");
@@ -81,6 +82,19 @@ test("zero-client Coach state has a useful Add client action", () => {
   assert.equal((workspace.match(/coach-header-action"/g) ?? []).length, 1);
   assert.doesNotMatch(workspace, /Replay Coach tutorial/);
   assert.doesNotMatch(workspace, /coach-empty-clients/);
+});
+
+test("selected Coach client has one coherent workspace with safe empty and missing states", () => {
+  for (const label of ["Overview", "Programme", "Nutrition", "Check-ins", "Progress", "History"]) assert.match(clientWorkspace, new RegExp(label));
+  assert.match(clientWorkspace, /What matters now/);
+  assert.match(clientWorkspace, /Read only/);
+  assert.match(clientWorkspace, /Primary PT owned/);
+  assert.match(clientWorkspace, /Missing/);
+  assert.match(clientWorkspace, /Progress will build here/);
+  assert.match(clientWorkspace, /No coached sessions yet/);
+  assert.match(workspace, /api\/coach\/nutrition\?client=/);
+  assert.match(page, /initialClientId/);
+  assert.match(page, /initialSection/);
 });
 
 test("member search is organisation-scoped and never a global people directory", () => {
