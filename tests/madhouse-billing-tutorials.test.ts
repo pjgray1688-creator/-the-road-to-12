@@ -97,10 +97,11 @@ test("Member tutorial teaches RIR and the real training concepts", () => {
 });
 
 test("Coach tutorial requires explicit Coach access and cannot change assignments", () => {
-  assert.equal(coachTutorialSteps.length, 10);
+  assert.equal(coachTutorialSteps.length, 5);
+  assert.equal((readFileSync("lib/tutorials.ts", "utf8").match(/COACH_TUTORIAL_VERSION = 2/g) ?? []).length, 1);
   assert.match(migration, /p_tutorial_key='coach_core'.*coach_permissions.*active/s);
   const save = migration.slice(migration.indexOf("create or replace function public.r12_save_my_tutorial_progress"));
   assert.doesNotMatch(save, /insert into public\.coach_permissions|update public\.coach_permissions|coach_client_assignments/);
   const content = coachTutorialSteps.map(step => `${step.title} ${step.body}`).join(" ");
-  for (const phrase of ["Primary PT", "cover PT", "Run this session", "completed R12 workouts", "substitutions", "permanent programme"]) assert.match(content, new RegExp(phrase, "i"));
+  for (const phrase of ["Primary PT", "cover PT", "Run the session", "load, reps and RIR", "substitutions", "Permanent programme"]) assert.match(content, new RegExp(phrase, "i"));
 });

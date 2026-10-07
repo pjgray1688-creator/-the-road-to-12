@@ -3,6 +3,7 @@ import { notificationConfig, type NotificationSender } from "./notification-prov
 export type NotificationTemplateKey =
   | "staff_invitation"
   | "member_activation"
+  | "coach_relationship_invite"
   | "join_incomplete"
   | "monthly_payment_failed"
   | "yearly_renewal_1_month"
@@ -32,6 +33,8 @@ export function renderNotification(input: NotificationTemplateInput) {
       sender = "staff"; subject = `Your ${organisation} staff access is ready`; body = `${organisation} has prepared personal ${text(p.role, "staff")} access for you. Use your own R12 account with ${text(p.email)} to accept it.`; path = `/club/staff/claim?grant=${encodeURIComponent(text(p.grantId))}`; break;
     case "member_activation":
       subject = "Activate your R12 account"; body = "Your R12 account can now be linked to your existing membership. Sign in with your verified email to continue."; path = "/member-hub/link"; break;
+    case "coach_relationship_invite":
+      subject = "Your Coach has invited you to connect in R12"; body = `Your ${text(p.relationshipType, "coaching")} connection is ready to accept. Sign in or create your R12 account with this email to continue.`; path = "/coach/claim"; break;
     case "join_incomplete":
       subject = "Continue joining Madhouse"; body = "You have a saved Madhouse joining application. Sign in to R12 to continue where you left off."; path = "/join/madhouse"; break;
     case "monthly_payment_failed":
@@ -54,4 +57,3 @@ export function renderNotification(input: NotificationTemplateInput) {
   const url = link(path);
   return { sender, subject, text: `${greeting}\n\n${body}\n\nContinue securely: ${url}\n\nR12`, html: `<main style="font-family:Arial,sans-serif;max-width:600px;margin:auto;color:#17131f"><p>${html(greeting)}</p><p>${html(body)}</p><p><a href="${html(url)}" style="display:inline-block;padding:12px 18px;background:#7c3aed;color:white;border-radius:8px;text-decoration:none">Continue in R12</a></p><p>R12</p></main>` };
 }
-

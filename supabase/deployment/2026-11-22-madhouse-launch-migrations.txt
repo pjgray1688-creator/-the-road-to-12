@@ -98,3 +98,4 @@ supabase/migrations/2026-11-18-member-acquisition-onboarding.sql
 supabase/migrations/2026-11-19-madhouse-billing-and-tutorials.sql
 supabase/migrations/2026-11-20-club-venue-checks-maintenance.sql
 supabase/migrations/2026-11-21-notification-engine.sql
+supabase/migrations/2026-11-23-coach-independent-client-relationships.sql

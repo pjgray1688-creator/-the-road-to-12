@@ -64,10 +64,10 @@ test("Coach workflow keeps programme ownership separate from cover sessions", ()
   assert.doesNotMatch(boundaryMigration, /coach_member\.role in \('trainer','gym_staff','gym_admin','owner'\)/);
   assert.match(clientRoute, /p_organisation_id: organisationId/);
   assert.match(clientRoute, /p_assignment_id: assignmentId/);
-  assert.match(clientRoute, /Coach assignment context required/);
-  assert.match(workspace, /organisationId: string; assignmentId: string/);
-  assert.match(workspace, /const identity = `\$\{client\.organisationId\}:\$\{client\.assignmentId\}`/);
-  assert.match(workspace, /organisationId: selected\.organisationId, assignmentId: selected\.assignmentId/);
+  assert.match(clientRoute, /Coach client context required/);
+  assert.match(workspace, /organisationId: string \| null; assignmentId: string/);
+  assert.match(workspace, /const identity = `\$\{client\.organisationId \?\? "direct"\}:\$\{client\.assignmentId\}`/);
+  assert.match(workspace, /organisationId: selected\.organisationId, assignmentId: selected\.assignmentId, relationshipId: selected\.relationshipId/);
 });
 
 test("Coach organisation boundaries are explicit and cannot be selected by an unauthorised caller", () => {
@@ -78,13 +78,13 @@ test("Coach organisation boundaries are explicit and cannot be selected by an un
   assert.match(boundaryMigration, /join public\.coach_permissions p on p\.organisation_id=a\.organisation_id and p\.user_id=auth\.uid\(\) and p\.active/);
   assert.match(baseMigration, /unique \(organisation_id, coach_user_id, idempotency_key\)/);
   assert.match(boundaryMigration, /coach_session_logs\.assignment_id=assignment\.id/);
-  assert.match(clientRoute, /if \(!organisationId \|\| !assignmentId\) return privateJson/);
+  assert.match(clientRoute, /if \(!assignmentId\) return privateJson/);
 });
 
 test("Coach duplicate entries stay distinct by assignment rather than client identity", () => {
   const workspace = read("components/coach-workspace.tsx");
   assert.match(workspace, /key=\{identity\}/);
-  assert.match(workspace, /selected\.organisationId\}:\$\{selected\.assignmentId/);
+  assert.match(workspace, /selected\.organisationId \?\? "direct"\}:\$\{selected\.assignmentId/);
   assert.doesNotMatch(workspace, /key=\{client\.clientUserId\}/);
 });
 

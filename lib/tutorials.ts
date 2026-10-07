@@ -1,6 +1,6 @@
 export const MEMBER_TUTORIAL_VERSION = 1;
 export const MADHOUSE_TUTORIAL_VERSION = 1;
-export const COACH_TUTORIAL_VERSION = 1;
+export const COACH_TUTORIAL_VERSION = 2;
 
 export type TutorialKey = "member_core" | "madhouse_connected" | "coach_core";
 export type TutorialStep = { eyebrow: string; title: string; body: string };
@@ -24,16 +24,11 @@ export const madhouseTutorialSteps: TutorialStep[] = [
 ];
 
 export const coachTutorialSteps: TutorialStep[] = [
-  { eyebrow: "R12 COACH", title: "Coach the assigned work", body: "R12 Coach shows only organisations and clients covered by your explicit Coach permission and assignment." },
-  { eyebrow: "CLIENTS", title: "Find an authorised client", body: "Assigned clients appear in the client list. New client links are prepared through the existing authorised Club and Coach assignment workflow—not by searching every R12 user." },
-  { eyebrow: "RELATIONSHIPS", title: "Primary PT and cover PT", body: "The primary PT owns the programme. A cover PT can read it and record what happens in an authorised session without taking ownership." },
-  { eyebrow: "CLIENT PROFILE", title: "Open the client", body: "Choose a client to load their programme, completed workout history and Coach session records." },
-  { eyebrow: "PROGRAMME", title: "Use the real programme workflow", body: "The client’s active R12 programme is shown read-only here. Programme creation and assignment remain with the existing member/primary-PT workflow; Coach does not invent an upload path." },
-  { eyebrow: "RUN A SESSION", title: "Open a programmed session", body: "Choose Run this session from the client programme. The new log is tied to that client, assignment and programmed session." },
-  { eyebrow: "LOGGING", title: "Record the session", body: "Log load, reps and RIR for the work delivered, then save in progress or complete the session." },
-  { eyebrow: "REVIEW", title: "Review member-completed work", body: "Client history shows completed R12 workouts so coaching decisions can use real recorded work." },
-  { eyebrow: "SESSION NOTES", title: "Record adaptations", body: "Notes, substitutions and adaptations describe today’s session. They do not silently rewrite the permanent programme." },
-  { eyebrow: "COVER BOUNDARY", title: "Cover changes stay session-scoped", body: "A cover PT may log today’s substitutions and adaptations. Programme ownership and permanent changes remain with the primary PT." },
+  { eyebrow: "WELCOME", title: "Your coaching workspace", body: "Keep your clients, programmes and session notes together in R12." },
+  { eyebrow: "CLIENTS", title: "Add and manage clients", body: "Connect with an existing R12 user or invite a client to join. Your clients will appear here whenever you need them." },
+  { eyebrow: "PRIMARY & COVER", title: "Primary PT or cover PT", body: "The primary PT manages the programme. A cover PT can run an authorised session and record what happened without taking over the programme." },
+  { eyebrow: "COACH A SESSION", title: "Run the session", body: "Open the client’s programme, choose today’s session and record load, reps and RIR as you coach." },
+  { eyebrow: "NOTES & CHANGES", title: "Record what happened", body: "Log substitutions, adaptations and notes from the session. Permanent programme changes stay with the primary PT." },
 ];
 
 export function tutorialVersion(key: TutorialKey) {
