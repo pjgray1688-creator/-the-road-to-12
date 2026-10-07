@@ -8,6 +8,7 @@ const coverFixMigration = fs.readFileSync("supabase/migrations/2026-11-25-coach-
 const invitationMigration = fs.readFileSync("supabase/migrations/2026-11-26-coach-invitation-email-polish.sql", "utf8");
 const workspace = fs.readFileSync("components/coach-workspace.tsx", "utf8");
 const clientWorkspace = fs.readFileSync("components/coach-client-workspace.tsx", "utf8");
+const dashboard = fs.readFileSync("components/coach-dashboard.tsx", "utf8");
 const page = fs.readFileSync("app/coach/page.tsx", "utf8");
 const relationshipsRoute = fs.readFileSync("app/api/coach/relationships/route.ts", "utf8");
 const claimRoute = fs.readFileSync("app/api/coach/relationships/claim/route.ts", "utf8");
@@ -76,7 +77,7 @@ test("unexpected Coach list failures are not shown as fake permission failures",
 });
 
 test("zero-client Coach state has a useful Add client action", () => {
-  assert.match(workspace, /Build your client list/);
+  assert.match(dashboard, /No active clients yet|Your clients/);
   assert.match(workspace, /Madhouse member/);
   assert.match(workspace, /Private client/);
   assert.equal((workspace.match(/coach-header-action"/g) ?? []).length, 1);
@@ -95,6 +96,20 @@ test("selected Coach client has one coherent workspace with safe empty and missi
   assert.match(workspace, /api\/coach\/nutrition\?client=/);
   assert.match(page, /initialClientId/);
   assert.match(page, /initialSection/);
+});
+
+test("Coach home provides an authorised roster dashboard without a global directory", () => {
+  assert.match(workspace, /CoachDashboard/);
+  assert.match(dashboard, /CLIENTS/);
+  assert.match(dashboard, /NEEDS ATTENTION/);
+  assert.match(dashboard, /RECENT ACTIVITY/);
+  assert.match(dashboard, /CLIENT ROSTER/);
+  for (const label of ["Active", "Primary", "Cover", "Pending"]) assert.match(dashboard, new RegExp(label));
+  assert.match(dashboard, /Search your clients/);
+  assert.match(dashboard, /onSelectClient/);
+  assert.match(dashboard, /onPendingAction/);
+  assert.doesNotMatch(dashboard, /auth\.users|profiles.*ilike|global/i);
+  assert.match(workspace, /setSelected\(null\)/);
 });
 
 test("member search is organisation-scoped and never a global people directory", () => {
