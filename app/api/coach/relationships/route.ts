@@ -40,10 +40,11 @@ export async function PATCH(request: Request) {
   if (!user) return privateJson({ error: "Authentication required" }, { status: 401 });
   const body = await request.json().catch(() => ({}));
   const relationshipId = typeof body.relationshipId === "string" ? body.relationshipId : "";
+  const action = body.action === "resend" ? "resend" : "copy";
   if (!relationshipId) return privateJson({ error: "Pending connection required" }, { status: 400 });
   const { data, error } = await client.rpc("coach_resend_referral_invite", { p_relationship_id: relationshipId });
   if (error) return privateJson({ error: error.code === "42501" ? "You cannot resend this invitation." : "The invitation could not be prepared again." }, { status: error.code === "42501" ? 403 : 400 });
-  return privateJson(data ?? {});
+  return privateJson({ ...(data ?? {}), action });
 }
 
 export async function GET() {

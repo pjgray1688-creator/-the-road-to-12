@@ -5,6 +5,7 @@ import test from "node:test";
 const migration = fs.readFileSync("supabase/migrations/2026-11-23-coach-independent-client-relationships.sql", "utf8");
 const referralMigration = fs.readFileSync("supabase/migrations/2026-11-24-coach-member-search-and-referrals.sql", "utf8");
 const coverFixMigration = fs.readFileSync("supabase/migrations/2026-11-25-coach-cover-referral-fix.sql", "utf8");
+const invitationMigration = fs.readFileSync("supabase/migrations/2026-11-26-coach-invitation-email-polish.sql", "utf8");
 const workspace = fs.readFileSync("components/coach-workspace.tsx", "utf8");
 const page = fs.readFileSync("app/coach/page.tsx", "utf8");
 const relationshipsRoute = fs.readFileSync("app/api/coach/relationships/route.ts", "utf8");
@@ -77,7 +78,8 @@ test("zero-client Coach state has a useful Add client action", () => {
   assert.match(workspace, /Build your client list/);
   assert.match(workspace, /Madhouse member/);
   assert.match(workspace, /Private client/);
-  assert.equal((workspace.match(/className="primary" onClick=\{\(\) => setShowAddClient\(true\)\}>Add client/g) ?? []).length, 1);
+  assert.equal((workspace.match(/coach-header-action"/g) ?? []).length, 1);
+  assert.doesNotMatch(workspace, /Replay Coach tutorial/);
   assert.doesNotMatch(workspace, /coach-empty-clients/);
 });
 
@@ -102,7 +104,9 @@ test("pending relationships and private referral claims are durable and replay-s
   assert.match(referralMigration, /coach_claim_referral\(p_token text\)/);
   assert.match(referralRoute, /coach_claim_referral/);
   assert.match(workspace, /Awaiting acceptance/);
-  assert.match(workspace, /Resend \/ copy link/);
+  assert.match(workspace, /Copy invite link/);
+  assert.match(workspace, /Resend email/);
+  assert.doesNotMatch(workspace, /Resend \/ copy link/);
 });
 
 test("self-add has a specific safe error and referral claim does not create Club membership", () => {
@@ -141,7 +145,33 @@ test("referral tokens use SHA-256 for new invites and preserve one-use legacy co
 
 test("private no-email referrals remain email-optional and notification-safe", () => {
   assert.match(coverFixMigration, /v_email text:=nullif\(lower\(btrim\(p_client_email\)\),''\)/);
-  assert.match(coverFixMigration, /select null,null,v_email/);
+  assert.match(invitationMigration, /if v_email is not null then[\s\S]*club_member_notification_intents/);
+  assert.match(invitationMigration, /emailQueued/);
   assert.match(referralMigration, /alter column user_id drop not null/);
   assert.match(workspace, /Email \(optional\)/);
+});
+
+test("Coach invitation payloads and preview are safe and app-oriented", () => {
+  assert.match(invitationMigration, /coachName/);
+  assert.match(invitationMigration, /expiresAt/);
+  assert.match(invitationMigration, /create or replace function public\.coach_preview_referral/);
+  assert.match(invitationMigration, /grant execute on function public\.coach_preview_referral\(text\) to anon,authenticated/);
+  assert.match(templates, /has invited you to train with them on R12/);
+  assert.match(templates, /R12 keeps your programme/);
+  assert.match(referralRoute, /export async function GET/);
+  assert.match(referralRoute, /coach_preview_referral/);
+});
+
+test("client referral returns to member R12, not the Coach workspace", () => {
+  const claim = fs.readFileSync("components/coach-referral-claim.tsx", "utf8");
+  assert.match(claim, /next=.*returnTo/);
+  assert.match(claim, /Continue to R12/);
+  assert.match(claim, /href="\/"/);
+  assert.doesNotMatch(claim, /href="\/coach">Open Coach/);
+});
+
+test("notification links use the explicit application origin", () => {
+  const provider = fs.readFileSync("lib/notification-provider.ts", "utf8");
+  assert.match(provider, /R12_APP_BASE_URL/);
+  assert.doesNotMatch(provider, /R12_APP_BASE_URL[\s\S]*\?\?\s*"https:\/\/r12\.live"/);
 });

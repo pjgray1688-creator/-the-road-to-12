@@ -76,6 +76,21 @@ test("templates do not expose passwords or raw payment credentials", () => {
   assert.doesNotMatch(billing.text, /raw|secret|token/i);
 });
 
+test("Coach invitation copy is personal, private-client safe, and app-linked", () => {
+  const invitation = renderNotification({ templateKey: "coach_relationship_invite", payload: {
+    coachName: "Peter",
+    relationshipType: "primary",
+    invitePath: "/coach/join/token",
+    expiresAt: "30 November 2026",
+  } });
+  assert.match(invitation.subject, /Peter has invited you to train with them on R12/);
+  assert.match(invitation.text, /Peter has invited you to connect/);
+  assert.match(invitation.text, /Accept the invitation/);
+  assert.match(invitation.text, /30 November 2026/);
+  assert.match(invitation.text, /\/coach\/join\/token/);
+  assert.doesNotMatch(invitation.text, /Madhouse/);
+});
+
 test("notification state cannot become membership or access authority", () => {
   assert.doesNotMatch(sql, /update public\.club_memberships[\s\S]*notification/);
   assert.doesNotMatch(sql, /insert into public\.club_entitlement_grants[\s\S]*notification/);

@@ -87,7 +87,7 @@ test("tutorial progress is versioned, skippable, non-repeating and replayable", 
   assert.match(migration, /status in \('completed','skipped'\)/);
   assert.match(tutorial, /finish\("skipped"\)/); assert.match(tutorial, /item\.version === tutorialVersion\(key\)/);
   const account = readFileSync("app/account/page.tsx", "utf8"); const coach = readFileSync("components/coach-workspace.tsx", "utf8");
-  assert.match(account, /Replay Member tutorial/); assert.match(account, /Replay Coach tutorial/); assert.match(coach, /Replay Coach tutorial/);
+  assert.match(account, /Replay Member tutorial/); assert.match(account, /Replay Coach tutorial/); assert.doesNotMatch(coach, /Replay Coach tutorial/);
 });
 
 test("Member tutorial teaches RIR and the real training concepts", () => {

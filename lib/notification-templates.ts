@@ -34,7 +34,14 @@ export function renderNotification(input: NotificationTemplateInput) {
     case "member_activation":
       subject = "Activate your R12 account"; body = "Your R12 account can now be linked to your existing membership. Sign in with your verified email to continue."; path = "/member-hub/link"; break;
     case "coach_relationship_invite":
-      subject = "Your Coach has invited you to connect in R12"; body = `Your ${text(p.relationshipType, "coaching")} connection is ready to accept. Sign in or create your R12 account with this email to continue.`; path = text(p.invitePath, text(p.claimPath, "/coach/claim")); break;
+      {
+        const coachName = text(p.coachName, "Your Coach");
+        const expiry = text(p.expiresAt);
+        subject = `${coachName} has invited you to train with them on R12`;
+        body = `${coachName} has invited you to connect with them on R12.\n\nR12 keeps your programme, coached sessions and progress together in one place.${p.organisationName ? `\n\nThis connection is through ${text(p.organisationName)}.` : ""}\n\nAccept the invitation to connect your account with ${coachName}.${expiry ? `\n\nThis invitation expires on ${expiry}.` : ""}`;
+        path = text(p.invitePath, text(p.claimPath, "/coach/claim"));
+      }
+      break;
     case "join_incomplete":
       subject = "Continue joining Madhouse"; body = "You have a saved Madhouse joining application. Sign in to R12 to continue where you left off."; path = "/join/madhouse"; break;
     case "monthly_payment_failed":
@@ -55,5 +62,5 @@ export function renderNotification(input: NotificationTemplateInput) {
 
   const greeting = `Hi ${name},`;
   const url = link(path);
-  return { sender, subject, text: `${greeting}\n\n${body}\n\nContinue securely: ${url}\n\nR12`, html: `<main style="font-family:Arial,sans-serif;max-width:600px;margin:auto;color:#17131f"><p>${html(greeting)}</p><p>${html(body)}</p><p><a href="${html(url)}" style="display:inline-block;padding:12px 18px;background:#7c3aed;color:white;border-radius:8px;text-decoration:none">Continue in R12</a></p><p>R12</p></main>` };
+  return { sender, subject, text: `${greeting}\n\n${body}\n\nContinue securely: ${url}\n\nR12`, html: `<main style="font-family:Arial,sans-serif;max-width:600px;margin:auto;color:#17131f;padding:24px"><p>${html(greeting)}</p><p style="white-space:pre-line;line-height:1.6">${html(body)}</p><p><a href="${html(url)}" style="display:inline-block;padding:12px 18px;background:#7c3aed;color:white;border-radius:8px;text-decoration:none">Accept invitation</a></p><p>R12</p></main>` };
 }
