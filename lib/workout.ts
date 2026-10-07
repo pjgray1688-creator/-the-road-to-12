@@ -1,4 +1,5 @@
 import type { Exercise, LoggedSet, Workout } from "./types";
+import type { PlannedExerciseOverride } from "./domain";
 import { exerciseLibrary, resolveExerciseId } from "./exercise-library";
 import { progressionProfile, rampBudgetFor } from "./progression";
 
@@ -67,7 +68,7 @@ const exerciseIndex = new Map([...catalogueFromKnowledge, ...mondayExercises, ..
 export const allExercises = (): Exercise[] => Array.from(exerciseIndex.values());
 export const exerciseById = (id: string, context?: { displayName?: string; equipment?: string }): Exercise | undefined => exerciseIndex.get(resolveExerciseId(id, context) ?? id);
 export const canonicalExerciseName = (name: string) => /^hoist\s+roc-it\s+leg extension$/i.test(name.trim()) ? "Leg Extension" : /^hoist\s+roc-it\s+row$/i.test(name.trim()) ? "Seated Machine Row" : name;
-export const exercisesForSession = (exerciseIds: string[], overrides: Record<string, { name?: string; target?: string; sets?: number }> = {}): Exercise[] => {
+export const exercisesForSession = (exerciseIds: string[], overrides: Record<string, PlannedExerciseOverride> = {}): Exercise[] => {
   return exerciseIds.map(id => { const exercise = exerciseById(id, { displayName: overrides[id]?.name }); if (!exercise) throw new Error(`Unresolved prescribed exercise: ${id}`); const resolved = { ...exercise, id, ...overrides[id] }; return { ...resolved, name: canonicalExerciseName(resolved.name) }; });
 };
 export const parseRange = (target: string) => { const values = target.match(/\d+/g)?.map(Number) ?? [0, 0]; return { low: values[values.length - 2] ?? values[0], high: values[values.length - 1] ?? values[0] }; };
