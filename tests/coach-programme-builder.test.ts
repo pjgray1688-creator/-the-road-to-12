@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import { addExercise, builderSearch, moveExercise, moveSession, prescriptionMetrics, updateOverride } from "../lib/coach-programme-builder";
+import { addExercise, builderSearch, createStructure, moveExercise, moveSession, prescriptionMetrics, removeExercise, removeStructure, reorderStructureExercise, sessionStructureLabels, updateStructureSettings, updateOverride, validateSessionStructures } from "../lib/coach-programme-builder";
 import { exerciseKnowledge } from "../lib/exercise-library";
 import type { PlannedSession } from "../lib/domain";
 
@@ -163,4 +163,51 @@ test("saves and activation use row locks, immutable revisions, and deterministic
   assert.match(migration, /create unique index if not exists coach_programme_blocks_one_active/);
   assert.match(migration, /Activate a successor before completing or archiving the active block/);
   assert.match(migration, /coach_programme_revisions_immutable/);
+});
+
+test("session structures extend the flat exercise order without creating exercise identities", () => {
+  const base = addExercise(addExercise(addExercise(session("Push"), "flat-bench"), "barbell-row"), "lateral-raise");
+  const grouped = createStructure(base, "superset", ["flat-bench-press", "barbell-row"], { rounds: 3, restBetweenExercisesSeconds: 75 });
+  assert.deepEqual(grouped.exerciseIds, base.exerciseIds);
+  assert.equal(grouped.structures?.[0].type, "superset");
+  assert.deepEqual(grouped.structures?.[0].exerciseIds, ["flat-bench-press", "barbell-row"]);
+  assert.equal(sessionStructureLabels.superset, "Superset");
+  assert.equal(validateSessionStructures(grouped).length, 0);
+  assert.deepEqual(reorderStructureExercise(grouped, grouped.structures![0].id, 1, -1).structures?.[0].exerciseIds, ["barbell-row", "flat-bench-press"]);
+  const ungrouped = removeStructure(grouped, grouped.structures![0].id);
+  assert.equal(ungrouped.structures?.length, 0);
+  assert.deepEqual(removeExercise(grouped, "barbell-row").structures?.[0].exerciseIds, ["flat-bench-press"]);
+});
+
+test("all advanced session structures retain bounded settings and validate their shape", () => {
+  const base = ["flat-bench", "barbell-row", "lateral-raise", "cable-fly"].reduce((value, id) => addExercise(value, id), session("Conditioning"));
+  const types = ["triset", "giant_set", "circuit", "drop_set", "mechanical_drop", "rest_pause", "cluster", "emom", "amrap", "interval", "ladder", "pyramid", "complex"] as const;
+  for (const type of types) {
+    const ids = type === "drop_set" || type === "mechanical_drop" || type === "rest_pause" || type === "cluster" ? [base.exerciseIds[0]] : type === "triset" ? base.exerciseIds.slice(0, 3) : type === "complex" ? base.exerciseIds.slice(0, 2) : base.exerciseIds;
+    const settings = type === "ladder" || type === "pyramid" ? { steps: "2 / 4 / 6 / 8" } : type === "interval" ? { workSeconds: 30, restSeconds: 30, rounds: 4 } : type === "amrap" || type === "emom" ? { durationMinutes: 10 } : { rounds: 3 };
+    const structure = createStructure(base, type, ids, settings).structures?.[0];
+    assert.ok(structure, type);
+    assert.equal(validateSessionStructures({ ...base, structures: [structure!] }).length, 0, type);
+  }
+});
+
+test("malformed structures are rejected before the programme save boundary", () => {
+  const base = addExercise(addExercise(session("Bad"), "flat-bench"), "barbell-row");
+  assert.ok(validateSessionStructures({ ...base, structures: [{ id: "x", type: "superset", exerciseIds: ["flat-bench-press"] }] }).some(issue => issue.includes("at least 2")));
+  assert.ok(validateSessionStructures({ ...base, structures: [{ id: "x", type: "circuit", exerciseIds: ["not-an-exercise", "barbell-row"] }] }).some(issue => issue.includes("outside the session")));
+  assert.ok(validateSessionStructures({ ...base, structures: [{ id: "x", type: "ladder", exerciseIds: ["flat-bench-press"], settings: {} }] }).some(issue => issue.includes("steps")));
+  assert.ok(validateSessionStructures({ ...base, structures: [{ id: "x", type: "interval", exerciseIds: ["flat-bench-press"], settings: { workSeconds: 0, restSeconds: 30, rounds: 2 } }] }).some(issue => issue.includes("workSeconds")));
+});
+
+test("structure changes use block revisions, preserve Cover read-only behaviour, and keep the live migration boundary explicit", () => {
+  const migration = fs.readFileSync("supabase/migrations/2026-11-29-coach-session-structures.sql", "utf8");
+  const builder = fs.readFileSync("components/coach-programme-builder.tsx", "utf8");
+  const workspace = fs.readFileSync("components/coach-workspace.tsx", "utf8");
+  assert.match(migration, /coach_validate_session_structures/);
+  assert.match(migration, /before insert or update of definition/);
+  assert.match(builder, /Create structure/);
+  assert.match(builder, /Ungroup/);
+  assert.match(builder, /canManage/);
+  assert.match(workspace, /coach-add-client-action/);
+  assert.doesNotMatch(migration, /create table/);
 });

@@ -6,6 +6,7 @@ import { activeWeek } from "@/lib/active-programme";
 import { loadData } from "@/lib/storage";
 import { resolveWeekSchedule } from "@/lib/schedule-resolver";
 import { exercisesForSession } from "@/lib/workout";
+import { sessionStructureLabels } from "@/lib/coach-programme-builder";
 
 export function TrainingPreviewClient({ occurrenceId }: { occurrenceId?: string }) {
   const data = loadData();
@@ -14,5 +15,5 @@ export function TrainingPreviewClient({ occurrenceId }: { occurrenceId?: string 
   const exercises = exercisesForSession(occurrence.session.exerciseIds, occurrence.session.exerciseOverrides);
   const day = new Intl.DateTimeFormat("en-GB", { weekday: "long" }).format(new Date(`${occurrence.scheduledDate}T12:00:00Z`));
   const status = occurrence.status ?? "planned";
-  return <main className="app-shell module-page workout-preview"><PageHeader eyebrow="WORKOUT PREVIEW" title={occurrence.session.name} description={`${day} · ${occurrence.scheduledDate}`} /><Surface><span className="eyebrow">SCHEDULED SESSION</span><p className="muted">Preview only · {String(status).replaceAll("_", " ")}</p>{exercises.map((exercise, index) => <div className="plan-row" key={exercise.id}><b>{String(index + 1).padStart(2, "0")}</b><span>{exercise.name}<small>{exercise.target} · {exercise.sets} working sets</small></span></div>)}</Surface><BackButton href="/training">Back to Training</BackButton><AppNav /></main>;
+  return <main className="app-shell module-page workout-preview"><PageHeader eyebrow="WORKOUT PREVIEW" title={occurrence.session.name} description={`${day} · ${occurrence.scheduledDate}`} /><Surface><span className="eyebrow">SCHEDULED SESSION</span><p className="muted">Preview only · {String(status).replaceAll("_", " ")}</p>{occurrence.session.structures?.length ? <div className="session-structure-summary"><span className="eyebrow">SESSION FORMAT</span>{occurrence.session.structures.map(structure => <p key={structure.id}><strong>{sessionStructureLabels[structure.type]}</strong><small>{structure.exerciseIds.map(id => exercises.find(exercise => exercise.id === id)?.name ?? id).join(" · ")}{structure.settings?.rounds ? ` · ${structure.settings.rounds} rounds` : ""}{structure.settings?.durationMinutes ? ` · ${structure.settings.durationMinutes} min` : ""}</small></p>)}</div> : null}{exercises.map((exercise, index) => <div className="plan-row" key={exercise.id}><b>{String(index + 1).padStart(2, "0")}</b><span>{exercise.name}<small>{exercise.target} · {exercise.sets} working sets</small></span></div>)}</Surface><BackButton href="/training">Back to Training</BackButton><AppNav /></main>;
 }

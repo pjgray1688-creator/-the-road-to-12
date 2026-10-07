@@ -1,5 +1,6 @@
 import { privateJson } from "@/lib/private-response";
 import { authenticatedServerClient } from "@/lib/require-user";
+import { validateBuilderProgramme, type BuilderProgramme } from "@/lib/coach-programme-builder";
 
 function stringOrNull(value: unknown) { return typeof value === "string" && value.trim() ? value : null; }
 function context(url: URL) { return { clientUserId: stringOrNull(url.searchParams.get("clientUserId")), organisationId: stringOrNull(url.searchParams.get("organisationId")), assignmentId: stringOrNull(url.searchParams.get("assignmentId")), relationshipId: stringOrNull(url.searchParams.get("relationshipId")) }; }
@@ -21,6 +22,8 @@ export async function PUT(request: Request) {
   if (!body || typeof body !== "object" || !body.programme || typeof body.programme !== "object") {
     return privateJson({ error: "Programme content is required" }, { status: 400 });
   }
+  const structureIssues = validateBuilderProgramme(body.programme as BuilderProgramme);
+  if (structureIssues.length) return privateJson({ error: structureIssues[0] }, { status: 400 });
   const clientUserId = stringOrNull(body.clientUserId);
   if (!clientUserId) return privateJson({ error: "Coach client context required" }, { status: 400 });
   if (!stringOrNull(body.blockId)) return privateJson({ error: "A saved programme block is required." }, { status: 400 });
