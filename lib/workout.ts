@@ -1,5 +1,5 @@
 import type { Exercise, LoggedSet, Workout } from "./types";
-import { exerciseLibrary } from "./exercise-library";
+import { exerciseLibrary, resolveExerciseId } from "./exercise-library";
 import { progressionProfile, rampBudgetFor } from "./progression";
 
 export const COMMERCIAL_CABLE_STACK_LOADS = [9, 14, 18, 23, 27, 32, 36, 41, 45, 50, 55, 59, 64, 68, 73, 77, 82];
@@ -63,12 +63,12 @@ const libraryExpansion: Exercise[] = [
   { id: "dead-bug", name: "Dead Bug", target: "abs", sets: 2, restSeconds: 45, purpose: "core", equipment: "machine", defaultWorkingWeight: 0 },
 ];
 const catalogueFromKnowledge: Exercise[] = exerciseLibrary.map(item => ({ id: item.id, name: item.name, target: item.primaryMuscles[0] ?? "full body", sets: item.programmeRole === "primary_compound" ? 4 : item.programmeRole === "isolation" ? 3 : 3, restSeconds: item.programmeRole === "primary_compound" ? 120 : 75, purpose: item.programmeRole === "isolation" ? "isolation" : item.primaryMuscles.includes("abs") || item.primaryMuscles.includes("obliques") ? "core" : "hypertrophy", equipment: item.equipment === "dumbbell" || item.equipment === "barbell" || item.equipment === "cable" ? item.equipment : "machine", loadingProfile: item.equipment === "bodyweight" ? "bodyweight_assisted" : item.equipment.includes("machine") ? "selectorised_compound" : undefined, loadUnit: item.equipment === "dumbbell" ? "per_hand" : item.equipment === "bodyweight" ? "assistance" : item.equipment === "cable" || item.equipment.includes("machine") ? "stack" : "total", defaultWorkingWeight: 0 }));
-export const allExercises = (): Exercise[] => Array.from(new Map([...catalogueFromKnowledge, ...mondayExercises, ...additionalExercises, ...libraryExpansion].map(item => [item.id, item])).values());
-export const exerciseById = (id: string): Exercise | undefined => allExercises().find(item => item.id === id);
+const exerciseIndex = new Map([...catalogueFromKnowledge, ...mondayExercises, ...additionalExercises, ...libraryExpansion].map(item => [item.id, item]));
+export const allExercises = (): Exercise[] => Array.from(exerciseIndex.values());
+export const exerciseById = (id: string, context?: { displayName?: string; equipment?: string }): Exercise | undefined => exerciseIndex.get(resolveExerciseId(id, context) ?? id);
 export const canonicalExerciseName = (name: string) => /^hoist\s+roc-it\s+leg extension$/i.test(name.trim()) ? "Leg Extension" : /^hoist\s+roc-it\s+row$/i.test(name.trim()) ? "Seated Machine Row" : name;
 export const exercisesForSession = (exerciseIds: string[], overrides: Record<string, { name?: string; target?: string; sets?: number }> = {}): Exercise[] => {
-  const catalog = new Map(allExercises().map(item => [item.id, item]));
-  return exerciseIds.map(id => { const exercise = catalog.get(id); if (!exercise) throw new Error(`Unresolved prescribed exercise: ${id}`); const resolved = { ...exercise, ...overrides[id] }; return { ...resolved, name: canonicalExerciseName(resolved.name) }; });
+  return exerciseIds.map(id => { const exercise = exerciseById(id, { displayName: overrides[id]?.name }); if (!exercise) throw new Error(`Unresolved prescribed exercise: ${id}`); const resolved = { ...exercise, id, ...overrides[id] }; return { ...resolved, name: canonicalExerciseName(resolved.name) }; });
 };
 export const parseRange = (target: string) => { const values = target.match(/\d+/g)?.map(Number) ?? [0, 0]; return { low: values[values.length - 2] ?? values[0], high: values[values.length - 1] ?? values[0] }; };
 /** Resolve substitutions before looking at persisted set identity.  Logged sets

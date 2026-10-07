@@ -1,0 +1,3534 @@
+[
+  {
+    "id": "incline-db-press",
+    "name": "Incline DB Press",
+    "aliases": [
+      "incline dumbbell press"
+    ],
+    "primaryMuscles": [
+      "upper chest"
+    ],
+    "secondaryMuscles": [
+      "front delts",
+      "triceps"
+    ],
+    "movementPattern": "incline horizontal press",
+    "equipment": "dumbbell",
+    "unilateral": false,
+    "compound": true,
+    "stabilityDemand": "medium",
+    "jointDemands": [
+      "shoulder",
+      "elbow"
+    ],
+    "axialLoading": "low",
+    "kneeDemand": "none",
+    "hipHingeDemand": "none",
+    "shoulderDemand": "medium",
+    "emphasis": [
+      "upper chest emphasis"
+    ],
+    "programmeRole": "primary_compound",
+    "repRange": "8–10",
+    "loadingPattern": "per-dumbbell",
+    "progression": "rep quality then practical dumbbell jump",
+    "substitutions": [
+      "incline-machine-press",
+      "incline-smith-press",
+      "incline-barbell-press"
+    ],
+    "cautions": [
+      "shoulder discomfort"
+    ],
+    "intent": [
+      "upper chest hypertrophy",
+      "progressive overload"
+    ]
+  },
+  {
+    "id": "cable-lateral-raise",
+    "name": "Cable Lateral Raise",
+    "aliases": [
+      "cable side raise"
+    ],
+    "primaryMuscles": [
+      "lateral delts"
+    ],
+    "secondaryMuscles": [],
+    "movementPattern": "shoulder abduction",
+    "equipment": "cable",
+    "unilateral": true,
+    "compound": false,
+    "stabilityDemand": "low",
+    "jointDemands": [
+      "shoulder"
+    ],
+    "axialLoading": "none",
+    "kneeDemand": "low",
+    "hipHingeDemand": "none",
+    "shoulderDemand": "medium",
+    "emphasis": [
+      "lateral delt"
+    ],
+    "programmeRole": "isolation",
+    "repRange": "12–15",
+    "loadingPattern": "cable stack",
+    "progression": "add reps before a small stack jump",
+    "substitutions": [
+      "db-lateral-raise"
+    ],
+    "cautions": [
+      "painful shoulder arc"
+    ],
+    "intent": [
+      "lateral delt hypertrophy",
+      "high local stimulus / low systemic fatigue"
+    ]
+  },
+  {
+    "id": "bulgarian-split-squat",
+    "name": "Bulgarian Split Squat",
+    "aliases": [
+      "rear-foot elevated split squat"
+    ],
+    "primaryMuscles": [
+      "quads",
+      "glutes"
+    ],
+    "secondaryMuscles": [
+      "adductors"
+    ],
+    "movementPattern": "unilateral squat",
+    "equipment": "dumbbell",
+    "unilateral": true,
+    "compound": true,
+    "stabilityDemand": "high",
+    "jointDemands": [
+      "knee",
+      "hip"
+    ],
+    "axialLoading": "low",
+    "kneeDemand": "medium",
+    "hipHingeDemand": "low",
+    "shoulderDemand": "low",
+    "emphasis": [
+      "quad bias",
+      "glute bias",
+      "unilateral stability"
+    ],
+    "programmeRole": "secondary_compound",
+    "repRange": "8–12",
+    "loadingPattern": "per-dumbbell",
+    "progression": "control and side-to-side quality before load",
+    "substitutions": [
+      "reverse-lunge",
+      "supported-split-squat"
+    ],
+    "cautions": [
+      "knee pain",
+      "balance limitation"
+    ],
+    "intent": [
+      "unilateral quad/glute loading",
+      "side-to-side control"
+    ]
+  },
+  {
+    "id": "barbell-row",
+    "name": "Barbell Row",
+    "aliases": [
+      "bent-over row"
+    ],
+    "primaryMuscles": [
+      "upper back",
+      "lats"
+    ],
+    "secondaryMuscles": [
+      "biceps",
+      "spinal erectors"
+    ],
+    "movementPattern": "horizontal pull",
+    "equipment": "barbell",
+    "unilateral": false,
+    "compound": true,
+    "stabilityDemand": "high",
+    "jointDemands": [
+      "back",
+      "shoulder"
+    ],
+    "axialLoading": "medium",
+    "kneeDemand": "low",
+    "hipHingeDemand": "medium",
+    "shoulderDemand": "medium",
+    "emphasis": [
+      "upper-back thickness"
+    ],
+    "programmeRole": "primary_compound",
+    "repRange": "6–10",
+    "loadingPattern": "barbell plates",
+    "progression": "small barbell jumps with strict torso position",
+    "substitutions": [
+      "chest-supported-db-row",
+      "cable-row"
+    ],
+    "cautions": [
+      "back discomfort"
+    ],
+    "intent": [
+      "upper-back thickness"
+    ]
+  },
+  {
+    "id": "overhead-cable-triceps-extension",
+    "name": "Overhead Cable Triceps Extension",
+    "aliases": [
+      "overhead rope extension"
+    ],
+    "primaryMuscles": [
+      "triceps long head"
+    ],
+    "secondaryMuscles": [],
+    "movementPattern": "elbow extension",
+    "equipment": "cable",
+    "unilateral": false,
+    "compound": false,
+    "stabilityDemand": "low",
+    "jointDemands": [
+      "elbow",
+      "shoulder"
+    ],
+    "axialLoading": "none",
+    "kneeDemand": "low",
+    "hipHingeDemand": "none",
+    "shoulderDemand": "medium",
+    "emphasis": [
+      "triceps long head",
+      "lengthened-position"
+    ],
+    "programmeRole": "isolation",
+    "repRange": "10–15",
+    "loadingPattern": "cable stack",
+    "progression": "add controlled reps before stack jump",
+    "substitutions": [
+      "cross-body-cable-extension",
+      "incline-db-extension"
+    ],
+    "cautions": [
+      "shoulder or elbow irritation"
+    ],
+    "intent": [
+      "long-head triceps hypertrophy"
+    ]
+  },
+  {
+    "id": "flat-bench-press",
+    "name": "Flat Bench Press",
+    "aliases": [
+      "flat bench press"
+    ],
+    "primaryMuscles": [
+      "chest"
+    ],
+    "secondaryMuscles": [
+      "triceps"
+    ],
+    "movementPattern": "horizontal press",
+    "equipment": "barbell",
+    "unilateral": false,
+    "compound": true,
+    "stabilityDemand": "low",
+    "jointDemands": [
+      "shoulder"
+    ],
+    "axialLoading": "low",
+    "kneeDemand": "low",
+    "hipHingeDemand": "none",
+    "shoulderDemand": "medium",
+    "emphasis": [
+      "chest strength"
+    ],
+    "programmeRole": "secondary_compound",
+    "repRange": "8–12",
+    "loadingPattern": "barbell plates",
+    "progression": "add load only when technique and target effort are repeatable",
+    "substitutions": [],
+    "cautions": [
+      "technique quality"
+    ],
+    "intent": [
+      "chest strength"
+    ]
+  },
+  {
+    "id": "incline-barbell-press",
+    "name": "Incline Barbell Press",
+    "aliases": [
+      "incline barbell press"
+    ],
+    "primaryMuscles": [
+      "upper chest"
+    ],
+    "secondaryMuscles": [
+      "core"
+    ],
+    "movementPattern": "incline press",
+    "equipment": "barbell",
+    "unilateral": false,
+    "compound": true,
+    "stabilityDemand": "low",
+    "jointDemands": [
+      "shoulder"
+    ],
+    "axialLoading": "low",
+    "kneeDemand": "low",
+    "hipHingeDemand": "none",
+    "shoulderDemand": "medium",
+    "emphasis": [
+      "upper chest hypertrophy"
+    ],
+    "programmeRole": "secondary_compound",
+    "repRange": "8–12",
+    "loadingPattern": "barbell plates",
+    "progression": "add load only when technique and target effort are repeatable",
+    "substitutions": [],
+    "cautions": [
+      "technique quality"
+    ],
+    "intent": [
+      "upper chest hypertrophy"
+    ]
+  },
+  {
+    "id": "incline-machine-press",
+    "name": "Incline Machine Press",
+    "aliases": [
+      "incline machine press"
+    ],
+    "primaryMuscles": [
+      "upper chest"
+    ],
+    "secondaryMuscles": [
+      "core"
+    ],
+    "movementPattern": "incline press",
+    "equipment": "machine",
+    "unilateral": false,
+    "compound": true,
+    "stabilityDemand": "low",
+    "jointDemands": [
+      "shoulder"
+    ],
+    "axialLoading": "low",
+    "kneeDemand": "low",
+    "hipHingeDemand": "none",
+    "shoulderDemand": "medium",
+    "emphasis": [
+      "upper chest hypertrophy"
+    ],
+    "programmeRole": "secondary_compound",
+    "repRange": "8–12",
+    "loadingPattern": "stack",
+    "progression": "add load only when technique and target effort are repeatable",
+    "substitutions": [],
+    "cautions": [
+      "technique quality"
+    ],
+    "intent": [
+      "upper chest hypertrophy"
+    ]
+  },
+  {
+    "id": "incline-smith-press",
+    "name": "Incline Smith Press",
+    "aliases": [
+      "incline smith press"
+    ],
+    "primaryMuscles": [
+      "upper chest"
+    ],
+    "secondaryMuscles": [
+      "core"
+    ],
+    "movementPattern": "incline press",
+    "equipment": "barbell",
+    "unilateral": false,
+    "compound": true,
+    "stabilityDemand": "low",
+    "jointDemands": [
+      "shoulder"
+    ],
+    "axialLoading": "low",
+    "kneeDemand": "low",
+    "hipHingeDemand": "none",
+    "shoulderDemand": "medium",
+    "emphasis": [
+      "upper chest hypertrophy"
+    ],
+    "programmeRole": "secondary_compound",
+    "repRange": "8–12",
+    "loadingPattern": "barbell plates",
+    "progression": "add load only when technique and target effort are repeatable",
+    "substitutions": [],
+    "cautions": [
+      "technique quality"
+    ],
+    "intent": [
+      "upper chest hypertrophy"
+    ]
+  },
+  {
+    "id": "decline-bench-press",
+    "name": "Decline Bench Press",
+    "aliases": [
+      "decline bench press"
+    ],
+    "primaryMuscles": [
+      "chest"
+    ],
+    "secondaryMuscles": [
+      "triceps"
+    ],
+    "movementPattern": "decline press",
+    "equipment": "barbell",
+    "unilateral": false,
+    "compound": true,
+    "stabilityDemand": "low",
+    "jointDemands": [
+      "shoulder"
+    ],
+    "axialLoading": "low",
+    "kneeDemand": "low",
+    "hipHingeDemand": "none",
+    "shoulderDemand": "medium",
+    "emphasis": [
+      "lower chest strength"
+    ],
+    "programmeRole": "secondary_compound",
+    "repRange": "8–12",
+    "loadingPattern": "barbell plates",
+    "progression": "add load only when technique and target effort are repeatable",
+    "substitutions": [],
+    "cautions": [
+      "technique quality"
+    ],
+    "intent": [
+      "lower chest strength"
+    ]
+  },
+  {
+    "id": "chest-press-machine",
+    "name": "Machine Chest Press",
+    "aliases": [
+      "machine chest press"
+    ],
+    "primaryMuscles": [
+      "chest"
+    ],
+    "secondaryMuscles": [
+      "triceps"
+    ],
+    "movementPattern": "horizontal press",
+    "equipment": "machine",
+    "unilateral": false,
+    "compound": true,
+    "stabilityDemand": "low",
+    "jointDemands": [
+      "shoulder"
+    ],
+    "axialLoading": "low",
+    "kneeDemand": "low",
+    "hipHingeDemand": "none",
+    "shoulderDemand": "medium",
+    "emphasis": [
+      "stable chest hypertrophy"
+    ],
+    "programmeRole": "secondary_compound",
+    "repRange": "8–12",
+    "loadingPattern": "stack",
+    "progression": "add load only when technique and target effort are repeatable",
+    "substitutions": [],
+    "cautions": [
+      "technique quality"
+    ],
+    "intent": [
+      "stable chest hypertrophy"
+    ]
+  },
+  {
+    "id": "plate-loaded-chest-press",
+    "name": "Plate-Loaded Chest Press",
+    "aliases": [
+      "plate-loaded chest press"
+    ],
+    "primaryMuscles": [
+      "chest"
+    ],
+    "secondaryMuscles": [
+      "triceps"
+    ],
+    "movementPattern": "horizontal press",
+    "equipment": "plate-loaded machine",
+    "unilateral": false,
+    "compound": true,
+    "stabilityDemand": "low",
+    "jointDemands": [
+      "shoulder"
+    ],
+    "axialLoading": "low",
+    "kneeDemand": "low",
+    "hipHingeDemand": "none",
+    "shoulderDemand": "medium",
+    "emphasis": [
+      "chest hypertrophy"
+    ],
+    "programmeRole": "secondary_compound",
+    "repRange": "8–12",
+    "loadingPattern": "bodyweight or external load",
+    "progression": "add load only when technique and target effort are repeatable",
+    "substitutions": [],
+    "cautions": [
+      "technique quality"
+    ],
+    "intent": [
+      "chest hypertrophy"
+    ]
+  },
+  {
+    "id": "cable-fly",
+    "name": "Cable Fly",
+    "aliases": [
+      "cable fly"
+    ],
+    "primaryMuscles": [
+      "chest"
+    ],
+    "secondaryMuscles": [],
+    "movementPattern": "horizontal adduction",
+    "equipment": "cable",
+    "unilateral": false,
+    "compound": false,
+    "stabilityDemand": "low",
+    "jointDemands": [
+      "shoulder"
+    ],
+    "axialLoading": "low",
+    "kneeDemand": "low",
+    "hipHingeDemand": "none",
+    "shoulderDemand": "low",
+    "emphasis": [
+      "chest isolation"
+    ],
+    "programmeRole": "isolation",
+    "repRange": "10–15",
+    "loadingPattern": "stack",
+    "progression": "add quality reps before a practical load jump",
+    "substitutions": [],
+    "cautions": [
+      "technique quality"
+    ],
+    "intent": [
+      "chest isolation"
+    ]
+  },
+  {
+    "id": "pec-deck",
+    "name": "Pec Deck",
+    "aliases": [
+      "pec deck"
+    ],
+    "primaryMuscles": [
+      "chest"
+    ],
+    "secondaryMuscles": [],
+    "movementPattern": "horizontal adduction",
+    "equipment": "machine",
+    "unilateral": false,
+    "compound": false,
+    "stabilityDemand": "low",
+    "jointDemands": [
+      "shoulder"
+    ],
+    "axialLoading": "low",
+    "kneeDemand": "low",
+    "hipHingeDemand": "none",
+    "shoulderDemand": "low",
+    "emphasis": [
+      "shortened chest stimulus"
+    ],
+    "programmeRole": "isolation",
+    "repRange": "10–15",
+    "loadingPattern": "stack",
+    "progression": "add quality reps before a practical load jump",
+    "substitutions": [],
+    "cautions": [
+      "technique quality"
+    ],
+    "intent": [
+      "shortened chest stimulus"
+    ]
+  },
+  {
+    "id": "push-up",
+    "name": "Push-Up",
+    "aliases": [
+      "push-up"
+    ],
+    "primaryMuscles": [
+      "chest"
+    ],
+    "secondaryMuscles": [
+      "triceps"
+    ],
+    "movementPattern": "horizontal press",
+    "equipment": "bodyweight",
+    "unilateral": false,
+    "compound": true,
+    "stabilityDemand": "medium",
+    "jointDemands": [
+      "shoulder"
+    ],
+    "axialLoading": "low",
+    "kneeDemand": "low",
+    "hipHingeDemand": "none",
+    "shoulderDemand": "medium",
+    "emphasis": [
+      "chest endurance"
+    ],
+    "programmeRole": "secondary_compound",
+    "repRange": "8–12",
+    "loadingPattern": "bodyweight or external load",
+    "progression": "add load only when technique and target effort are repeatable",
+    "substitutions": [],
+    "cautions": [
+      "technique quality"
+    ],
+    "intent": [
+      "chest endurance"
+    ]
+  },
+  {
+    "id": "pull-up",
+    "name": "Pull-Up",
+    "aliases": [
+      "pull-up"
+    ],
+    "primaryMuscles": [
+      "lats"
+    ],
+    "secondaryMuscles": [
+      "core"
+    ],
+    "movementPattern": "vertical pull",
+    "equipment": "bodyweight",
+    "unilateral": false,
+    "compound": true,
+    "stabilityDemand": "medium",
+    "jointDemands": [
+      "shoulder"
+    ],
+    "axialLoading": "low",
+    "kneeDemand": "low",
+    "hipHingeDemand": "none",
+    "shoulderDemand": "low",
+    "emphasis": [
+      "lat width"
+    ],
+    "programmeRole": "secondary_compound",
+    "repRange": "8–12",
+    "loadingPattern": "bodyweight or external load",
+    "progression": "add load only when technique and target effort are repeatable",
+    "substitutions": [],
+    "cautions": [
+      "technique quality"
+    ],
+    "intent": [
+      "lat width"
+    ]
+  },
+  {
+    "id": "assisted-pull-up",
+    "name": "Assisted Pull-Up",
+    "aliases": [
+      "assisted pull-up"
+    ],
+    "primaryMuscles": [
+      "lats"
+    ],
+    "secondaryMuscles": [
+      "core"
+    ],
+    "movementPattern": "vertical pull",
+    "equipment": "machine",
+    "unilateral": false,
+    "compound": true,
+    "stabilityDemand": "low",
+    "jointDemands": [
+      "shoulder"
+    ],
+    "axialLoading": "low",
+    "kneeDemand": "low",
+    "hipHingeDemand": "none",
+    "shoulderDemand": "low",
+    "emphasis": [
+      "lat width"
+    ],
+    "programmeRole": "secondary_compound",
+    "repRange": "8–12",
+    "loadingPattern": "stack",
+    "progression": "add load only when technique and target effort are repeatable",
+    "substitutions": [],
+    "cautions": [
+      "technique quality"
+    ],
+    "intent": [
+      "lat width"
+    ]
+  },
+  {
+    "id": "lat-pulldown",
+    "name": "Lat Pulldown",
+    "aliases": [
+      "lat pulldown"
+    ],
+    "primaryMuscles": [
+      "lats"
+    ],
+    "secondaryMuscles": [
+      "core"
+    ],
+    "movementPattern": "vertical pull",
+    "equipment": "machine",
+    "unilateral": false,
+    "compound": true,
+    "stabilityDemand": "low",
+    "jointDemands": [
+      "shoulder"
+    ],
+    "axialLoading": "low",
+    "kneeDemand": "low",
+    "hipHingeDemand": "none",
+    "shoulderDemand": "low",
+    "emphasis": [
+      "lat width"
+    ],
+    "programmeRole": "secondary_compound",
+    "repRange": "8–12",
+    "loadingPattern": "stack",
+    "progression": "add load only when technique and target effort are repeatable",
+    "substitutions": [],
+    "cautions": [
+      "technique quality"
+    ],
+    "intent": [
+      "lat width"
+    ]
+  },
+  {
+    "id": "single-arm-lat-pulldown",
+    "name": "Single-Arm Lat Pulldown",
+    "aliases": [
+      "single-arm lat pulldown"
+    ],
+    "primaryMuscles": [
+      "lats"
+    ],
+    "secondaryMuscles": [
+      "core"
+    ],
+    "movementPattern": "vertical pull",
+    "equipment": "cable",
+    "unilateral": true,
+    "compound": true,
+    "stabilityDemand": "medium",
+    "jointDemands": [
+      "shoulder"
+    ],
+    "axialLoading": "low",
+    "kneeDemand": "low",
+    "hipHingeDemand": "none",
+    "shoulderDemand": "low",
+    "emphasis": [
+      "unilateral lat control"
+    ],
+    "programmeRole": "secondary_compound",
+    "repRange": "8–12",
+    "loadingPattern": "stack",
+    "progression": "add load only when technique and target effort are repeatable",
+    "substitutions": [],
+    "cautions": [
+      "technique quality"
+    ],
+    "intent": [
+      "unilateral lat control"
+    ]
+  },
+  {
+    "id": "chest-supported-db-row",
+    "name": "Chest-Supported DB Row",
+    "aliases": [
+      "chest-supported db row"
+    ],
+    "primaryMuscles": [
+      "upper back"
+    ],
+    "secondaryMuscles": [
+      "core"
+    ],
+    "movementPattern": "horizontal pull",
+    "equipment": "dumbbell",
+    "unilateral": false,
+    "compound": true,
+    "stabilityDemand": "low",
+    "jointDemands": [
+      "shoulder"
+    ],
+    "axialLoading": "low",
+    "kneeDemand": "low",
+    "hipHingeDemand": "none",
+    "shoulderDemand": "low",
+    "emphasis": [
+      "upper-back thickness"
+    ],
+    "programmeRole": "secondary_compound",
+    "repRange": "8–12",
+    "loadingPattern": "per-dumbbell",
+    "progression": "add load only when technique and target effort are repeatable",
+    "substitutions": [],
+    "cautions": [
+      "technique quality"
+    ],
+    "intent": [
+      "upper-back thickness"
+    ]
+  },
+  {
+    "id": "cable-row",
+    "name": "Seated Cable Row",
+    "aliases": [
+      "seated cable row"
+    ],
+    "primaryMuscles": [
+      "upper back"
+    ],
+    "secondaryMuscles": [
+      "core"
+    ],
+    "movementPattern": "horizontal pull",
+    "equipment": "cable",
+    "unilateral": false,
+    "compound": true,
+    "stabilityDemand": "low",
+    "jointDemands": [
+      "shoulder"
+    ],
+    "axialLoading": "low",
+    "kneeDemand": "low",
+    "hipHingeDemand": "none",
+    "shoulderDemand": "low",
+    "emphasis": [
+      "upper-back thickness"
+    ],
+    "programmeRole": "secondary_compound",
+    "repRange": "8–12",
+    "loadingPattern": "stack",
+    "progression": "add load only when technique and target effort are repeatable",
+    "substitutions": [],
+    "cautions": [
+      "technique quality"
+    ],
+    "intent": [
+      "upper-back thickness"
+    ]
+  },
+  {
+    "id": "machine-row",
+    "name": "Machine Row",
+    "aliases": [
+      "machine row"
+    ],
+    "primaryMuscles": [
+      "upper back"
+    ],
+    "secondaryMuscles": [
+      "core"
+    ],
+    "movementPattern": "horizontal pull",
+    "equipment": "machine",
+    "unilateral": false,
+    "compound": true,
+    "stabilityDemand": "low",
+    "jointDemands": [
+      "shoulder"
+    ],
+    "axialLoading": "low",
+    "kneeDemand": "low",
+    "hipHingeDemand": "none",
+    "shoulderDemand": "low",
+    "emphasis": [
+      "stable back hypertrophy"
+    ],
+    "programmeRole": "secondary_compound",
+    "repRange": "8–12",
+    "loadingPattern": "stack",
+    "progression": "add load only when technique and target effort are repeatable",
+    "substitutions": [],
+    "cautions": [
+      "technique quality"
+    ],
+    "intent": [
+      "stable back hypertrophy"
+    ]
+  },
+  {
+    "id": "one-arm-db-row",
+    "name": "One-Arm DB Row",
+    "aliases": [
+      "one-arm db row"
+    ],
+    "primaryMuscles": [
+      "lats"
+    ],
+    "secondaryMuscles": [
+      "core"
+    ],
+    "movementPattern": "horizontal pull",
+    "equipment": "dumbbell",
+    "unilateral": true,
+    "compound": true,
+    "stabilityDemand": "medium",
+    "jointDemands": [
+      "shoulder"
+    ],
+    "axialLoading": "low",
+    "kneeDemand": "low",
+    "hipHingeDemand": "none",
+    "shoulderDemand": "low",
+    "emphasis": [
+      "unilateral lat loading"
+    ],
+    "programmeRole": "secondary_compound",
+    "repRange": "8–12",
+    "loadingPattern": "per-dumbbell",
+    "progression": "add load only when technique and target effort are repeatable",
+    "substitutions": [],
+    "cautions": [
+      "technique quality"
+    ],
+    "intent": [
+      "unilateral lat loading"
+    ]
+  },
+  {
+    "id": "t-bar-row",
+    "name": "T-Bar Row",
+    "aliases": [
+      "t-bar row"
+    ],
+    "primaryMuscles": [
+      "upper back"
+    ],
+    "secondaryMuscles": [
+      "core"
+    ],
+    "movementPattern": "horizontal pull",
+    "equipment": "plate-loaded machine",
+    "unilateral": false,
+    "compound": true,
+    "stabilityDemand": "low",
+    "jointDemands": [
+      "shoulder"
+    ],
+    "axialLoading": "low",
+    "kneeDemand": "low",
+    "hipHingeDemand": "none",
+    "shoulderDemand": "low",
+    "emphasis": [
+      "upper-back thickness"
+    ],
+    "programmeRole": "secondary_compound",
+    "repRange": "8–12",
+    "loadingPattern": "bodyweight or external load",
+    "progression": "add load only when technique and target effort are repeatable",
+    "substitutions": [],
+    "cautions": [
+      "technique quality"
+    ],
+    "intent": [
+      "upper-back thickness"
+    ]
+  },
+  {
+    "id": "lat-pullover",
+    "name": "Lat Pullover",
+    "aliases": [
+      "lat pullover"
+    ],
+    "primaryMuscles": [
+      "lats"
+    ],
+    "secondaryMuscles": [],
+    "movementPattern": "shoulder extension",
+    "equipment": "cable",
+    "unilateral": false,
+    "compound": false,
+    "stabilityDemand": "low",
+    "jointDemands": [
+      "shoulder"
+    ],
+    "axialLoading": "low",
+    "kneeDemand": "low",
+    "hipHingeDemand": "medium",
+    "shoulderDemand": "medium",
+    "emphasis": [
+      "lat lengthened stimulus"
+    ],
+    "programmeRole": "isolation",
+    "repRange": "10–15",
+    "loadingPattern": "stack",
+    "progression": "add quality reps before a practical load jump",
+    "substitutions": [],
+    "cautions": [
+      "technique quality"
+    ],
+    "intent": [
+      "lat lengthened stimulus"
+    ]
+  },
+  {
+    "id": "straight-arm-pulldown",
+    "name": "Straight-Arm Pulldown",
+    "aliases": [
+      "straight-arm pulldown"
+    ],
+    "primaryMuscles": [
+      "lats"
+    ],
+    "secondaryMuscles": [],
+    "movementPattern": "shoulder extension",
+    "equipment": "cable",
+    "unilateral": false,
+    "compound": false,
+    "stabilityDemand": "low",
+    "jointDemands": [
+      "shoulder"
+    ],
+    "axialLoading": "low",
+    "kneeDemand": "low",
+    "hipHingeDemand": "medium",
+    "shoulderDemand": "medium",
+    "emphasis": [
+      "lat isolation"
+    ],
+    "programmeRole": "isolation",
+    "repRange": "10–15",
+    "loadingPattern": "stack",
+    "progression": "add quality reps before a practical load jump",
+    "substitutions": [],
+    "cautions": [
+      "technique quality"
+    ],
+    "intent": [
+      "lat isolation"
+    ]
+  },
+  {
+    "id": "back-extension",
+    "name": "Back Extension",
+    "aliases": [
+      "back extension"
+    ],
+    "primaryMuscles": [
+      "spinal erectors"
+    ],
+    "secondaryMuscles": [
+      "core"
+    ],
+    "movementPattern": "hip extension",
+    "equipment": "bodyweight",
+    "unilateral": false,
+    "compound": true,
+    "stabilityDemand": "medium",
+    "jointDemands": [
+      "shoulder"
+    ],
+    "axialLoading": "low",
+    "kneeDemand": "low",
+    "hipHingeDemand": "medium",
+    "shoulderDemand": "low",
+    "emphasis": [
+      "posterior-chain endurance"
+    ],
+    "programmeRole": "secondary_compound",
+    "repRange": "8–12",
+    "loadingPattern": "bodyweight or external load",
+    "progression": "add load only when technique and target effort are repeatable",
+    "substitutions": [],
+    "cautions": [
+      "technique quality"
+    ],
+    "intent": [
+      "posterior-chain endurance"
+    ]
+  },
+  {
+    "id": "seated-db-shoulder-press",
+    "name": "Seated DB Shoulder Press",
+    "aliases": [
+      "seated db shoulder press"
+    ],
+    "primaryMuscles": [
+      "front delts"
+    ],
+    "secondaryMuscles": [
+      "core"
+    ],
+    "movementPattern": "vertical press",
+    "equipment": "dumbbell",
+    "unilateral": false,
+    "compound": true,
+    "stabilityDemand": "low",
+    "jointDemands": [
+      "shoulder"
+    ],
+    "axialLoading": "low",
+    "kneeDemand": "low",
+    "hipHingeDemand": "none",
+    "shoulderDemand": "medium",
+    "emphasis": [
+      "shoulder strength"
+    ],
+    "programmeRole": "secondary_compound",
+    "repRange": "8–12",
+    "loadingPattern": "per-dumbbell",
+    "progression": "add load only when technique and target effort are repeatable",
+    "substitutions": [],
+    "cautions": [
+      "technique quality"
+    ],
+    "intent": [
+      "shoulder strength"
+    ]
+  },
+  {
+    "id": "machine-shoulder-press",
+    "name": "Machine Shoulder Press",
+    "aliases": [
+      "machine shoulder press"
+    ],
+    "primaryMuscles": [
+      "front delts"
+    ],
+    "secondaryMuscles": [
+      "core"
+    ],
+    "movementPattern": "vertical press",
+    "equipment": "machine",
+    "unilateral": false,
+    "compound": true,
+    "stabilityDemand": "low",
+    "jointDemands": [
+      "shoulder"
+    ],
+    "axialLoading": "low",
+    "kneeDemand": "low",
+    "hipHingeDemand": "none",
+    "shoulderDemand": "medium",
+    "emphasis": [
+      "stable shoulder hypertrophy"
+    ],
+    "programmeRole": "secondary_compound",
+    "repRange": "8–12",
+    "loadingPattern": "stack",
+    "progression": "add load only when technique and target effort are repeatable",
+    "substitutions": [],
+    "cautions": [
+      "technique quality"
+    ],
+    "intent": [
+      "stable shoulder hypertrophy"
+    ]
+  },
+  {
+    "id": "barbell-overhead-press",
+    "name": "Barbell Overhead Press",
+    "aliases": [
+      "barbell overhead press"
+    ],
+    "primaryMuscles": [
+      "front delts"
+    ],
+    "secondaryMuscles": [
+      "core"
+    ],
+    "movementPattern": "vertical press",
+    "equipment": "barbell",
+    "unilateral": false,
+    "compound": true,
+    "stabilityDemand": "low",
+    "jointDemands": [
+      "shoulder"
+    ],
+    "axialLoading": "low",
+    "kneeDemand": "low",
+    "hipHingeDemand": "none",
+    "shoulderDemand": "medium",
+    "emphasis": [
+      "shoulder strength"
+    ],
+    "programmeRole": "secondary_compound",
+    "repRange": "8–12",
+    "loadingPattern": "barbell plates",
+    "progression": "add load only when technique and target effort are repeatable",
+    "substitutions": [],
+    "cautions": [
+      "technique quality"
+    ],
+    "intent": [
+      "shoulder strength"
+    ]
+  },
+  {
+    "id": "arnold-press",
+    "name": "Arnold Press",
+    "aliases": [
+      "arnold press"
+    ],
+    "primaryMuscles": [
+      "front delts"
+    ],
+    "secondaryMuscles": [
+      "core"
+    ],
+    "movementPattern": "vertical press",
+    "equipment": "dumbbell",
+    "unilateral": false,
+    "compound": true,
+    "stabilityDemand": "low",
+    "jointDemands": [
+      "shoulder"
+    ],
+    "axialLoading": "low",
+    "kneeDemand": "low",
+    "hipHingeDemand": "none",
+    "shoulderDemand": "medium",
+    "emphasis": [
+      "front-delt hypertrophy"
+    ],
+    "programmeRole": "secondary_compound",
+    "repRange": "8–12",
+    "loadingPattern": "per-dumbbell",
+    "progression": "add load only when technique and target effort are repeatable",
+    "substitutions": [],
+    "cautions": [
+      "technique quality"
+    ],
+    "intent": [
+      "front-delt hypertrophy"
+    ]
+  },
+  {
+    "id": "db-lateral-raise",
+    "name": "DB Lateral Raise",
+    "aliases": [
+      "db lateral raise"
+    ],
+    "primaryMuscles": [
+      "lateral delts"
+    ],
+    "secondaryMuscles": [],
+    "movementPattern": "shoulder abduction",
+    "equipment": "dumbbell",
+    "unilateral": false,
+    "compound": false,
+    "stabilityDemand": "low",
+    "jointDemands": [
+      "shoulder"
+    ],
+    "axialLoading": "low",
+    "kneeDemand": "low",
+    "hipHingeDemand": "none",
+    "shoulderDemand": "medium",
+    "emphasis": [
+      "lateral delt hypertrophy"
+    ],
+    "programmeRole": "isolation",
+    "repRange": "10–15",
+    "loadingPattern": "per-dumbbell",
+    "progression": "add quality reps before a practical load jump",
+    "substitutions": [],
+    "cautions": [
+      "technique quality"
+    ],
+    "intent": [
+      "lateral delt hypertrophy"
+    ]
+  },
+  {
+    "id": "machine-lateral-raise",
+    "name": "Machine Lateral Raise",
+    "aliases": [
+      "machine lateral raise"
+    ],
+    "primaryMuscles": [
+      "lateral delts"
+    ],
+    "secondaryMuscles": [],
+    "movementPattern": "shoulder abduction",
+    "equipment": "machine",
+    "unilateral": false,
+    "compound": false,
+    "stabilityDemand": "low",
+    "jointDemands": [
+      "shoulder"
+    ],
+    "axialLoading": "low",
+    "kneeDemand": "low",
+    "hipHingeDemand": "none",
+    "shoulderDemand": "medium",
+    "emphasis": [
+      "lateral delt isolation"
+    ],
+    "programmeRole": "isolation",
+    "repRange": "10–15",
+    "loadingPattern": "stack",
+    "progression": "add quality reps before a practical load jump",
+    "substitutions": [],
+    "cautions": [
+      "technique quality"
+    ],
+    "intent": [
+      "lateral delt isolation"
+    ]
+  },
+  {
+    "id": "face-pull",
+    "name": "Face Pull",
+    "aliases": [
+      "face pull"
+    ],
+    "primaryMuscles": [
+      "rear delts"
+    ],
+    "secondaryMuscles": [],
+    "movementPattern": "horizontal abduction",
+    "equipment": "cable",
+    "unilateral": false,
+    "compound": false,
+    "stabilityDemand": "low",
+    "jointDemands": [
+      "shoulder"
+    ],
+    "axialLoading": "low",
+    "kneeDemand": "low",
+    "hipHingeDemand": "none",
+    "shoulderDemand": "low",
+    "emphasis": [
+      "rear-delt and cuff health"
+    ],
+    "programmeRole": "isolation",
+    "repRange": "10–15",
+    "loadingPattern": "stack",
+    "progression": "add quality reps before a practical load jump",
+    "substitutions": [],
+    "cautions": [
+      "technique quality"
+    ],
+    "intent": [
+      "rear-delt and cuff health"
+    ]
+  },
+  {
+    "id": "reverse-pec-deck",
+    "name": "Reverse Pec Deck",
+    "aliases": [
+      "reverse pec deck"
+    ],
+    "primaryMuscles": [
+      "rear delts"
+    ],
+    "secondaryMuscles": [],
+    "movementPattern": "horizontal abduction",
+    "equipment": "machine",
+    "unilateral": false,
+    "compound": false,
+    "stabilityDemand": "low",
+    "jointDemands": [
+      "shoulder"
+    ],
+    "axialLoading": "low",
+    "kneeDemand": "low",
+    "hipHingeDemand": "none",
+    "shoulderDemand": "low",
+    "emphasis": [
+      "rear delt hypertrophy"
+    ],
+    "programmeRole": "isolation",
+    "repRange": "10–15",
+    "loadingPattern": "stack",
+    "progression": "add quality reps before a practical load jump",
+    "substitutions": [],
+    "cautions": [
+      "technique quality"
+    ],
+    "intent": [
+      "rear delt hypertrophy"
+    ]
+  },
+  {
+    "id": "rear-delt-cable-fly",
+    "name": "Rear-Delt Cable Fly",
+    "aliases": [
+      "rear-delt cable fly"
+    ],
+    "primaryMuscles": [
+      "rear delts"
+    ],
+    "secondaryMuscles": [],
+    "movementPattern": "horizontal abduction",
+    "equipment": "cable",
+    "unilateral": true,
+    "compound": false,
+    "stabilityDemand": "medium",
+    "jointDemands": [
+      "shoulder"
+    ],
+    "axialLoading": "low",
+    "kneeDemand": "low",
+    "hipHingeDemand": "none",
+    "shoulderDemand": "low",
+    "emphasis": [
+      "rear delt isolation"
+    ],
+    "programmeRole": "isolation",
+    "repRange": "10–15",
+    "loadingPattern": "stack",
+    "progression": "add quality reps before a practical load jump",
+    "substitutions": [],
+    "cautions": [
+      "technique quality"
+    ],
+    "intent": [
+      "rear delt isolation"
+    ]
+  },
+  {
+    "id": "cable-front-raise",
+    "name": "Cable Front Raise",
+    "aliases": [
+      "cable front raise"
+    ],
+    "primaryMuscles": [
+      "front delts"
+    ],
+    "secondaryMuscles": [],
+    "movementPattern": "shoulder flexion",
+    "equipment": "cable",
+    "unilateral": true,
+    "compound": false,
+    "stabilityDemand": "medium",
+    "jointDemands": [
+      "shoulder"
+    ],
+    "axialLoading": "low",
+    "kneeDemand": "low",
+    "hipHingeDemand": "none",
+    "shoulderDemand": "medium",
+    "emphasis": [
+      "front-delt isolation"
+    ],
+    "programmeRole": "isolation",
+    "repRange": "10–15",
+    "loadingPattern": "stack",
+    "progression": "add quality reps before a practical load jump",
+    "substitutions": [],
+    "cautions": [
+      "technique quality"
+    ],
+    "intent": [
+      "front-delt isolation"
+    ]
+  },
+  {
+    "id": "ez-bar-curl",
+    "name": "EZ Bar Curl",
+    "aliases": [
+      "ez bar curl"
+    ],
+    "primaryMuscles": [
+      "biceps"
+    ],
+    "secondaryMuscles": [],
+    "movementPattern": "elbow flexion",
+    "equipment": "barbell",
+    "unilateral": false,
+    "compound": false,
+    "stabilityDemand": "low",
+    "jointDemands": [
+      "shoulder"
+    ],
+    "axialLoading": "low",
+    "kneeDemand": "low",
+    "hipHingeDemand": "none",
+    "shoulderDemand": "low",
+    "emphasis": [
+      "biceps hypertrophy"
+    ],
+    "programmeRole": "isolation",
+    "repRange": "10–15",
+    "loadingPattern": "barbell plates",
+    "progression": "add quality reps before a practical load jump",
+    "substitutions": [],
+    "cautions": [
+      "technique quality"
+    ],
+    "intent": [
+      "biceps hypertrophy"
+    ]
+  },
+  {
+    "id": "barbell-curl",
+    "name": "Barbell Curl",
+    "aliases": [
+      "barbell curl"
+    ],
+    "primaryMuscles": [
+      "biceps"
+    ],
+    "secondaryMuscles": [],
+    "movementPattern": "elbow flexion",
+    "equipment": "barbell",
+    "unilateral": false,
+    "compound": false,
+    "stabilityDemand": "low",
+    "jointDemands": [
+      "shoulder"
+    ],
+    "axialLoading": "low",
+    "kneeDemand": "low",
+    "hipHingeDemand": "none",
+    "shoulderDemand": "low",
+    "emphasis": [
+      "biceps strength"
+    ],
+    "programmeRole": "isolation",
+    "repRange": "10–15",
+    "loadingPattern": "barbell plates",
+    "progression": "add quality reps before a practical load jump",
+    "substitutions": [],
+    "cautions": [
+      "technique quality"
+    ],
+    "intent": [
+      "biceps strength"
+    ]
+  },
+  {
+    "id": "db-curl",
+    "name": "DB Curl",
+    "aliases": [
+      "db curl"
+    ],
+    "primaryMuscles": [
+      "biceps"
+    ],
+    "secondaryMuscles": [],
+    "movementPattern": "elbow flexion",
+    "equipment": "dumbbell",
+    "unilateral": false,
+    "compound": false,
+    "stabilityDemand": "low",
+    "jointDemands": [
+      "shoulder"
+    ],
+    "axialLoading": "low",
+    "kneeDemand": "low",
+    "hipHingeDemand": "none",
+    "shoulderDemand": "low",
+    "emphasis": [
+      "biceps hypertrophy"
+    ],
+    "programmeRole": "isolation",
+    "repRange": "10–15",
+    "loadingPattern": "per-dumbbell",
+    "progression": "add quality reps before a practical load jump",
+    "substitutions": [],
+    "cautions": [
+      "technique quality"
+    ],
+    "intent": [
+      "biceps hypertrophy"
+    ]
+  },
+  {
+    "id": "incline-db-curl",
+    "name": "Incline DB Curl",
+    "aliases": [
+      "incline db curl"
+    ],
+    "primaryMuscles": [
+      "biceps"
+    ],
+    "secondaryMuscles": [],
+    "movementPattern": "elbow flexion",
+    "equipment": "dumbbell",
+    "unilateral": false,
+    "compound": false,
+    "stabilityDemand": "low",
+    "jointDemands": [
+      "shoulder"
+    ],
+    "axialLoading": "low",
+    "kneeDemand": "low",
+    "hipHingeDemand": "none",
+    "shoulderDemand": "low",
+    "emphasis": [
+      "biceps lengthened"
+    ],
+    "programmeRole": "isolation",
+    "repRange": "10–15",
+    "loadingPattern": "per-dumbbell",
+    "progression": "add quality reps before a practical load jump",
+    "substitutions": [],
+    "cautions": [
+      "technique quality"
+    ],
+    "intent": [
+      "biceps lengthened"
+    ]
+  },
+  {
+    "id": "hammer-curl",
+    "name": "Hammer Curl",
+    "aliases": [
+      "hammer curl"
+    ],
+    "primaryMuscles": [
+      "brachialis"
+    ],
+    "secondaryMuscles": [],
+    "movementPattern": "elbow flexion",
+    "equipment": "dumbbell",
+    "unilateral": false,
+    "compound": false,
+    "stabilityDemand": "low",
+    "jointDemands": [
+      "shoulder"
+    ],
+    "axialLoading": "low",
+    "kneeDemand": "low",
+    "hipHingeDemand": "none",
+    "shoulderDemand": "low",
+    "emphasis": [
+      "arm thickness"
+    ],
+    "programmeRole": "isolation",
+    "repRange": "10–15",
+    "loadingPattern": "per-dumbbell",
+    "progression": "add quality reps before a practical load jump",
+    "substitutions": [],
+    "cautions": [
+      "technique quality"
+    ],
+    "intent": [
+      "arm thickness"
+    ]
+  },
+  {
+    "id": "cable-curl",
+    "name": "Cable Curl",
+    "aliases": [
+      "cable curl"
+    ],
+    "primaryMuscles": [
+      "biceps"
+    ],
+    "secondaryMuscles": [],
+    "movementPattern": "elbow flexion",
+    "equipment": "cable",
+    "unilateral": false,
+    "compound": false,
+    "stabilityDemand": "low",
+    "jointDemands": [
+      "shoulder"
+    ],
+    "axialLoading": "low",
+    "kneeDemand": "low",
+    "hipHingeDemand": "none",
+    "shoulderDemand": "low",
+    "emphasis": [
+      "constant-tension biceps"
+    ],
+    "programmeRole": "isolation",
+    "repRange": "10–15",
+    "loadingPattern": "stack",
+    "progression": "add quality reps before a practical load jump",
+    "substitutions": [],
+    "cautions": [
+      "technique quality"
+    ],
+    "intent": [
+      "constant-tension biceps"
+    ]
+  },
+  {
+    "id": "preacher-curl",
+    "name": "Preacher Curl",
+    "aliases": [
+      "preacher curl"
+    ],
+    "primaryMuscles": [
+      "biceps"
+    ],
+    "secondaryMuscles": [],
+    "movementPattern": "elbow flexion",
+    "equipment": "machine",
+    "unilateral": false,
+    "compound": false,
+    "stabilityDemand": "low",
+    "jointDemands": [
+      "shoulder"
+    ],
+    "axialLoading": "low",
+    "kneeDemand": "low",
+    "hipHingeDemand": "none",
+    "shoulderDemand": "low",
+    "emphasis": [
+      "strict biceps isolation"
+    ],
+    "programmeRole": "isolation",
+    "repRange": "10–15",
+    "loadingPattern": "stack",
+    "progression": "add quality reps before a practical load jump",
+    "substitutions": [],
+    "cautions": [
+      "technique quality"
+    ],
+    "intent": [
+      "strict biceps isolation"
+    ]
+  },
+  {
+    "id": "spider-curl",
+    "name": "Spider Curl",
+    "aliases": [
+      "spider curl"
+    ],
+    "primaryMuscles": [
+      "biceps"
+    ],
+    "secondaryMuscles": [],
+    "movementPattern": "elbow flexion",
+    "equipment": "dumbbell",
+    "unilateral": false,
+    "compound": false,
+    "stabilityDemand": "low",
+    "jointDemands": [
+      "shoulder"
+    ],
+    "axialLoading": "low",
+    "kneeDemand": "low",
+    "hipHingeDemand": "none",
+    "shoulderDemand": "low",
+    "emphasis": [
+      "shortened biceps"
+    ],
+    "programmeRole": "isolation",
+    "repRange": "10–15",
+    "loadingPattern": "per-dumbbell",
+    "progression": "add quality reps before a practical load jump",
+    "substitutions": [],
+    "cautions": [
+      "technique quality"
+    ],
+    "intent": [
+      "shortened biceps"
+    ]
+  },
+  {
+    "id": "triceps-pushdown",
+    "name": "Triceps Pushdown",
+    "aliases": [
+      "triceps pushdown"
+    ],
+    "primaryMuscles": [
+      "triceps"
+    ],
+    "secondaryMuscles": [],
+    "movementPattern": "elbow extension",
+    "equipment": "cable",
+    "unilateral": false,
+    "compound": false,
+    "stabilityDemand": "low",
+    "jointDemands": [
+      "shoulder"
+    ],
+    "axialLoading": "low",
+    "kneeDemand": "low",
+    "hipHingeDemand": "medium",
+    "shoulderDemand": "low",
+    "emphasis": [
+      "triceps hypertrophy"
+    ],
+    "programmeRole": "isolation",
+    "repRange": "10–15",
+    "loadingPattern": "stack",
+    "progression": "add quality reps before a practical load jump",
+    "substitutions": [],
+    "cautions": [
+      "technique quality"
+    ],
+    "intent": [
+      "triceps hypertrophy"
+    ]
+  },
+  {
+    "id": "v-bar-pushdown",
+    "name": "V-Bar Pushdown",
+    "aliases": [
+      "v-bar pushdown"
+    ],
+    "primaryMuscles": [
+      "triceps"
+    ],
+    "secondaryMuscles": [],
+    "movementPattern": "elbow extension",
+    "equipment": "cable",
+    "unilateral": false,
+    "compound": false,
+    "stabilityDemand": "low",
+    "jointDemands": [
+      "shoulder"
+    ],
+    "axialLoading": "low",
+    "kneeDemand": "low",
+    "hipHingeDemand": "medium",
+    "shoulderDemand": "low",
+    "emphasis": [
+      "triceps hypertrophy"
+    ],
+    "programmeRole": "isolation",
+    "repRange": "10–15",
+    "loadingPattern": "stack",
+    "progression": "add quality reps before a practical load jump",
+    "substitutions": [],
+    "cautions": [
+      "technique quality"
+    ],
+    "intent": [
+      "triceps hypertrophy"
+    ]
+  },
+  {
+    "id": "rope-pushdown",
+    "name": "Rope Pushdown",
+    "aliases": [
+      "rope pushdown"
+    ],
+    "primaryMuscles": [
+      "triceps"
+    ],
+    "secondaryMuscles": [],
+    "movementPattern": "elbow extension",
+    "equipment": "cable",
+    "unilateral": false,
+    "compound": false,
+    "stabilityDemand": "low",
+    "jointDemands": [
+      "shoulder"
+    ],
+    "axialLoading": "low",
+    "kneeDemand": "low",
+    "hipHingeDemand": "medium",
+    "shoulderDemand": "low",
+    "emphasis": [
+      "triceps isolation"
+    ],
+    "programmeRole": "isolation",
+    "repRange": "10–15",
+    "loadingPattern": "stack",
+    "progression": "add quality reps before a practical load jump",
+    "substitutions": [],
+    "cautions": [
+      "technique quality"
+    ],
+    "intent": [
+      "triceps isolation"
+    ]
+  },
+  {
+    "id": "close-grip-bench",
+    "name": "Close-Grip Bench Press",
+    "aliases": [
+      "close-grip bench press"
+    ],
+    "primaryMuscles": [
+      "triceps"
+    ],
+    "secondaryMuscles": [
+      "core"
+    ],
+    "movementPattern": "horizontal press",
+    "equipment": "barbell",
+    "unilateral": false,
+    "compound": true,
+    "stabilityDemand": "low",
+    "jointDemands": [
+      "shoulder"
+    ],
+    "axialLoading": "low",
+    "kneeDemand": "low",
+    "hipHingeDemand": "none",
+    "shoulderDemand": "medium",
+    "emphasis": [
+      "triceps strength"
+    ],
+    "programmeRole": "secondary_compound",
+    "repRange": "8–12",
+    "loadingPattern": "barbell plates",
+    "progression": "add load only when technique and target effort are repeatable",
+    "substitutions": [],
+    "cautions": [
+      "technique quality"
+    ],
+    "intent": [
+      "triceps strength"
+    ]
+  },
+  {
+    "id": "skull-crusher",
+    "name": "Skull Crusher",
+    "aliases": [
+      "skull crusher"
+    ],
+    "primaryMuscles": [
+      "triceps"
+    ],
+    "secondaryMuscles": [],
+    "movementPattern": "elbow extension",
+    "equipment": "barbell",
+    "unilateral": false,
+    "compound": false,
+    "stabilityDemand": "low",
+    "jointDemands": [
+      "shoulder"
+    ],
+    "axialLoading": "low",
+    "kneeDemand": "low",
+    "hipHingeDemand": "medium",
+    "shoulderDemand": "low",
+    "emphasis": [
+      "triceps lengthened"
+    ],
+    "programmeRole": "isolation",
+    "repRange": "10–15",
+    "loadingPattern": "barbell plates",
+    "progression": "add quality reps before a practical load jump",
+    "substitutions": [],
+    "cautions": [
+      "technique quality"
+    ],
+    "intent": [
+      "triceps lengthened"
+    ]
+  },
+  {
+    "id": "db-skull-crusher",
+    "name": "DB Skull Crusher",
+    "aliases": [
+      "db skull crusher"
+    ],
+    "primaryMuscles": [
+      "triceps"
+    ],
+    "secondaryMuscles": [],
+    "movementPattern": "elbow extension",
+    "equipment": "dumbbell",
+    "unilateral": false,
+    "compound": false,
+    "stabilityDemand": "low",
+    "jointDemands": [
+      "shoulder"
+    ],
+    "axialLoading": "low",
+    "kneeDemand": "low",
+    "hipHingeDemand": "medium",
+    "shoulderDemand": "low",
+    "emphasis": [
+      "triceps lengthened"
+    ],
+    "programmeRole": "isolation",
+    "repRange": "10–15",
+    "loadingPattern": "per-dumbbell",
+    "progression": "add quality reps before a practical load jump",
+    "substitutions": [],
+    "cautions": [
+      "technique quality"
+    ],
+    "intent": [
+      "triceps lengthened"
+    ]
+  },
+  {
+    "id": "cross-body-extension",
+    "name": "Cross-Body Cable Extension",
+    "aliases": [
+      "cross-body cable extension"
+    ],
+    "primaryMuscles": [
+      "triceps long head"
+    ],
+    "secondaryMuscles": [],
+    "movementPattern": "elbow extension",
+    "equipment": "cable",
+    "unilateral": true,
+    "compound": false,
+    "stabilityDemand": "medium",
+    "jointDemands": [
+      "shoulder"
+    ],
+    "axialLoading": "low",
+    "kneeDemand": "low",
+    "hipHingeDemand": "medium",
+    "shoulderDemand": "low",
+    "emphasis": [
+      "long-head triceps"
+    ],
+    "programmeRole": "isolation",
+    "repRange": "10–15",
+    "loadingPattern": "stack",
+    "progression": "add quality reps before a practical load jump",
+    "substitutions": [],
+    "cautions": [
+      "technique quality"
+    ],
+    "intent": [
+      "long-head triceps"
+    ]
+  },
+  {
+    "id": "bench-dip",
+    "name": "Bench Dip",
+    "aliases": [
+      "bench dip"
+    ],
+    "primaryMuscles": [
+      "triceps"
+    ],
+    "secondaryMuscles": [
+      "core"
+    ],
+    "movementPattern": "elbow extension",
+    "equipment": "bodyweight",
+    "unilateral": false,
+    "compound": true,
+    "stabilityDemand": "medium",
+    "jointDemands": [
+      "shoulder"
+    ],
+    "axialLoading": "low",
+    "kneeDemand": "low",
+    "hipHingeDemand": "medium",
+    "shoulderDemand": "low",
+    "emphasis": [
+      "triceps endurance"
+    ],
+    "programmeRole": "secondary_compound",
+    "repRange": "8–12",
+    "loadingPattern": "bodyweight or external load",
+    "progression": "add load only when technique and target effort are repeatable",
+    "substitutions": [],
+    "cautions": [
+      "technique quality"
+    ],
+    "intent": [
+      "triceps endurance"
+    ]
+  },
+  {
+    "id": "leg-press",
+    "name": "Leg Press",
+    "aliases": [
+      "leg press"
+    ],
+    "primaryMuscles": [
+      "quads"
+    ],
+    "secondaryMuscles": [
+      "core"
+    ],
+    "movementPattern": "squat",
+    "equipment": "plate-loaded machine",
+    "unilateral": false,
+    "compound": true,
+    "stabilityDemand": "low",
+    "jointDemands": [
+      "knee"
+    ],
+    "axialLoading": "medium",
+    "kneeDemand": "medium",
+    "hipHingeDemand": "none",
+    "shoulderDemand": "low",
+    "emphasis": [
+      "quad hypertrophy"
+    ],
+    "programmeRole": "secondary_compound",
+    "repRange": "8–12",
+    "loadingPattern": "bodyweight or external load",
+    "progression": "add load only when technique and target effort are repeatable",
+    "substitutions": [],
+    "cautions": [
+      "knee tolerance"
+    ],
+    "intent": [
+      "quad hypertrophy"
+    ]
+  },
+  {
+    "id": "hack-squat",
+    "name": "Hack Squat",
+    "aliases": [
+      "hack squat"
+    ],
+    "primaryMuscles": [
+      "quads"
+    ],
+    "secondaryMuscles": [
+      "core"
+    ],
+    "movementPattern": "squat",
+    "equipment": "machine",
+    "unilateral": false,
+    "compound": true,
+    "stabilityDemand": "low",
+    "jointDemands": [
+      "knee"
+    ],
+    "axialLoading": "medium",
+    "kneeDemand": "medium",
+    "hipHingeDemand": "none",
+    "shoulderDemand": "low",
+    "emphasis": [
+      "quad hypertrophy"
+    ],
+    "programmeRole": "secondary_compound",
+    "repRange": "8–12",
+    "loadingPattern": "stack",
+    "progression": "add load only when technique and target effort are repeatable",
+    "substitutions": [],
+    "cautions": [
+      "knee tolerance"
+    ],
+    "intent": [
+      "quad hypertrophy"
+    ]
+  },
+  {
+    "id": "front-squat",
+    "name": "Front Squat",
+    "aliases": [
+      "front squat"
+    ],
+    "primaryMuscles": [
+      "quads"
+    ],
+    "secondaryMuscles": [
+      "core"
+    ],
+    "movementPattern": "squat",
+    "equipment": "barbell",
+    "unilateral": false,
+    "compound": true,
+    "stabilityDemand": "low",
+    "jointDemands": [
+      "knee"
+    ],
+    "axialLoading": "medium",
+    "kneeDemand": "medium",
+    "hipHingeDemand": "none",
+    "shoulderDemand": "low",
+    "emphasis": [
+      "quad strength"
+    ],
+    "programmeRole": "secondary_compound",
+    "repRange": "8–12",
+    "loadingPattern": "barbell plates",
+    "progression": "add load only when technique and target effort are repeatable",
+    "substitutions": [],
+    "cautions": [
+      "knee tolerance"
+    ],
+    "intent": [
+      "quad strength"
+    ]
+  },
+  {
+    "id": "back-squat",
+    "name": "Back Squat",
+    "aliases": [
+      "back squat"
+    ],
+    "primaryMuscles": [
+      "quads"
+    ],
+    "secondaryMuscles": [
+      "core"
+    ],
+    "movementPattern": "squat",
+    "equipment": "barbell",
+    "unilateral": false,
+    "compound": true,
+    "stabilityDemand": "low",
+    "jointDemands": [
+      "knee"
+    ],
+    "axialLoading": "medium",
+    "kneeDemand": "medium",
+    "hipHingeDemand": "none",
+    "shoulderDemand": "low",
+    "emphasis": [
+      "leg strength"
+    ],
+    "programmeRole": "secondary_compound",
+    "repRange": "8–12",
+    "loadingPattern": "barbell plates",
+    "progression": "add load only when technique and target effort are repeatable",
+    "substitutions": [],
+    "cautions": [
+      "knee tolerance"
+    ],
+    "intent": [
+      "leg strength"
+    ]
+  },
+  {
+    "id": "goblet-squat",
+    "name": "Goblet Squat",
+    "aliases": [
+      "goblet squat"
+    ],
+    "primaryMuscles": [
+      "quads"
+    ],
+    "secondaryMuscles": [
+      "core"
+    ],
+    "movementPattern": "squat",
+    "equipment": "dumbbell",
+    "unilateral": false,
+    "compound": true,
+    "stabilityDemand": "low",
+    "jointDemands": [
+      "knee"
+    ],
+    "axialLoading": "medium",
+    "kneeDemand": "medium",
+    "hipHingeDemand": "none",
+    "shoulderDemand": "low",
+    "emphasis": [
+      "quad technique"
+    ],
+    "programmeRole": "secondary_compound",
+    "repRange": "8–12",
+    "loadingPattern": "per-dumbbell",
+    "progression": "add load only when technique and target effort are repeatable",
+    "substitutions": [],
+    "cautions": [
+      "knee tolerance"
+    ],
+    "intent": [
+      "quad technique"
+    ]
+  },
+  {
+    "id": "leg-extension",
+    "name": "Leg Extension",
+    "aliases": [
+      "leg extension"
+    ],
+    "primaryMuscles": [
+      "quads"
+    ],
+    "secondaryMuscles": [],
+    "movementPattern": "knee extension",
+    "equipment": "machine",
+    "unilateral": false,
+    "compound": false,
+    "stabilityDemand": "low",
+    "jointDemands": [
+      "knee"
+    ],
+    "axialLoading": "low",
+    "kneeDemand": "medium",
+    "hipHingeDemand": "medium",
+    "shoulderDemand": "low",
+    "emphasis": [
+      "quad isolation"
+    ],
+    "programmeRole": "isolation",
+    "repRange": "10–15",
+    "loadingPattern": "stack",
+    "progression": "add quality reps before a practical load jump",
+    "substitutions": [],
+    "cautions": [
+      "knee tolerance"
+    ],
+    "intent": [
+      "quad isolation"
+    ]
+  },
+  {
+    "id": "reverse-lunge",
+    "name": "Reverse Lunge",
+    "aliases": [
+      "reverse lunge"
+    ],
+    "primaryMuscles": [
+      "quads"
+    ],
+    "secondaryMuscles": [
+      "core"
+    ],
+    "movementPattern": "unilateral squat",
+    "equipment": "dumbbell",
+    "unilateral": true,
+    "compound": true,
+    "stabilityDemand": "medium",
+    "jointDemands": [
+      "knee"
+    ],
+    "axialLoading": "medium",
+    "kneeDemand": "medium",
+    "hipHingeDemand": "none",
+    "shoulderDemand": "low",
+    "emphasis": [
+      "unilateral quad/glute"
+    ],
+    "programmeRole": "secondary_compound",
+    "repRange": "8–12",
+    "loadingPattern": "per-dumbbell",
+    "progression": "add load only when technique and target effort are repeatable",
+    "substitutions": [],
+    "cautions": [
+      "knee tolerance"
+    ],
+    "intent": [
+      "unilateral quad/glute"
+    ]
+  },
+  {
+    "id": "walking-lunge",
+    "name": "Walking Lunge",
+    "aliases": [
+      "walking lunge"
+    ],
+    "primaryMuscles": [
+      "quads"
+    ],
+    "secondaryMuscles": [
+      "core"
+    ],
+    "movementPattern": "unilateral squat",
+    "equipment": "dumbbell",
+    "unilateral": true,
+    "compound": true,
+    "stabilityDemand": "medium",
+    "jointDemands": [
+      "knee"
+    ],
+    "axialLoading": "medium",
+    "kneeDemand": "medium",
+    "hipHingeDemand": "none",
+    "shoulderDemand": "low",
+    "emphasis": [
+      "leg conditioning"
+    ],
+    "programmeRole": "secondary_compound",
+    "repRange": "8–12",
+    "loadingPattern": "per-dumbbell",
+    "progression": "add load only when technique and target effort are repeatable",
+    "substitutions": [],
+    "cautions": [
+      "knee tolerance"
+    ],
+    "intent": [
+      "leg conditioning"
+    ]
+  },
+  {
+    "id": "step-up",
+    "name": "Step-Up",
+    "aliases": [
+      "step-up"
+    ],
+    "primaryMuscles": [
+      "quads"
+    ],
+    "secondaryMuscles": [
+      "core"
+    ],
+    "movementPattern": "unilateral squat",
+    "equipment": "dumbbell",
+    "unilateral": true,
+    "compound": true,
+    "stabilityDemand": "medium",
+    "jointDemands": [
+      "knee"
+    ],
+    "axialLoading": "medium",
+    "kneeDemand": "medium",
+    "hipHingeDemand": "none",
+    "shoulderDemand": "low",
+    "emphasis": [
+      "unilateral stability"
+    ],
+    "programmeRole": "secondary_compound",
+    "repRange": "8–12",
+    "loadingPattern": "per-dumbbell",
+    "progression": "add load only when technique and target effort are repeatable",
+    "substitutions": [],
+    "cautions": [
+      "knee tolerance"
+    ],
+    "intent": [
+      "unilateral stability"
+    ]
+  },
+  {
+    "id": "bulgarian-split-squat-db",
+    "name": "DB Bulgarian Split Squat",
+    "aliases": [
+      "db bulgarian split squat"
+    ],
+    "primaryMuscles": [
+      "quads"
+    ],
+    "secondaryMuscles": [
+      "core"
+    ],
+    "movementPattern": "unilateral squat",
+    "equipment": "dumbbell",
+    "unilateral": true,
+    "compound": true,
+    "stabilityDemand": "medium",
+    "jointDemands": [
+      "knee"
+    ],
+    "axialLoading": "medium",
+    "kneeDemand": "medium",
+    "hipHingeDemand": "none",
+    "shoulderDemand": "low",
+    "emphasis": [
+      "unilateral quad/glute"
+    ],
+    "programmeRole": "secondary_compound",
+    "repRange": "8–12",
+    "loadingPattern": "per-dumbbell",
+    "progression": "add load only when technique and target effort are repeatable",
+    "substitutions": [],
+    "cautions": [
+      "knee tolerance"
+    ],
+    "intent": [
+      "unilateral quad/glute"
+    ]
+  },
+  {
+    "id": "romanian-deadlift",
+    "name": "Romanian Deadlift",
+    "aliases": [
+      "romanian deadlift"
+    ],
+    "primaryMuscles": [
+      "hamstrings"
+    ],
+    "secondaryMuscles": [
+      "core"
+    ],
+    "movementPattern": "hip hinge",
+    "equipment": "barbell",
+    "unilateral": false,
+    "compound": true,
+    "stabilityDemand": "low",
+    "jointDemands": [
+      "shoulder"
+    ],
+    "axialLoading": "medium",
+    "kneeDemand": "low",
+    "hipHingeDemand": "medium",
+    "shoulderDemand": "low",
+    "emphasis": [
+      "hamstring lengthened"
+    ],
+    "programmeRole": "secondary_compound",
+    "repRange": "8–12",
+    "loadingPattern": "barbell plates",
+    "progression": "add load only when technique and target effort are repeatable",
+    "substitutions": [],
+    "cautions": [
+      "technique quality"
+    ],
+    "intent": [
+      "hamstring lengthened"
+    ]
+  },
+  {
+    "id": "db-rdl",
+    "name": "DB Romanian Deadlift",
+    "aliases": [
+      "db romanian deadlift"
+    ],
+    "primaryMuscles": [
+      "hamstrings"
+    ],
+    "secondaryMuscles": [
+      "core"
+    ],
+    "movementPattern": "hip hinge",
+    "equipment": "dumbbell",
+    "unilateral": false,
+    "compound": true,
+    "stabilityDemand": "low",
+    "jointDemands": [
+      "shoulder"
+    ],
+    "axialLoading": "medium",
+    "kneeDemand": "low",
+    "hipHingeDemand": "medium",
+    "shoulderDemand": "low",
+    "emphasis": [
+      "hamstring lengthened"
+    ],
+    "programmeRole": "secondary_compound",
+    "repRange": "8–12",
+    "loadingPattern": "per-dumbbell",
+    "progression": "add load only when technique and target effort are repeatable",
+    "substitutions": [],
+    "cautions": [
+      "technique quality"
+    ],
+    "intent": [
+      "hamstring lengthened"
+    ]
+  },
+  {
+    "id": "good-morning",
+    "name": "Good Morning",
+    "aliases": [
+      "good morning"
+    ],
+    "primaryMuscles": [
+      "hamstrings"
+    ],
+    "secondaryMuscles": [
+      "core"
+    ],
+    "movementPattern": "hip hinge",
+    "equipment": "barbell",
+    "unilateral": false,
+    "compound": true,
+    "stabilityDemand": "low",
+    "jointDemands": [
+      "shoulder"
+    ],
+    "axialLoading": "medium",
+    "kneeDemand": "low",
+    "hipHingeDemand": "medium",
+    "shoulderDemand": "low",
+    "emphasis": [
+      "posterior-chain strength"
+    ],
+    "programmeRole": "secondary_compound",
+    "repRange": "8–12",
+    "loadingPattern": "barbell plates",
+    "progression": "add load only when technique and target effort are repeatable",
+    "substitutions": [],
+    "cautions": [
+      "technique quality"
+    ],
+    "intent": [
+      "posterior-chain strength"
+    ]
+  },
+  {
+    "id": "lying-hamstring-curl",
+    "name": "Lying Hamstring Curl",
+    "aliases": [
+      "lying hamstring curl"
+    ],
+    "primaryMuscles": [
+      "hamstrings"
+    ],
+    "secondaryMuscles": [],
+    "movementPattern": "knee flexion",
+    "equipment": "machine",
+    "unilateral": false,
+    "compound": false,
+    "stabilityDemand": "low",
+    "jointDemands": [
+      "knee"
+    ],
+    "axialLoading": "low",
+    "kneeDemand": "medium",
+    "hipHingeDemand": "none",
+    "shoulderDemand": "low",
+    "emphasis": [
+      "hamstring shortened"
+    ],
+    "programmeRole": "isolation",
+    "repRange": "10–15",
+    "loadingPattern": "stack",
+    "progression": "add quality reps before a practical load jump",
+    "substitutions": [],
+    "cautions": [
+      "knee tolerance"
+    ],
+    "intent": [
+      "hamstring shortened"
+    ]
+  },
+  {
+    "id": "seated-hamstring-curl",
+    "name": "Seated Hamstring Curl",
+    "aliases": [
+      "seated hamstring curl"
+    ],
+    "primaryMuscles": [
+      "hamstrings"
+    ],
+    "secondaryMuscles": [],
+    "movementPattern": "knee flexion",
+    "equipment": "machine",
+    "unilateral": false,
+    "compound": false,
+    "stabilityDemand": "low",
+    "jointDemands": [
+      "knee"
+    ],
+    "axialLoading": "low",
+    "kneeDemand": "medium",
+    "hipHingeDemand": "none",
+    "shoulderDemand": "low",
+    "emphasis": [
+      "hamstring shortened"
+    ],
+    "programmeRole": "isolation",
+    "repRange": "10–15",
+    "loadingPattern": "stack",
+    "progression": "add quality reps before a practical load jump",
+    "substitutions": [],
+    "cautions": [
+      "knee tolerance"
+    ],
+    "intent": [
+      "hamstring shortened"
+    ]
+  },
+  {
+    "id": "single-leg-curl",
+    "name": "Single-Leg Hamstring Curl",
+    "aliases": [
+      "single-leg hamstring curl"
+    ],
+    "primaryMuscles": [
+      "hamstrings"
+    ],
+    "secondaryMuscles": [],
+    "movementPattern": "knee flexion",
+    "equipment": "machine",
+    "unilateral": true,
+    "compound": false,
+    "stabilityDemand": "medium",
+    "jointDemands": [
+      "knee"
+    ],
+    "axialLoading": "low",
+    "kneeDemand": "medium",
+    "hipHingeDemand": "none",
+    "shoulderDemand": "low",
+    "emphasis": [
+      "unilateral hamstring control"
+    ],
+    "programmeRole": "isolation",
+    "repRange": "10–15",
+    "loadingPattern": "stack",
+    "progression": "add quality reps before a practical load jump",
+    "substitutions": [],
+    "cautions": [
+      "knee tolerance"
+    ],
+    "intent": [
+      "unilateral hamstring control"
+    ]
+  },
+  {
+    "id": "glute-ham-raise",
+    "name": "Glute-Ham Raise",
+    "aliases": [
+      "glute-ham raise"
+    ],
+    "primaryMuscles": [
+      "hamstrings"
+    ],
+    "secondaryMuscles": [
+      "core"
+    ],
+    "movementPattern": "knee flexion",
+    "equipment": "bodyweight",
+    "unilateral": false,
+    "compound": true,
+    "stabilityDemand": "medium",
+    "jointDemands": [
+      "knee"
+    ],
+    "axialLoading": "low",
+    "kneeDemand": "medium",
+    "hipHingeDemand": "none",
+    "shoulderDemand": "low",
+    "emphasis": [
+      "hamstring lengthened"
+    ],
+    "programmeRole": "secondary_compound",
+    "repRange": "8–12",
+    "loadingPattern": "bodyweight or external load",
+    "progression": "add load only when technique and target effort are repeatable",
+    "substitutions": [],
+    "cautions": [
+      "knee tolerance"
+    ],
+    "intent": [
+      "hamstring lengthened"
+    ]
+  },
+  {
+    "id": "nordic-curl",
+    "name": "Nordic Curl",
+    "aliases": [
+      "nordic curl"
+    ],
+    "primaryMuscles": [
+      "hamstrings"
+    ],
+    "secondaryMuscles": [
+      "core"
+    ],
+    "movementPattern": "knee flexion",
+    "equipment": "bodyweight",
+    "unilateral": false,
+    "compound": true,
+    "stabilityDemand": "medium",
+    "jointDemands": [
+      "knee"
+    ],
+    "axialLoading": "low",
+    "kneeDemand": "medium",
+    "hipHingeDemand": "none",
+    "shoulderDemand": "low",
+    "emphasis": [
+      "eccentric hamstring strength"
+    ],
+    "programmeRole": "secondary_compound",
+    "repRange": "8–12",
+    "loadingPattern": "bodyweight or external load",
+    "progression": "add load only when technique and target effort are repeatable",
+    "substitutions": [],
+    "cautions": [
+      "knee tolerance"
+    ],
+    "intent": [
+      "eccentric hamstring strength"
+    ]
+  },
+  {
+    "id": "barbell-hip-thrust",
+    "name": "Barbell Hip Thrust",
+    "aliases": [
+      "barbell hip thrust"
+    ],
+    "primaryMuscles": [
+      "glutes"
+    ],
+    "secondaryMuscles": [
+      "core"
+    ],
+    "movementPattern": "hip extension",
+    "equipment": "barbell",
+    "unilateral": false,
+    "compound": true,
+    "stabilityDemand": "low",
+    "jointDemands": [
+      "shoulder"
+    ],
+    "axialLoading": "low",
+    "kneeDemand": "low",
+    "hipHingeDemand": "medium",
+    "shoulderDemand": "low",
+    "emphasis": [
+      "glute shortened"
+    ],
+    "programmeRole": "secondary_compound",
+    "repRange": "8–12",
+    "loadingPattern": "barbell plates",
+    "progression": "add load only when technique and target effort are repeatable",
+    "substitutions": [],
+    "cautions": [
+      "technique quality"
+    ],
+    "intent": [
+      "glute shortened"
+    ]
+  },
+  {
+    "id": "machine-hip-thrust",
+    "name": "Machine Hip Thrust",
+    "aliases": [
+      "machine hip thrust"
+    ],
+    "primaryMuscles": [
+      "glutes"
+    ],
+    "secondaryMuscles": [
+      "core"
+    ],
+    "movementPattern": "hip extension",
+    "equipment": "machine",
+    "unilateral": false,
+    "compound": true,
+    "stabilityDemand": "low",
+    "jointDemands": [
+      "shoulder"
+    ],
+    "axialLoading": "low",
+    "kneeDemand": "low",
+    "hipHingeDemand": "medium",
+    "shoulderDemand": "low",
+    "emphasis": [
+      "stable glute hypertrophy"
+    ],
+    "programmeRole": "secondary_compound",
+    "repRange": "8–12",
+    "loadingPattern": "stack",
+    "progression": "add load only when technique and target effort are repeatable",
+    "substitutions": [],
+    "cautions": [
+      "technique quality"
+    ],
+    "intent": [
+      "stable glute hypertrophy"
+    ]
+  },
+  {
+    "id": "cable-kickback",
+    "name": "Cable Kickback",
+    "aliases": [
+      "cable kickback"
+    ],
+    "primaryMuscles": [
+      "glutes"
+    ],
+    "secondaryMuscles": [],
+    "movementPattern": "hip extension",
+    "equipment": "cable",
+    "unilateral": true,
+    "compound": false,
+    "stabilityDemand": "medium",
+    "jointDemands": [
+      "shoulder"
+    ],
+    "axialLoading": "low",
+    "kneeDemand": "low",
+    "hipHingeDemand": "medium",
+    "shoulderDemand": "low",
+    "emphasis": [
+      "glute isolation"
+    ],
+    "programmeRole": "isolation",
+    "repRange": "10–15",
+    "loadingPattern": "stack",
+    "progression": "add quality reps before a practical load jump",
+    "substitutions": [],
+    "cautions": [
+      "technique quality"
+    ],
+    "intent": [
+      "glute isolation"
+    ]
+  },
+  {
+    "id": "45-degree-back-extension",
+    "name": "45-Degree Back Extension",
+    "aliases": [
+      "45-degree back extension"
+    ],
+    "primaryMuscles": [
+      "glutes"
+    ],
+    "secondaryMuscles": [
+      "core"
+    ],
+    "movementPattern": "hip extension",
+    "equipment": "bodyweight",
+    "unilateral": false,
+    "compound": true,
+    "stabilityDemand": "medium",
+    "jointDemands": [
+      "shoulder"
+    ],
+    "axialLoading": "low",
+    "kneeDemand": "low",
+    "hipHingeDemand": "medium",
+    "shoulderDemand": "low",
+    "emphasis": [
+      "glute lengthened"
+    ],
+    "programmeRole": "secondary_compound",
+    "repRange": "8–12",
+    "loadingPattern": "bodyweight or external load",
+    "progression": "add load only when technique and target effort are repeatable",
+    "substitutions": [],
+    "cautions": [
+      "technique quality"
+    ],
+    "intent": [
+      "glute lengthened"
+    ]
+  },
+  {
+    "id": "cable-pull-through",
+    "name": "Cable Pull-Through",
+    "aliases": [
+      "cable pull-through"
+    ],
+    "primaryMuscles": [
+      "glutes"
+    ],
+    "secondaryMuscles": [
+      "core"
+    ],
+    "movementPattern": "hip hinge",
+    "equipment": "cable",
+    "unilateral": false,
+    "compound": true,
+    "stabilityDemand": "low",
+    "jointDemands": [
+      "shoulder"
+    ],
+    "axialLoading": "medium",
+    "kneeDemand": "low",
+    "hipHingeDemand": "medium",
+    "shoulderDemand": "low",
+    "emphasis": [
+      "glute and hamstring"
+    ],
+    "programmeRole": "secondary_compound",
+    "repRange": "8–12",
+    "loadingPattern": "stack",
+    "progression": "add load only when technique and target effort are repeatable",
+    "substitutions": [],
+    "cautions": [
+      "technique quality"
+    ],
+    "intent": [
+      "glute and hamstring"
+    ]
+  },
+  {
+    "id": "hip-abduction",
+    "name": "Hip Abduction",
+    "aliases": [
+      "hip abduction"
+    ],
+    "primaryMuscles": [
+      "glute medius"
+    ],
+    "secondaryMuscles": [],
+    "movementPattern": "hip abduction",
+    "equipment": "machine",
+    "unilateral": false,
+    "compound": false,
+    "stabilityDemand": "low",
+    "jointDemands": [
+      "shoulder"
+    ],
+    "axialLoading": "low",
+    "kneeDemand": "low",
+    "hipHingeDemand": "none",
+    "shoulderDemand": "low",
+    "emphasis": [
+      "glute medius isolation"
+    ],
+    "programmeRole": "isolation",
+    "repRange": "10–15",
+    "loadingPattern": "stack",
+    "progression": "add quality reps before a practical load jump",
+    "substitutions": [],
+    "cautions": [
+      "technique quality"
+    ],
+    "intent": [
+      "glute medius isolation"
+    ]
+  },
+  {
+    "id": "hip-adduction",
+    "name": "Hip Adduction",
+    "aliases": [
+      "hip adduction"
+    ],
+    "primaryMuscles": [
+      "adductors"
+    ],
+    "secondaryMuscles": [],
+    "movementPattern": "hip adduction",
+    "equipment": "machine",
+    "unilateral": false,
+    "compound": false,
+    "stabilityDemand": "low",
+    "jointDemands": [
+      "shoulder"
+    ],
+    "axialLoading": "low",
+    "kneeDemand": "low",
+    "hipHingeDemand": "none",
+    "shoulderDemand": "low",
+    "emphasis": [
+      "adductor isolation"
+    ],
+    "programmeRole": "isolation",
+    "repRange": "10–15",
+    "loadingPattern": "stack",
+    "progression": "add quality reps before a practical load jump",
+    "substitutions": [],
+    "cautions": [
+      "technique quality"
+    ],
+    "intent": [
+      "adductor isolation"
+    ]
+  },
+  {
+    "id": "standing-calf-raise",
+    "name": "Standing Calf Raise",
+    "aliases": [
+      "standing calf raise"
+    ],
+    "primaryMuscles": [
+      "calves"
+    ],
+    "secondaryMuscles": [],
+    "movementPattern": "plantar flexion",
+    "equipment": "machine",
+    "unilateral": false,
+    "compound": false,
+    "stabilityDemand": "low",
+    "jointDemands": [
+      "shoulder"
+    ],
+    "axialLoading": "low",
+    "kneeDemand": "low",
+    "hipHingeDemand": "none",
+    "shoulderDemand": "low",
+    "emphasis": [
+      "gastrocnemius hypertrophy"
+    ],
+    "programmeRole": "isolation",
+    "repRange": "10–15",
+    "loadingPattern": "stack",
+    "progression": "add quality reps before a practical load jump",
+    "substitutions": [],
+    "cautions": [
+      "technique quality"
+    ],
+    "intent": [
+      "gastrocnemius hypertrophy"
+    ]
+  },
+  {
+    "id": "seated-calf-raise",
+    "name": "Seated Calf Raise",
+    "aliases": [
+      "seated calf raise"
+    ],
+    "primaryMuscles": [
+      "soleus"
+    ],
+    "secondaryMuscles": [],
+    "movementPattern": "plantar flexion",
+    "equipment": "machine",
+    "unilateral": false,
+    "compound": false,
+    "stabilityDemand": "low",
+    "jointDemands": [
+      "shoulder"
+    ],
+    "axialLoading": "low",
+    "kneeDemand": "low",
+    "hipHingeDemand": "none",
+    "shoulderDemand": "low",
+    "emphasis": [
+      "soleus hypertrophy"
+    ],
+    "programmeRole": "isolation",
+    "repRange": "10–15",
+    "loadingPattern": "stack",
+    "progression": "add quality reps before a practical load jump",
+    "substitutions": [],
+    "cautions": [
+      "technique quality"
+    ],
+    "intent": [
+      "soleus hypertrophy"
+    ]
+  },
+  {
+    "id": "leg-press-calf-raise",
+    "name": "Leg Press Calf Raise",
+    "aliases": [
+      "leg press calf raise"
+    ],
+    "primaryMuscles": [
+      "calves"
+    ],
+    "secondaryMuscles": [],
+    "movementPattern": "plantar flexion",
+    "equipment": "plate-loaded machine",
+    "unilateral": false,
+    "compound": false,
+    "stabilityDemand": "low",
+    "jointDemands": [
+      "shoulder"
+    ],
+    "axialLoading": "low",
+    "kneeDemand": "low",
+    "hipHingeDemand": "none",
+    "shoulderDemand": "low",
+    "emphasis": [
+      "calf hypertrophy"
+    ],
+    "programmeRole": "isolation",
+    "repRange": "10–15",
+    "loadingPattern": "bodyweight or external load",
+    "progression": "add quality reps before a practical load jump",
+    "substitutions": [],
+    "cautions": [
+      "technique quality"
+    ],
+    "intent": [
+      "calf hypertrophy"
+    ]
+  },
+  {
+    "id": "single-leg-calf-raise",
+    "name": "Single-Leg Calf Raise",
+    "aliases": [
+      "single-leg calf raise"
+    ],
+    "primaryMuscles": [
+      "calves"
+    ],
+    "secondaryMuscles": [],
+    "movementPattern": "plantar flexion",
+    "equipment": "bodyweight",
+    "unilateral": true,
+    "compound": false,
+    "stabilityDemand": "medium",
+    "jointDemands": [
+      "shoulder"
+    ],
+    "axialLoading": "low",
+    "kneeDemand": "low",
+    "hipHingeDemand": "none",
+    "shoulderDemand": "low",
+    "emphasis": [
+      "unilateral calf control"
+    ],
+    "programmeRole": "isolation",
+    "repRange": "10–15",
+    "loadingPattern": "bodyweight or external load",
+    "progression": "add quality reps before a practical load jump",
+    "substitutions": [],
+    "cautions": [
+      "technique quality"
+    ],
+    "intent": [
+      "unilateral calf control"
+    ]
+  },
+  {
+    "id": "donkey-calf-raise",
+    "name": "Donkey Calf Raise",
+    "aliases": [
+      "donkey calf raise"
+    ],
+    "primaryMuscles": [
+      "calves"
+    ],
+    "secondaryMuscles": [],
+    "movementPattern": "plantar flexion",
+    "equipment": "machine",
+    "unilateral": false,
+    "compound": false,
+    "stabilityDemand": "low",
+    "jointDemands": [
+      "shoulder"
+    ],
+    "axialLoading": "low",
+    "kneeDemand": "low",
+    "hipHingeDemand": "none",
+    "shoulderDemand": "low",
+    "emphasis": [
+      "calf stretch"
+    ],
+    "programmeRole": "isolation",
+    "repRange": "10–15",
+    "loadingPattern": "stack",
+    "progression": "add quality reps before a practical load jump",
+    "substitutions": [],
+    "cautions": [
+      "technique quality"
+    ],
+    "intent": [
+      "calf stretch"
+    ]
+  },
+  {
+    "id": "cable-crunch",
+    "name": "Cable Crunch",
+    "aliases": [
+      "cable crunch"
+    ],
+    "primaryMuscles": [
+      "abs"
+    ],
+    "secondaryMuscles": [],
+    "movementPattern": "spinal flexion",
+    "equipment": "cable",
+    "unilateral": false,
+    "compound": false,
+    "stabilityDemand": "low",
+    "jointDemands": [
+      "shoulder"
+    ],
+    "axialLoading": "low",
+    "kneeDemand": "low",
+    "hipHingeDemand": "none",
+    "shoulderDemand": "low",
+    "emphasis": [
+      "loaded trunk flexion"
+    ],
+    "programmeRole": "isolation",
+    "repRange": "10–15",
+    "loadingPattern": "stack",
+    "progression": "add quality reps before a practical load jump",
+    "substitutions": [],
+    "cautions": [
+      "technique quality"
+    ],
+    "intent": [
+      "loaded trunk flexion"
+    ]
+  },
+  {
+    "id": "ab-wheel",
+    "name": "Ab Wheel Rollout",
+    "aliases": [
+      "ab wheel rollout"
+    ],
+    "primaryMuscles": [
+      "abs"
+    ],
+    "secondaryMuscles": [
+      "core"
+    ],
+    "movementPattern": "anti-extension",
+    "equipment": "bodyweight",
+    "unilateral": false,
+    "compound": true,
+    "stabilityDemand": "medium",
+    "jointDemands": [
+      "shoulder"
+    ],
+    "axialLoading": "low",
+    "kneeDemand": "low",
+    "hipHingeDemand": "medium",
+    "shoulderDemand": "low",
+    "emphasis": [
+      "core strength"
+    ],
+    "programmeRole": "secondary_compound",
+    "repRange": "8–12",
+    "loadingPattern": "bodyweight or external load",
+    "progression": "add load only when technique and target effort are repeatable",
+    "substitutions": [],
+    "cautions": [
+      "technique quality"
+    ],
+    "intent": [
+      "core strength"
+    ]
+  },
+  {
+    "id": "hanging-knee-raise",
+    "name": "Hanging Knee Raise",
+    "aliases": [
+      "hanging knee raise"
+    ],
+    "primaryMuscles": [
+      "abs"
+    ],
+    "secondaryMuscles": [
+      "core"
+    ],
+    "movementPattern": "hip flexion",
+    "equipment": "bodyweight",
+    "unilateral": false,
+    "compound": true,
+    "stabilityDemand": "medium",
+    "jointDemands": [
+      "shoulder"
+    ],
+    "axialLoading": "low",
+    "kneeDemand": "low",
+    "hipHingeDemand": "none",
+    "shoulderDemand": "low",
+    "emphasis": [
+      "lower-ab emphasis"
+    ],
+    "programmeRole": "secondary_compound",
+    "repRange": "8–12",
+    "loadingPattern": "bodyweight or external load",
+    "progression": "add load only when technique and target effort are repeatable",
+    "substitutions": [],
+    "cautions": [
+      "technique quality"
+    ],
+    "intent": [
+      "lower-ab emphasis"
+    ]
+  },
+  {
+    "id": "captains-chair-knee-raise",
+    "name": "Captain's Chair Knee Raise",
+    "aliases": [
+      "captain's chair knee raise"
+    ],
+    "primaryMuscles": [
+      "abs"
+    ],
+    "secondaryMuscles": [
+      "core"
+    ],
+    "movementPattern": "hip flexion",
+    "equipment": "machine",
+    "unilateral": false,
+    "compound": true,
+    "stabilityDemand": "low",
+    "jointDemands": [
+      "shoulder"
+    ],
+    "axialLoading": "low",
+    "kneeDemand": "low",
+    "hipHingeDemand": "none",
+    "shoulderDemand": "low",
+    "emphasis": [
+      "controlled core"
+    ],
+    "programmeRole": "secondary_compound",
+    "repRange": "8–12",
+    "loadingPattern": "stack",
+    "progression": "add load only when technique and target effort are repeatable",
+    "substitutions": [],
+    "cautions": [
+      "technique quality"
+    ],
+    "intent": [
+      "controlled core"
+    ]
+  },
+  {
+    "id": "pallof-press",
+    "name": "Pallof Press",
+    "aliases": [
+      "pallof press"
+    ],
+    "primaryMuscles": [
+      "obliques"
+    ],
+    "secondaryMuscles": [],
+    "movementPattern": "anti-rotation",
+    "equipment": "cable",
+    "unilateral": true,
+    "compound": false,
+    "stabilityDemand": "medium",
+    "jointDemands": [
+      "shoulder"
+    ],
+    "axialLoading": "low",
+    "kneeDemand": "low",
+    "hipHingeDemand": "none",
+    "shoulderDemand": "low",
+    "emphasis": [
+      "anti-rotation core"
+    ],
+    "programmeRole": "isolation",
+    "repRange": "10–15",
+    "loadingPattern": "stack",
+    "progression": "add quality reps before a practical load jump",
+    "substitutions": [],
+    "cautions": [
+      "technique quality"
+    ],
+    "intent": [
+      "anti-rotation core"
+    ]
+  },
+  {
+    "id": "side-plank",
+    "name": "Side Plank",
+    "aliases": [
+      "side plank"
+    ],
+    "primaryMuscles": [
+      "obliques"
+    ],
+    "secondaryMuscles": [],
+    "movementPattern": "anti-lateral flexion",
+    "equipment": "bodyweight",
+    "unilateral": true,
+    "compound": false,
+    "stabilityDemand": "medium",
+    "jointDemands": [
+      "shoulder"
+    ],
+    "axialLoading": "low",
+    "kneeDemand": "low",
+    "hipHingeDemand": "none",
+    "shoulderDemand": "low",
+    "emphasis": [
+      "lateral core endurance"
+    ],
+    "programmeRole": "isolation",
+    "repRange": "10–15",
+    "loadingPattern": "bodyweight or external load",
+    "progression": "add quality reps before a practical load jump",
+    "substitutions": [],
+    "cautions": [
+      "technique quality"
+    ],
+    "intent": [
+      "lateral core endurance"
+    ]
+  },
+  {
+    "id": "weighted-plank",
+    "name": "Weighted Plank",
+    "aliases": [
+      "weighted plank"
+    ],
+    "primaryMuscles": [
+      "abs"
+    ],
+    "secondaryMuscles": [],
+    "movementPattern": "anti-extension",
+    "equipment": "plate-loaded machine",
+    "unilateral": false,
+    "compound": false,
+    "stabilityDemand": "low",
+    "jointDemands": [
+      "shoulder"
+    ],
+    "axialLoading": "low",
+    "kneeDemand": "low",
+    "hipHingeDemand": "medium",
+    "shoulderDemand": "low",
+    "emphasis": [
+      "braced trunk strength"
+    ],
+    "programmeRole": "isolation",
+    "repRange": "10–15",
+    "loadingPattern": "bodyweight or external load",
+    "progression": "add quality reps before a practical load jump",
+    "substitutions": [],
+    "cautions": [
+      "technique quality"
+    ],
+    "intent": [
+      "braced trunk strength"
+    ]
+  },
+  {
+    "id": "dead-bug",
+    "name": "Dead Bug",
+    "aliases": [
+      "dead bug"
+    ],
+    "primaryMuscles": [
+      "abs"
+    ],
+    "secondaryMuscles": [],
+    "movementPattern": "anti-extension",
+    "equipment": "bodyweight",
+    "unilateral": true,
+    "compound": false,
+    "stabilityDemand": "medium",
+    "jointDemands": [
+      "shoulder"
+    ],
+    "axialLoading": "low",
+    "kneeDemand": "low",
+    "hipHingeDemand": "medium",
+    "shoulderDemand": "low",
+    "emphasis": [
+      "core control"
+    ],
+    "programmeRole": "isolation",
+    "repRange": "10–15",
+    "loadingPattern": "bodyweight or external load",
+    "progression": "add quality reps before a practical load jump",
+    "substitutions": [],
+    "cautions": [
+      "technique quality"
+    ],
+    "intent": [
+      "core control"
+    ]
+  },
+  {
+    "id": "back-extension-weighted",
+    "name": "Weighted Back Extension",
+    "aliases": [
+      "weighted back extension"
+    ],
+    "primaryMuscles": [
+      "spinal erectors"
+    ],
+    "secondaryMuscles": [
+      "core"
+    ],
+    "movementPattern": "hip extension",
+    "equipment": "plate-loaded machine",
+    "unilateral": false,
+    "compound": true,
+    "stabilityDemand": "low",
+    "jointDemands": [
+      "shoulder"
+    ],
+    "axialLoading": "low",
+    "kneeDemand": "low",
+    "hipHingeDemand": "medium",
+    "shoulderDemand": "low",
+    "emphasis": [
+      "posterior-chain endurance"
+    ],
+    "programmeRole": "secondary_compound",
+    "repRange": "8–12",
+    "loadingPattern": "bodyweight or external load",
+    "progression": "add load only when technique and target effort are repeatable",
+    "substitutions": [],
+    "cautions": [
+      "technique quality"
+    ],
+    "intent": [
+      "posterior-chain endurance"
+    ]
+  }
+]
