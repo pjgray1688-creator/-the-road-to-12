@@ -4,6 +4,7 @@ import test from "node:test";
 
 const migration = fs.readFileSync("supabase/migrations/2026-11-23-coach-independent-client-relationships.sql", "utf8");
 const referralMigration = fs.readFileSync("supabase/migrations/2026-11-24-coach-member-search-and-referrals.sql", "utf8");
+const coverFixMigration = fs.readFileSync("supabase/migrations/2026-11-25-coach-cover-referral-fix.sql", "utf8");
 const workspace = fs.readFileSync("components/coach-workspace.tsx", "utf8");
 const page = fs.readFileSync("app/coach/page.tsx", "utf8");
 const relationshipsRoute = fs.readFileSync("app/api/coach/relationships/route.ts", "utf8");
@@ -116,4 +117,31 @@ test("the deployed migration remains a forward-only addition and keeps existing 
   assert.match(migration, /status='pending'/);
   assert.match(migration, /organisation_id uuid references public\.club_organisations/);
   assert.match(manifest, /2026-11-24-coach-member-search-and-referrals\.sql/);
+  assert.match(manifest, /2026-11-25-coach-cover-referral-fix\.sql/);
+});
+
+test("private Cover referrals defer ownership until claim and resolve the client's real primary PT", () => {
+  assert.match(coverFixMigration, /p_relationship_type='primary' then v_owner:=auth\.uid\(\); end if/);
+  assert.match(coverFixMigration, /if p_relationship_type='cover' then|relationship_type='cover'/);
+  assert.match(coverFixMigration, /programme_owner_user_id=null/);
+  assert.match(coverFixMigration, /p\.client_user_id=auth\.uid\(\).*p\.relationship_type='primary'/s);
+  assert.match(coverFixMigration, /coalesce\(p\.programme_owner_user_id,p\.coach_user_id\)/);
+  assert.match(coverFixMigration, /coalesce\(a\.programme_owner_user_id,a\.coach_user_id\)/);
+  assert.match(coverFixMigration, /Your Coach needs an active primary PT before a cover connection can be accepted/);
+  assert.doesNotMatch(coverFixMigration.slice(coverFixMigration.indexOf("coach_create_referral_invite"), coverFixMigration.indexOf("coach_claim_referral")), /select programme_owner_user_id into v_owner\s+from public\.coach_relationships\s+where coach_user_id=auth\.uid\(\)/s);
+});
+
+test("referral tokens use SHA-256 for new invites and preserve one-use legacy compatibility", () => {
+  assert.match(coverFixMigration, /encode\(digest\(v_token,'sha256'\),'hex'\)/);
+  assert.match(coverFixMigration, /token_hash=encode\(digest\(btrim\(p_token\),'sha256'\),'hex'\) or token_hash=md5/);
+  assert.match(coverFixMigration, /claimed_at is null and expires_at>now\(\)/);
+  assert.match(coverFixMigration, /revoked_at is null/);
+  assert.match(coverFixMigration, /update public\.coach_referral_invites set claimed_at=now\(\)/);
+});
+
+test("private no-email referrals remain email-optional and notification-safe", () => {
+  assert.match(coverFixMigration, /v_email text:=nullif\(lower\(btrim\(p_client_email\)\),''\)/);
+  assert.match(coverFixMigration, /select null,null,v_email/);
+  assert.match(referralMigration, /alter column user_id drop not null/);
+  assert.match(workspace, /Email \(optional\)/);
 });
