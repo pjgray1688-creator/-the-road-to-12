@@ -7,5 +7,5 @@ export default async function CoachNutritionPage({ searchParams }: { searchParam
   const client = (await searchParams).client;
   if (!client) return <main className="shell"><section className="card"><h1>Choose a client</h1><p>Open Nutrition from an active client in Coach.</p></section></main>;
   const { data, error } = await supabase.rpc("nutrition_get_coach_view", { p_client_user_id: client });
-  return <CoachNutrition clientUserId={client} initialData={error ? { plan: null, checkins: [], feedback: [], canManage: false } : (data ?? { plan: null, checkins: [], feedback: [], canManage: false })} />;
+  return <CoachNutrition clientUserId={client} initialData={error ? { activePlan: null, draftPlan: null, checkins: [], checkinDays: [], feedback: [], canManage: false } : (data ?? { activePlan: null, draftPlan: null, checkins: [], checkinDays: [], feedback: [], canManage: false })} />;
 }

@@ -4,11 +4,12 @@ import { authenticatedServerClient } from "@/lib/require-user";
 export async function GET(request: Request) {
   const { client, user } = await authenticatedServerClient();
   if (!user) return privateJson({ error: "Authentication required" }, { status: 401 });
-  const clientUserId = new URL(request.url).searchParams.get("client");
+  const url = new URL(request.url);
+  const clientUserId = url.searchParams.get("client");
   if (!clientUserId) return privateJson({ error: "Client required" }, { status: 400 });
-  const { data, error } = await client.rpc("nutrition_get_coach_view", { p_client_user_id: clientUserId });
+  const { data, error } = await client.rpc("nutrition_get_coach_view", { p_client_user_id: clientUserId, p_requested_timezone: url.searchParams.get("timezone") });
   if (error) return privateJson({ error: error.code === "42501" ? "Nutrition access is unavailable for this client." : "Nutrition is temporarily unavailable." }, { status: error.code === "42501" ? 403 : 503 });
-  return privateJson(data ?? { plan: null, checkins: [], feedback: [], canManage: false });
+  return privateJson(data ?? { activePlan: null, draftPlan: null, checkins: [], checkinDays: [], feedback: [], canManage: false });
 }
 
 export async function POST(request: Request) {

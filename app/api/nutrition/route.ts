@@ -1,12 +1,13 @@
 import { privateJson } from "@/lib/private-response";
 import { authenticatedServerClient } from "@/lib/require-user";
 
-export async function GET() {
+export async function GET(request: Request) {
   const { client, user } = await authenticatedServerClient();
   if (!user) return privateJson({ error: "Authentication required" }, { status: 401 });
-  const { data, error } = await client.rpc("nutrition_get_member_view");
+  const timezone = new URL(request.url).searchParams.get("timezone");
+  const { data, error } = await client.rpc("nutrition_get_member_view", { p_requested_timezone: timezone });
   if (error) return privateJson({ error: "Nutrition is temporarily unavailable" }, { status: 503 });
-  return privateJson(data ?? { plan: null, checkins: [], feedback: [] });
+  return privateJson(data ?? { plan: null, checkins: [], checkinDays: [], feedback: [] });
 }
 
 export async function POST(request: Request) {
