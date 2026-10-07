@@ -102,3 +102,4 @@ supabase/migrations/2026-11-23-coach-independent-client-relationships.sql
 supabase/migrations/2026-11-24-coach-member-search-and-referrals.sql
 supabase/migrations/2026-11-25-coach-cover-referral-fix.sql
 supabase/migrations/2026-11-26-coach-invitation-email-polish.sql
+supabase/migrations/2026-11-27-coach-nutrition-accountability.sql

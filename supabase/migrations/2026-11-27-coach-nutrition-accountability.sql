@@ -1,0 +1,206 @@
+-- R12 Coach Nutrition & Accountability.
+-- Additive, organisation-optional, and intentionally not a food database.
+
+create table if not exists public.nutrition_plans (
+  id uuid primary key default gen_random_uuid(),
+  client_user_id uuid not null references auth.users(id) on delete cascade,
+  owner_coach_user_id uuid not null references auth.users(id) on delete restrict,
+  relationship_id uuid references public.coach_relationships(id) on delete set null,
+  organisation_id uuid references public.club_organisations(id) on delete set null,
+  title text not null default 'Nutrition plan',
+  status text not null default 'draft' check (status in ('draft','active','superseded','archived')),
+  start_date date not null default current_date,
+  review_date date,
+  client_notes text not null default '',
+  coach_private_notes text not null default '',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  activated_at timestamptz,
+  superseded_at timestamptz
+);
+create unique index if not exists nutrition_one_active_plan_per_client on public.nutrition_plans(client_user_id) where status='active';
+create index if not exists nutrition_plans_client_idx on public.nutrition_plans(client_user_id,status,updated_at desc);
+create index if not exists nutrition_plans_owner_idx on public.nutrition_plans(owner_coach_user_id,status,updated_at desc);
+
+create table if not exists public.nutrition_targets (
+  id uuid primary key default gen_random_uuid(), plan_id uuid not null unique references public.nutrition_plans(id) on delete cascade,
+  calories numeric, protein_g numeric, carbs_g numeric, fat_g numeric, fibre_g numeric, water_ml numeric,
+  created_at timestamptz not null default now(), updated_at timestamptz not null default now(),
+  check (calories is null or calories >= 0), check (protein_g is null or protein_g >= 0), check (carbs_g is null or carbs_g >= 0),
+  check (fat_g is null or fat_g >= 0), check (fibre_g is null or fibre_g >= 0), check (water_ml is null or water_ml >= 0)
+);
+create table if not exists public.nutrition_meals (
+  id uuid primary key default gen_random_uuid(), plan_id uuid not null references public.nutrition_plans(id) on delete cascade,
+  title text not null, sort_order integer not null default 0, instructions text not null default '', timing_text text not null default '', notes text not null default '',
+  created_at timestamptz not null default now(), updated_at timestamptz not null default now()
+);
+create index if not exists nutrition_meals_plan_idx on public.nutrition_meals(plan_id,sort_order,id);
+create table if not exists public.nutrition_meal_items (
+  id uuid primary key default gen_random_uuid(), meal_id uuid not null references public.nutrition_meals(id) on delete cascade,
+  description text not null, portion_text text not null default '', sort_order integer not null default 0, created_at timestamptz not null default now()
+);
+create index if not exists nutrition_meal_items_meal_idx on public.nutrition_meal_items(meal_id,sort_order,id);
+create table if not exists public.nutrition_meal_alternatives (
+  id uuid primary key default gen_random_uuid(), meal_id uuid not null references public.nutrition_meals(id) on delete cascade,
+  description text not null, sort_order integer not null default 0, created_at timestamptz not null default now()
+);
+create table if not exists public.nutrition_supplements (
+  id uuid primary key default gen_random_uuid(), plan_id uuid not null references public.nutrition_plans(id) on delete cascade,
+  name text not null, amount_text text not null default '', timing_text text not null default '', instructions text not null default '', sort_order integer not null default 0, created_at timestamptz not null default now()
+);
+create table if not exists public.nutrition_daily_checkins (
+  id uuid primary key default gen_random_uuid(), client_user_id uuid not null references auth.users(id) on delete cascade,
+  plan_id uuid references public.nutrition_plans(id) on delete set null, checkin_date date not null,
+  adherence text not null check (adherence in ('followed','mostly','no')),
+  client_note text not null default '', submitted_at timestamptz not null default now(), updated_at timestamptz not null default now(),
+  unique(client_user_id,checkin_date)
+);
+create index if not exists nutrition_checkins_client_idx on public.nutrition_daily_checkins(client_user_id,checkin_date desc);
+create table if not exists public.nutrition_extras (
+  id uuid primary key default gen_random_uuid(), checkin_id uuid not null references public.nutrition_daily_checkins(id) on delete cascade,
+  description text not null, amount_text text not null default '', note text not null default '', created_at timestamptz not null default now(), updated_at timestamptz not null default now()
+);
+create table if not exists public.nutrition_coach_feedback (
+  id uuid primary key default gen_random_uuid(), coach_user_id uuid not null references auth.users(id) on delete cascade,
+  client_user_id uuid not null references auth.users(id) on delete cascade, checkin_id uuid references public.nutrition_daily_checkins(id) on delete cascade,
+  plan_id uuid references public.nutrition_plans(id) on delete cascade, message text not null,
+  client_visible boolean not null default true, private_note boolean not null default false, created_at timestamptz not null default now()
+);
+create index if not exists nutrition_feedback_client_idx on public.nutrition_coach_feedback(client_user_id,created_at desc);
+
+alter table public.nutrition_plans enable row level security;
+alter table public.nutrition_targets enable row level security;
+alter table public.nutrition_meals enable row level security;
+alter table public.nutrition_meal_items enable row level security;
+alter table public.nutrition_meal_alternatives enable row level security;
+alter table public.nutrition_supplements enable row level security;
+alter table public.nutrition_daily_checkins enable row level security;
+alter table public.nutrition_extras enable row level security;
+alter table public.nutrition_coach_feedback enable row level security;
+revoke all on table public.nutrition_plans,public.nutrition_targets,public.nutrition_meals,public.nutrition_meal_items,public.nutrition_meal_alternatives,public.nutrition_supplements,public.nutrition_daily_checkins,public.nutrition_extras,public.nutrition_coach_feedback from public,anon,authenticated;
+
+create or replace function public.nutrition_can_read_client(p_client_user_id uuid)
+returns boolean language sql stable security definer set search_path=pg_catalog,public as $$
+select auth.uid()=p_client_user_id or exists(
+  select 1 from public.coach_relationships r
+  where r.client_user_id=p_client_user_id and r.coach_user_id=auth.uid() and r.status='active' and public.coach_has_explicit_access(auth.uid())
+) or exists(
+  select 1 from public.coach_client_assignments a
+  join public.coach_permissions cp on cp.organisation_id=a.organisation_id and cp.user_id=auth.uid() and cp.active
+  join public.club_members cm on cm.organisation_id=a.organisation_id and cm.user_id=auth.uid() and cm.active and cm.role in ('trainer','gym_staff','gym_admin','owner')
+  join public.club_members client_member on client_member.organisation_id=a.organisation_id and client_member.user_id=p_client_user_id and client_member.active
+  where a.client_user_id=p_client_user_id and a.coach_user_id=auth.uid() and a.active;
+$$;
+
+create or replace function public.nutrition_can_manage_plan(p_client_user_id uuid)
+returns boolean language sql stable security definer set search_path=pg_catalog,public as $$
+select exists(select 1 from public.coach_relationships r where r.client_user_id=p_client_user_id and r.coach_user_id=auth.uid() and r.relationship_type='primary' and r.status='active' and public.coach_has_explicit_access(auth.uid()))
+or exists(select 1 from public.coach_client_assignments a join public.coach_permissions cp on cp.organisation_id=a.organisation_id and cp.user_id=auth.uid() and cp.active join public.club_members cm on cm.organisation_id=a.organisation_id and cm.user_id=auth.uid() and cm.active and cm.role in ('trainer','gym_staff','gym_admin','owner') where a.client_user_id=p_client_user_id and a.coach_user_id=auth.uid() and a.relationship_type='primary' and a.active);
+$$;
+
+create or replace function public.nutrition_plan_json(p_plan_id uuid,p_include_private boolean default false)
+returns jsonb language sql stable security definer set search_path=pg_catalog,public as $$
+select jsonb_build_object('id',p.id,'clientUserId',p.client_user_id,'ownerCoachUserId',p.owner_coach_user_id,'relationshipId',p.relationship_id,'organisationId',p.organisation_id,'title',p.title,'status',p.status,'startDate',p.start_date,'reviewDate',p.review_date,'clientNotes',p.client_notes,'coachPrivateNotes',case when p_include_private then p.coach_private_notes else null end,'targets',coalesce((select to_jsonb(t) - 'id' - 'plan_id' from public.nutrition_targets t where t.plan_id=p.id),'{}'::jsonb),'meals',coalesce((select jsonb_agg(jsonb_build_object('id',m.id,'title',m.title,'sortOrder',m.sort_order,'instructions',m.instructions,'timingText',m.timing_text,'notes',m.notes,'items',coalesce((select jsonb_agg(jsonb_build_object('id',i.id,'description',i.description,'portionText',i.portion_text,'sortOrder',i.sort_order) order by i.sort_order,i.id) from public.nutrition_meal_items i where i.meal_id=m.id),'[]'::jsonb),'alternatives',coalesce((select jsonb_agg(jsonb_build_object('id',a.id,'description',a.description,'sortOrder',a.sort_order) order by a.sort_order,a.id) from public.nutrition_meal_alternatives a where a.meal_id=m.id),'[]'::jsonb)) order by m.sort_order,m.id) from public.nutrition_meals m where m.plan_id=p.id),'[]'::jsonb),'supplements',coalesce((select jsonb_agg(jsonb_build_object('id',s.id,'name',s.name,'amountText',s.amount_text,'timingText',s.timing_text,'instructions',s.instructions,'sortOrder',s.sort_order) order by s.sort_order,s.id) from public.nutrition_supplements s where s.plan_id=p.id),'[]'::jsonb),'createdAt',p.created_at,'updatedAt',p.updated_at)
+from public.nutrition_plans p where p.id=p_plan_id;
+$$;
+
+create or replace function public.nutrition_get_member_view()
+returns jsonb language plpgsql security definer set search_path=pg_catalog,public as $$
+declare v_plan uuid; result jsonb;
+begin
+  if auth.uid() is null then raise exception 'Authentication required' using errcode='42501'; end if;
+  select id into v_plan from public.nutrition_plans where client_user_id=auth.uid() and status='active' order by activated_at desc limit 1;
+  if v_plan is null then return jsonb_build_object('plan',null,'checkins','[]'::jsonb,'feedback','[]'::jsonb); end if;
+  select jsonb_build_object('plan',public.nutrition_plan_json(v_plan,false),'checkins',coalesce((select jsonb_agg(jsonb_build_object('id',c.id,'date',c.checkin_date,'adherence',c.adherence,'clientNote',c.client_note,'submittedAt',c.submitted_at,'extras',coalesce((select jsonb_agg(jsonb_build_object('id',e.id,'description',e.description,'amountText',e.amount_text,'note',e.note) order by e.created_at) from public.nutrition_extras e where e.checkin_id=c.id),'[]'::jsonb)) order by c.checkin_date desc) from public.nutrition_daily_checkins c where c.client_user_id=auth.uid() and c.checkin_date>=((now() at time zone 'UTC')::date-30)),'[]'::jsonb),'feedback',coalesce((select jsonb_agg(jsonb_build_object('id',f.id,'message',f.message,'createdAt',f.created_at,'checkinId',f.checkin_id) order by f.created_at desc) from public.nutrition_coach_feedback f where f.client_user_id=auth.uid() and f.client_visible and not f.private_note),'[]'::jsonb)) into result;
+  return result;
+end; $$;
+
+create or replace function public.nutrition_get_coach_view(p_client_user_id uuid)
+returns jsonb language plpgsql security definer set search_path=pg_catalog,public as $$
+declare v_plan uuid; v_private boolean:=public.nutrition_can_manage_plan(p_client_user_id); result jsonb;
+begin
+  if not public.nutrition_can_read_client(p_client_user_id) then raise exception 'Nutrition access denied' using errcode='42501'; end if;
+  select id into v_plan from public.nutrition_plans where client_user_id=p_client_user_id and status='active' order by activated_at desc limit 1;
+  select jsonb_build_object('plan',case when v_plan is null then null else public.nutrition_plan_json(v_plan,v_private) end,'canManage',v_private,'checkins',coalesce((select jsonb_agg(jsonb_build_object('id',c.id,'date',c.checkin_date,'adherence',c.adherence,'clientNote',c.client_note,'submittedAt',c.submitted_at,'extrasCount',(select count(*) from public.nutrition_extras e where e.checkin_id=c.id)) order by c.checkin_date desc) from public.nutrition_daily_checkins c where c.client_user_id=p_client_user_id and c.checkin_date>=((now() at time zone 'UTC')::date-7)),'[]'::jsonb),'feedback',case when v_private then coalesce((select jsonb_agg(jsonb_build_object('id',f.id,'message',f.message,'clientVisible',f.client_visible,'privateNote',f.private_note,'createdAt',f.created_at) order by f.created_at desc) from public.nutrition_coach_feedback f where f.client_user_id=p_client_user_id),'[]'::jsonb) else coalesce((select jsonb_agg(jsonb_build_object('id',f.id,'message',f.message,'clientVisible',true,'createdAt',f.created_at) order by f.created_at desc) from public.nutrition_coach_feedback f where f.client_user_id=p_client_user_id and f.client_visible and not f.private_note),'[]'::jsonb) end) into result;
+  return result;
+end; $$;
+
+create or replace function public.nutrition_save_draft(p_client_user_id uuid,p_payload jsonb,p_plan_id uuid default null)
+returns jsonb language plpgsql security definer set search_path=pg_catalog,public as $$
+declare p public.nutrition_plans%rowtype; t jsonb; m jsonb; i jsonb; a jsonb; s jsonb; v_plan uuid; v_order integer;
+begin
+  if not public.nutrition_can_manage_plan(p_client_user_id) then raise exception 'Only the Primary PT can edit this nutrition plan' using errcode='42501'; end if;
+  if p_plan_id is not null then select * into p from public.nutrition_plans where id=p_plan_id and client_user_id=p_client_user_id and owner_coach_user_id=auth.uid() for update; if not found or p.status<>'draft' then raise exception 'Only a draft nutrition plan can be edited' using errcode='42501'; end if; end if;
+  if p_plan_id is null then insert into public.nutrition_plans(client_user_id,owner_coach_user_id,relationship_id,organisation_id,title,start_date,review_date,client_notes,coach_private_notes) values(p_client_user_id,auth.uid(),(select r.id from public.coach_relationships r where r.client_user_id=p_client_user_id and r.coach_user_id=auth.uid() and r.relationship_type='primary' and r.status='active' limit 1),(select r.organisation_id from public.coach_relationships r where r.client_user_id=p_client_user_id and r.coach_user_id=auth.uid() and r.relationship_type='primary' and r.status='active' limit 1),coalesce(nullif(p_payload->>'title',''),'Nutrition plan'),coalesce(nullif(p_payload->>'startDate','')::date,current_date),nullif(p_payload->>'reviewDate','')::date,coalesce(p_payload->>'clientNotes',''),coalesce(p_payload->>'coachPrivateNotes','')) returning * into p; else update public.nutrition_plans set title=coalesce(nullif(p_payload->>'title',''),'Nutrition plan'),start_date=coalesce(nullif(p_payload->>'startDate','')::date,start_date),review_date=nullif(p_payload->>'reviewDate','')::date,client_notes=coalesce(p_payload->>'clientNotes',''),coach_private_notes=coalesce(p_payload->>'coachPrivateNotes',''),updated_at=now() where id=p.id returning * into p; end if;
+  delete from public.nutrition_targets where plan_id=p.id; delete from public.nutrition_meals where plan_id=p.id; delete from public.nutrition_supplements where plan_id=p.id;
+  t:=coalesce(p_payload->'targets','{}'::jsonb); insert into public.nutrition_targets(plan_id,calories,protein_g,carbs_g,fat_g,fibre_g,water_ml) values(p.id,nullif(t->>'calories','')::numeric,nullif(t->>'protein','')::numeric,nullif(t->>'carbs','')::numeric,nullif(t->>'fat','')::numeric,nullif(t->>'fibre','')::numeric,nullif(t->>'water','')::numeric);
+  for m in select * from jsonb_array_elements(coalesce(p_payload->'meals','[]'::jsonb)) loop
+    insert into public.nutrition_meals(plan_id,title,sort_order,instructions,timing_text,notes) values(p.id,coalesce(nullif(m->>'title',''),'Meal'),coalesce((m->>'sortOrder')::integer,0),coalesce(m->>'instructions',''),coalesce(m->>'timingText',''),coalesce(m->>'notes','')) returning id into v_plan;
+    for i in select * from jsonb_array_elements(coalesce(m->'items','[]'::jsonb)) loop insert into public.nutrition_meal_items(meal_id,description,portion_text,sort_order) values(v_plan,coalesce(i->>'description',''),coalesce(i->>'portionText',''),coalesce((i->>'sortOrder')::integer,0)); end loop;
+    for a in select * from jsonb_array_elements(coalesce(m->'alternatives','[]'::jsonb)) loop insert into public.nutrition_meal_alternatives(meal_id,description,sort_order) values(v_plan,coalesce(a->>'description',''),coalesce((a->>'sortOrder')::integer,0)); end loop;
+  end loop;
+  for s in select * from jsonb_array_elements(coalesce(p_payload->'supplements','[]'::jsonb)) loop insert into public.nutrition_supplements(plan_id,name,amount_text,timing_text,instructions,sort_order) values(p.id,coalesce(s->>'name',''),coalesce(s->>'amountText',''),coalesce(s->>'timingText',''),coalesce(s->>'instructions',''),coalesce((s->>'sortOrder')::integer,0)); end loop;
+  return public.nutrition_plan_json(p.id,true);
+end; $$;
+
+create or replace function public.nutrition_activate_plan(p_plan_id uuid)
+returns jsonb language plpgsql security definer set search_path=pg_catalog,public as $$
+declare p public.nutrition_plans%rowtype;
+begin
+  select * into p from public.nutrition_plans where id=p_plan_id for update;
+  if not found or p.status<>'draft' or not public.nutrition_can_manage_plan(p.client_user_id) or p.owner_coach_user_id<>auth.uid() then raise exception 'Only the Primary PT can activate this draft' using errcode='42501'; end if;
+  update public.nutrition_plans set status='superseded',superseded_at=now(),updated_at=now() where client_user_id=p.client_user_id and status='active';
+  update public.nutrition_plans set status='active',activated_at=now(),updated_at=now() where id=p.id;
+  return public.nutrition_plan_json(p.id,true);
+end; $$;
+
+create or replace function public.nutrition_save_daily_checkin(p_adherence text,p_client_note text default '',p_timezone text default 'Europe/London')
+returns jsonb language plpgsql security definer set search_path=pg_catalog,public as $$
+declare d date; p uuid; c public.nutrition_daily_checkins%rowtype;
+begin
+  if auth.uid() is null or p_adherence not in ('followed','mostly','no') then raise exception 'Choose a valid daily check-in' using errcode='22023'; end if;
+  d:=(now() at time zone coalesce(nullif(p_timezone,''),'Europe/London'))::date;
+  select id into p from public.nutrition_plans where client_user_id=auth.uid() and status='active' order by activated_at desc limit 1;
+  if p is null then raise exception 'No active nutrition plan is available' using errcode='22023'; end if;
+  insert into public.nutrition_daily_checkins(client_user_id,plan_id,checkin_date,adherence,client_note) values(auth.uid(),p,d,p_adherence,coalesce(p_client_note,'')) on conflict(client_user_id,checkin_date) do update set plan_id=excluded.plan_id,adherence=excluded.adherence,client_note=excluded.client_note,updated_at=now() returning * into c;
+  return jsonb_build_object('id',c.id,'date',c.checkin_date,'adherence',c.adherence,'clientNote',c.client_note);
+end; $$;
+
+create or replace function public.nutrition_add_extra(p_description text,p_amount_text text default '',p_note text default '',p_timezone text default 'Europe/London')
+returns jsonb language plpgsql security definer set search_path=pg_catalog,public as $$
+declare c uuid; e public.nutrition_extras%rowtype;
+begin
+  select id into c from public.nutrition_daily_checkins where client_user_id=auth.uid() and checkin_date=(now() at time zone coalesce(nullif(p_timezone,''),'Europe/London'))::date;
+  if c is null or nullif(btrim(p_description),'') is null then raise exception 'Save today’s check-in before adding an extra' using errcode='22023'; end if;
+  insert into public.nutrition_extras(checkin_id,description,amount_text,note) values(c,btrim(p_description),coalesce(p_amount_text,''),coalesce(p_note,'')) returning * into e;
+  return jsonb_build_object('id',e.id,'description',e.description,'amountText',e.amount_text,'note',e.note);
+end; $$;
+
+create or replace function public.nutrition_delete_extra(p_extra_id uuid,p_timezone text default 'Europe/London')
+returns void language plpgsql security definer set search_path=pg_catalog,public as $$
+begin
+  delete from public.nutrition_extras e using public.nutrition_daily_checkins c where e.id=p_extra_id and e.checkin_id=c.id and c.client_user_id=auth.uid() and c.checkin_date=(now() at time zone coalesce(nullif(p_timezone,''),'Europe/London'))::date;
+end; $$;
+
+create or replace function public.nutrition_update_extra(p_extra_id uuid,p_description text,p_amount_text text default '',p_note text default '',p_timezone text default 'Europe/London')
+returns jsonb language plpgsql security definer set search_path=pg_catalog,public as $$
+declare e public.nutrition_extras%rowtype;
+begin
+  update public.nutrition_extras ex set description=btrim(p_description),amount_text=coalesce(p_amount_text,''),note=coalesce(p_note,''),updated_at=now()
+  from public.nutrition_daily_checkins c where ex.id=p_extra_id and ex.checkin_id=c.id and c.client_user_id=auth.uid() and c.checkin_date=(now() at time zone coalesce(nullif(p_timezone,''),'Europe/London'))::date and nullif(btrim(p_description),'') is not null returning ex.* into e;
+  if not found then raise exception 'That extra could not be updated' using errcode='42501'; end if;
+  return jsonb_build_object('id',e.id,'description',e.description,'amountText',e.amount_text,'note',e.note);
+end; $$;
+
+create or replace function public.nutrition_leave_feedback(p_client_user_id uuid,p_checkin_id uuid,p_message text,p_client_visible boolean default true,p_private_note boolean default false)
+returns jsonb language plpgsql security definer set search_path=pg_catalog,public as $$
+declare f public.nutrition_coach_feedback%rowtype;
+begin
+  if not public.nutrition_can_manage_plan(p_client_user_id) then raise exception 'Only the Primary PT can leave nutrition feedback' using errcode='42501'; end if;
+  insert into public.nutrition_coach_feedback(coach_user_id,client_user_id,checkin_id,message,client_visible,private_note) values(auth.uid(),p_client_user_id,p_checkin_id,btrim(p_message),p_client_visible and not p_private_note,p_private_note) returning * into f;
+  return jsonb_build_object('id',f.id,'message',f.message,'clientVisible',f.client_visible,'privateNote',f.private_note,'createdAt',f.created_at);
+end; $$;
+
+revoke all on function public.nutrition_can_read_client(uuid),public.nutrition_can_manage_plan(uuid),public.nutrition_plan_json(uuid,boolean),public.nutrition_get_member_view(),public.nutrition_get_coach_view(uuid),public.nutrition_save_draft(uuid,jsonb,uuid),public.nutrition_activate_plan(uuid),public.nutrition_save_daily_checkin(text,text,text),public.nutrition_add_extra(text,text,text,text),public.nutrition_update_extra(uuid,text,text,text,text),public.nutrition_delete_extra(uuid,text),public.nutrition_leave_feedback(uuid,uuid,text,boolean,boolean) from public,anon;
+grant execute on function public.nutrition_get_member_view(),public.nutrition_save_daily_checkin(text,text,text),public.nutrition_add_extra(text,text,text,text),public.nutrition_update_extra(uuid,text,text,text,text),public.nutrition_delete_extra(uuid,text) to authenticated;
+grant execute on function public.nutrition_get_coach_view(uuid),public.nutrition_save_draft(uuid,jsonb,uuid),public.nutrition_activate_plan(uuid),public.nutrition_leave_feedback(uuid,uuid,text,boolean,boolean) to authenticated;
