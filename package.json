@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "test": "tsx --test tests/**/*.test.ts",
     "exercise-library:validate": "node --import tsx scripts/validate-exercise-library.ts",
+    "exercise-guides:validate": "node --import tsx scripts/validate-exercise-guides.ts",
     "active-sports:dry-run": "tsx scripts/active-sports-dry-run.ts",
     "active-sports:images": "tsx scripts/active-sports-image-enrichment.ts"
   },
