@@ -56,7 +56,7 @@ begin
  if k is null or p_type not in ('pin','qr','wallet','nfc','legacy_member_reference','barcode') then raise exception 'Credential hashing is unavailable' using errcode='22023'; end if;
  v:=case when p_type='pin' then regexp_replace(coalesce(p_value,''),'[^0-9]','','g') when p_type in ('legacy_member_reference','barcode') then lower(btrim(coalesce(p_value,''))) else btrim(coalesce(p_value,'')) end;
  if v='' then raise exception 'Credential is empty' using errcode='22023'; end if;
- return case when p_type in ('pin','qr','wallet','nfc') then extensions.hmac(v,k,'sha256') else extensions.digest(v,'sha256') end;
+ return case when p_type in ('pin','qr','wallet','nfc') then extensions.hmac(convert_to(v,'UTF8'),k,'sha256') else extensions.digest(v,'sha256') end;
 end; $$;
 
 create or replace function public.club_ensure_person_access_credentials(p_organisation_id uuid,p_customer_id uuid)
@@ -72,7 +72,7 @@ begin
    pin:=lpad(candidate::text,8,'0');
    begin
     insert into public.club_access_credentials(organisation_id,customer_id,credential_type,credential_hash,secret_ciphertext,display_suffix,permanent,valid_from,status)
-      values(p_organisation_id,p_customer_id,'pin',extensions.hmac(pin,k,'sha256'),extensions.pgp_sym_encrypt(pin,encode(k,'hex'),'cipher-algo=aes256'),right(pin,2),true,now(),'active') returning * into pin_row;
+      values(p_organisation_id,p_customer_id,'pin',extensions.hmac(convert_to(pin,'UTF8'),k,'sha256'),extensions.pgp_sym_encrypt(pin,encode(k,'hex'),'cipher-algo=aes256'),right(pin,2),true,now(),'active') returning * into pin_row;
     exit;
    exception when unique_violation then
     select * into pin_row from public.club_access_credentials where organisation_id=p_organisation_id and customer_id=p_customer_id and credential_type='pin' and permanent and status='active';
@@ -86,7 +86,7 @@ begin
    token:='R12-'||upper(encode(extensions.gen_random_bytes(16),'hex'));
    begin
     insert into public.club_access_credentials(organisation_id,customer_id,credential_type,credential_hash,secret_ciphertext,display_suffix,permanent,valid_from,status)
-      values(p_organisation_id,p_customer_id,'qr',extensions.hmac(token,k,'sha256'),extensions.pgp_sym_encrypt(token,encode(k,'hex'),'cipher-algo=aes256'),right(token,6),true,now(),'active') returning * into qr_row;
+      values(p_organisation_id,p_customer_id,'qr',extensions.hmac(convert_to(token,'UTF8'),k,'sha256'),extensions.pgp_sym_encrypt(token,encode(k,'hex'),'cipher-algo=aes256'),right(token,6),true,now(),'active') returning * into qr_row;
     exit;
    exception when unique_violation then
     select * into qr_row from public.club_access_credentials where organisation_id=p_organisation_id and customer_id=p_customer_id and credential_type='qr' and permanent and status='active';
