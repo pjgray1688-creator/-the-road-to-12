@@ -11,7 +11,8 @@ export type NotificationTemplateKey =
   | "yearly_renewal_final_days"
   | "induction_reminder"
   | "order_ready_for_collection"
-  | "maintenance_escalation";
+  | "maintenance_escalation"
+  | "schedule_update";
 
 export type NotificationTemplateInput = { templateKey: NotificationTemplateKey; payload: Record<string, unknown> };
 
@@ -58,6 +59,14 @@ export function renderNotification(input: NotificationTemplateInput) {
       subject = "Your Madhouse order is ready for collection"; body = `Your order is ready to collect${p.collectionCode ? ` using collection code ${text(p.collectionCode)}` : ""}.`; path = "/member-hub"; break;
     case "maintenance_escalation":
       sender = "staff"; subject = `${organisation} maintenance issue needs review`; body = `A ${text(p.priority, "reported")} issue${p.assetName ? ` with ${text(p.assetName)}` : ""} has been reported at ${text(p.locationName, "a venue")}.`; path = `/club/checks?org=${encodeURIComponent(text(p.organisationId))}`; break;
+    case "schedule_update":
+      {
+        const action = text(p.eventType, "updated");
+        const verb = action === "cancelled" ? "cancelled" : action === "booked" ? "booked" : "updated";
+        subject = `Your ${text(p.kind, "schedule item")} has been ${verb}`;
+        body = `${text(p.title, "Your appointment")} · ${text(p.startsAt)}${p.location ? ` · ${text(p.location)}` : ""}. View your schedule in R12.`;
+      }
+      path = "/member-hub/schedule"; break;
   }
 
   const greeting = `Hi ${name},`;

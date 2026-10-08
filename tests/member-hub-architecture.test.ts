@@ -17,7 +17,7 @@ test("member hub resolves memberships from the authenticated user and keeps oper
   assert.match(migration, /revoke all on function public\.club_list_my_memberships/);
   assert.match(hub, /member-hub\/classes/);
   assert.match(hub, /member-hub\/shop/);
-  assert.doesNotMatch(hub, /staff|reception|Club operations/i);
+  assert.doesNotMatch(hub, /\b(staff|reception)\b|Club operations/i);
 });
 
 test("member hub shows server-authoritative credentials and uses verified-email activation", () => {

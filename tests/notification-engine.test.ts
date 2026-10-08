@@ -39,7 +39,7 @@ test("member activation is an authorised, idempotent intent and not identity pro
 
 test("sender purposes and transactional templates stay bounded", () => {
   for (const sender of ["members", "billing", "staff"]) assert.match(provider, new RegExp(sender));
-  for (const template of ["staff_invitation", "member_activation", "join_incomplete", "monthly_payment_failed", "yearly_renewal_1_month", "yearly_renewal_1_week", "yearly_renewal_final_days", "induction_reminder", "order_ready_for_collection", "maintenance_escalation"]) assert.match(readFileSync("lib/notification-templates.ts", "utf8"), new RegExp(template));
+  for (const template of ["staff_invitation", "member_activation", "join_incomplete", "monthly_payment_failed", "yearly_renewal_1_month", "yearly_renewal_1_week", "yearly_renewal_final_days", "induction_reminder", "order_ready_for_collection", "maintenance_escalation", "schedule_update"]) assert.match(readFileSync("lib/notification-templates.ts", "utf8"), new RegExp(template));
   assert.doesNotMatch(provider, /NEXT_PUBLIC_R12|SMTP_PASSWORD\s*=/);
   assert.match(docs, /Supabase Auth remains responsible/);
 });
@@ -74,6 +74,14 @@ test("templates do not expose passwords or raw payment credentials", () => {
   const billing = renderNotification({ templateKey: "monthly_payment_failed", payload: {} });
   assert.match(billing.text, /payment/i);
   assert.doesNotMatch(billing.text, /raw|secret|token/i);
+});
+
+test("schedule updates use the existing member delivery template with member-safe appointment facts", () => {
+  const rendered = renderNotification({ templateKey: "schedule_update", payload: { eventType: "booked", kind: "PT session", title: "Personal training", startsAt: "Tuesday 18:00", location: "Madhouse Rotherham", internalNotes: "private" } });
+  assert.equal(rendered.subject, "Your PT session has been booked");
+  assert.match(rendered.text, /Tuesday 18:00/);
+  assert.match(rendered.text, /Madhouse Rotherham/);
+  assert.doesNotMatch(rendered.text, /private/);
 });
 
 test("Coach invitation copy is personal, private-client safe, and app-linked", () => {

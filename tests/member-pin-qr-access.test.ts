@@ -9,8 +9,16 @@ const memberPass = readFileSync("components/member-access-pass.tsx", "utf8");
 const consoleUi = readFileSync("components/club-access-console.tsx", "utf8");
 const deviceApi = readFileSync("app/api/club/access/decision/route.ts", "utf8");
 
+test("pgcrypto calls use the Supabase extensions schema and UTF-8 bytea HMAC input", () => {
+  for (const fn of ["gen_random_bytes", "hmac", "digest", "pgp_sym_encrypt", "pgp_sym_decrypt"]) {
+    assert.doesNotMatch(sql, new RegExp(`(?<![.\\w])${fn}\\s*\\(`));
+    assert.match(sql, new RegExp(`extensions\\.${fn}\\s*\\(`));
+  }
+  assert.match(sql, /extensions\.hmac\(convert_to\((?:pin|token|v),'UTF8'\),k,'sha256'\)/);
+});
+
 test("1 member receives a server-generated permanent PIN", () => {
-  assert.match(sql, /gen_random_bytes\(4\)/);
+  assert.match(sql, /extensions\.gen_random_bytes\(4\)/);
   assert.match(sql, /'pin'.*true.*'active'/s);
   assert.match(sql, /club_holder_access_projection_refresh/);
 });
@@ -40,7 +48,7 @@ test("5 another member cannot view the PIN", () => {
 
 test("6 QR credential is permanent and stable", () => {
   assert.match(sql, /credential_type='qr' and permanent and status='active'/);
-  assert.match(sql, /'R12-'\|\|upper\(encode\(gen_random_bytes\(16\),'hex'\)\)/);
+  assert.match(sql, /'R12-'\|\|upper\(encode\(extensions\.gen_random_bytes\(16\),'hex'\)\)/);
   assert.deepEqual(accessQrMatrix("R12-STABLE"), accessQrMatrix("R12-STABLE"));
 });
 

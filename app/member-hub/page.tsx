@@ -18,16 +18,19 @@ export default async function MemberHubPage() {
       const accessPassPromise = organisation.slug.toLowerCase().includes("madhouse")
         ? supabase.rpc("club_get_my_access_pass", { p_organisation_id: organisation.id })
         : Promise.resolve({ data: null, error: null });
-      const [balance, sessions, allBookings, orders, accessPassResult] = await Promise.all([
+      const schedulePromise = supabase.rpc("club_list_my_schedule", { p_organisation_id: organisation.id });
+      const [balance, sessions, allBookings, orders, accessPassResult, scheduleResult] = await Promise.all([
         profile.customer ? repository.getBalanceAccountForCustomer(organisation.id, profile.customer.id) : undefined,
         repository.listClassSessions(organisation.id),
         profile.customer ? repository.listClassBookings(organisation.id) : [],
         repository.listOrders(organisation.id),
         accessPassPromise,
+        schedulePromise,
       ]);
       const bookings = allBookings.filter((booking) => booking.customerId === profile.customer?.id).map((booking) => ({ sessionId: booking.sessionId, status: booking.status }));
       const accessPass = accessPassResult.error || !accessPassResult.data ? undefined : accessPassResult.data as MemberAccessPassData;
-      loaded.push({ organisation, profile, balance, sessions, bookings, orders, accessPass });
+      const schedule = !scheduleResult.error && Array.isArray(scheduleResult.data) ? scheduleResult.data as MemberHubData["schedule"] : [];
+      loaded.push({ organisation, profile, balance, sessions, bookings, orders, accessPass, schedule });
     } catch { /* An invalid/inactive relationship is not exposed. */ }
   }
   return <MemberHub data={loaded}/>;
