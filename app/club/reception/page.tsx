@@ -5,5 +5,5 @@ export default async function ClubReceptionPage({ searchParams }: { searchParams
   const query = new URLSearchParams();
   if (params?.org) query.set("org", params.org);
   if (params?.location) query.set("location", params.location);
-  redirect(`/club${query.toString() ? `?${query.toString()}` : ""}`);
+  redirect(`/club/access${query.toString() ? `?${query.toString()}` : ""}`);
 }

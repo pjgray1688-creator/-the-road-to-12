@@ -1,0 +1,2 @@
+legacy_member_reference,first_name,last_name,full_name,email,phone,membership_name,membership_status,start_date,end_date,next_payment_date,home_location,billing_method,notes
+EXAMPLE-001,Alex,Example,,alex@example.com,07123456789,Example membership,active,2024-01-15,,,Example venue,manual,Remove this example row before import

@@ -7,7 +7,7 @@ test("ClubManager staging preserves quoted source fields and unknown columns", (
   assert.deepEqual(result.rows[0].raw, { "member id": "42", "full name": "Gray, Peter", email: "PETER@EXAMPLE.COM", unknown: "keep me" });
   assert.equal(result.rows[0].normalized.email, "peter@example.com");
   assert.equal(result.rows[0].normalized.legacyReference, "42");
-  assert.deepEqual(result.rows[0].warnings, ["Phone is missing", "Membership package is missing"]);
+  assert.deepEqual(result.rows[0].warnings, ["Phone is missing", "Membership package is missing; no membership will be created"]);
 });
 
 test("staging blocks duplicate people and ambiguous dates without inventing membership history", () => {
