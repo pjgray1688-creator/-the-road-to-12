@@ -1,6 +1,12 @@
 "use server";
 
+import { randomUUID } from "node:crypto";
+import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
+import { createGoCardlessRedirectFlow, retrieveGoCardlessRedirectFlow } from "@/lib/gocardless-join-provider";
+import { siteUrl } from "@/lib/site-url";
+import { createStripeCheckoutSession, retrieveStripeCheckoutSession } from "@/lib/stripe-join-provider";
+import { adminSupabase } from "@/lib/supabase-admin";
 import { serverSupabase } from "@/lib/supabase-server";
 
 export type JoiningActionResult = { ok: true; requestId: string; status: string; paymentState: string; productName: string; amountMinor: number; upfrontAmountMinor: number; checkoutKind: string; billing: string; durationDays?: number } | { ok: false; error: string; existingMember?: boolean };
@@ -53,11 +59,92 @@ export async function claimExistingMemberAction(organisationId: string, customer
   return { ok: true as const };
 }
 
-export async function retryJoinPaymentAction(requestId: string) {
+type ProviderContext = {
+  id: string; organisation_slug: string; product_name: string; currency: string; upfront_amount_minor: number;
+  email: string; stripe_checkout_session_id?: string | null; stripe_checkout_generation: number;
+  gocardless_redirect_flow_id?: string | null; gocardless_mandate_id?: string | null; gocardless_flow_generation: number;
+};
+
+export type ProviderActionResult = { ok: true; url?: string; pending?: boolean; message?: string } | { ok: false; error: string };
+
+// This provider handoff replaces the former "Online payment setup is not available yet" dead end.
+
+async function prepareProvider(requestId: string, provider: "stripe" | "gocardless", replaceReference?: string) {
   const supabase = await serverSupabase();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { ok: false as const, error: "Sign in to continue." };
-  const { error } = await supabase.rpc("club_retry_join_payment", { p_request_id: requestId });
-  if (error) return { ok: false as const, error: "Payment retry is unavailable for this request." };
-  return { ok: false as const, error: "Online payment setup is not available yet. Your place is saved; no payment or membership activation has been recorded." };
+  if (!user?.email_confirmed_at) throw new Error("Sign in with a verified email to continue.");
+  const { data, error } = await supabase.rpc("club_prepare_join_provider_attempt", {
+    p_request_id: requestId, p_provider_type: provider, p_replace_reference: replaceReference ?? null,
+  });
+  if (error || !data) throw new Error(provider === "stripe" ? "Card checkout is not available for this joining attempt." : "Direct Debit setup is not available for this joining attempt.");
+  return data as ProviderContext;
+}
+
+async function storeProviderResource(input: { requestId: string; provider: "stripe" | "gocardless"; primaryReference: string; paymentReference?: string | null; customerReference?: string | null; bankReference?: string | null; mandateReference?: string | null }) {
+  const { error } = await adminSupabase().rpc("club_store_join_provider_resource", {
+    p_request_id: input.requestId, p_provider_type: input.provider, p_primary_reference: input.primaryReference,
+    p_payment_reference: input.paymentReference ?? null, p_customer_reference: input.customerReference ?? null,
+    p_bank_account_reference: input.bankReference ?? null, p_mandate_reference: input.mandateReference ?? null,
+  });
+  if (error) throw new Error("The provider session could not be linked to this joining attempt.");
+}
+
+export async function startJoinCardCheckoutAction(requestId: string): Promise<ProviderActionResult> {
+  try {
+    if (!process.env.STRIPE_SECRET_KEY) throw new Error("Stripe checkout is not configured");
+    let context = await prepareProvider(requestId, "stripe");
+    if (context.stripe_checkout_session_id) {
+      const existing = await retrieveStripeCheckoutSession(context.stripe_checkout_session_id);
+      if (existing.status === "open" && existing.url) return { ok: true, url: existing.url };
+      if (existing.status === "complete") return { ok: true, pending: true, message: "Stripe is confirming your card payment. This page will update after the signed webhook arrives." };
+      context = await prepareProvider(requestId, "stripe", context.stripe_checkout_session_id);
+    }
+    const base = siteUrl();
+    const session = await createStripeCheckoutSession({
+      requestId, generation: context.stripe_checkout_generation, email: context.email, productName: context.product_name,
+      amountMinor: context.upfront_amount_minor, currency: context.currency,
+      successUrl: `${base}/join/${encodeURIComponent(context.organisation_slug)}?billing=card-returned`,
+      cancelUrl: `${base}/join/${encodeURIComponent(context.organisation_slug)}?billing=card-cancelled`,
+    });
+    if (!session.id || !session.url || session.amount_total !== context.upfront_amount_minor) throw new Error("Stripe returned an invalid checkout session.");
+    await storeProviderResource({ requestId, provider: "stripe", primaryReference: session.id, paymentReference: session.payment_intent });
+    return { ok: true, url: session.url };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "Card checkout could not be started." };
+  }
+}
+
+export async function startJoinDirectDebitAction(requestId: string): Promise<ProviderActionResult> {
+  try {
+    if (!process.env.GOCARDLESS_ACCESS_TOKEN) throw new Error("Direct Debit setup is not configured");
+    let context = await prepareProvider(requestId, "gocardless");
+    if (context.gocardless_mandate_id) return { ok: true, pending: true, message: "GoCardless is confirming your Direct Debit mandate." };
+    const cookieStore = await cookies();
+    const cookieName = `r12_gc_${requestId}`;
+    const stored = cookieStore.get(cookieName)?.value;
+    let saved: { flowId: string; token: string } | undefined;
+    try { saved = stored ? JSON.parse(stored) as { flowId: string; token: string } : undefined; } catch { saved = undefined; }
+    if (context.gocardless_redirect_flow_id && saved?.flowId === context.gocardless_redirect_flow_id && saved.token) {
+      const existing = await retrieveGoCardlessRedirectFlow(context.gocardless_redirect_flow_id);
+      if (existing.links?.mandate) return { ok: true, pending: true, message: "GoCardless is confirming your Direct Debit mandate." };
+      if (existing.redirect_url) return { ok: true, url: existing.redirect_url };
+    }
+    if (context.gocardless_redirect_flow_id) context = await prepareProvider(requestId, "gocardless", context.gocardless_redirect_flow_id);
+    const token = randomUUID();
+    const flow = await createGoCardlessRedirectFlow({
+      requestId, generation: context.gocardless_flow_generation, sessionToken: token,
+      description: `${context.product_name} recurring Direct Debit`,
+      successUrl: `${siteUrl()}/api/club/join/gocardless/complete?request_id=${encodeURIComponent(requestId)}`,
+    });
+    if (!flow.id || !flow.redirect_url) throw new Error("GoCardless returned an invalid mandate flow.");
+    await storeProviderResource({ requestId, provider: "gocardless", primaryReference: flow.id });
+    cookieStore.set(cookieName, JSON.stringify({ flowId: flow.id, token }), { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/", maxAge: 60 * 60 * 24 });
+    return { ok: true, url: flow.redirect_url };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "Direct Debit setup could not be started." };
+  }
+}
+
+export async function retryJoinPaymentAction(requestId: string, step: "card" | "direct_debit" = "card") {
+  return step === "card" ? startJoinCardCheckoutAction(requestId) : startJoinDirectDebitAction(requestId);
 }

@@ -1,15 +1,17 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { retryJoinPaymentAction, startClubJoiningAction, type JoiningActionResult } from "@/app/club/join/actions";
 import styles from "@/components/club-members-directory.module.css";
 
 type Product = { id: string; name: string; priceMinor: number; joiningFeeMinor: number; joiningFeeConfigured: boolean; checkoutKind: string; billing: string; durationDays?: number };
 type Location = { id: string; name: string };
-type JoinState = { id: string; status: string; payment_state: string; product_name: string; location_name: string; checkout_kind?: string; upfront_amount_minor?: number; upfront_payment_state?: string; recurring_authority_state?: string; paid_through_at?: string } | null;
+type JoinState = { id: string; status: string; payment_state: string; product_name: string; location_name: string; checkout_kind?: string; joining_fee_minor?: number; first_period_minor?: number; upfront_amount_minor?: number; upfront_payment_state?: string; recurring_authority_state?: string; paid_through_at?: string; activation_blocked_by?: string; gocardless_flow_ready?: boolean } | null;
 
 export function ClubJoiningForm({ organisationId, products, locations = [], accountEmail = "", initialState = null }: { organisationId: string; products: Product[]; locations?: Location[]; accountEmail?: string; initialState?: JoinState }) {
+  const router = useRouter();
   const [message, setMessage] = useState<JoiningActionResult>();
   const [retryMessage, setRetryMessage] = useState<string>();
   const [productId, setProductId] = useState(products[0]?.id ?? "");
@@ -19,9 +21,34 @@ export function ClubJoiningForm({ organisationId, products, locations = [], acco
   const active = (message?.ok && message.status === "active") || initialState?.status === "active";
   if (active) return <section className={styles.onboarding}><span className="eyebrow">WELCOME TO MADHOUSE</span><h2>Your membership is active</h2><p>{message?.ok ? message.productName : initialState?.product_name}</p><p className={styles.hint}>Your membership and access eligibility now follow Madhouse membership and induction policy.</p><Link className="primary" href="/member-hub">Open R12</Link><details><summary>Install R12</summary><p className="muted">Use your browser menu and choose “Add to Home Screen” or “Install app”. You can continue in this browser if you prefer.</p></details><p className="muted">Native App Store and Play Store links will appear here when available.</p></section>;
   if (message?.ok || initialState) {
-    const state = message?.ok ? { id: message.requestId, status: message.status, payment_state: message.paymentState, product_name: message.productName, location_name: "Selected venue" } : initialState!;
+    const state = message?.ok ? { id: message.requestId, status: message.status, payment_state: message.paymentState, product_name: message.productName, location_name: "Selected venue", checkout_kind: message.checkoutKind, upfront_amount_minor: message.upfrontAmountMinor, upfront_payment_state: message.paymentState } : initialState!;
     const monthly = (message?.ok ? message.checkoutKind : state.checkout_kind) === "monthly_recurring";
-    return <section className={styles.onboarding}><span className="eyebrow">JOINING SAVED</span><h2>Continue your Madhouse membership</h2><p>{state.product_name} · {state.location_name}</p><p className={styles.hint}>{monthly ? "Your membership activates only after the joining fee and first month are confirmed by card and the Direct Debit mandate is confirmed for future monthly collections." : "Your membership or pass activates only after the one-off card payment is confirmed."} Opening this step has not activated membership or gym access.</p><p className="muted">Status: {state.status.replaceAll("_", " ")} · Payment: {state.payment_state.replaceAll("_", " ")}{monthly && state.recurring_authority_state ? ` · Direct Debit: ${state.recurring_authority_state.replaceAll("_", " ")}` : ""}</p>{["payment_required", "payment_failed", "retry_required"].includes(state.status) ? <button className="primary" type="button" disabled={pending} onClick={() => startTransition(async () => { const result = await retryJoinPaymentAction(state.id); setRetryMessage(result.error); })}>Fix payment</button> : null}{retryMessage ? <p role="status" className="muted">{retryMessage}</p> : null}<Link className="secondary" href="/member-hub">Open Member Area</Link></section>;
+    const providerConfirmed = "confirmed";
+    const cardConfirmed = state.upfront_payment_state === providerConfirmed;
+    const mandateConfirmed = !monthly || state.recurring_authority_state === providerConfirmed;
+    const amount = Number(state.upfront_amount_minor ?? 0);
+    const begin = (step: "card" | "direct_debit") => startTransition(async () => {
+      setRetryMessage(undefined);
+      const result = await retryJoinPaymentAction(state.id, step);
+      if (!result.ok) { setRetryMessage(result.error); return; }
+      if (result.url) { window.location.assign(result.url); return; }
+      setRetryMessage(result.message ?? "Provider confirmation is pending.");
+      router.refresh();
+    });
+    return <section className={styles.onboarding}>
+      <span className="eyebrow">JOINING SAVED</span><h2>Continue your Madhouse membership</h2>
+      <p>{state.product_name} · {state.location_name}</p>
+      <div className={styles.hint}><strong>Due now: £{(amount / 100).toFixed(2)}</strong><p>{monthly ? "This covers the joining fee and first month. Future monthly membership payments use Direct Debit." : "This is the full one-off card payment."}</p></div>
+      <p><strong>1. Card payment:</strong> {(state.upfront_payment_state ?? state.payment_state).replaceAll("_", " ")}</p>
+      {monthly ? <p><strong>2. Direct Debit:</strong> {(state.recurring_authority_state ?? "required").replaceAll("_", " ")}</p> : null}
+      <p className="muted">Membership activates only after signed provider confirmation{monthly ? " confirms both steps" : " confirms payment"}. Returning from a provider does not activate access by itself. Opening this step has not activated membership or gym access.</p>
+      {!cardConfirmed ? <button className="primary" type="button" disabled={pending} onClick={() => begin("card")}>{pending ? "Opening Stripe…" : state.upfront_payment_state === "failed" ? "Fix payment — retry card" : "Pay securely by card"}</button> : null}
+      {cardConfirmed && !mandateConfirmed && !(state.recurring_authority_state === "pending" && state.gocardless_flow_ready) ? <button className="primary" type="button" disabled={pending} onClick={() => begin("direct_debit")}>{pending ? "Opening GoCardless…" : state.recurring_authority_state === "failed" ? "Retry Direct Debit setup" : "Set up Direct Debit"}</button> : null}
+      {cardConfirmed && !mandateConfirmed && state.recurring_authority_state === "pending" && state.gocardless_flow_ready ? <p role="status">GoCardless is confirming your Direct Debit mandate. You can safely return to this page later.</p> : null}
+      {cardConfirmed && mandateConfirmed ? <p role="status">Both billing steps are confirmed. Activating your membership…</p> : null}
+      {retryMessage ? <p role="status" className="muted">{retryMessage}</p> : null}
+      <Link className="secondary" href="/member-hub">Open Member Area</Link>
+    </section>;
   }
   return <section className={styles.onboarding}><div className={styles.onboardingHead}><div><span className="eyebrow">JOIN MADHOUSE</span><h2>Your membership details</h2><p className="muted">Your progress is saved to your account so you can safely return later.</p></div></div><form className={styles.onboardingForm} onSubmit={event => { event.preventDefault(); const form = new FormData(event.currentTarget); startTransition(async () => setMessage(await startClubJoiningAction({
     organisationId, productId: String(form.get("productId")), locationId: String(form.get("locationId")), firstName: String(form.get("firstName")), lastName: String(form.get("lastName")), email: String(form.get("email")), phone: String(form.get("phone")), dateOfBirth: String(form.get("dateOfBirth")), addressLine1: String(form.get("addressLine1")), addressLine2: String(form.get("addressLine2")), townCity: String(form.get("townCity")), postcode: String(form.get("postcode")), emergencyName: String(form.get("emergencyName")), emergencyPhone: String(form.get("emergencyPhone")), termsAccepted: form.get("termsAccepted") === "on", privacyAccepted: form.get("privacyAccepted") === "on", marketingConsent: form.get("marketingConsent") === "on", paymentMethod: String(form.get("paymentMethod")) as "card" | "direct_debit" | "card_and_direct_debit" | "staff_manual", idempotencyKey: key,
