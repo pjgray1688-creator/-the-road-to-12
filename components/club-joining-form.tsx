@@ -18,7 +18,7 @@ export function ClubJoiningForm({ organisationId, products, locations = [], acco
   const [pending, startTransition] = useTransition();
   const [key] = useState(() => crypto.randomUUID());
   const selectedProduct = products.find(product => product.id === productId);
-  const active = (message?.ok && message.status === "active") || initialState?.status === "active";
+  const active = (message?.ok && message.status === "active") || (initialState?.status === "active" && !["failed", "cancelled", "expired", "replaced"].includes(initialState?.recurring_authority_state ?? "confirmed"));
   if (active) return <section className={styles.onboarding}><span className="eyebrow">WELCOME TO MADHOUSE</span><h2>Your membership is active</h2><p>{message?.ok ? message.productName : initialState?.product_name}</p><p className={styles.hint}>Your membership and access eligibility now follow Madhouse membership and induction policy.</p><Link className="primary" href="/member-hub">Open R12</Link><details><summary>Install R12</summary><p className="muted">Use your browser menu and choose “Add to Home Screen” or “Install app”. You can continue in this browser if you prefer.</p></details><p className="muted">Native App Store and Play Store links will appear here when available.</p></section>;
   if (message?.ok || initialState) {
     const state = message?.ok ? { id: message.requestId, status: message.status, payment_state: message.paymentState, product_name: message.productName, location_name: "Selected venue", checkout_kind: message.checkoutKind, upfront_amount_minor: message.upfrontAmountMinor, upfront_payment_state: message.paymentState } : initialState!;

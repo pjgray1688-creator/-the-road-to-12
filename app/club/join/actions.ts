@@ -73,9 +73,9 @@ async function prepareProvider(requestId: string, provider: "stripe" | "gocardle
   const supabase = await serverSupabase();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user?.email_confirmed_at) throw new Error("Sign in with a verified email to continue.");
-  const { data, error } = await supabase.rpc("club_prepare_join_provider_attempt", {
-    p_request_id: requestId, p_provider_type: provider, p_replace_reference: replaceReference ?? null,
-  });
+  const { data, error } = provider === "gocardless"
+    ? await supabase.rpc("club_prepare_recurring_mandate_attempt", { p_request_id: requestId, p_replace_reference: replaceReference ?? null })
+    : await supabase.rpc("club_prepare_join_provider_attempt", { p_request_id: requestId, p_provider_type: provider, p_replace_reference: replaceReference ?? null });
   if (error || !data) throw new Error(provider === "stripe" ? "Card checkout is not available for this joining attempt." : "Direct Debit setup is not available for this joining attempt.");
   return data as ProviderContext;
 }

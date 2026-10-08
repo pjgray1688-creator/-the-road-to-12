@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
     const supabase = await serverSupabase();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user?.email_confirmed_at) return NextResponse.redirect(new URL(`/account?mode=signIn&next=${encodeURIComponent(request.nextUrl.pathname + request.nextUrl.search)}`, siteUrl()));
-    const { data, error } = await supabase.rpc("club_prepare_join_provider_attempt", { p_request_id: requestId, p_provider_type: "gocardless", p_replace_reference: null });
+    const { data, error } = await supabase.rpc("club_prepare_recurring_mandate_attempt", { p_request_id: requestId, p_replace_reference: null });
     if (error || !data) throw new Error("Joining attempt is unavailable");
     const context = data as Context;
     const cookieName = `r12_gc_${requestId}`;
@@ -33,6 +33,8 @@ export async function GET(request: NextRequest) {
       p_customer_reference: flow.links.customer, p_bank_account_reference: flow.links.customer_bank_account, p_mandate_reference: mandateId,
     });
     if (storeError) throw storeError;
+    const { error: bindError } = await admin.rpc("club_bind_replacement_gocardless_mandate", { p_request_id: requestId, p_mandate_id: mandateId, p_customer_id: flow.links.customer });
+    if (bindError) throw bindError;
     const mandate = await retrieveGoCardlessMandate(mandateId);
     if (mandate.status === "active") {
       const { error: eventError } = await admin.rpc("club_record_join_provider_event", {
@@ -40,7 +42,12 @@ export async function GET(request: NextRequest) {
         p_event_type: "mandate_confirmed", p_amount_minor: null, p_provider_reference: mandateId, p_occurred_at: new Date().toISOString(),
       });
       if (eventError) throw eventError;
-    } else if (["failed", "cancelled", "expired"].includes(mandate.status)) {
+      const { error: recurringError } = await admin.rpc("club_reconcile_gocardless_mandate_event", {
+        p_provider_event_key: `redirect-flow:${flowId}:arrangement-active`, p_mandate_id: mandateId,
+        p_provider_status: "active", p_occurred_at: new Date().toISOString(),
+      });
+      if (recurringError) throw recurringError;
+    } else if (["failed", "cancelled", "expired", "replaced"].includes(mandate.status)) {
       const { error: eventError } = await admin.rpc("club_record_join_provider_event", {
         p_request_id: requestId, p_provider_type: "gocardless", p_provider_event_key: `redirect-flow:${flowId}:${mandate.status}`,
         p_event_type: "mandate_failed", p_amount_minor: null, p_provider_reference: mandateId, p_occurred_at: new Date().toISOString(),

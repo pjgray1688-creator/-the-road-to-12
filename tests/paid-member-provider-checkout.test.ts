@@ -86,7 +86,7 @@ test("provider event mapping does not treat browser return or pending mandate as
   assert.equal(stripeJoinEvent({ type: "payment_intent.payment_failed", created: 1_800_000_000, data: { object: { id: "pi_1", amount: 4200, metadata: { join_request_id: "join-1" } } } })?.eventType, "upfront_failed");
   assert.equal(goCardlessJoinEvent({ resource_type: "mandates", action: "submitted", created_at: "2027-01-01T00:00:00Z", links: { mandate: "MD1" } }), null);
   assert.equal(goCardlessJoinEvent({ resource_type: "mandates", action: "active", created_at: "2027-01-01T00:00:00Z", links: { mandate: "MD1" } })?.eventType, "mandate_confirmed");
-  for (const action of ["failed", "cancelled", "expired"]) assert.equal(goCardlessJoinEvent({ resource_type: "mandates", action, created_at: "2027-01-01T00:00:00Z", links: { mandate: "MD1" } })?.eventType, "mandate_failed");
+  for (const action of ["failed", "cancelled", "expired", "replaced"]) assert.equal(goCardlessJoinEvent({ resource_type: "mandates", action, created_at: "2027-01-01T00:00:00Z", links: { mandate: "MD1" } })?.eventType, "mandate_failed");
 });
 
 test("database state machine is replay-safe, ordered, and activates exactly once after both trusted states", () => {

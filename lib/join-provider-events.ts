@@ -23,6 +23,6 @@ export function goCardlessJoinEvent(event: { created_at: string; resource_type: 
   const mandate = event.links?.mandate;
   if (event.resource_type !== "mandates" || !mandate) return null;
   if (event.action === "active") return { requestId: "", eventType: "mandate_confirmed", reference: mandate, amountMinor: null, occurredAt: event.created_at };
-  if (["failed", "cancelled", "expired"].includes(event.action)) return { requestId: "", eventType: "mandate_failed", reference: mandate, amountMinor: null, occurredAt: event.created_at };
+  if (["failed", "cancelled", "expired", "replaced"].includes(event.action)) return { requestId: "", eventType: "mandate_failed", reference: mandate, amountMinor: null, occurredAt: event.created_at };
   return null;
 }
