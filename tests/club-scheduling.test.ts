@@ -44,14 +44,17 @@ test("schedule writes are capability checked and trainers are restricted to thei
  assert.match(sql,/club_locations where id=p_location_id and organisation_id=p_organisation_id/);
 });
 
-test("weekly hours are recurring London wall time, editable by self, and gate PT booking with an audited manager override",()=>{
+test("weekly hours remain recurring London wall-time availability guides rather than appointment gates",()=>{
  const sql=readFileSync("supabase/migrations/2026-12-05-madhouse-shared-scheduling.sql","utf8");
  assert.match(sql,/club_staff_weekly_working_hours[\s\S]+weekday between 1 and 7[\s\S]+starts_at time[\s\S]+ends_at time/);
  assert.match(sql,/club_save_staff_weekly_working_hours[\s\S]+own_trainer:=public\.club_has_active_role\(p_organisation_id,array\['trainer'\]\) and p_staff_user_id=auth\.uid\(\)/);
  assert.match(sql,/p_starts_at at time zone 'Europe\/London'/);
- assert.match(sql,/perform pg_advisory_xact_lock\(hashtextextended\(p_organisation_id::text\|\|':'\|\|p_staff_user_id::text,0\)\);[\s\S]+select not exists\(select 1 from public\.club_staff_weekly_working_hours/);
- assert.match(sql,/falls outside the coach’s normal working hours/);
- assert.match(sql,/schedule\.working_hours_override/);
+ const corrective=readFileSync("supabase/migrations/2026-12-06-madhouse-rota-and-availability.sql","utf8");
+ const start=corrective.indexOf("create or replace function public.club_save_schedule_event");
+ const bodyStart=corrective.indexOf("as $$",start)+5;
+ const save=corrective.slice(bodyStart,corrective.indexOf("$$;",bodyStart));
+ assert.doesNotMatch(save,/club_staff_weekly_working_hours|outside the coach|p_working_hours_override_reason/);
+ assert.match(save,/club_assert_schedule_available/);
 });
 
 test("private PT clients stay separate from member identity, are organisation-scoped, and never enter member schedule results",()=>{

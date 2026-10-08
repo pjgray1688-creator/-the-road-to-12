@@ -1,7 +1,7 @@
-export type ScheduleEventType = "pt_session" | "class" | "unavailable" | "other_location" | "leave" | "admin_time";
-export type ScheduleStatus = "scheduled" | "completed" | "cancelled" | "no_show";
+export type ScheduleEventType = "pt_session" | "class" | "unavailable" | "other_location" | "leave" | "leave_request" | "rota_shift" | "admin_time";
+export type ScheduleStatus = "scheduled" | "completed" | "cancelled" | "no_show" | "requested" | "approved" | "declined";
 export type ScheduleEvent = {
-  id: string; eventType: ScheduleEventType; staffUserId?: string | null; staffName?: string | null;
+  id: string; leaveRequestId?: string | null; eventType: ScheduleEventType; staffUserId?: string | null; staffName?: string | null;
   customerId?: string | null; privateClientId?: string | null; memberName?: string | null; locationId?: string | null; locationName?: string | null;
   externalLocation?: string | null; title: string; description?: string | null; capacity?: number | null; notes?: string | null; startsAt: string; endsAt: string; status: ScheduleStatus; workingHoursOverride?: boolean;
 };
