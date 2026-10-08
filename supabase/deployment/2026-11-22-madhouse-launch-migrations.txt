@@ -105,3 +105,4 @@ supabase/migrations/2026-11-26-coach-invitation-email-polish.sql
 supabase/migrations/2026-11-27-coach-nutrition-accountability.sql
 supabase/migrations/2026-11-28-coach-programme-builder.sql
 supabase/migrations/2026-11-29-coach-session-structures.sql
+supabase/migrations/2026-11-30-member-reception-launch-safety.sql

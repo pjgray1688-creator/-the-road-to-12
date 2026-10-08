@@ -1,5 +1,12 @@
 export type MadhouseCheckoutKind = "free" | "monthly_recurring" | "day_pass" | "week_pass" | "annual_one_off" | "one_off";
 
+export function requiresMadhouseProviderCheckout(
+  organisationSlug: string,
+  product: { priceMinor: number; sellable: boolean },
+) {
+  return organisationSlug === "madhouse-gym" && product.sellable && product.priceMinor > 0;
+}
+
 export function madhouseCheckoutKind(product: { priceMinor: number; billing: string; durationDays?: number }): MadhouseCheckoutKind {
   if (product.priceMinor === 0) return "free";
   if (product.billing === "recurring") return "monthly_recurring";
