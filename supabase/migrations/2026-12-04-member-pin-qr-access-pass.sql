@@ -18,7 +18,7 @@ create table if not exists public.club_access_keyring (
 );
 alter table public.club_access_keyring enable row level security;
 revoke all on public.club_access_keyring from public,anon,authenticated;
-insert into public.club_access_keyring(singleton,key_material) values(true,gen_random_bytes(32)) on conflict(singleton) do nothing;
+insert into public.club_access_keyring(singleton,key_material) values(true,extensions.gen_random_bytes(32)) on conflict(singleton) do nothing;
 
 alter table public.club_locations add column if not exists access_mode text not null default 'DISABLED';
 alter table public.club_locations drop constraint if exists club_locations_access_mode_check;
@@ -56,7 +56,7 @@ begin
  if k is null or p_type not in ('pin','qr','wallet','nfc','legacy_member_reference','barcode') then raise exception 'Credential hashing is unavailable' using errcode='22023'; end if;
  v:=case when p_type='pin' then regexp_replace(coalesce(p_value,''),'[^0-9]','','g') when p_type in ('legacy_member_reference','barcode') then lower(btrim(coalesce(p_value,''))) else btrim(coalesce(p_value,'')) end;
  if v='' then raise exception 'Credential is empty' using errcode='22023'; end if;
- return case when p_type in ('pin','qr','wallet','nfc') then hmac(v,k,'sha256') else digest(v,'sha256') end;
+ return case when p_type in ('pin','qr','wallet','nfc') then extensions.hmac(v,k,'sha256') else extensions.digest(v,'sha256') end;
 end; $$;
 
 create or replace function public.club_ensure_person_access_credentials(p_organisation_id uuid,p_customer_id uuid)
@@ -68,11 +68,11 @@ begin
  select * into pin_row from public.club_access_credentials where organisation_id=p_organisation_id and customer_id=p_customer_id and credential_type='pin' and permanent and status='active' for update;
  if not found then
   loop
-   random_bytes:=gen_random_bytes(4); candidate:=((get_byte(random_bytes,0)::bigint<<24)+(get_byte(random_bytes,1)::bigint<<16)+(get_byte(random_bytes,2)::bigint<<8)+get_byte(random_bytes,3))%100000000;
+   random_bytes:=extensions.gen_random_bytes(4); candidate:=((get_byte(random_bytes,0)::bigint<<24)+(get_byte(random_bytes,1)::bigint<<16)+(get_byte(random_bytes,2)::bigint<<8)+get_byte(random_bytes,3))%100000000;
    pin:=lpad(candidate::text,8,'0');
    begin
     insert into public.club_access_credentials(organisation_id,customer_id,credential_type,credential_hash,secret_ciphertext,display_suffix,permanent,valid_from,status)
-      values(p_organisation_id,p_customer_id,'pin',hmac(pin,k,'sha256'),pgp_sym_encrypt(pin,encode(k,'hex'),'cipher-algo=aes256'),right(pin,2),true,now(),'active') returning * into pin_row;
+      values(p_organisation_id,p_customer_id,'pin',extensions.hmac(pin,k,'sha256'),extensions.pgp_sym_encrypt(pin,encode(k,'hex'),'cipher-algo=aes256'),right(pin,2),true,now(),'active') returning * into pin_row;
     exit;
    exception when unique_violation then
     select * into pin_row from public.club_access_credentials where organisation_id=p_organisation_id and customer_id=p_customer_id and credential_type='pin' and permanent and status='active';
@@ -83,10 +83,10 @@ begin
  select * into qr_row from public.club_access_credentials where organisation_id=p_organisation_id and customer_id=p_customer_id and credential_type='qr' and permanent and status='active' for update;
  if not found then
   loop
-   token:='R12-'||upper(encode(gen_random_bytes(16),'hex'));
+   token:='R12-'||upper(encode(extensions.gen_random_bytes(16),'hex'));
    begin
     insert into public.club_access_credentials(organisation_id,customer_id,credential_type,credential_hash,secret_ciphertext,display_suffix,permanent,valid_from,status)
-      values(p_organisation_id,p_customer_id,'qr',hmac(token,k,'sha256'),pgp_sym_encrypt(token,encode(k,'hex'),'cipher-algo=aes256'),right(token,6),true,now(),'active') returning * into qr_row;
+      values(p_organisation_id,p_customer_id,'qr',extensions.hmac(token,k,'sha256'),extensions.pgp_sym_encrypt(token,encode(k,'hex'),'cipher-algo=aes256'),right(token,6),true,now(),'active') returning * into qr_row;
     exit;
    exception when unique_violation then
     select * into qr_row from public.club_access_credentials where organisation_id=p_organisation_id and customer_id=p_customer_id and credential_type='qr' and permanent and status='active';
@@ -94,7 +94,7 @@ begin
    end;
   end loop;
  end if;
- return jsonb_build_object('pin',pgp_sym_decrypt(pin_row.secret_ciphertext,encode(k,'hex')),'qrToken',pgp_sym_decrypt(qr_row.secret_ciphertext,encode(k,'hex')),'pinCredentialId',pin_row.id,'qrCredentialId',qr_row.id);
+ return jsonb_build_object('pin',extensions.pgp_sym_decrypt(pin_row.secret_ciphertext,encode(k,'hex')),'qrToken',extensions.pgp_sym_decrypt(qr_row.secret_ciphertext,encode(k,'hex')),'pinCredentialId',pin_row.id,'qrCredentialId',qr_row.id);
 end; $$;
 
 create or replace function public.club_refresh_customer_access_projection(p_organisation_id uuid,p_customer_id uuid)
@@ -322,7 +322,7 @@ create or replace function public.club_device_access_decision(p_device_id uuid,p
 returns jsonb language plpgsql security definer set search_path=pg_catalog,public as $$
 declare d public.club_access_devices%rowtype; c uuid; recent_failures integer; audit_id uuid;
 begin
- select * into d from public.club_access_devices where id=p_device_id and status='active' and secret_hash=digest(p_secret,'sha256') for update;
+ select * into d from public.club_access_devices where id=p_device_id and status='active' and secret_hash=extensions.digest(p_secret,'sha256') for update;
  if not found then raise exception 'Device authentication failed' using errcode='42501'; end if;
  if p_presented_at is null or abs(extract(epoch from(now()-p_presented_at)))>120 or nullif(btrim(p_nonce),'') is null then raise exception 'Stale or invalid device request' using errcode='22023'; end if;
  if exists(select 1 from public.club_access_decisions where device_id=d.id and request_nonce=p_nonce) then raise exception 'Device request replayed' using errcode='23505'; end if;
