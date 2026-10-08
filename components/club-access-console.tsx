@@ -1,13 +1,78 @@
 "use client";
+
 import { useMemo, useState, useTransition } from "react";
 import { decideCustomerAccessAction, decideScannedAccessAction } from "@/app/club/access/actions";
 
-type Decision = { allowed?: boolean; reason?: string; decidedAt?: string; member?: { displayName?: string }; membership?: { status?: string; source?: string; endsAt?: string } };
-const reason: Record<string,string> = { active_entitlement:"Active membership includes access", credential_not_found:"Credential not recognised", wrong_club:"Credential belongs to another Club", no_membership:"No membership", membership_cancelled:"Membership cancelled", membership_inactive:"Membership inactive", membership_not_started:"Membership has not started", membership_expired:"Membership expired", payment_action_required:"Payment action required", wrong_club_location:"Membership does not include this venue", location_inactive:"Venue access is unavailable" };
-export function ClubAccessConsole({ organisationId, locations, customers }: { organisationId:string; locations:Array<{id:string;name:string;active:boolean}>; customers:Array<{id:string;displayName:string;email?:string;phone?:string}> }) {
-  const active=locations.filter(location=>location.active); const [locationId,setLocationId]=useState(active[0]?.id??""); const [credential,setCredential]=useState(""); const [query,setQuery]=useState(""); const [decision,setDecision]=useState<Decision>(); const [message,setMessage]=useState(""); const [pending,start]=useTransition();
-  const matches=useMemo(()=>{const needle=query.trim().toLowerCase();return needle.length<2?[]:customers.filter(customer=>[customer.displayName,customer.email,customer.phone].some(value=>value?.toLowerCase().includes(needle))).slice(0,8)},[customers,query]);
-  const show=(result:{ok:boolean;decision?:Record<string,unknown>;error?:string})=>{if(result.ok){setDecision(result.decision as Decision);setMessage("");}else{setDecision(undefined);setMessage(result.error??"Access could not be checked.");}};
-  const scan=()=>start(async()=>show(await decideScannedAccessAction({organisationId,locationId,credential,credentialType:"legacy_member_reference"})));
-  return <div><div className="catalogue-import-mapping"><label>Venue<select value={locationId} onChange={event=>setLocationId(event.target.value)}>{active.map(location=><option value={location.id} key={location.id}>{location.name}</option>)}</select></label><label>Scan or enter member credential<input aria-label="Member access credential" autoComplete="off" value={credential} onChange={event=>setCredential(event.target.value)} onKeyDown={event=>{if(event.key==="Enter")scan()}} /></label></div><button className="primary" type="button" disabled={pending||!locationId||!credential.trim()} onClick={scan}>{pending?"Checking…":"Check access"}</button><label>Or find a member<input aria-label="Find member for access check" placeholder="Name, email or phone" value={query} onChange={event=>setQuery(event.target.value)} /></label>{matches.map(customer=><button className="club-detail-row" type="button" key={customer.id} disabled={pending} onClick={()=>start(async()=>show(await decideCustomerAccessAction({organisationId,locationId,customerId:customer.id})))}><strong>{customer.displayName}</strong><small>{customer.email??customer.phone??"Member record"}</small></button>)}{decision?<div className={decision.allowed?"checkout-receipt balance-topup-success":"card"} role="status"><h3>{decision.allowed?"ALLOW":"DENY"}</h3><strong>{decision.member?.displayName??"Unknown credential"}</strong><p>{reason[decision.reason??""]??"Access unavailable"}</p>{decision.membership?<small>{decision.membership.status?.replaceAll("_"," ")}{decision.membership.endsAt?` · Ends ${new Date(decision.membership.endsAt).toLocaleDateString("en-GB")}`:""}{decision.membership.source==="legacy_import"?" · Migrated membership":""}</small>:null}<small>Decision recorded {decision.decidedAt?new Date(decision.decidedAt).toLocaleTimeString("en-GB"):"now"}</small></div>:null}{message?<p role="alert">{message}</p>:null}</div>;
+type CredentialType = "pin" | "qr" | "legacy_member_reference" | "barcode";
+type Decision = {
+  allowed?: boolean;
+  reason?: string;
+  accessState?: string;
+  decidedAt?: string;
+  attendanceRecorded?: boolean;
+  locationMode?: "CHECKIN_ONLY" | "DOOR_CONTROLLED" | "DISABLED";
+  unlockPermitted?: boolean;
+  member?: { displayName?: string };
+  membership?: { source?: string; endsAt?: string };
+};
+
+const reason: Record<string, string> = {
+  active_entitlement: "Active access entitlement",
+  billing_grace: "Access allowed during payment grace or retry",
+  credential_not_found: "Credential not recognised",
+  no_membership: "No membership or access pass",
+  membership_cancelled: "Membership cancelled",
+  membership_inactive: "Membership inactive",
+  membership_not_started: "Membership has not started",
+  membership_expired: "Membership expired or day pass ended",
+  payment_action_required: "Payment action required",
+  location_not_included: "This pass does not include this venue",
+  location_disabled: "Credential access is disabled at this venue",
+  access_throttled: "Too many incorrect PIN attempts; wait before retrying",
+};
+
+export function ClubAccessConsole({ organisationId, locations, customers }: {
+  organisationId: string;
+  locations: Array<{ id: string; name: string; active: boolean }>;
+  customers: Array<{ id: string; displayName: string; email?: string; phone?: string }>;
+}) {
+  const active = locations.filter((location) => location.active);
+  const [locationId, setLocationId] = useState(active[0]?.id ?? "");
+  const [credentialType, setCredentialType] = useState<CredentialType>("pin");
+  const [credential, setCredential] = useState("");
+  const [query, setQuery] = useState("");
+  const [decision, setDecision] = useState<Decision>();
+  const [message, setMessage] = useState("");
+  const [pending, start] = useTransition();
+  const matches = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    return needle.length < 2 ? [] : customers.filter((customer) =>
+      [customer.displayName, customer.email, customer.phone].some((value) => value?.toLowerCase().includes(needle)),
+    ).slice(0, 8);
+  }, [customers, query]);
+  const show = (result: { ok: boolean; decision?: Record<string, unknown>; error?: string }) => {
+    if (result.ok) { setDecision(result.decision as Decision); setMessage(""); }
+    else { setDecision(undefined); setMessage(result.error ?? "Access could not be checked."); }
+  };
+  const scan = () => start(async () => show(await decideScannedAccessAction({ organisationId, locationId, credential, credentialType })));
+
+  return <div>
+    <div className="catalogue-import-mapping">
+      <label>Venue<select value={locationId} onChange={(event) => setLocationId(event.target.value)}>{active.map((location) => <option value={location.id} key={location.id}>{location.name}</option>)}</select></label>
+      <label>Credential type<select value={credentialType} onChange={(event) => setCredentialType(event.target.value as CredentialType)}><option value="pin">Personal PIN</option><option value="qr">R12 QR pass</option><option value="legacy_member_reference">Legacy member reference</option><option value="barcode">Barcode</option></select></label>
+      <label>Scan or enter credential<input aria-label="Member access credential" inputMode={credentialType === "pin" ? "numeric" : "text"} autoComplete="off" value={credential} onChange={(event) => setCredential(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") scan(); }} /></label>
+    </div>
+    <button className="primary" type="button" disabled={pending || !locationId || !credential.trim()} onClick={scan}>{pending ? "Checking…" : "Check access"}</button>
+    <label>Or find a member<input aria-label="Find member for access check" placeholder="Name, email or phone" value={query} onChange={(event) => setQuery(event.target.value)} /></label>
+    {matches.map((customer) => <button className="club-detail-row" type="button" key={customer.id} disabled={pending} onClick={() => start(async () => show(await decideCustomerAccessAction({ organisationId, locationId, customerId: customer.id })))}><strong>{customer.displayName}</strong><small>{customer.email ?? customer.phone ?? "Member record"}</small></button>)}
+    {decision ? <div className={decision.allowed ? "checkout-receipt balance-topup-success" : "card"} role="status">
+      <h3>{decision.allowed ? "ALLOW" : "DENY"}</h3>
+      <strong>{decision.member?.displayName ?? "Unknown credential"}</strong>
+      <p>{reason[decision.reason ?? ""] ?? "Access unavailable"}</p>
+      {decision.membership ? <small>{decision.accessState?.replaceAll("_", " ")}{decision.membership.endsAt ? ` · Ends ${new Date(decision.membership.endsAt).toLocaleDateString("en-GB")}` : ""}{decision.membership.source === "legacy_import" ? " · Migrated membership" : ""}</small> : null}
+      {decision.allowed ? <small>{decision.attendanceRecorded ? "Arrival recorded" : "Repeat scan recorded without a duplicate arrival"} · {decision.locationMode === "DOOR_CONTROLLED" && decision.unlockPermitted ? "Door unlock permitted" : "Check-in only — no automated unlock"}</small> : null}
+      <small>Decision recorded {decision.decidedAt ? new Date(decision.decidedAt).toLocaleTimeString("en-GB") : "now"}</small>
+    </div> : null}
+    {message ? <p role="alert">{message}</p> : null}
+  </div>;
 }

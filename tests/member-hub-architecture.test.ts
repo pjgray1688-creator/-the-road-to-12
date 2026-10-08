@@ -20,10 +20,13 @@ test("member hub resolves memberships from the authenticated user and keeps oper
   assert.doesNotMatch(hub, /staff|reception|Club operations/i);
 });
 
-test("member hub keeps unsupported credentials truthful and uses verified-email activation", () => {
+test("member hub shows server-authoritative credentials and uses verified-email activation", () => {
   const hub = readFileSync("components/member-hub.tsx", "utf8");
+  const pass = readFileSync("components/member-access-pass.tsx", "utf8");
   const link = readFileSync("app/member-hub/link/page.tsx", "utf8");
-  assert.match(hub, /Digital access/);
+  assert.match(hub, /MemberAccessPass/);
+  assert.match(pass, /Personal access PIN/);
+  assert.match(pass, /confirmed live/);
   assert.match(link, /club_preview_existing_member_claim/);
   assert.match(link, /verified personal R12 account/);
   assert.doesNotMatch(link, /window\.(alert|prompt|confirm)/);
