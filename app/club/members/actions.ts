@@ -72,6 +72,29 @@ export async function endMembershipAction(input: { organisationId: string; membe
   } catch (error) { console.error("[club-members] membership end failed", { operation: "end_membership" }); return { ok: false, error: "Membership couldn’t be ended." }; }
 }
 
+export async function setMembershipAccessStatusAction(input: { organisationId: string; membershipId: string; status: "active" | "paused"; reason: string }): Promise<ActionResult> {
+  try {
+    const supabase = await serverSupabase();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { ok: false, error: "Sign in to change membership access." };
+    const context = await resolveClubOperationalContext(supabase, user.id, input.organisationId);
+    if (!context || !(await context.repository.hasCapability(context.organisation.id, user.id, "memberships.end_immediately"))) return { ok: false, error: "You don’t have permission to pause or reactivate membership access." };
+    const reason = input.reason.trim();
+    if (reason.length < 3 || reason.length > 500) return { ok: false, error: "Add a short reason for this access change." };
+    const { error } = await supabase.rpc("club_set_membership_access_status", { p_organisation_id: context.organisation.id, p_membership_id: input.membershipId, p_status: input.status, p_reason: reason });
+    if (error) {
+      if (error.code === "42501") return { ok: false, error: "You don’t have permission to change this membership’s access." };
+      if (error.code === "P0002") return { ok: false, error: "Membership not found in this organisation." };
+      if (error.code === "22023") return { ok: false, error: error.message.includes("expired") ? "This membership has expired and cannot be reactivated." : error.message.includes("not started") ? "This membership has not started yet." : "This membership can’t be changed to that access state." };
+      return { ok: false, error: "Membership access couldn’t be updated." };
+    }
+    revalidatePath(`/club/members?org=${encodeURIComponent(context.organisation.id)}`);
+    return { ok: true, membershipId: input.membershipId };
+  } catch {
+    return { ok: false, error: "Membership access couldn’t be updated." };
+  }
+}
+
 export async function createClubCustomerAction(input: { organisationId: string; displayName: string; email?: string; phone?: string }): Promise<{ ok: true; customerId: string } | { ok: false; error: string }> {
   try {
     const supabase = await serverSupabase();

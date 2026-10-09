@@ -117,3 +117,4 @@ supabase/migrations/2026-12-08-notification-claim-recovery.sql
 supabase/migrations/2026-12-09-club-staff-refunds.sql
 supabase/migrations/2026-12-10-club-till-close-and-service-refunds.sql
 supabase/migrations/2026-12-11-club-pos-line-refunds.sql
+supabase/migrations/2026-12-12-membership-access-lifecycle.sql

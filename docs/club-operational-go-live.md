@@ -23,3 +23,12 @@ Do not delete a tenant wholesale. First inventory Madhouse orders, payments, cas
 ## Native packaging direction
 
 Keep the Next.js web/PWA as the shared product surface. A later Capacitor-style shell can share Member/Club/Coach domain code while using separate application IDs, deep-link routes and native camera/push adapters. Recommended store strategy is separate Member and Club listings (with Coach evaluated separately) so permissions, review disclosures and release cadence remain clear. Apple Developer/App Store Connect and Google Play Console accounts, signing, privacy declarations, store assets, TestFlight/internal testing and R12 subscription products are external prerequisites.
+
+## Membership access pause
+
+Authorised management can pause and reactivate access from a linked member or
+customer record. Each change requires a reason and is retained with the actor
+and timestamp. A pause blocks membership-based gym access; it does not pause or
+change card/Direct Debit collection, membership dates, or provider mandates.
+Only a still-valid paused membership can be reactivated. Expired or cancelled
+memberships require a new membership decision rather than reactivation.
