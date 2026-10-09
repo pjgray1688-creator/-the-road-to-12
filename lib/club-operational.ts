@@ -80,3 +80,16 @@ export function memberAccessState(grants: EntitlementGrant[], memberships: Membe
 export function orderStateLabel(status: string) {
   return ({ pending_payment: "Payment needed", awaiting_cash_verification: "Awaiting cash verification", cash_disputed: "Cash needs review", paid: "Paid", fulfilled: "Completed", cancelled: "Cancelled", refunded: "Refunded" } as Record<string, string>)[status] ?? "In progress";
 }
+
+/** Consumer-safe order copy; internal supplier states are mapped separately. */
+export function memberOrderStateLabel(status: string) {
+  return ({
+    draft: "Being prepared", pending_payment: "Payment needed", awaiting_cash_verification: "Payment being verified",
+    cash_disputed: "Payment needs attention", paid: "Processing", fulfilled: "Completed", cancelled: "Cancelled", refunded: "Refunded",
+    order_confirmed: "Order confirmed", awaiting_delivery: "Awaiting supplier", ready_for_collection: "Ready for collection", collected: "Collected",
+  } as Record<string, string>)[status] ?? "In progress";
+}
+
+export function memberMembershipStateLabel(status: string) {
+  return ({ active: "Active", paused: "Paused", expired: "Expired", cancelled: "Cancelled", pending: "Pending", suspended: "Suspended" } as Record<string, string>)[status] ?? "Status unavailable";
+}

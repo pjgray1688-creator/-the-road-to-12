@@ -19,18 +19,32 @@ export default async function MemberHubPage() {
         ? supabase.rpc("club_get_my_access_pass", { p_organisation_id: organisation.id })
         : Promise.resolve({ data: null, error: null });
       const schedulePromise = supabase.rpc("club_list_my_schedule", { p_organisation_id: organisation.id });
-      const [balance, sessions, allBookings, orders, accessPassResult, scheduleResult] = await Promise.all([
+      const accessEligibilityPromise = organisation.slug.toLowerCase().includes("madhouse")
+        ? supabase.rpc("club_get_my_access_eligibility", { p_organisation_id: organisation.id })
+        : Promise.resolve({ data: null, error: null });
+      const [balance, sessions, allBookings, orders, accessPassResult, scheduleResult, accessEligibilityResult] = await Promise.all([
         profile.customer ? repository.getBalanceAccountForCustomer(organisation.id, profile.customer.id) : undefined,
         repository.listClassSessions(organisation.id),
         profile.customer ? repository.listClassBookings(organisation.id) : [],
         repository.listOrders(organisation.id),
         accessPassPromise,
         schedulePromise,
+        accessEligibilityPromise,
       ]);
+      const balanceHistoryResult = balance ? await supabase.from("club_balance_entries")
+        .select("id,entry_type,amount_delta_minor,created_at").eq("organisation_id", organisation.id)
+        .eq("account_id", balance.id).order("created_at", { ascending: false }).limit(3) : { data: [] };
+      const balanceHistory = Array.isArray(balanceHistoryResult.data) ? balanceHistoryResult.data.map(value => {
+        const entry = value as Record<string, unknown>;
+        return { id: String(entry.id), entryType: String(entry.entry_type), amountMinor: Number(entry.amount_delta_minor), createdAt: String(entry.created_at) };
+      }) : [];
       const bookings = allBookings.filter((booking) => booking.customerId === profile.customer?.id).map((booking) => ({ sessionId: booking.sessionId, status: booking.status }));
       const accessPass = accessPassResult.error || !accessPassResult.data ? undefined : accessPassResult.data as MemberAccessPassData;
       const schedule = !scheduleResult.error && Array.isArray(scheduleResult.data) ? scheduleResult.data as MemberHubData["schedule"] : [];
-      loaded.push({ organisation, profile, balance, sessions, bookings, orders, accessPass, schedule });
+      const accessEligibility = !accessEligibilityResult.error && Array.isArray(accessEligibilityResult.data)
+        ? accessEligibilityResult.data as MemberHubData["accessEligibility"]
+        : undefined;
+      loaded.push({ organisation, profile, balance, balanceHistory, accessEligibility, sessions, bookings, orders, accessPass, schedule });
     } catch { /* An invalid/inactive relationship is not exposed. */ }
   }
   return <MemberHub data={loaded}/>;

@@ -36,7 +36,7 @@ test("single-unit stock is separate from source stock and stock remains location
 
 test("paid PT package lines grant idempotent, expiry-aware credits without consuming them",()=>{
   assert.match(sql,/club_grant_purchased_service_package/);assert.match(sql,/new\.payment_status not in \('paid','waived'\)/);assert.match(sql,/pt-package:/);assert.match(sql,/expires_at/);assert.match(sql,/on conflict \(organisation_id,idempotency_key\) do nothing/);
-  assert.match(sql,/service_credit_quantity integer/);assert.match(sql,/club_service_credit_lots/);assert.match(sql,/club_list_my_pt_package_balances/);assert.match(memberPage,/club_list_my_pt_package_balances/);assert.match(memberPage,/pt_sessions:/);
+  assert.match(sql,/service_credit_quantity integer/);assert.match(sql,/club_service_credit_lots/);assert.match(sql,/club_list_my_pt_package_balances/);assert.match(memberPage,/club_list_my_service_credit_balances/);assert.match(memberPage,/pt_sessions:/);
   assert.doesNotMatch(sql,/club_schedule_events[\s\S]{0,500}club_service_credit_lots/);
 });
 
@@ -51,8 +51,8 @@ test("Coach receives only assigned Madhouse client's remaining PT credits",()=>{
   assert.doesNotMatch(coachClientRoute,/unit_price_minor|payment_method|external_reference/);
 });
 
-test("unapplied package migration failures are shown as unavailable, not as empty balances",()=>{
-  assert.match(memberPage,/packageResult\.error\?\s*<Surface[\s\S]*Package balance unavailable/);
+test("unavailable member service balances are not presented as empty entitlements",()=>{
+  assert.match(memberPage,/creditResult\.error\?\s*<Surface[\s\S]*Service balances unavailable/);
   assert.match(coachClientRoute,/packageCreditsUnavailable = Boolean\(creditError\)/);
   assert.match(coachClientWorkspace,/detail\.packageCreditsUnavailable[\s\S]*Balance unavailable/);
   assert.match(action,/failure\.operation==="save_commerce_product"&&failure\.code==="FAILED"[\s\S]*Product setup is temporarily unavailable/);
