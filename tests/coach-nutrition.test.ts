@@ -5,6 +5,7 @@ import test from "node:test";
 const migration = readFileSync("supabase/migrations/2026-11-27-coach-nutrition-accountability.sql", "utf8");
 const reconciliation = readFileSync("supabase/migrations/2026-12-15-coach-nutrition-reconciliation.sql", "utf8");
 const manifest = readFileSync("supabase/deployment/2026-11-22-madhouse-launch-migrations.txt", "utf8");
+const finalStateDeployment = readFileSync("supabase/deployment/2026-11-22-madhouse-final-state-reconciliation.sql", "utf8");
 const member = readFileSync("components/nutrition-member.tsx", "utf8");
 const coach = readFileSync("components/coach-nutrition.tsx", "utf8");
 const home = readFileSync("components/home-shell.tsx", "utf8");
@@ -143,7 +144,11 @@ test("PostgreSQL 16 CI executes all Nutrition recovery states, rerun, catalog an
   assert.match(postgresWorkflow, /pull_request:/);
   assert.match(postgresWorkflow, /push:/);
   assert.match(postgresWorkflow, /Validate Nutrition reconciliation in all recovery states[\s\S]*?scripts\/validate-coach-nutrition-reconciliation-postgres\.sh/);
-  for (const prerequisite of ["2026-09-26-coach-safe-workflow.sql", "2026-10-02-club-member-joining.sql", "2026-10-05-coach-organisation-boundary.sql", "2026-11-16-club-staff-permission-model.sql", "2026-11-18-member-acquisition-onboarding.sql", "2026-11-21-notification-engine.sql", "2026-11-23-coach-independent-client-relationships.sql", "2026-11-26-coach-invitation-email-polish.sql"]) {
+  assert.match(postgresWorkflow, /Reconcile to the deployed Madhouse final-state schema[\s\S]*?2026-11-22-madhouse-final-state-reconciliation\.sql/);
+  assert.match(postgresWorkflow, /Apply migrations after the canonical final-state bundle[\s\S]*?2026-11-23-coach-independent-client-relationships\.sql[\s\S]*?2026-11-26-coach-invitation-email-polish\.sql/);
+  assert.doesNotMatch(postgresWorkflow, /2026-11-16-club-staff-permission-model\.sql/);
+  assert.match(finalStateDeployment, /drop function if exists public\.club_save_staff_permission\(uuid,uuid,text,text\);[\s\S]*?create or replace function public\.club_save_staff_permission[\s\S]*?returns void/);
+  for (const prerequisite of ["2026-09-26-coach-safe-workflow.sql", "2026-10-02-club-member-joining.sql", "2026-11-23-coach-independent-client-relationships.sql", "2026-11-26-coach-invitation-email-polish.sql"]) {
     assert.ok(postgresWorkflow.includes(prerequisite), `${prerequisite} must be included in the real prerequisite chain`);
   }
   assert.match(postgresHarness, /STATE A[\s\S]*2026-12-15-coach-nutrition-reconciliation\.sql/);

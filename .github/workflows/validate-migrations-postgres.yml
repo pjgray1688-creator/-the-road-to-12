@@ -143,18 +143,21 @@ jobs:
             fi
           done
 
-      - name: Apply Coach and Nutrition prerequisite migrations
+      - name: Reconcile to the deployed Madhouse final-state schema
+        run: |
+          set -euo pipefail
+          # The deployed path is the reviewed final-state bundle, not a replay
+          # of every historical RPC replacement. In particular, this bundle
+          # performs the exact-signature drop needed to change
+          # club_save_staff_permission from jsonb to void.
+          psql -v ON_ERROR_STOP=1 -f supabase/deployment/2026-11-22-madhouse-final-state-reconciliation.sql
+
+      - name: Apply migrations after the canonical final-state bundle
         run: |
           set -euo pipefail
           migrations=(
-            supabase/migrations/2026-10-05-coach-organisation-boundary.sql
-            supabase/migrations/2026-11-16-club-staff-permission-model.sql
-            # This historical file was authored against the later canonical
-            # capability evaluator, so CI applies it after that evaluator.
-            supabase/migrations/2026-10-05-coach-staff-access-management.sql
-            supabase/migrations/2026-11-17-club-staff-account-onboarding.sql
-            supabase/migrations/2026-11-18-member-acquisition-onboarding.sql
-            supabase/migrations/2026-11-21-notification-engine.sql
+            # These incremental Coach migrations post-date the canonical
+            # 2026-11-22 deployed baseline and are not part of that bundle.
             supabase/migrations/2026-11-23-coach-independent-client-relationships.sql
             supabase/migrations/2026-11-24-coach-member-search-and-referrals.sql
             supabase/migrations/2026-11-25-coach-cover-referral-fix.sql
