@@ -8,6 +8,10 @@ type Decision = {
   allowed?: boolean;
   reason?: string;
   accessState?: string;
+  ageState?: string;
+  inductionState?: string;
+  inductionRequired?: boolean;
+  twentyFourHourEligible?: boolean;
   decidedAt?: string;
   attendanceRecorded?: boolean;
   locationMode?: "CHECKIN_ONLY" | "DOOR_CONTROLLED" | "DISABLED";
@@ -29,7 +33,16 @@ const reason: Record<string, string> = {
   location_not_included: "This pass does not include this venue",
   location_disabled: "Credential access is disabled at this venue",
   access_throttled: "Too many incorrect PIN attempts; wait before retrying",
+  induction_overdue: "Induction is overdue; this location’s policy requires completion before access",
+  induction_due: "Access allowed during the configured induction grace period",
+  missing_date_of_birth: "Date of birth is missing; adult door access is not available until verified",
+  date_of_birth_conflict: "Date of birth records disagree; resolve before granting door access",
+  under_16_restricted: "Under 16 — staff review required; door access is blocked",
+  under_18_restricted: "Under 18 — 24-hour door access is not available",
 };
+
+const ageLabel: Record<string, string> = { adult: "18 or over", under_18: "Under 18", under_16: "Under 16", missing_date_of_birth: "Date of birth missing", date_of_birth_conflict: "Date of birth conflict" };
+const inductionLabel: Record<string, string> = { not_required: "Not required", complete: "Complete", due: "Due within grace", booked: "Booked", overdue: "Overdue" };
 
 export function ClubAccessConsole({ organisationId, locations, customers }: {
   organisationId: string;
@@ -69,6 +82,8 @@ export function ClubAccessConsole({ organisationId, locations, customers }: {
       <h3>{decision.allowed ? "ALLOW" : "DENY"}</h3>
       <strong>{decision.member?.displayName ?? "Unknown credential"}</strong>
       <p>{reason[decision.reason ?? ""] ?? "Access unavailable"}</p>
+      {decision.ageState ? <small>Age status: {ageLabel[decision.ageState] ?? "Review required"} · 24-hour access: {decision.twentyFourHourEligible ? "Eligible" : "Not eligible"}</small> : null}
+      {decision.inductionRequired ? <small>Induction: {inductionLabel[decision.inductionState ?? ""] ?? "Review required"}</small> : null}
       {decision.membership ? <small>{decision.accessState?.replaceAll("_", " ")}{decision.membership.endsAt ? ` · Ends ${new Date(decision.membership.endsAt).toLocaleDateString("en-GB")}` : ""}{decision.membership.source === "legacy_import" ? " · Migrated membership" : ""}</small> : null}
       {decision.allowed ? <small>{decision.attendanceRecorded ? "Arrival recorded" : "Repeat scan recorded without a duplicate arrival"} · {decision.locationMode === "DOOR_CONTROLLED" && decision.unlockPermitted ? "Door unlock permitted" : "Check-in only — no automated unlock"}</small> : null}
       <small>Decision recorded {decision.decidedAt ? new Date(decision.decidedAt).toLocaleTimeString("en-GB") : "now"}</small>
