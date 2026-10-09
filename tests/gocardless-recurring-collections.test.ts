@@ -59,14 +59,27 @@ test("ambiguous provider failures remain resumable and reuse the same logical cl
 }));
 
 test("provider configuration and worker endpoint fail closed", async () => {
-  const token = process.env.GOCARDLESS_ACCESS_TOKEN; const worker = process.env.R12_BILLING_WORKER_SECRET; const cron = process.env.CRON_SECRET;
-  delete process.env.GOCARDLESS_ACCESS_TOKEN; delete process.env.R12_BILLING_WORKER_SECRET; delete process.env.CRON_SECRET;
+  const token = process.env.GOCARDLESS_ACCESS_TOKEN; const environment = process.env.GOCARDLESS_ENVIRONMENT; const worker = process.env.R12_BILLING_WORKER_SECRET; const cron = process.env.CRON_SECRET;
+  delete process.env.GOCARDLESS_ACCESS_TOKEN; delete process.env.GOCARDLESS_ENVIRONMENT; delete process.env.R12_BILLING_WORKER_SECRET; delete process.env.CRON_SECRET;
   try {
     const client = { rpc: async () => { throw new Error("must not claim"); } };
-    await assert.rejects(runGoCardlessCollections(client), /configuration is missing/);
+    await assert.rejects(runGoCardlessCollections(client), /Direct Debit setup is not configured/);
     const response = await runWorkerRoute(new NextRequest("https://app.test/api/internal/membership-billing-worker"));
-    assert.equal(response.status, 401);
-  } finally { if (token !== undefined) process.env.GOCARDLESS_ACCESS_TOKEN = token; if (worker !== undefined) process.env.R12_BILLING_WORKER_SECRET = worker; if (cron !== undefined) process.env.CRON_SECRET = cron; }
+    assert.equal(response.status, 503);
+    process.env.R12_BILLING_WORKER_SECRET = "worker-test-secret";
+    const unauthorised = await runWorkerRoute(new NextRequest("https://app.test/api/internal/membership-billing-worker"));
+    assert.equal(unauthorised.status, 401);
+  } finally { if (token !== undefined) process.env.GOCARDLESS_ACCESS_TOKEN = token; if (environment !== undefined) process.env.GOCARDLESS_ENVIRONMENT = environment; if (worker !== undefined) process.env.R12_BILLING_WORKER_SECRET = worker; else delete process.env.R12_BILLING_WORKER_SECRET; if (cron !== undefined) process.env.CRON_SECRET = cron; }
+});
+
+test("invalid GoCardless mode fails before the worker claims collection rows", async () => {
+  const token = process.env.GOCARDLESS_ACCESS_TOKEN; const environment = process.env.GOCARDLESS_ENVIRONMENT;
+  process.env.GOCARDLESS_ACCESS_TOKEN = "not-real"; process.env.GOCARDLESS_ENVIRONMENT = "production";
+  let claimed = false;
+  try {
+    await assert.rejects(runGoCardlessCollections({ rpc: async () => { claimed = true; return { data: [], error: null }; } }), /environment must be sandbox or live/);
+    assert.equal(claimed, false);
+  } finally { if (token !== undefined) process.env.GOCARDLESS_ACCESS_TOKEN = token; else delete process.env.GOCARDLESS_ACCESS_TOKEN; if (environment !== undefined) process.env.GOCARDLESS_ENVIRONMENT = environment; else delete process.env.GOCARDLESS_ENVIRONMENT; }
 });
 
 test("signed payment webhooks map lifecycle and ignore unsupported events", () => {

@@ -5,7 +5,7 @@ Business workflows queue durable `club_member_notification_intents`; the worker 
 Server-only configuration:
 
 - `R12_EMAIL_PROVIDER=mock` for local tests, or a future provider name. Missing/unknown configuration is truthful `unavailable`.
-- `R12_APP_BASE_URL` for links in messages. In production this must be the deployed R12 web/PWA application origin (for example `https://app.example.com`), not the public `https://r12.live` marketing site. The current safe fallback is the deployed Vercel app URL; set this explicitly before sending real invitations.
+- `R12_APP_BASE_URL` (preferred), then `NEXT_PUBLIC_SITE_URL`, for links in messages. Production should use `https://the-road-to-12.vercel.app`; `r12.live` is the landing domain and is rejected for app links. See [the launch configuration checklist](r12-launch-configuration.md).
 - `R12_EMAIL_FROM_MEMBERS` (default `members@r12.live`)
 - `R12_EMAIL_FROM_BILLING` (default `madhouse.accounts@r12.live`)
 - `R12_EMAIL_FROM_STAFF` (default `staff@r12.live`)

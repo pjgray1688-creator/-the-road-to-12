@@ -29,6 +29,11 @@ function configuration() {
   return { token, baseUrl: environment === "live" ? "https://api.gocardless.com" : "https://api-sandbox.gocardless.com" };
 }
 
+/** Validate credentials and mode before a worker claims any due collections. */
+export function assertGoCardlessConfiguration() {
+  configuration();
+}
+
 async function request<T>(path: string, init: RequestInit = {}, fetcher: typeof fetch = fetch): Promise<T> {
   const { token, baseUrl } = configuration();
   const response = await fetcher(`${baseUrl}${path}`, {

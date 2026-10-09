@@ -1,3 +1,5 @@
+import { siteUrl } from "./site-url";
+
 export type NotificationSender = "members" | "billing" | "staff";
 
 export type NotificationEnvelope = {
@@ -14,12 +16,9 @@ export type NotificationDelivery =
   | { ok: false; state: "unavailable" | "failed"; code: string; message: string; retryable: boolean };
 
 export function notificationConfig() {
-  const appBaseUrl = process.env.R12_APP_BASE_URL
-    ?? (process.env.NODE_ENV === "development" ? process.env.NEXT_PUBLIC_SITE_URL : undefined)
-    ?? "https://the-road-to-12.vercel.app";
   return {
     provider: process.env.R12_EMAIL_PROVIDER ?? "unavailable",
-    appBaseUrl: appBaseUrl.replace(/\/$/, ""),
+    appBaseUrl: siteUrl(),
     from: {
       members: process.env.R12_EMAIL_FROM_MEMBERS ?? "members@r12.live",
       billing: process.env.R12_EMAIL_FROM_BILLING ?? "madhouse.accounts@r12.live",

@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { NextRequest } from "next/server";
+import { GET as runNotificationWorker } from "../app/api/internal/notification-worker/route";
 import { renderNotification } from "../lib/notification-templates";
 import { NOTIFICATION_MAX_ATTEMPTS, retryDelaySeconds, shouldRetry } from "../lib/notification-worker";
 
@@ -64,6 +66,25 @@ test("worker availability is truthful and retries are bounded", async () => {
   assert.match(route, /club_complete_notification_intent/);
   assert.match(route, /club_fail_notification_intent/);
   assert.match(route, /R12_NOTIFICATION_WORKER_SECRET/);
+  assert.match(route, /stateUpdateFailures/);
+  assert.match(route, /status: stateUpdateFailures \? 500 : 200/);
+});
+
+test("notification worker reports missing auth configuration without leaking secrets", async () => {
+  const secret = process.env.R12_NOTIFICATION_WORKER_SECRET; const cron = process.env.CRON_SECRET;
+  delete process.env.R12_NOTIFICATION_WORKER_SECRET; delete process.env.CRON_SECRET;
+  try {
+    const response = await runNotificationWorker(new NextRequest("https://app.test/api/internal/notification-worker"));
+    assert.equal(response.status, 503);
+    assert.doesNotMatch(await response.text(), /secret|token/i);
+    process.env.R12_NOTIFICATION_WORKER_SECRET = "worker-secret-test";
+    const unauthorized = await runNotificationWorker(new NextRequest("https://app.test/api/internal/notification-worker"));
+    assert.equal(unauthorized.status, 401);
+    assert.doesNotMatch(await unauthorized.text(), /worker-secret-test/);
+  } finally {
+    if (secret === undefined) delete process.env.R12_NOTIFICATION_WORKER_SECRET; else process.env.R12_NOTIFICATION_WORKER_SECRET = secret;
+    if (cron === undefined) delete process.env.CRON_SECRET; else process.env.CRON_SECRET = cron;
+  }
 });
 
 test("templates do not expose passwords or raw payment credentials", () => {
@@ -82,6 +103,19 @@ test("schedule updates use the existing member delivery template with member-saf
   assert.match(rendered.text, /Tuesday 18:00/);
   assert.match(rendered.text, /Madhouse Rotherham/);
   assert.doesNotMatch(rendered.text, /private/);
+});
+
+test("notification links use the canonical app URL and never the landing domain", () => {
+  const base = process.env.R12_APP_BASE_URL; const fallback = process.env.NEXT_PUBLIC_SITE_URL;
+  process.env.R12_APP_BASE_URL = "https://the-road-to-12.vercel.app"; delete process.env.NEXT_PUBLIC_SITE_URL;
+  try {
+    const invitation = renderNotification({ templateKey: "member_activation", payload: {} });
+    assert.match(invitation.text, /https:\/\/the-road-to-12\.vercel\.app\/member-hub\/link/);
+    assert.doesNotMatch(invitation.text, /https:\/\/r12\.live/);
+  } finally {
+    if (base === undefined) delete process.env.R12_APP_BASE_URL; else process.env.R12_APP_BASE_URL = base;
+    if (fallback !== undefined) process.env.NEXT_PUBLIC_SITE_URL = fallback;
+  }
 });
 
 test("Coach invitation copy is personal, private-client safe, and app-linked", () => {

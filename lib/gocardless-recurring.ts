@@ -1,4 +1,4 @@
-import { createGoCardlessPayment, GoCardlessRequestError } from "@/lib/gocardless-join-provider";
+import { assertGoCardlessConfiguration, createGoCardlessPayment, GoCardlessRequestError } from "@/lib/gocardless-join-provider";
 
 export type RecurringCollectionClaim = {
   id: string; arrangement_id: string; membership_id: string; amount_minor: number; currency: string;
@@ -12,7 +12,7 @@ type PaymentCreator = typeof createGoCardlessPayment;
 export function billingWorkerId() { return `billing-${crypto.randomUUID()}`; }
 
 export async function runGoCardlessCollections(client: RpcClient, createPayment: PaymentCreator = createGoCardlessPayment, workerId = billingWorkerId()) {
-  if (!process.env.GOCARDLESS_ACCESS_TOKEN) throw new Error("GoCardless collection configuration is missing");
+  assertGoCardlessConfiguration();
   const claimed = await client.rpc("club_claim_due_gocardless_collections", { p_limit: 25, p_worker_id: workerId, p_claim_ttl_seconds: 900 });
   if (claimed.error) throw new Error(claimed.error.message || "Due collections could not be claimed");
   const rows = Array.isArray(claimed.data) ? claimed.data as RecurringCollectionClaim[] : [];
@@ -34,9 +34,10 @@ export async function runGoCardlessCollections(client: RpcClient, createPayment:
       const retryable = error instanceof GoCardlessRequestError ? error.retryable : true;
       if (retryable) { summary.resumable++; continue; }
       summary.failed++;
-      await client.rpc("club_fail_gocardless_collection_attempt", {
+      const failed = await client.rpc("club_fail_gocardless_collection_attempt", {
         p_obligation_id: row.id, p_worker_id: workerId, p_failure_reason: error instanceof Error ? error.message.slice(0, 300) : "Provider rejected collection",
       });
+      if (failed.error) throw new Error(failed.error.message || "Collection failure could not be recorded");
     }
   }
   return summary;

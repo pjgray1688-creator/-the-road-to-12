@@ -201,6 +201,10 @@ test("client referral returns to member R12, not the Coach workspace", () => {
 
 test("notification links use the explicit application origin", () => {
   const provider = fs.readFileSync("lib/notification-provider.ts", "utf8");
-  assert.match(provider, /R12_APP_BASE_URL/);
-  assert.doesNotMatch(provider, /R12_APP_BASE_URL[\s\S]*\?\?\s*"https:\/\/r12\.live"/);
+  const resolver = fs.readFileSync("lib/site-url.ts", "utf8");
+  assert.match(provider, /siteUrl\(\)/);
+  assert.match(resolver, /R12_APP_BASE_URL\?\.trim\(\)/);
+  assert.match(resolver, /NEXT_PUBLIC_SITE_URL\?\.trim\(\)/);
+  assert.match(resolver, /the-road-to-12\.vercel\.app/);
+  assert.match(resolver, /r12\.live/);
 });
