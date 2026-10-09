@@ -120,3 +120,4 @@ supabase/migrations/2026-12-11-club-pos-line-refunds.sql
 supabase/migrations/2026-12-12-membership-access-lifecycle.sql
 supabase/migrations/2026-12-13-member-age-induction-access-eligibility.sql
 supabase/migrations/2026-12-14-member-purchase-history.sql
+supabase/migrations/2026-12-15-coach-nutrition-reconciliation.sql
