@@ -23,6 +23,7 @@ import { productImageUrl, sharedProductImage } from "@/components/club-product-m
 import { isProductOnChannel } from "@/lib/club-commerce";
 import { ClubRecentSales, type RecentSale } from "@/components/club-recent-sales";
 import { ClubTillClose } from "@/components/club-till-close";
+import type { RefundableLine } from "@/lib/club-refund-allocation";
 
 async function loadShop(client: Awaited<ReturnType<typeof serverSupabase>>, userId: string, organisationId?: string, locationId?: string) {
   const context = await resolveClubOrganisationContext(client, userId, organisationId);
@@ -83,13 +84,23 @@ export default async function ClubShopPage({ searchParams }: { searchParams?: Pr
   if (loaded.staff && loaded.canIssueRefund && view === "sell") {
     const recentResult = await client.from("club_orders").select("id,created_at,total_minor,currency,status,location_id,customer_id,club_customers(display_name),club_order_items(id,product_name,quantity,line_total_minor,stock_tracked),club_payments(id,method,amount_minor,currency,status)").eq("organisation_id", loaded.organisation.id).eq("channel", "staff_checkout").in("status", ["paid", "fulfilled", "refunded"]).order("created_at", { ascending: false }).limit(20);
     const rows = Array.isArray(recentResult.data) ? recentResult.data as Array<Record<string, unknown>> : [];
-    const servicePreviews = await Promise.all(rows.filter(order => Array.isArray(order.club_order_items) && (order.club_order_items as Array<Record<string, unknown>>).some(item => item.stock_tracked === false)).map(async order => {
-      const { data } = await client.rpc("club_get_staff_service_refund_preview", { p_order_id: String(order.id) });
-      return [String(order.id), data && typeof data === "object" ? data as Record<string, unknown> : {}] as const;
+    const linePreviews = await Promise.all(rows.map(async order => {
+      const { data } = await client.rpc("club_list_staff_refundable_order_lines", { p_order_id: String(order.id) });
+      return [String(order.id), Array.isArray(data) ? data as Array<Record<string, unknown>> : []] as const;
     }));
-    const servicePreviewByOrder = new Map(servicePreviews);
+    const linePreviewByOrder = new Map(linePreviews);
     const paymentIds = rows.flatMap(order => Array.isArray(order.club_payments) ? (order.club_payments as Array<Record<string, unknown>>).map(payment => String(payment.id)) : []);
-    const refundResult = paymentIds.length ? await client.from("club_refunds").select("payment_id,amount_minor").eq("organisation_id", loaded.organisation.id).in("payment_id", paymentIds) : { data: [] };
+    const refundResult = paymentIds.length ? await client.from("club_refunds").select("id,payment_id,amount_minor,reason,external_reference,created_by,created_at").eq("organisation_id", loaded.organisation.id).in("payment_id", paymentIds).order("created_at", { ascending: false }) : { data: [] };
+    const refundRows = Array.isArray(refundResult.data) ? refundResult.data as Array<Record<string, unknown>> : [];
+    const refundIds = refundRows.map(refund => String(refund.id));
+    const allocationResult = refundIds.length ? await client.from("club_refund_line_allocations").select("refund_id,order_item_id,quantity,amount_minor").eq("organisation_id", loaded.organisation.id).in("refund_id", refundIds) : { data: [] };
+    const allocationRows = Array.isArray(allocationResult.data) ? allocationResult.data as Array<Record<string, unknown>> : [];
+    const allocatedItemIds = [...new Set(allocationRows.map(allocation => String(allocation.order_item_id)))];
+    const itemNameResult = allocatedItemIds.length ? await client.from("club_order_items").select("id,product_name").eq("organisation_id", loaded.organisation.id).in("id", allocatedItemIds) : { data: [] };
+    const itemNames = new Map((Array.isArray(itemNameResult.data) ? itemNameResult.data as Array<Record<string, unknown>> : []).map(item => [String(item.id), String(item.product_name ?? "Item")]));
+    const actorIds = [...new Set(refundRows.map(refund => String(refund.created_by ?? "")).filter(Boolean))];
+    const actorResult = actorIds.length ? await client.from("profiles").select("id,display_name,first_name,last_name").in("id", actorIds) : { data: [] };
+    const actorNames = new Map((Array.isArray(actorResult.data) ? actorResult.data as Array<Record<string, unknown>> : []).map(actor => [String(actor.id), String(actor.display_name || [actor.first_name, actor.last_name].filter(Boolean).join(" ") || "Staff member")]));
     const refundedByPayment = new Map<string, number>();
     for (const refund of Array.isArray(refundResult.data) ? refundResult.data as Array<Record<string, unknown>> : []) refundedByPayment.set(String(refund.payment_id), (refundedByPayment.get(String(refund.payment_id)) ?? 0) + Number(refund.amount_minor ?? 0));
     const locationNames = new Map(loaded.locations.map(location => [location.id, location.name]));
@@ -97,18 +108,28 @@ export default async function ClubShopPage({ searchParams }: { searchParams?: Pr
       const customer = order.club_customers && typeof order.club_customers === "object" ? order.club_customers as Record<string, unknown> : {};
       const items = Array.isArray(order.club_order_items) ? order.club_order_items as Array<Record<string, unknown>> : [];
       const payments = Array.isArray(order.club_payments) ? order.club_payments as Array<Record<string, unknown>> : [];
-      const serviceLines = items.filter(item => item.stock_tracked === false);
-      const hasServiceItems = serviceLines.length > 0;
-      const servicePreview = servicePreviewByOrder.get(String(order.id)) ?? {};
-      const refundableMinor = Number(servicePreview.refundable_minor ?? 0);
-      const remainingUnits = Number(servicePreview.remaining_units ?? 0);
+      const previewLines = linePreviewByOrder.get(String(order.id)) ?? [];
+      const refundLines: RefundableLine[] = previewLines.map(line => ({
+        orderItemId: String(line.order_item_id), productName: String(line.product_name ?? "Item"),
+        kind: line.line_kind === "service" ? "service" : "retail", quantity: Number(line.quantity ?? 0),
+        lineTotalMinor: Number(line.line_total_minor ?? 0), saleValueMinor: Number(line.sale_value_minor ?? line.line_total_minor ?? 0), refundedQuantity: Number(line.refunded_quantity ?? 0),
+        refundedMinor: Number(line.refunded_minor ?? 0), refundableQuantity: Number(line.refundable_quantity ?? 0),
+        refundableMinor: Number(line.refundable_minor ?? 0), unit: String(line.unit ?? "item"), originalUnits: Number(line.original_units ?? line.quantity ?? 0), availableUnits: Number(line.available_units ?? line.refundable_quantity ?? 0),
+      }));
+      const salePaymentIds = new Set(payments.map(payment => String(payment.id)));
+      const refunds = refundRows.filter(refund => salePaymentIds.has(String(refund.payment_id))).map(refund => {
+        const allocations = allocationRows.filter(allocation => String(allocation.refund_id) === String(refund.id));
+        return {
+          id: String(refund.id), amountMinor: Number(refund.amount_minor ?? 0), createdAt: String(refund.created_at), reason: String(refund.reason ?? "Reason not recorded"),
+          ...(refund.external_reference ? { externalReference: String(refund.external_reference) } : {}), staffName: actorNames.get(String(refund.created_by ?? "")) ?? "Staff member",
+          method: String(payments.find(payment => String(payment.id) === String(refund.payment_id))?.method ?? "other"),
+          lines: allocations.map(allocation => ({ name: itemNames.get(String(allocation.order_item_id)) ?? "Item", quantity: Number(allocation.quantity ?? 0), unit: refundLines.find(line => line.orderItemId === String(allocation.order_item_id))?.unit ?? "unit", amountMinor: Number(allocation.amount_minor ?? 0) })),
+        };
+      });
       return {
         id: String(order.id), createdAt: String(order.created_at), totalMinor: Number(order.total_minor ?? 0), currency: String(order.currency ?? "GBP"), status: String(order.status ?? "paid"),
         locationName: locationNames.get(String(order.location_id)) ?? "Location not recorded", customerName: typeof customer.display_name === "string" ? customer.display_name : "Guest sale",
-        items: items.map(item => `${String(item.product_name ?? "Item")} × ${Number(item.quantity ?? 1)}`), hasServiceItems,
-        serviceEligible: servicePreview.eligible === true,
-        serviceReason: hasServiceItems && typeof servicePreview.reason === "string" ? servicePreview.reason : undefined,
-        serviceRefundableMinor: refundableMinor, serviceRemainingUnits: remainingUnits, serviceUnit: servicePreview.unit ? String(servicePreview.unit) : undefined,
+        items: items.map(item => `${String(item.product_name ?? "Item")} × ${Number(item.quantity ?? 1)}`), refundLines, refunds,
         tenders: payments.map(payment => { const amountMinor = Number(payment.amount_minor ?? 0); const refundedMinor = refundedByPayment.get(String(payment.id)) ?? 0; return { id: String(payment.id), method: String(payment.method ?? "other"), status: String(payment.status ?? "paid"), amountMinor, refundedMinor, remainingMinor: Math.max(0, amountMinor - refundedMinor) }; }),
       };
     });

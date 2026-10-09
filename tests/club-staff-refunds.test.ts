@@ -33,14 +33,16 @@ test("refund recording never fakes external provider refunds or silently alters 
   assert.match(view, /checked in separately/);
 });
 
-test("authorized reception staff can find recent sales and record tender-specific refunds", () => {
+test("authorized reception staff can find recent sales and record tender-specific line refunds", () => {
   assert.match(action, /hasCapability\(value\.organisation\.id, value\.userId, "refunds\.issue"\)/);
-  assert.match(action, /club_issue_staff_refund/);
+  assert.match(action, /club_issue_staff_line_refund/);
   assert.match(page, /loaded\.canIssueRefund \? <ClubRecentSales/);
   assert.match(page, /\.eq\("channel", "staff_checkout"\)/);
   assert.match(view, /Refund to Balance/);
   assert.match(view, /Record cash refund/);
   assert.match(view, /Provider refund reference/);
+  assert.match(view, /Choose the exact items or service units/);
+  assert.match(view, /Selected refund total/);
 });
 
 test("refund migration follows live launch migrations in deployment manifest", () => {

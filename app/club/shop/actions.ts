@@ -87,22 +87,21 @@ export async function cancelStaffPendingOrderAction(input: { organisationId: str
   try { const value = await context(input.organisationId); if (!value || !(await value.repository.hasCapability(value.organisation.id, value.userId, "payments.record_cash"))) return { ok: false, error: "You don’t have permission to void orders." }; await value.repository.cancelStaffPendingOrder(value.organisation.id, input.orderId); await value.repository.appendAuditEvent({ organisationId: value.organisation.id, action: "order.staff_pending_voided", targetType: "order", targetId: input.orderId }); revalidatePath("/club/payments"); revalidatePath("/club/shop"); return { ok: true }; } catch { return { ok: false, error: "This order could not be voided." }; }
 }
 
-export async function staffIssueRefundAction(input: { organisationId: string; paymentId: string; amount: string; reason: string; externalReference?: string; idempotencyKey: string }): Promise<{ ok: true } | { ok: false; error: string }> {
+export async function staffIssueRefundAction(input: { organisationId: string; paymentId: string; allocations: Array<{ orderItemId: string; quantity: number }>; reason: string; externalReference?: string; idempotencyKey: string }): Promise<{ ok: true } | { ok: false; error: string }> {
   try {
     const value = await context(input.organisationId);
-    const amountMinor = parseMinorUnits(input.amount);
     const reason = input.reason.trim();
-    if (!value || !(await value.repository.hasCapability(value.organisation.id, value.userId, "refunds.issue")) || !input.paymentId || amountMinor === undefined || amountMinor <= 0 || reason.length < 3 || reason.length > 240 || !input.idempotencyKey.trim()) {
-      return { ok: false, error: "Check your refund permission, amount and reason." };
+    if (!value || !(await value.repository.hasCapability(value.organisation.id, value.userId, "refunds.issue")) || !input.paymentId || !input.allocations.length || input.allocations.length > 30 || input.allocations.some(line => !line.orderItemId || !Number.isSafeInteger(line.quantity) || line.quantity < 1) || reason.length < 3 || reason.length > 240 || !input.idempotencyKey.trim()) {
+      return { ok: false, error: "Check your refund permission, selected items and reason." };
     }
-    const { error } = await (await serverSupabase()).rpc("club_issue_staff_refund", {
+    const { error } = await (await serverSupabase()).rpc("club_issue_staff_line_refund", {
       p_payment_id: input.paymentId,
-      p_amount_minor: amountMinor,
+      p_allocations: input.allocations.map(line => ({ order_item_id: line.orderItemId, quantity: line.quantity })),
       p_reason: reason,
       p_external_reference: input.externalReference?.trim() || null,
       p_idempotency_key: input.idempotencyKey.trim(),
     });
-    if (error) return { ok: false, error: error.code === "22023" ? "Check the amount, unused service units and tender instructions. Service refunds must match whole units." : "Refund could not be recorded." };
+    if (error) return { ok: false, error: error.code === "22023" ? "The selected quantities are no longer refundable, or the tender cannot cover this refund." : "Refund could not be recorded." };
     revalidatePath("/club/shop");
     revalidatePath("/club/payments");
     return { ok: true };

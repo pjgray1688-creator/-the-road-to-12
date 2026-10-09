@@ -3,9 +3,11 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { staffIssueRefundAction } from "@/app/club/shop/actions";
+import { refundLineAmount, refundSelectionTotal, type RefundableLine } from "@/lib/club-refund-allocation";
 
 type Tender = { id: string; method: string; status: string; amountMinor: number; refundedMinor: number; remainingMinor: number };
-export type RecentSale = { id: string; createdAt: string; totalMinor: number; currency: string; status: string; locationName: string; customerName: string; items: string[]; hasServiceItems: boolean; serviceEligible?: boolean; serviceReason?: string; serviceRefundableMinor?: number; serviceRemainingUnits?: number; serviceUnit?: string; tenders: Tender[] };
+type RefundRecord = { id: string; amountMinor: number; createdAt: string; reason: string; externalReference?: string; staffName: string; method: string; lines: Array<{ name: string; quantity: number; unit: string; amountMinor: number }> };
+export type RecentSale = { id: string; createdAt: string; totalMinor: number; currency: string; status: string; locationName: string; customerName: string; items: string[]; refundLines: RefundableLine[]; tenders: Tender[]; refunds: RefundRecord[] };
 
 const money = (minor: number) => new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(minor / 100);
 const methodName = (value: string) => ({ cash: "Cash", balance: "Madhouse Balance", card: "Card", wallet: "Wallet", direct_debit: "Direct Debit", bank_transfer: "Bank transfer", other: "Other", complimentary: "Complimentary" } as Record<string, string>)[value] ?? value;
@@ -13,28 +15,82 @@ const methodName = (value: string) => ({ cash: "Cash", balance: "Madhouse Balanc
 export function ClubRecentSales({ organisationId, sales }: { organisationId: string; sales: RecentSale[] }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [values, setValues] = useState<Record<string, { amount: string; reason: string; reference: string; key: string }>>({});
+  const [selection, setSelection] = useState<Record<string, Record<string, number>>>({});
+  const [details, setDetails] = useState<Record<string, { reason: string; reference: string; key: string }>>({});
   const [message, setMessage] = useState("");
-  const valueFor = (tender: Tender, sale?: RecentSale) => { const ceiling = sale?.hasServiceItems ? Math.min(tender.remainingMinor, sale.serviceRefundableMinor ?? 0) : tender.remainingMinor; return values[tender.id] ?? { amount: (ceiling / 100).toFixed(2), reason: "", reference: "", key: "" }; };
-  const update = (tender: Tender, field: "amount" | "reason" | "reference", value: string) => setValues(current => ({ ...current, [tender.id]: { ...valueFor(tender), [field]: value } }));
+  const detailFor = (tenderId: string) => details[tenderId] ?? { reason: "", reference: "", key: "" };
+  const allocation = (sale: RecentSale) => sale.refundLines.flatMap(line => {
+    const quantity = selection[sale.id]?.[line.orderItemId] ?? 0;
+    return quantity > 0 ? [{ orderItemId: line.orderItemId, quantity }] : [];
+  });
 
   const submit = (sale: RecentSale, tender: Tender) => {
-    const value = valueFor(tender, sale);
+    const value = detailFor(tender.id);
+    const lines = allocation(sale);
+    const amount = refundSelectionTotal(sale.refundLines, selection[sale.id] ?? {});
+    if (!lines.length || amount <= 0) { setMessage("Choose at least one refundable item or service unit."); return; }
+    if (amount > tender.remainingMinor) { setMessage("The selected items exceed the amount remaining on this payment."); return; }
     if (!value.reason.trim()) { setMessage("Add a reason for the refund."); return; }
-    if (!Number.isFinite(Number(value.amount)) || Number(value.amount) <= 0 || Number(value.amount) * 100 > tender.remainingMinor) { setMessage("Enter an amount within the remaining paid amount."); return; }
-    if (!['cash', 'balance'].includes(tender.method) && !value.reference.trim()) { setMessage("Complete the refund with the payment provider first, then enter its reference."); return; }
+    if (tender.method !== "cash" && tender.method !== "balance" && !value.reference.trim()) { setMessage("Complete the refund with the payment provider first, then enter its reference."); return; }
     const key = value.key || crypto.randomUUID();
-    setValues(current => ({ ...current, [tender.id]: { ...value, key } }));
+    setDetails(current => ({ ...current, [tender.id]: { ...value, key } }));
     startTransition(async () => {
-      const result = await staffIssueRefundAction({ organisationId, paymentId: tender.id, amount: value.amount, reason: value.reason, externalReference: value.reference, idempotencyKey: key });
-      setMessage(result.ok ? "Refund recorded. Returned stock, if any, must be checked in separately." : result.error);
-      if (result.ok) { setValues(current => { const next = { ...current }; delete next[tender.id]; return next; }); router.refresh(); }
+      const result = await staffIssueRefundAction({ organisationId, paymentId: tender.id, allocations: lines, reason: value.reason, externalReference: value.reference, idempotencyKey: key });
+      setMessage(result.ok ? `Refund of ${money(amount)} recorded. Returned stock, if any, must be checked in separately.` : result.error);
+      if (result.ok) {
+        setSelection(current => ({ ...current, [sale.id]: {} }));
+        setDetails(current => { const next = { ...current }; delete next[tender.id]; return next; });
+        router.refresh();
+      }
     });
   };
 
-  return <section aria-label="Recent POS sales"><div className="section-heading"><div><span className="eyebrow">RECENT POS SALES</span><h2>Receipts and refunds</h2><p className="muted">Latest completed in-gym sales. Refunds are recorded against their original payment.</p></div></div>
-    {sales.length ? <div className="club-list">{sales.map(sale => <article className="club-detail-row" key={sale.id}><div><strong>{sale.customerName} · {money(sale.totalMinor)}</strong><small>{new Date(sale.createdAt).toLocaleString("en-GB")} · {sale.locationName} · {sale.status}</small><small>{sale.items.join(" · ") || "Sale items unavailable"}</small>
-      {sale.hasServiceItems ? <><p className="muted">{sale.serviceEligible ? `${sale.serviceRemainingUnits ?? 0} unused ${sale.serviceUnit ?? "service"} units · up to ${money(sale.serviceRefundableMinor ?? 0)} can be refunded. Expired but unused units are included.` : sale.serviceReason ?? "This service purchase cannot currently be reversed safely."}</p>{sale.serviceEligible ? sale.tenders.map(tender => <div className="club-detail-row" key={tender.id}><span><strong>{methodName(tender.method)} · {money(tender.amountMinor)}</strong><small>{tender.status} · {money(tender.remainingMinor)} remaining to refund{tender.refundedMinor ? ` · ${money(tender.refundedMinor)} already refunded` : ""}</small>{tender.remainingMinor > 0 && (sale.serviceRefundableMinor ?? 0) > 0 ? <div className="club-profile-grid"><label>Refund amount<input aria-label={`${methodName(tender.method)} refund amount`} inputMode="decimal" type="number" min="0.01" max={(Math.min(tender.remainingMinor, sale.serviceRefundableMinor ?? 0) / 100).toFixed(2)} step="0.01" value={valueFor(tender, sale).amount} onChange={event => update(tender, "amount", event.target.value)} /></label><label>Reason<input aria-label="Refund reason" maxLength={240} value={valueFor(tender, sale).reason} onChange={event => update(tender, "reason", event.target.value)} /></label>{!['cash', 'balance'].includes(tender.method) ? <label>Provider refund reference<input aria-label="Provider refund reference" maxLength={200} value={valueFor(tender, sale).reference} onChange={event => update(tender, "reference", event.target.value)} /></label> : null}<button type="button" className="secondary" disabled={pending} onClick={() => submit(sale, tender)}>{pending ? "Recording…" : tender.method === "balance" ? "Refund to Balance" : tender.method === "cash" ? "Record cash refund" : "Record provider refund"}</button>{tender.method === "balance" ? <small>Refund is credited to Madhouse Balance and the same unused service units are removed.</small> : tender.method === "cash" ? <small>Return the cash first. Only complete unused service units can be reversed.</small> : <small>Refund externally first; record its reference. Only complete unused service units can be reversed.</small>}</div> : null}</span></div>) : null}</> : sale.tenders.map(tender => <div className="club-detail-row" key={tender.id}><span><strong>{methodName(tender.method)} · {money(tender.amountMinor)}</strong><small>{tender.status} · {money(tender.remainingMinor)} remaining to refund{tender.refundedMinor ? ` · ${money(tender.refundedMinor)} already refunded` : ""}</small>{tender.remainingMinor > 0 ? <div className="club-profile-grid"><label>Refund amount<input aria-label={`${methodName(tender.method)} refund amount`} inputMode="decimal" type="number" min="0.01" max={(tender.remainingMinor / 100).toFixed(2)} step="0.01" value={valueFor(tender).amount} onChange={event => update(tender, "amount", event.target.value)} /></label><label>Reason<input aria-label="Refund reason" maxLength={240} value={valueFor(tender).reason} onChange={event => update(tender, "reason", event.target.value)} /></label>{!['cash', 'balance'].includes(tender.method) ? <label>Provider refund reference<input aria-label="Provider refund reference" maxLength={200} value={valueFor(tender).reference} onChange={event => update(tender, "reference", event.target.value)} /></label> : null}<button type="button" className="secondary" disabled={pending} onClick={() => submit(sale, tender)}>{pending ? "Recording…" : tender.method === "balance" ? "Refund to Balance" : tender.method === "cash" ? "Record cash refund" : "Record provider refund"}</button>{tender.method === "balance" ? <small>The amount is credited to the customer’s Madhouse Balance.</small> : tender.method === "cash" ? <small>Return the cash before recording this action.</small> : <small>Refund externally first; this records the completed provider refund only.</small>}</div> : null}</span></div>)}</div></article>)}</div> : <p className="muted">No completed POS sales to show yet.</p>}
+  const setQuantity = (sale: RecentSale, line: RefundableLine, raw: string) => {
+    const parsed = Number(raw);
+    const quantity = Number.isInteger(parsed) && parsed > 0 ? Math.min(parsed, line.refundableQuantity) : 0;
+    setSelection(current => ({ ...current, [sale.id]: { ...current[sale.id], [line.orderItemId]: quantity } }));
+  };
+
+  return <section aria-label="Recent POS sales">
+    <div className="section-heading"><div><span className="eyebrow">RECENT POS SALES</span><h2>Receipts and refunds</h2><p className="muted">Choose the exact items or service units to refund. The refund value is calculated from the original receipt.</p></div></div>
+    {sales.length ? <div className="club-list">{sales.map(sale => {
+      const chosen = selection[sale.id] ?? {};
+      const estimate = refundSelectionTotal(sale.refundLines, chosen);
+      return <article className="club-recent-sale" key={sale.id}>
+        <div className="club-detail-row"><div><strong>{sale.customerName} · {money(sale.totalMinor)}</strong><small>{new Date(sale.createdAt).toLocaleString("en-GB")} · {sale.locationName} · {sale.status}</small><small>{sale.items.join(" · ") || "Sale items unavailable"}</small></div></div>
+        <details className="club-refund-lines"><summary>Refund items</summary>
+          {sale.refundLines.length ? <div className="club-list">{sale.refundLines.map(line => {
+            const selected = chosen[line.orderItemId] ?? 0;
+            const lineEstimate = refundLineAmount(line, selected);
+            const disabled = line.refundableQuantity <= 0;
+            return <div className="club-refund-line" key={line.orderItemId}>
+              <div><strong>{line.productName}</strong><small>{line.kind === "service" ? `Service · ${line.unit}` : "Retail item"} · originally {line.quantity} · {money(line.saleValueMinor)} sale value</small>
+                <small>{line.refundedQuantity > 0 || line.refundedMinor > 0 ? `Already refunded: ${line.refundedQuantity} ${line.unit} · ${money(line.refundedMinor)}. ` : ""}{line.kind === "service" ? "Only unused units can be returned. " : ""}{disabled ? "Nothing remains refundable." : `Up to ${line.refundableQuantity} ${line.unit} · ${money(line.refundableMinor)} eligible.`}{line.kind === "service" && line.refundableQuantity < (line.availableUnits ?? line.refundableQuantity) ? " Some unused units are not refundable because the remaining paid value is lower." : ""}</small>
+              </div>
+              <label>{line.kind === "service" ? "Units to refund" : "Quantity to refund"}
+                <input aria-label={`${line.productName} quantity to refund`} type="number" inputMode="numeric" min="0" max={line.refundableQuantity} step="1" disabled={disabled} value={selected || ""} onChange={event => setQuantity(sale, line, event.target.value)} />
+              </label>
+              {selected > 0 ? <span className="muted">Refund value {money(lineEstimate)}</span> : null}
+            </div>;
+          })}</div> : <p className="muted">Line refund details are unavailable for this receipt.</p>}
+        </details>
+        {estimate > 0 ? <div className="club-refund-total"><span>Selected refund total</span><strong>{money(estimate)}</strong></div> : null}
+        {sale.refunds.length ? <details className="club-refund-lines"><summary>Refund history</summary>{sale.refunds.map(refund => <div className="club-refund-history" key={refund.id}><strong>{money(refund.amountMinor)} · {methodName(refund.method)}</strong><small>{new Date(refund.createdAt).toLocaleString("en-GB")} · {refund.staffName} · {refund.reason}{refund.externalReference ? ` · Ref ${refund.externalReference}` : ""}</small><small>{refund.lines.map(item => `${item.name} × ${item.quantity} ${item.unit} (${money(item.amountMinor)})`).join(" · ") || "Line details unavailable"}</small></div>)}</details> : null}
+        {sale.tenders.map(tender => {
+          const detail = detailFor(tender.id);
+          const payable = estimate > 0 && estimate <= tender.remainingMinor && tender.remainingMinor > 0;
+          return <div className="club-detail-row" key={tender.id}><span><strong>{methodName(tender.method)} · {money(tender.amountMinor)}</strong><small>{tender.status} · {money(tender.remainingMinor)} remaining{tender.refundedMinor ? ` · ${money(tender.refundedMinor)} already refunded` : ""}</small>
+            {estimate > tender.remainingMinor && tender.remainingMinor > 0 ? <small>This selection exceeds this payment’s remaining refundable amount. Each refund is recorded against one original tender; reduce the selection or use a single tender with enough remaining value.</small> : null}
+            {payable ? <div className="club-profile-grid">
+              <label>Reason<input aria-label="Refund reason" maxLength={240} value={detail.reason} onChange={event => setDetails(current => ({ ...current, [tender.id]: { ...detail, reason: event.target.value } }))} /></label>
+              {tender.method !== "cash" && tender.method !== "balance" ? <label>Provider refund reference<input aria-label="Provider refund reference" maxLength={200} value={detail.reference} onChange={event => setDetails(current => ({ ...current, [tender.id]: { ...detail, reference: event.target.value } }))} /></label> : null}
+              <button type="button" className="secondary" disabled={pending} onClick={() => submit(sale, tender)}>{pending ? "Recording…" : tender.method === "balance" ? "Refund to Balance" : tender.method === "cash" ? "Record cash refund" : "Record provider refund"}</button>
+              <small>{tender.method === "balance" ? "The exact amount is credited to Madhouse Balance." : tender.method === "cash" ? "Return the cash before recording this refund." : "Refund externally first: complete the provider refund, then record its reference here."} Returned stock, if any, must be checked in separately.</small>
+            </div> : null}
+          </span></div>;
+        })}
+      </article>;
+    })}</div> : <p className="muted">No completed POS sales to show yet.</p>}
     {message ? <p role="status" className="muted">{message}</p> : null}
   </section>;
 }
