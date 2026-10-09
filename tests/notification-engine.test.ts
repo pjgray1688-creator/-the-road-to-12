@@ -88,6 +88,23 @@ test("notification worker reports missing auth configuration without leaking sec
   }
 });
 
+test("notification worker refuses to touch the outbox while no real transport is available", async () => {
+  const worker = process.env.R12_NOTIFICATION_WORKER_SECRET;
+  const cron = process.env.CRON_SECRET;
+  process.env.R12_NOTIFICATION_WORKER_SECRET = "dedicated-test-secret";
+  process.env.CRON_SECRET = "cron-test-secret";
+  try {
+    const response = await runNotificationWorker(new NextRequest("https://app.test/api/internal/notification-worker", { headers: { authorization: "Bearer cron-test-secret" } }));
+    assert.equal(response.status, 503);
+    assert.match(await response.text(), /no intents were claimed/i);
+    assert.match(route, /club_generate_notification_intents/);
+    assert.match(route, /notificationTransportAvailable/);
+  } finally {
+    if (worker === undefined) delete process.env.R12_NOTIFICATION_WORKER_SECRET; else process.env.R12_NOTIFICATION_WORKER_SECRET = worker;
+    if (cron === undefined) delete process.env.CRON_SECRET; else process.env.CRON_SECRET = cron;
+  }
+});
+
 test("SMTP configuration cannot falsely mark mail delivered while transport is unavailable", async () => {
   const provider = process.env.R12_EMAIL_PROVIDER;
   process.env.R12_EMAIL_PROVIDER = "smtp";

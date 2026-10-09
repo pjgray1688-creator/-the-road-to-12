@@ -1,0 +1,6 @@
+{
+  "crons": [
+    { "path": "/api/internal/membership-billing-worker", "schedule": "0 * * * *" },
+    { "path": "/api/internal/supplier-import-worker", "schedule": "*/5 * * * *" }
+  ]
+}

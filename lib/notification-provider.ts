@@ -27,6 +27,11 @@ export function notificationConfig() {
   } as const;
 }
 
+/** SMTP remains unavailable until a real transport is included. Mock is test-only. */
+export function notificationTransportAvailable() {
+  return notificationConfig().provider === "mock" && process.env.NODE_ENV !== "production";
+}
+
 export function senderAddress(sender: NotificationSender) {
   return notificationConfig().from[sender];
 }

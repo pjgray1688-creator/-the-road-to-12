@@ -87,6 +87,30 @@ export async function cancelStaffPendingOrderAction(input: { organisationId: str
   try { const value = await context(input.organisationId); if (!value || !(await value.repository.hasCapability(value.organisation.id, value.userId, "payments.record_cash"))) return { ok: false, error: "You don’t have permission to void orders." }; await value.repository.cancelStaffPendingOrder(value.organisation.id, input.orderId); await value.repository.appendAuditEvent({ organisationId: value.organisation.id, action: "order.staff_pending_voided", targetType: "order", targetId: input.orderId }); revalidatePath("/club/payments"); revalidatePath("/club/shop"); return { ok: true }; } catch { return { ok: false, error: "This order could not be voided." }; }
 }
 
+export async function staffIssueRefundAction(input: { organisationId: string; paymentId: string; amount: string; reason: string; externalReference?: string; idempotencyKey: string }): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    const value = await context(input.organisationId);
+    const amountMinor = parseMinorUnits(input.amount);
+    const reason = input.reason.trim();
+    if (!value || !(await value.repository.hasCapability(value.organisation.id, value.userId, "refunds.issue")) || !input.paymentId || amountMinor === undefined || amountMinor <= 0 || reason.length < 3 || reason.length > 240 || !input.idempotencyKey.trim()) {
+      return { ok: false, error: "Check your refund permission, amount and reason." };
+    }
+    const { error } = await (await serverSupabase()).rpc("club_issue_staff_refund", {
+      p_payment_id: input.paymentId,
+      p_amount_minor: amountMinor,
+      p_reason: reason,
+      p_external_reference: input.externalReference?.trim() || null,
+      p_idempotency_key: input.idempotencyKey.trim(),
+    });
+    if (error) return { ok: false, error: "Refund could not be recorded. Check the remaining amount and tender instructions." };
+    revalidatePath("/club/shop");
+    revalidatePath("/club/payments");
+    return { ok: true };
+  } catch {
+    return { ok: false, error: "Refund could not be recorded." };
+  }
+}
+
 export async function topUpBalanceAction(input: { organisationId: string; locationId: string; customerId: string; amount: string; notes?: string }): Promise<{ ok: true; balanceMinor: number } | { ok: false; error: string }> {
   try { const value = await context(input.organisationId); const amountMinor = parseMinorUnits(input.amount); if (!value || !(await locationAuthorized(input.organisationId, input.locationId)) || !(await value.repository.hasCapability(value.organisation.id, value.userId, "payments.record_cash")) || !input.customerId || !input.locationId || amountMinor === undefined || amountMinor <= 0) return { ok: false, error: "Choose a member, location and valid amount." }; const entry = await value.repository.recordBalanceCashTopUp({ organisationId: value.organisation.id, locationId: input.locationId, customerId: input.customerId, amountMinor, currency: "GBP", idempotencyKey: crypto.randomUUID(), notes: input.notes }); const account = await value.repository.getBalanceAccountForCustomer(value.organisation.id, input.customerId); revalidatePath("/club/shop"); return { ok: true, balanceMinor: account?.balanceMinor ?? entry.balanceAfterMinor }; } catch { return { ok: false, error: "Balance top-up couldn’t be completed." }; }
 }

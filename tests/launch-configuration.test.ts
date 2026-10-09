@@ -3,6 +3,7 @@ import test from "node:test";
 import { appBaseUrlStatus } from "../lib/site-url";
 import { launchReadiness } from "../lib/launch-readiness";
 import { inspectSmtpConfiguration } from "../lib/smtp-config";
+import { verifyInternalWorkerAuth } from "../lib/internal-worker-auth";
 
 const env = (values: Record<string, string> = {}) => ({ NODE_ENV: "test", ...values }) as NodeJS.ProcessEnv;
 
@@ -24,7 +25,23 @@ test("launch readiness reports missing and invalid settings without returning th
   assert.equal(checks.find(check => check.key === "goCardlessEnvironment")?.state, "invalid");
   assert.equal(checks.find(check => check.key === "billingWorker")?.state, "missing");
   assert.equal(checks.find(check => check.key === "emailProvider")?.state, "adapter_unavailable");
+  assert.equal(checks.find(check => check.key === "workerSchedules")?.state, "external_verification_required");
+  assert.equal(checks.find(check => check.key === "supabaseAnon")?.state, "missing");
   assert.doesNotMatch(JSON.stringify(checks), /private|whsec|token_private/);
+});
+
+test("production readiness requires the GoCardless live mode and validates Supabase public configuration", () => {
+  const checks = launchReadiness({ NODE_ENV: "production", GOCARDLESS_ENVIRONMENT: "sandbox", NEXT_PUBLIC_SUPABASE_URL: "http://localhost:54321", NEXT_PUBLIC_SUPABASE_ANON_KEY: "public" } as NodeJS.ProcessEnv);
+  assert.equal(checks.find(check => check.key === "goCardlessEnvironment")?.state, "invalid");
+  assert.equal(checks.find(check => check.key === "supabaseUrl")?.state, "invalid");
+  assert.equal(checks.find(check => check.key === "supabaseAnon")?.state, "configured");
+});
+
+test("worker auth accepts Vercel CRON_SECRET alongside dedicated worker credentials", () => {
+  const request = new Request("https://app.test/worker", { headers: { authorization: "Bearer cron-secret" } });
+  assert.equal(verifyInternalWorkerAuth(request, ["dedicated-secret", "cron-secret"]), "authorized");
+  assert.equal(verifyInternalWorkerAuth(request, ["dedicated-secret"]), "unauthorized");
+  assert.equal(verifyInternalWorkerAuth(new Request("https://app.test/worker"), [undefined]), "missing_configuration");
 });
 
 test("SMTP configuration accepts an authenticated required-STARTTLS relay without exposing secrets", () => {
@@ -70,4 +87,11 @@ test("production launch checklist documents canonical webhook, callback, and wor
   const { readFile } = await import("node:fs/promises");
   const checklist = await readFile("docs/r12-launch-configuration.md", "utf8");
   for (const route of ["/api/webhooks/stripe", "/api/webhooks/gocardless", "/api/club/join/gocardless/complete", "/api/internal/membership-billing-worker", "0 * * * *"]) assert.ok(checklist.includes(route));
+  assert.match(checklist, /Hobby supports daily cron only/);
+  assert.match(checklist, /Site URL/);
+  const vercel = JSON.parse(await readFile("vercel.json", "utf8"));
+  assert.deepEqual(vercel.crons, [
+    { path: "/api/internal/membership-billing-worker", schedule: "0 * * * *" },
+    { path: "/api/internal/supplier-import-worker", schedule: "*/5 * * * *" },
+  ]);
 });

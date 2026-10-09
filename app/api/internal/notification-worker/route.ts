@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { deliverNotification } from "@/lib/notification-provider";
+import { deliverNotification, notificationTransportAvailable } from "@/lib/notification-provider";
 import { renderNotification } from "@/lib/notification-templates";
 import { shouldRetry, retryDelaySeconds, workerId } from "@/lib/notification-worker";
+import { verifyInternalWorkerAuth } from "@/lib/internal-worker-auth";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -15,11 +16,14 @@ function admin() {
 }
 
 export async function GET(request: NextRequest) {
-  const secret = process.env.R12_NOTIFICATION_WORKER_SECRET ?? process.env.CRON_SECRET;
-  if (!secret) return NextResponse.json({ error: "Notification worker authentication is not configured" }, { status: 503 });
-  if (request.headers.get("authorization") !== `Bearer ${secret}`) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = verifyInternalWorkerAuth(request, [process.env.R12_NOTIFICATION_WORKER_SECRET, process.env.CRON_SECRET]);
+  if (auth === "missing_configuration") return NextResponse.json({ error: "Notification worker authentication is not configured" }, { status: 503 });
+  if (auth === "unauthorized") return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!notificationTransportAvailable()) return NextResponse.json({ error: "Notification delivery adapter is unavailable; no intents were claimed." }, { status: 503 });
   try {
     const client = admin();
+    const { error: generationError } = await client.rpc("club_generate_notification_intents");
+    if (generationError) throw generationError;
     const { data: rows, error } = await client.rpc("club_claim_notification_intents", { p_limit: 25, p_worker_id: workerId() });
     if (error) throw error;
     let sent = 0; let unavailable = 0; let failed = 0; let stateUpdateFailures = 0;
