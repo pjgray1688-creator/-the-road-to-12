@@ -50,3 +50,10 @@ test("Coach receives only assigned Madhouse client's remaining PT credits",()=>{
   assert.match(coachClientRoute,/club_list_coach_client_pt_package_balances/);assert.match(coachClientRoute,/remaining: Number\(row\.remaining_quantity/);assert.match(coachClientWorkspace,/PT PACKAGE/);assert.match(coachClientWorkspace,/sessions.*remaining/);
   assert.doesNotMatch(coachClientRoute,/unit_price_minor|payment_method|external_reference/);
 });
+
+test("unapplied package migration failures are shown as unavailable, not as empty balances",()=>{
+  assert.match(memberPage,/packageResult\.error\?\s*<Surface[\s\S]*Package balance unavailable/);
+  assert.match(coachClientRoute,/packageCreditsUnavailable = Boolean\(creditError\)/);
+  assert.match(coachClientWorkspace,/detail\.packageCreditsUnavailable[\s\S]*Balance unavailable/);
+  assert.match(action,/failure\.operation==="save_commerce_product"&&failure\.code==="FAILED"[\s\S]*Product setup is temporarily unavailable/);
+});
