@@ -102,13 +102,40 @@ export async function staffIssueRefundAction(input: { organisationId: string; pa
       p_external_reference: input.externalReference?.trim() || null,
       p_idempotency_key: input.idempotencyKey.trim(),
     });
-    if (error) return { ok: false, error: "Refund could not be recorded. Check the remaining amount and tender instructions." };
+    if (error) return { ok: false, error: error.code === "22023" ? "Check the amount, unused service units and tender instructions. Service refunds must match whole units." : "Refund could not be recorded." };
     revalidatePath("/club/shop");
     revalidatePath("/club/payments");
     return { ok: true };
   } catch {
     return { ok: false, error: "Refund could not be recorded." };
   }
+}
+
+export async function previewTillCloseAction(input: { organisationId: string; locationId: string; businessDate: string; registerName?: string }) {
+  try {
+    const value = await context(input.organisationId);
+    if (!value || !(await value.repository.hasCapability(value.organisation.id, value.userId, "cash.reconcile"))) return { ok: false as const, error: "Till reconciliation access is required." };
+    const { data, error } = await (await serverSupabase()).rpc("club_preview_till_close", { p_organisation_id: value.organisation.id, p_location_id: input.locationId, p_business_date: input.businessDate, p_register_name: input.registerName?.trim() || "Main till" });
+    if (error || !data || typeof data !== "object") return { ok: false as const, error: "Expected cash could not be calculated for this period." };
+    const result = data as Record<string, unknown>;
+    const close = result.close && typeof result.close === "object" ? result.close as Record<string, unknown> : undefined;
+    return { ok: true as const, expectedMinor: Number(result.expected_cash_minor ?? 0), alreadyClosed: result.already_closed === true, closedAt: close?.closed_at ? String(close.closed_at) : undefined };
+  } catch { return { ok: false as const, error: "Expected cash could not be calculated." }; }
+}
+
+export async function completeTillCloseAction(input: { organisationId: string; locationId: string; businessDate: string; registerName?: string; countedAmount: string; notes?: string; idempotencyKey: string }) {
+  try {
+    const value = await context(input.organisationId);
+    const countedMinor = parseMinorUnits(input.countedAmount);
+    const notes = input.notes?.trim() ?? "";
+    if (!value || !(await value.repository.hasCapability(value.organisation.id, value.userId, "cash.reconcile")) || !input.locationId || !/^\d{4}-\d{2}-\d{2}$/.test(input.businessDate) || countedMinor === undefined || countedMinor < 0 || notes.length > 500 || !input.idempotencyKey.trim()) return { ok: false as const, error: "Check the location, counted cash and close details." };
+    const { data, error } = await (await serverSupabase()).rpc("club_complete_till_close", { p_organisation_id: value.organisation.id, p_location_id: input.locationId, p_business_date: input.businessDate, p_register_name: input.registerName?.trim() || "Main till", p_counted_cash_minor: countedMinor, p_notes: notes || null, p_idempotency_key: input.idempotencyKey.trim() });
+    if (error) return { ok: false as const, error: error.code === "23505" ? "This till and date already have a completed close." : "Till close could not be completed. Refresh and check the period." };
+    const result = data && typeof data === "object" ? data as Record<string, unknown> : {};
+    revalidatePath("/club/shop");
+    revalidatePath("/club");
+    return { ok: true as const, varianceMinor: Number(result.variance_minor ?? 0) };
+  } catch { return { ok: false as const, error: "Till close could not be completed." }; }
 }
 
 export async function topUpBalanceAction(input: { organisationId: string; locationId: string; customerId: string; amount: string; notes?: string }): Promise<{ ok: true; balanceMinor: number } | { ok: false; error: string }> {

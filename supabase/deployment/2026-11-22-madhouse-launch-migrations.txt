@@ -115,3 +115,4 @@ supabase/migrations/2026-12-06-madhouse-rota-and-availability.sql
 supabase/migrations/2026-12-07-club-pos-sellable-units-and-pt-packages.sql
 supabase/migrations/2026-12-08-notification-claim-recovery.sql
 supabase/migrations/2026-12-09-club-staff-refunds.sql
+supabase/migrations/2026-12-10-club-till-close-and-service-refunds.sql
