@@ -4,6 +4,7 @@ import test from "node:test";
 import { NextRequest } from "next/server";
 import { GET as runNotificationWorker } from "../app/api/internal/notification-worker/route";
 import { renderNotification } from "../lib/notification-templates";
+import { deliverNotification, senderAddress } from "../lib/notification-provider";
 import { NOTIFICATION_MAX_ATTEMPTS, retryDelaySeconds, shouldRetry } from "../lib/notification-worker";
 
 const sql = readFileSync("supabase/migrations/2026-11-21-notification-engine.sql", "utf8");
@@ -85,6 +86,18 @@ test("notification worker reports missing auth configuration without leaking sec
     if (secret === undefined) delete process.env.R12_NOTIFICATION_WORKER_SECRET; else process.env.R12_NOTIFICATION_WORKER_SECRET = secret;
     if (cron === undefined) delete process.env.CRON_SECRET; else process.env.CRON_SECRET = cron;
   }
+});
+
+test("SMTP configuration cannot falsely mark mail delivered while transport is unavailable", async () => {
+  const provider = process.env.R12_EMAIL_PROVIDER;
+  process.env.R12_EMAIL_PROVIDER = "smtp";
+  try {
+    const result = await deliverNotification({ id: "intent-1", recipientEmail: "member@example.test", sender: "members", subject: "Test", text: "Text", html: "<p>Text</p>" });
+    assert.deepEqual(result, { ok: false, state: "unavailable", code: "smtp_adapter_not_configured", message: "SMTP delivery is not wired in this environment.", retryable: false });
+    assert.equal(senderAddress("members"), "members@r12.live");
+    assert.equal(senderAddress("staff"), "staff@r12.live");
+    assert.equal(senderAddress("billing"), "madhouse.accounts@r12.live");
+  } finally { if (provider === undefined) delete process.env.R12_EMAIL_PROVIDER; else process.env.R12_EMAIL_PROVIDER = provider; }
 });
 
 test("templates do not expose passwords or raw payment credentials", () => {
