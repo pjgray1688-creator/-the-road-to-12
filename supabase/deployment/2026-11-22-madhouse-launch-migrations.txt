@@ -112,3 +112,4 @@ supabase/migrations/2026-12-03-member-import-and-access.sql
 supabase/migrations/2026-12-04-member-pin-qr-access-pass.sql
 supabase/migrations/2026-12-05-madhouse-shared-scheduling.sql
 supabase/migrations/2026-12-06-madhouse-rota-and-availability.sql
+supabase/migrations/2026-12-07-club-pos-sellable-units-and-pt-packages.sql

@@ -23,7 +23,7 @@ test("catalogue management uses the authoritative pricing capability and exact G
 
 test("catalogue preparation never creates stock movements", () => {
   assert.doesNotMatch(action.slice(action.indexOf("saveCatalogueProductAction")), /adjustInventory/);
-  assert.match(component, /No retail products have been added yet/);
+  assert.match(component, /No local products have been added yet/);
 });
 
 test("barcode identity preserves leading zeroes and lookup remains candidate-only", () => {

@@ -17,7 +17,18 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
     console.error("[coach] client detail failed", { code: error.code });
     return privateJson({ error: error.code === "42501" ? "You are not authorised to view this client." : "Coach service is temporarily unavailable." }, { status: error.code === "42501" ? 403 : 503 });
   }
-  return privateJson({ client: data });
+  let packageCredits: Array<{ name: string; remaining: number; expiresAt?: string }> = [];
+  if (organisationId) {
+    const { data: creditRows, error: creditError } = await client.rpc("club_list_coach_client_pt_package_balances", { p_organisation_id: organisationId, p_client_user_id: id });
+    if (!creditError && Array.isArray(creditRows)) {
+      const rows = creditRows as Array<Record<string, unknown>>;
+      const serviceIds = [...new Set(rows.map(row => String(row.credit_key ?? "").replace("pt_sessions:", "")).filter(value => /^[0-9a-f-]{36}$/i.test(value)))];
+      const { data: services } = serviceIds.length ? await client.from("club_services").select("id,name").eq("organisation_id", organisationId).in("id", serviceIds) : { data: [] };
+      const names = new Map((Array.isArray(services) ? services : []).map(service => [String(service.id), String(service.name)]));
+      packageCredits = rows.map(row => { const id = String(row.credit_key ?? "").replace("pt_sessions:", ""); return { name: names.get(id) ?? "PT package", remaining: Number(row.remaining_quantity ?? 0), ...(row.expires_at ? { expiresAt: String(row.expires_at) } : {}) }; });
+    }
+  }
+  return privateJson({ client: { ...(data && typeof data === "object" ? data : {}), packageCredits } });
 }
 
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
