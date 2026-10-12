@@ -15,6 +15,10 @@ const manualPriceLinkFix = fs.readFileSync(
   path.join(process.cwd(), 'supabase/migrations/2026-12-17-active-sports-link-manual-price-fix.sql'),
   'utf8',
 );
+const manualPricePropagationFix = fs.readFileSync(
+  path.join(process.cwd(), 'supabase/migrations/2026-12-18-active-sports-manual-price-propagation.sql'),
+  'utf8',
+);
 const postgresHarness = fs.readFileSync(
   path.join(process.cwd(), 'scripts/validate-coach-nutrition-reconciliation-postgres.sh'),
   'utf8',
@@ -95,11 +99,22 @@ test('commerce linker avoids guarded price writes for manual prices and still sy
     assert.doesNotMatch(manualPriceLinkFix, /club_supplier_canonical_price_changed|drop trigger|disable trigger/i);
 });
 
+test('approved supplier pricing propagates to the linked canonical product through the guarded RPC', () => {
+    assert.match(manualPricePropagationFix, /club_capability_allowed\(p_organisation_id,auth\.uid\(\),'commerce\.pricing_manage'\)/i);
+    assert.match(manualPricePropagationFix, /club_capability_allowed\(p_organisation_id,auth\.uid\(\),'supplier\.catalogue_manage'\)/i);
+    assert.match(manualPricePropagationFix, /select \* into o[\s\S]*organisation_id=p_organisation_id[\s\S]*for update/i);
+    assert.match(manualPricePropagationFix, /update public\.club_supplier_products[\s\S]*retail_price_minor=p_retail_price_minor,manual_price=true/i);
+    assert.match(manualPricePropagationFix, /update public\.club_commerce_products[\s\S]*set sell_price_minor=p_retail_price_minor[\s\S]*organisation_id=p_organisation_id[\s\S]*and not stock_tracked and cost_price_minor is null/i);
+    assert.match(manualPricePropagationFix, /if o\.manual_price and o\.retail_price_minor=p_retail_price_minor then[\s\S]*v_unchanged:=true/i);
+    assert.match(manualPricePropagationFix, /revoke all on function public\.club_set_supplier_variant_retail_price\(uuid,uuid,integer,boolean\) from public,anon/i);
+    assert.match(manualPricePropagationFix, /grant execute on function public\.club_set_supplier_variant_retail_price\(uuid,uuid,integer,boolean\) to authenticated/i);
+});
+
 test('PostgreSQL 16 CI applies the repair and exercises the UI importer and commerce linker', () => {
-    assert.match(postgresHarness, /2026-12-07-club-pos-sellable-units-and-pt-packages\.sql[\s\S]*2026-12-16-active-sports-import-update-scope-fix\.sql[\s\S]*2026-12-17-active-sports-link-manual-price-fix\.sql[\s\S]*tests\/sql\/active-sports-import-v2\.sql/);
-    assert.match(postgresHarness, /2026-12-16-active-sports-import-update-scope-fix\.sql[\s\S]*2026-12-17-active-sports-link-manual-price-fix\.sql[\s\S]*tests\/sql\/active-sports-import-v2\.sql/);
+    assert.match(postgresHarness, /2026-12-07-club-pos-sellable-units-and-pt-packages\.sql[\s\S]*2026-12-16-active-sports-import-update-scope-fix\.sql[\s\S]*2026-12-17-active-sports-link-manual-price-fix\.sql[\s\S]*2026-12-18-active-sports-manual-price-propagation\.sql[\s\S]*tests\/sql\/active-sports-import-v2\.sql/);
+    assert.match(postgresHarness, /2026-12-16-active-sports-import-update-scope-fix\.sql[\s\S]*2026-12-17-active-sports-link-manual-price-fix\.sql[\s\S]*2026-12-18-active-sports-manual-price-propagation\.sql[\s\S]*tests\/sql\/active-sports-import-v2\.sql/);
     assert.match(postgresWorkflow, /image: postgres:16/);
-    assert.match(deploymentManifest, /2026-12-15-coach-nutrition-reconciliation\.sql\s+supabase\/migrations\/2026-12-16-active-sports-import-update-scope-fix\.sql\s+supabase\/migrations\/2026-12-17-active-sports-link-manual-price-fix\.sql/);
+    assert.match(deploymentManifest, /2026-12-15-coach-nutrition-reconciliation\.sql\s+supabase\/migrations\/2026-12-16-active-sports-import-update-scope-fix\.sql\s+supabase\/migrations\/2026-12-17-active-sports-link-manual-price-fix\.sql\s+supabase\/migrations\/2026-12-18-active-sports-manual-price-propagation\.sql/);
     assert.match(postgresImportTest, /club_import_supplier_catalogue_v2/);
     assert.match(postgresImportTest, /club_link_supplier_catalogue_to_commerce/);
     for (const contractField of ['name', 'parentKey', 'brand', 'category', 'subcategory', 'description', 'size', 'flavour', 'supplierSku', 'barcode', 'packQuantity', 'memberOrderableUnit', 'availabilityStatus', 'availabilityCheckedAt', 'tradeCostExVatMinor', 'suppliedVatRate', 'sourceUrl', 'parentImageUrl', 'variantImageUrl', 'notes']) {

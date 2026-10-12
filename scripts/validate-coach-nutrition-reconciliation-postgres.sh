@@ -98,5 +98,6 @@ psql_db "$state_c" --file=supabase/migrations/2026-12-07-club-pos-sellable-units
 echo "ACTIVE SPORTS — apply forward importer fix and exercise the real import/link path"
 psql_db "$state_c" --file=supabase/migrations/2026-12-16-active-sports-import-update-scope-fix.sql
 psql_db "$state_c" --file=supabase/migrations/2026-12-17-active-sports-link-manual-price-fix.sql
+psql_db "$state_c" --file=supabase/migrations/2026-12-18-active-sports-manual-price-propagation.sql
 psql_db "$state_c" --file=tests/sql/active-sports-import-v2.sql
 echo "ACTIVE SPORTS IMPORT RPC PASSED"
