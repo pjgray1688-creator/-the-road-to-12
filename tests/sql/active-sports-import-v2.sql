@@ -151,6 +151,7 @@ begin
  select * into strict snapshot from active_sports_import_preservation_snapshot;
  if (select retail_price_minor from public.club_supplier_products where organisation_id=o and supplier_sku='AS-CASE-CHOC')<>7777
    or not (select manual_price from public.club_supplier_products where organisation_id=o and supplier_sku='AS-CASE-CHOC')
+   or (select sell_price_minor from public.club_commerce_products where id=snapshot.canonical_product_id)<>7777
    or (select sell_price_minor from public.club_commerce_products where id=snapshot.canonical_product_id) is distinct from snapshot.canonical_price_minor then
    raise exception 'Import/link overwrote a management-approved retail price';
  end if;
@@ -163,6 +164,16 @@ begin
  if (select availability_status from public.club_supplier_products where organisation_id=o and supplier_sku='AS-CASE-VAN')<>'unavailable'
    or not exists(select 1 from public.club_stock_movements where organisation_id=o and product_id=snapshot.local_product_id and idempotency_key='active-sports-ci-stock-11') then
    raise exception 'Supplier availability was conflated with local stock movements';
+ end if;
+ if (select sell_price_minor from public.club_commerce_products cp
+     join public.club_supplier_products sp on cp.id=sp.club_product_id and cp.organisation_id=sp.organisation_id
+     where sp.organisation_id=o and sp.supplier_sku='AS-CASE-VAN')<>3600
+   or (select manual_price from public.club_supplier_products where organisation_id=o and supplier_sku='AS-CASE-VAN') then
+   raise exception 'Non-manual supplier retail price did not synchronize after the repeat import/link';
+ end if;
+ if (select count(*) from public.club_commerce_products
+     where organisation_id=o and supplier_reference like 'supplier_product:%')<>3 then
+   raise exception 'Repeat linker created duplicate canonical commerce products';
  end if;
  if (select pack_quantity from public.club_supplier_products where organisation_id=o and supplier_sku='AS-CASE-CHOC')<>12
    or (select trade_cost_ex_vat_minor from public.club_supplier_products where organisation_id=o and supplier_sku='AS-CASE-CHOC')<>2100

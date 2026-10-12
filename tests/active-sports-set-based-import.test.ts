@@ -11,6 +11,10 @@ const forwardFix = fs.readFileSync(
   path.join(process.cwd(), 'supabase/migrations/2026-12-16-active-sports-import-update-scope-fix.sql'),
   'utf8',
 );
+const manualPriceLinkFix = fs.readFileSync(
+  path.join(process.cwd(), 'supabase/migrations/2026-12-17-active-sports-link-manual-price-fix.sql'),
+  'utf8',
+);
 const postgresHarness = fs.readFileSync(
   path.join(process.cwd(), 'scripts/validate-coach-nutrition-reconciliation-postgres.sh'),
   'utf8',
@@ -79,17 +83,30 @@ test('forward importer fix keeps the update target out of JOIN ON scope', () => 
     assert.match(forwardFix, /grant execute on function public\.club_import_supplier_catalogue_v2\(uuid,text,text,jsonb,boolean\) to authenticated/i);
 });
 
+test('commerce linker avoids guarded price writes for manual prices and still syncs generated prices', () => {
+    assert.match(manualPriceLinkFix, /update public\.club_commerce_products[\s\S]*?set family_id=f\.id[\s\S]*?updated_at=now\(\)\s+where id=cp\.id;/i);
+    assert.match(manualPriceLinkFix, /if not sp\.manual_price then\s+update public\.club_commerce_products\s+set sell_price_minor=v_price/i);
+    assert.doesNotMatch(manualPriceLinkFix, /sell_price_minor\s*=\s*case\s+when not sp\.manual_price/i);
+    assert.match(manualPriceLinkFix, /case when sp\.manual_price then sp\.retail_price_minor else v_price end/i);
+    assert.match(manualPriceLinkFix, /security definer\s+set search_path=pg_catalog,public/i);
+    assert.match(manualPriceLinkFix, /revoke all on function public\.club_link_supplier_catalogue_to_commerce\(uuid,text\) from public,anon/i);
+    assert.match(manualPriceLinkFix, /grant execute on function public\.club_link_supplier_catalogue_to_commerce\(uuid,text\) to authenticated/i);
+    assert.doesNotMatch(manualPriceLinkFix, /club_supplier_canonical_price_changed|drop trigger|disable trigger/i);
+});
+
 test('PostgreSQL 16 CI applies the repair and exercises the UI importer and commerce linker', () => {
-    assert.match(postgresHarness, /2026-12-07-club-pos-sellable-units-and-pt-packages\.sql[\s\S]*2026-12-16-active-sports-import-update-scope-fix\.sql[\s\S]*tests\/sql\/active-sports-import-v2\.sql/);
-    assert.match(postgresHarness, /2026-12-16-active-sports-import-update-scope-fix\.sql[\s\S]*tests\/sql\/active-sports-import-v2\.sql/);
+    assert.match(postgresHarness, /2026-12-07-club-pos-sellable-units-and-pt-packages\.sql[\s\S]*2026-12-16-active-sports-import-update-scope-fix\.sql[\s\S]*2026-12-17-active-sports-link-manual-price-fix\.sql[\s\S]*tests\/sql\/active-sports-import-v2\.sql/);
+    assert.match(postgresHarness, /2026-12-16-active-sports-import-update-scope-fix\.sql[\s\S]*2026-12-17-active-sports-link-manual-price-fix\.sql[\s\S]*tests\/sql\/active-sports-import-v2\.sql/);
     assert.match(postgresWorkflow, /image: postgres:16/);
-    assert.match(deploymentManifest, /2026-12-15-coach-nutrition-reconciliation\.sql\s+supabase\/migrations\/2026-12-16-active-sports-import-update-scope-fix\.sql/);
+    assert.match(deploymentManifest, /2026-12-15-coach-nutrition-reconciliation\.sql\s+supabase\/migrations\/2026-12-16-active-sports-import-update-scope-fix\.sql\s+supabase\/migrations\/2026-12-17-active-sports-link-manual-price-fix\.sql/);
     assert.match(postgresImportTest, /club_import_supplier_catalogue_v2/);
     assert.match(postgresImportTest, /club_link_supplier_catalogue_to_commerce/);
     for (const contractField of ['name', 'parentKey', 'brand', 'category', 'subcategory', 'description', 'size', 'flavour', 'supplierSku', 'barcode', 'packQuantity', 'memberOrderableUnit', 'availabilityStatus', 'availabilityCheckedAt', 'tradeCostExVatMinor', 'suppliedVatRate', 'sourceUrl', 'parentImageUrl', 'variantImageUrl', 'notes']) {
       assert.ok(postgresImportTest.includes(`"${contractField}"`), `SQL fixture should cover ${contractField}`);
     }
     assert.match(postgresImportTest, /updated_count=3/);
+    assert.match(postgresImportTest, /Non-manual supplier retail price did not synchronize/);
+    assert.match(postgresImportTest, /Repeat linker created duplicate canonical commerce products/);
     assert.match(postgresImportTest, /club_set_supplier_variant_retail_price/);
     assert.doesNotMatch(postgresImportTest, /club_save_pos_product/);
     assert.match(postgresImportTest, /insert into public\.club_commerce_products\(id,organisation_id,sku,name,brand,category,active,stock_tracked,sell_price_minor,currency,supplier_reference\)[\s\S]*LOCAL-WHEY-001/);
