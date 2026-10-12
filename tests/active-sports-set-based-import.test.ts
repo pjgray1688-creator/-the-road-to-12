@@ -210,5 +210,8 @@ test('PostgreSQL 16 CI applies the repair and exercises the UI importer and comm
     assert.match(postgresImportTest, /852 families[\s\S]*3,228 variants[\s\S]*elapsed_ms=%/);
     assert.match(postgresImportTest, /Initial 3,228-variant commerce link exceeded 10 seconds/);
     assert.match(postgresImportTest, /Repeat 3,228-variant commerce link exceeded 10 seconds/);
+    assert.match(postgresImportTest, /active-sports-scale-initial\.csv[\s\S]*created_count=3228 and updated_count=0 and invalid_count=0[\s\S]*Initial 3,228-variant commerce link/);
+    assert.match(postgresImportTest, /active-sports-scale-initial\.csv[\s\S]*active-sports-scale-rerun\.csv[\s\S]*created_count=0 and updated_count=3228 and invalid_count=0/);
+    assert.doesNotMatch(postgresImportTest.slice(postgresImportTest.indexOf('-- Full-catalogue link scale regression')), /insert into public\.club_supplier_(?:parent_products|products)\s*\(/i);
     assert.match(postgresImportTest, /active-sports-scale-rerun\.csv/);
 });
