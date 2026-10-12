@@ -53,10 +53,65 @@ begin
  end if;
  select club_product_id into p from public.club_supplier_products where organisation_id=o and supplier_sku='AS-CASE-CHOC';
  if p is null then raise exception 'Commerce linker did not create the canonical product'; end if;
- update public.club_supplier_products set manual_price=true,retail_price_minor=7777 where id=(select id from public.club_supplier_products where organisation_id=o and supplier_sku='AS-CASE-CHOC');
- update public.club_commerce_products set sell_price_minor=7777,stock_tracked=true where id=p and organisation_id=o;
- insert into public.club_stock_movements(organisation_id,location_id,product_id,movement_type,quantity_delta,reason,actor_user_id)
- values(o,'10000000-0000-4000-8000-000000000003',p,'delivery',11,'CI preservation fixture','10000000-0000-4000-8000-000000000001');
+end $$;
+
+-- Establish the approved supplier retail price through the same capability-checked
+-- pricing RPC used by the supplier-catalogue action. Supplier-linked products stay
+-- supplier-orderable; local shelf stock is a separate POS product and ledger.
+set local role authenticated;
+select public.club_set_supplier_variant_retail_price(
+ '10000000-0000-4000-8000-000000000002',
+ (select id from public.club_supplier_products where organisation_id='10000000-0000-4000-8000-000000000002' and supplier_sku='AS-CASE-CHOC'),
+ 7777,true
+);
+
+-- Create a normal locally-stocked POS product through the product-management RPC,
+-- then record its opening delivery via the audited stock-adjustment RPC.
+do $$
+declare o uuid:='10000000-0000-4000-8000-000000000002'; local_product uuid; saved jsonb;
+begin
+ saved:=public.club_save_pos_product(
+   null,o,'LOCAL-WHEY-001',null,'Local Whey Case Shelf Stock','Test Brand',null,
+   'Supplements',true,true,7777,null,'GBP',null,null,'{}'::jsonb,
+   array['pos']::text[],'case',null,null,false,null,null
+ );
+ local_product:=(saved->>'id')::uuid;
+ perform public.club_adjust_inventory(
+   o,'10000000-0000-4000-8000-000000000003',local_product,
+   'delivery',11,'CI opening stock fixture','active-sports-ci-stock-11'
+ );
+end $$;
+reset role;
+
+do $$
+declare o uuid:='10000000-0000-4000-8000-000000000002'; p uuid;
+begin
+ select club_product_id into p from public.club_supplier_products where organisation_id=o and supplier_sku='AS-CASE-CHOC';
+ if (select retail_price_minor from public.club_supplier_products where organisation_id=o and supplier_sku='AS-CASE-CHOC')<>7777
+   or not (select manual_price from public.club_supplier_products where organisation_id=o and supplier_sku='AS-CASE-CHOC') then
+   raise exception 'Supported supplier pricing flow did not set the approved manual price';
+ end if;
+ if p is null then raise exception 'Linked supplier commerce product disappeared'; end if;
+end $$;
+
+create temporary table active_sports_import_preservation_snapshot as
+select sp.id as supplier_product_id,sp.club_product_id as canonical_product_id,cp.sell_price_minor as canonical_price_minor,
+       cp.stock_tracked as canonical_stock_tracked,
+       localp.id as local_product_id,localp.stock_tracked as local_stock_tracked,
+       coalesce((select sum(sm.quantity_delta) from public.club_stock_movements sm where sm.organisation_id=sp.organisation_id and sm.product_id=localp.id),0) as local_on_hand
+from public.club_supplier_products sp
+join public.club_commerce_products cp on cp.id=sp.club_product_id and cp.organisation_id=sp.organisation_id
+cross join public.club_commerce_products localp
+where sp.organisation_id='10000000-0000-4000-8000-000000000002'
+  and sp.supplier_sku='AS-CASE-CHOC'
+  and localp.organisation_id=sp.organisation_id and localp.sku='LOCAL-WHEY-001';
+
+do $$
+begin
+ if not exists(select 1 from active_sports_import_preservation_snapshot
+   where canonical_stock_tracked=false and local_stock_tracked=true and local_on_hand=11) then
+   raise exception 'Fixture did not establish distinct supplier-order and local stock state through supported APIs';
+ end if;
 end $$;
 
 set local role authenticated;
@@ -72,7 +127,7 @@ select public.club_link_supplier_catalogue_to_commerce('10000000-0000-4000-8000-
 reset role;
 
 do $$
-declare o uuid:='10000000-0000-4000-8000-000000000002'; p uuid;
+declare o uuid:='10000000-0000-4000-8000-000000000002'; snapshot record;
 begin
  if (select count(*) from public.club_supplier_parent_products where organisation_id=o)<>2
    or (select count(*) from public.club_supplier_products where organisation_id=o)<>3 then
@@ -81,15 +136,32 @@ begin
  if not exists(select 1 from public.club_supplier_import_batches where organisation_id=o and file_name='active-sports-ci-rerun.csv' and created_count=0 and updated_count=3) then
    raise exception 'Repeat import did not update all exact variants';
  end if;
- select club_product_id into p from public.club_supplier_products where organisation_id=o and supplier_sku='AS-CASE-CHOC';
+ select * into strict snapshot from active_sports_import_preservation_snapshot;
  if (select retail_price_minor from public.club_supplier_products where organisation_id=o and supplier_sku='AS-CASE-CHOC')<>7777
    or not (select manual_price from public.club_supplier_products where organisation_id=o and supplier_sku='AS-CASE-CHOC')
-   or (select sell_price_minor from public.club_commerce_products where id=p)<>7777 then
+   or (select sell_price_minor from public.club_commerce_products where id=snapshot.canonical_product_id) is distinct from snapshot.canonical_price_minor then
    raise exception 'Import/link overwrote a management-approved retail price';
  end if;
- if not (select stock_tracked from public.club_commerce_products where id=p)
-   or (select coalesce(sum(quantity_delta),0) from public.club_stock_movements where organisation_id=o and product_id=p)<>11 then
-   raise exception 'Import/link changed Club physical stock';
+ if snapshot.canonical_product_id=snapshot.local_product_id then raise exception 'Supplier-order product was conflated with local stock product'; end if;
+ if snapshot.canonical_stock_tracked then raise exception 'Supplier-order product was marked as locally stocked'; end if;
+ if not snapshot.local_stock_tracked
+   or (select coalesce(sum(quantity_delta),0) from public.club_stock_movements where organisation_id=o and product_id=snapshot.local_product_id) is distinct from snapshot.local_on_hand then
+   raise exception 'Import/link changed the independently managed Club physical stock';
+ end if;
+ if (select availability_status from public.club_supplier_products where organisation_id=o and supplier_sku='AS-CASE-VAN')<>'unavailable'
+   or not exists(select 1 from public.club_stock_movements where organisation_id=o and product_id=snapshot.local_product_id and idempotency_key='active-sports-ci-stock-11') then
+   raise exception 'Supplier availability was conflated with local stock movements';
+ end if;
+ if (select pack_quantity from public.club_supplier_products where organisation_id=o and supplier_sku='AS-CASE-CHOC')<>12
+   or (select trade_cost_ex_vat_minor from public.club_supplier_products where organisation_id=o and supplier_sku='AS-CASE-CHOC')<>2100
+   or (select parent_image_url from public.club_supplier_parent_products where organisation_id=o and parent_key='test|whey protein')<>'https://images.example.test/whey-parent.jpg'
+   or (select variant_image_url from public.club_supplier_products where organisation_id=o and supplier_sku='AS-CASE-CHOC')<>'https://images.example.test/whey-choc.jpg'
+   or (select source_url from public.club_supplier_products where organisation_id=o and supplier_sku='AS-CASE-CHOC')<>'https://supplier.example.test/whey' then
+   raise exception 'Repeat import failed to refresh supplier fields or preserve pack and media data';
+ end if;
+ if exists(select 1 from public.club_stock_movements where organisation_id=o and product_id=snapshot.canonical_product_id)
+   or (select count(*) from public.club_stock_movements where organisation_id=o and product_id=snapshot.local_product_id)<>1 then
+   raise exception 'Supplier availability update created an unintended local stock movement';
  end if;
 end $$;
 rollback;

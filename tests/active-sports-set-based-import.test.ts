@@ -89,6 +89,11 @@ test('PostgreSQL 16 CI applies the repair and exercises the UI importer and comm
       assert.ok(postgresImportTest.includes(`"${contractField}"`), `SQL fixture should cover ${contractField}`);
     }
     assert.match(postgresImportTest, /updated_count=3/);
-    assert.match(postgresImportTest, /Club physical stock/);
+    assert.match(postgresImportTest, /club_set_supplier_variant_retail_price/);
+    assert.match(postgresImportTest, /club_save_pos_product/);
+    assert.match(postgresImportTest, /club_adjust_inventory/);
+    assert.doesNotMatch(postgresImportTest, /update public\.club_commerce_products set sell_price_minor|update public\.club_commerce_products set stock_tracked/i);
+    assert.match(postgresImportTest, /active_sports_import_preservation_snapshot/);
+    assert.match(postgresImportTest, /local_on_hand/);
     assert.match(postgresImportTest, /management-approved retail price/);
 });
