@@ -310,4 +310,191 @@ begin
    raise exception 'Supplier availability update created an unintended local stock movement';
  end if;
 end $$;
+
+-- Full-catalogue link scale regression: 852 families / 3,228 variants, mixed
+-- supplier availability, a manually-priced subset, and 64 already-linked
+-- canonical products. Setup runs as the disposable database owner; link/import
+-- RPCs run with the authenticated R12 owner identity and capability checks.
+insert into public.club_suppliers(id,organisation_id,name,slug)
+values ('10000000-0000-4000-8000-000000000008','10000000-0000-4000-8000-000000000002','Active Sports Scale','active-sports-scale');
+insert into public.club_supplier_parent_products(
+ organisation_id,supplier_id,parent_key,brand,name,category,active
+)
+select '10000000-0000-4000-8000-000000000002',
+       '10000000-0000-4000-8000-000000000008',
+       'scale-family-'||lpad(g::text,4,'0'),'Scale Brand',
+       'Scale Family '||lpad(g::text,4,'0'),'Supplements',true
+from generate_series(1,852) g;
+
+insert into public.club_supplier_products(
+ organisation_id,supplier_id,parent_product_id,import_identity,supplier_sku,brand,name,
+ variant,size,pack_quantity,member_orderable_unit,category,availability_status,
+ availability_checked_at,trade_cost_ex_vat_minor,supplied_vat_rate,cost_source,
+ manual_price,retail_price_minor
+)
+select '10000000-0000-4000-8000-000000000002',
+       '10000000-0000-4000-8000-000000000008',pp.id,
+       'sku:R12-SCALE-'||lpad(g::text,5,'0')||':brand:scale brand:variant:variant '||lpad(g::text,4,'0')||':size:size '||g::text,
+       'R12-SCALE-'||lpad(g::text,5,'0'),'Scale Brand',pp.name,
+       'Variant '||lpad(g::text,4,'0'),'Size '||g::text,1,'each','Supplements',
+       case when g%5=0 then 'unavailable' else 'available' end,now(),2000,0.2,
+       'PostgreSQL CI scale fixture',g%127=0,case when g%127=0 then 7777 else null end
+from generate_series(1,3228) g
+join public.club_supplier_parent_products pp
+  on pp.organisation_id='10000000-0000-4000-8000-000000000002'
+ and pp.supplier_id='10000000-0000-4000-8000-000000000008'
+ and pp.parent_key='scale-family-'||lpad((((g-1)%852)+1)::text,4,'0');
+
+insert into public.club_commerce_products(
+ organisation_id,sku,name,brand,category,active,stock_tracked,sell_price_minor,
+ cost_price_minor,currency,supplier_reference
+)
+select sp.organisation_id,null,sp.name,sp.brand,sp.category,true,false,
+       sp.retail_price_minor,sp.trade_cost_ex_vat_minor,'GBP',
+       'supplier_product:'||sp.id::text
+from public.club_supplier_products sp
+where sp.organisation_id='10000000-0000-4000-8000-000000000002'
+  and sp.supplier_id='10000000-0000-4000-8000-000000000008'
+  and sp.supplier_sku like 'R12-SCALE-%'
+  and right(sp.supplier_sku,5)::integer<=64;
+
+update public.club_supplier_products sp
+set club_product_id=cp.id
+from public.club_commerce_products cp
+where sp.organisation_id=cp.organisation_id
+  and cp.organisation_id='10000000-0000-4000-8000-000000000002'
+  and sp.supplier_id='10000000-0000-4000-8000-000000000008'
+  and sp.supplier_sku like 'R12-SCALE-%'
+  and right(sp.supplier_sku,5)::integer<=64
+  and cp.supplier_reference='supplier_product:'||sp.id::text;
+
+do $$
+begin
+ if (select count(*) from public.club_supplier_parent_products
+     where organisation_id='10000000-0000-4000-8000-000000000002'
+       and supplier_id='10000000-0000-4000-8000-000000000008'
+       and parent_key like 'scale-family-%')<>852
+   or (select count(*) from public.club_supplier_products
+       where organisation_id='10000000-0000-4000-8000-000000000002'
+         and supplier_id='10000000-0000-4000-8000-000000000008'
+         and supplier_sku like 'R12-SCALE-%')<>3228 then
+   raise exception 'Scale fixture did not create 852 families and 3,228 variants';
+ end if;
+end $$;
+
+set local role authenticated;
+do $$
+declare started_at timestamptz; elapsed_ms numeric; result jsonb;
+begin
+ started_at:=clock_timestamp();
+ result:=public.club_link_supplier_catalogue_to_commerce(
+   '10000000-0000-4000-8000-000000000002','Active Sports Scale'
+ );
+ elapsed_ms:=extract(epoch from clock_timestamp()-started_at)*1000;
+ raise notice 'Active Sports linker scale initial: parents=852 variants=3228 elapsed_ms=% result=%',round(elapsed_ms,1),result;
+ if elapsed_ms>10000 then
+   raise exception 'Initial 3,228-variant commerce link exceeded 10 seconds: % ms',round(elapsed_ms,1);
+ end if;
+ if (result->>'created')::integer<>3164 or (result->>'updated')::integer<>64 then
+   raise exception 'Scale linker expected 3,164 created and 64 existing; got %',result;
+ end if;
+end $$;
+reset role;
+
+create temporary table _r12_active_sports_scale_payload(payload jsonb);
+insert into pg_temp._r12_active_sports_scale_payload(payload)
+select jsonb_agg(jsonb_build_object(
+  'name',sp.name,'parentKey',pp.parent_key,'brand',sp.brand,'category',sp.category,
+  'subcategory','Scale','description',null,'size',sp.size,'flavour',sp.variant,
+  'supplierSku',sp.supplier_sku,'barcode',null,'packQuantity',sp.pack_quantity,
+  'memberOrderableUnit',sp.member_orderable_unit,
+  'availabilityStatus',sp.availability_status,'availabilityCheckedAt',now(),
+  'tradeCostExVatMinor',2100,'suppliedVatRate',0.2,'sourceUrl',null,
+  'parentImageUrl',null,'variantImageUrl',null,'notes','repeat scale fixture',
+  'discontinued',false
+) order by sp.supplier_sku)
+from public.club_supplier_products sp
+join public.club_supplier_parent_products pp
+  on pp.id=sp.parent_product_id and pp.organisation_id=sp.organisation_id
+where sp.organisation_id='10000000-0000-4000-8000-000000000002'
+  and sp.supplier_id='10000000-0000-4000-8000-000000000008'
+  and sp.supplier_sku like 'R12-SCALE-%';
+grant select on pg_temp._r12_active_sports_scale_payload to authenticated;
+
+set local role authenticated;
+select public.club_import_supplier_catalogue_v2(
+ '10000000-0000-4000-8000-000000000002','Active Sports Scale','active-sports-scale-rerun.csv',
+ (select payload from pg_temp._r12_active_sports_scale_payload),false
+);
+reset role;
+
+do $$
+begin
+ if not exists(select 1 from public.club_supplier_import_batches
+   where organisation_id='10000000-0000-4000-8000-000000000002'
+     and file_name='active-sports-scale-rerun.csv'
+     and created_count=0 and updated_count=3228 and invalid_count=0) then
+   raise exception 'Scale repeat import did not idempotently update all 3,228 variants';
+ end if;
+end $$;
+
+set local role authenticated;
+do $$
+declare started_at timestamptz; elapsed_ms numeric; result jsonb;
+begin
+ started_at:=clock_timestamp();
+ result:=public.club_link_supplier_catalogue_to_commerce(
+   '10000000-0000-4000-8000-000000000002','Active Sports Scale'
+ );
+ elapsed_ms:=extract(epoch from clock_timestamp()-started_at)*1000;
+ raise notice 'Active Sports linker scale repeat: parents=852 variants=3228 elapsed_ms=% result=%',round(elapsed_ms,1),result;
+ if elapsed_ms>10000 then
+   raise exception 'Repeat 3,228-variant commerce link exceeded 10 seconds: % ms',round(elapsed_ms,1);
+ end if;
+ if (result->>'created')::integer<>0 or (result->>'updated')::integer<>3228 then
+   raise exception 'Repeat scale linker expected 0 created and 3,228 existing; got %',result;
+ end if;
+end $$;
+reset role;
+
+do $$
+begin
+ if (select count(*) from public.club_commerce_products
+     where organisation_id='10000000-0000-4000-8000-000000000002'
+       and supplier_reference in (
+         select 'supplier_product:'||sp.id::text from public.club_supplier_products sp
+         where sp.organisation_id='10000000-0000-4000-8000-000000000002'
+           and sp.supplier_id='10000000-0000-4000-8000-000000000008'
+           and sp.supplier_sku like 'R12-SCALE-%'
+       ))<>3228 then
+   raise exception 'Scale repeat linker duplicated or lost canonical sales units';
+ end if;
+ if not exists(
+   select 1 from public.club_supplier_products sp
+   join public.club_commerce_products cp on cp.id=sp.club_product_id and cp.organisation_id=sp.organisation_id
+   where sp.organisation_id='10000000-0000-4000-8000-000000000002'
+     and sp.supplier_id='10000000-0000-4000-8000-000000000008'
+     and sp.supplier_sku='R12-SCALE-00127'
+     and sp.manual_price=true and sp.retail_price_minor=7777 and cp.sell_price_minor=7777
+ ) then raise exception 'Scale repeat import/link changed manual supplier pricing'; end if;
+ if not exists(
+   select 1 from public.club_supplier_products sp
+   join public.club_commerce_products cp on cp.id=sp.club_product_id and cp.organisation_id=sp.organisation_id
+   where sp.organisation_id='10000000-0000-4000-8000-000000000002'
+     and sp.supplier_id='10000000-0000-4000-8000-000000000008'
+     and sp.supplier_sku='R12-SCALE-00128'
+     and sp.manual_price=false and sp.retail_price_minor=3600 and cp.sell_price_minor=3600
+     and sp.trade_cost_ex_vat_minor=2100 and cp.cost_price_minor=2000
+ ) then raise exception 'Scale generated price/cost propagation did not remain authoritative'; end if;
+ if exists(select 1 from public.club_stock_movements
+   where organisation_id='10000000-0000-4000-8000-000000000002'
+     and product_id in (select club_product_id from public.club_supplier_products
+       where organisation_id='10000000-0000-4000-8000-000000000002'
+         and supplier_id='10000000-0000-4000-8000-000000000008'
+         and supplier_sku like 'R12-SCALE-%')) then
+   raise exception 'Scale supplier linking wrote local physical stock movements';
+ end if;
+end $$;
+drop table pg_temp._r12_active_sports_scale_payload;
+
 rollback;
