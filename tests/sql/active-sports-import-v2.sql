@@ -96,12 +96,21 @@ end $$;
 reset role;
 
 do $$
-declare o uuid:='10000000-0000-4000-8000-000000000002'; p uuid;
+declare o uuid:='10000000-0000-4000-8000-000000000002'; p uuid; supplier_price integer; is_manual boolean; canonical_price integer;
 begin
- select club_product_id into p from public.club_supplier_products where organisation_id=o and supplier_sku='AS-CASE-CHOC';
- if (select retail_price_minor from public.club_supplier_products where organisation_id=o and supplier_sku='AS-CASE-CHOC')<>7777
-   or not (select manual_price from public.club_supplier_products where organisation_id=o and supplier_sku='AS-CASE-CHOC') then
-   raise exception 'Supported supplier pricing flow did not set the approved manual price';
+ select sp.club_product_id,sp.retail_price_minor,sp.manual_price,cp.sell_price_minor
+ into p,supplier_price,is_manual,canonical_price
+ from public.club_supplier_products sp
+ left join public.club_commerce_products cp on cp.id=sp.club_product_id and cp.organisation_id=sp.organisation_id
+ where sp.organisation_id=o and sp.supplier_sku='AS-CASE-CHOC';
+ if supplier_price is distinct from 7777 then
+   raise exception 'Manual supplier retail expected 7777; observed %',supplier_price;
+ end if;
+ if is_manual is distinct from true then
+   raise exception 'Manual supplier flag expected true; observed %',is_manual;
+ end if;
+ if canonical_price is distinct from 7777 then
+   raise exception 'Canonical price after manual pricing expected 7777; observed %',canonical_price;
  end if;
  if p is null then raise exception 'Linked supplier commerce product disappeared'; end if;
 end $$;
@@ -140,6 +149,7 @@ reset role;
 
 do $$
 declare o uuid:='10000000-0000-4000-8000-000000000002'; snapshot record;
+  supplier_price integer; is_manual boolean; canonical_price integer;
 begin
  if (select count(*) from public.club_supplier_parent_products where organisation_id=o)<>2
    or (select count(*) from public.club_supplier_products where organisation_id=o)<>3 then
@@ -149,11 +159,22 @@ begin
    raise exception 'Repeat import did not update all exact variants';
  end if;
  select * into strict snapshot from active_sports_import_preservation_snapshot;
- if (select retail_price_minor from public.club_supplier_products where organisation_id=o and supplier_sku='AS-CASE-CHOC')<>7777
-   or not (select manual_price from public.club_supplier_products where organisation_id=o and supplier_sku='AS-CASE-CHOC')
-   or (select sell_price_minor from public.club_commerce_products where id=snapshot.canonical_product_id)<>7777
-   or (select sell_price_minor from public.club_commerce_products where id=snapshot.canonical_product_id) is distinct from snapshot.canonical_price_minor then
-   raise exception 'Import/link overwrote a management-approved retail price';
+ select sp.retail_price_minor,sp.manual_price,cp.sell_price_minor
+ into supplier_price,is_manual,canonical_price
+ from public.club_supplier_products sp
+ left join public.club_commerce_products cp on cp.id=sp.club_product_id and cp.organisation_id=sp.organisation_id
+ where sp.organisation_id=o and sp.supplier_sku='AS-CASE-CHOC';
+ if supplier_price is distinct from 7777 then
+   raise exception 'Post-repeat supplier retail expected 7777; observed %',supplier_price;
+ end if;
+ if is_manual is distinct from true then
+   raise exception 'Post-repeat manual supplier flag expected true; observed %',is_manual;
+ end if;
+ if canonical_price is distinct from 7777 then
+   raise exception 'Post-repeat canonical price expected 7777; observed %',canonical_price;
+ end if;
+ if canonical_price is distinct from snapshot.canonical_price_minor then
+   raise exception 'Post-repeat canonical price % differs from post-manual snapshot %',canonical_price,snapshot.canonical_price_minor;
  end if;
  if snapshot.canonical_product_id=snapshot.local_product_id then raise exception 'Supplier-order product was conflated with local stock product'; end if;
  if snapshot.canonical_stock_tracked then raise exception 'Supplier-order product was marked as locally stocked'; end if;
@@ -165,11 +186,19 @@ begin
    or not exists(select 1 from public.club_stock_movements where organisation_id=o and product_id=snapshot.local_product_id and idempotency_key='active-sports-ci-stock-11') then
    raise exception 'Supplier availability was conflated with local stock movements';
  end if;
- if (select sell_price_minor from public.club_commerce_products cp
-     join public.club_supplier_products sp on cp.id=sp.club_product_id and cp.organisation_id=sp.organisation_id
-     where sp.organisation_id=o and sp.supplier_sku='AS-CASE-VAN')<>3600
-   or (select manual_price from public.club_supplier_products where organisation_id=o and supplier_sku='AS-CASE-VAN') then
-   raise exception 'Non-manual supplier retail price did not synchronize after the repeat import/link';
+ select sp.retail_price_minor,sp.manual_price,cp.sell_price_minor
+ into supplier_price,is_manual,canonical_price
+ from public.club_supplier_products sp
+ left join public.club_commerce_products cp on cp.id=sp.club_product_id and cp.organisation_id=sp.organisation_id
+ where sp.organisation_id=o and sp.supplier_sku='AS-CASE-VAN';
+ if supplier_price is distinct from 3600 then
+   raise exception 'Non-manual supplier retail expected 3600; observed %',supplier_price;
+ end if;
+ if is_manual is distinct from false then
+   raise exception 'Non-manual supplier flag expected false; observed %',is_manual;
+ end if;
+ if canonical_price is distinct from 3600 then
+   raise exception 'Non-manual canonical price expected 3600; observed %',canonical_price;
  end if;
  if (select count(*) from public.club_commerce_products
      where organisation_id=o and supplier_reference like 'supplier_product:%')<>3 then

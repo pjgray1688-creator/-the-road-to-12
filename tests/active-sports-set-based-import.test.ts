@@ -106,7 +106,7 @@ test('PostgreSQL 16 CI applies the repair and exercises the UI importer and comm
       assert.ok(postgresImportTest.includes(`"${contractField}"`), `SQL fixture should cover ${contractField}`);
     }
     assert.match(postgresImportTest, /updated_count=3/);
-    assert.match(postgresImportTest, /Non-manual supplier retail price did not synchronize/);
+    assert.match(postgresImportTest, /Non-manual supplier retail expected 3600; observed %/);
     assert.match(postgresImportTest, /Repeat linker created duplicate canonical commerce products/);
     assert.match(postgresImportTest, /club_set_supplier_variant_retail_price/);
     assert.doesNotMatch(postgresImportTest, /club_save_pos_product/);
@@ -123,5 +123,10 @@ test('PostgreSQL 16 CI applies the repair and exercises the UI importer and comm
     for (const [, section] of authenticatedSections) {
       assert.doesNotMatch(section, /\b(?:from|join|update|insert\s+into|delete\s+from)\s+public\.club_supplier_(?:products|parent_products|variant_prices|variant_costs|import_batches)/i);
     }
-    assert.match(postgresImportTest, /management-approved retail price/);
+    assert.match(postgresImportTest, /Manual supplier retail expected 7777; observed %/);
+    assert.match(postgresImportTest, /Manual supplier flag expected true; observed %/);
+    assert.match(postgresImportTest, /Canonical price after manual pricing expected 7777; observed %/);
+    assert.match(postgresImportTest, /Post-repeat canonical price % differs from post-manual snapshot %/);
+    assert.ok(postgresImportTest.indexOf('club_set_supplier_variant_retail_price') < postgresImportTest.indexOf('active_sports_import_preservation_snapshot'));
+    assert.match(postgresImportTest, /Non-manual canonical price expected 3600; observed %/);
 });
