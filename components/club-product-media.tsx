@@ -7,6 +7,11 @@ export function productImageUrl(product: ClubCommerceProduct | undefined) {
   return typeof value === "string" && value.trim() ? value : undefined;
 }
 
+/** Pick the concrete image-bearing variant for a family tile or fallback. */
+export function productWithImage(products: ClubCommerceProduct[]) {
+  return products.find(product => Boolean(productImageUrl(product)));
+}
+
 export function sharedProductImage(products: ClubCommerceProduct[]) {
   const urls = products.map(productImageUrl);
   return urls.find(Boolean);

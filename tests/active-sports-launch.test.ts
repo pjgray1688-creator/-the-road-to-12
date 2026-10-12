@@ -660,6 +660,27 @@ test("supplier parent imagery becomes commerce media with variant override", () 
   assert.equal(durableSupplierRowsToProducts([parent], "org")[0].media?.url, "https://img.test/parent.jpg");
 });
 
+test("family tiles select an image-bearing sibling and preserve local GSN imagery", async () => {
+  const { productImageUrl, productWithImage, sharedProductImage } = await import("../components/club-product-media");
+  const base = { organisationId: "org", active: true, stockTracked: false, sellPriceMinor: 1000, currency: "GBP", createdAt: "", updatedAt: "" } as any;
+  const noImage = { ...base, id: "first", name: "Supplier variant one" };
+  const parentBacked = { ...base, id: "second", name: "Supplier variant two", media: { url: "https://img.test/family-parent.jpg" } };
+  assert.equal(sharedProductImage([noImage, parentBacked]), "https://img.test/family-parent.jpg");
+  assert.equal(productWithImage([noImage, parentBacked])?.id, "second");
+  const gsn = { ...base, id: "gsn", name: "GSN meal", brand: "GSN", media: { url: "https://img.test/gsn-meal.jpg" } };
+  assert.equal(productImageUrl(gsn), "https://img.test/gsn-meal.jpg");
+  assert.equal(productWithImage([gsn])?.id, "gsn");
+  const fs = await import("node:fs/promises");
+  const selector = await fs.readFile("components/club-product-family-selector.tsx", "utf8");
+  const clubShopPage = await fs.readFile("app/club/shop/page.tsx", "utf8");
+  assert.match(selector, /card\.variants\.find\(variant => productImageUrl\(variant\)\)/);
+  assert.match(selector, /resolved\?\.variantImageReference/);
+  assert.match(clubShopPage, /imagePipeline/);
+  assert.match(clubShopPage, /canonicalProductsWithImage/);
+  assert.match(clubShopPage, /finalUniverseWithImage/);
+  assert.match(clubShopPage, /activeSports: \{/);
+});
+
 test("supplier parent identity prevents same-name cross-brand family collisions", () => {
   const base = { organisationId: "org", active: true, stockTracked: false, currency: "GBP", sellPriceMinor: 2500, createdAt: "", updatedAt: "" };
   const rows: DurableSupplierParentRow[] = [
@@ -745,6 +766,32 @@ test("reception requires explicit supplier availability for zero-stock supplier 
   const source = await (await import("node:fs/promises")).readFile("components/club-staff-checkout.tsx", "utf8");
   assert.match(source, /resolveMemberProductAvailability\(\{ availableLocalQuantity:/);
   assert.match(source, /availableLocalQuantity: local\.get\(product\.id\) \?\? 0/);
+});
+
+test("reception exposes POS-channel local, supplier-orderable and service items without inventing stock", async () => {
+  const { isReceptionProductEligible, resolveMemberProductAvailability, supplierOrderable } = await import("../lib/club-member-availability");
+  const local = { id: "gsn", organisationId: "org", name: "GSN Bar", active: true, stockTracked: true, sellPriceMinor: 300, currency: "GBP", salesChannels: ["pos"], createdAt: "", updatedAt: "" } as any;
+  const supplier = { id: "active-available", organisationId: "org", name: "Active Sports Can", active: true, stockTracked: false, supplierReference: "supplier_product:can", supplierAvailabilityStatus: "available", supplierMemberOrderable: true, sellPriceMinor: 350, currency: "GBP", salesChannels: ["pos"], createdAt: "", updatedAt: "" } as any;
+  const unavailable = { ...supplier, id: "active-oos", supplierReference: "supplier_product:oos", supplierAvailabilityStatus: "unavailable" };
+  const service = { ...local, id: "pt-session", stockTracked: false, isServiceProduct: true };
+  const onlineOnly = { ...supplier, id: "online-only", salesChannels: ["online"] };
+  assert.equal(isReceptionProductEligible(local), true);
+  assert.equal(isReceptionProductEligible(supplier), true);
+  assert.equal(isReceptionProductEligible(unavailable), false);
+  assert.equal(isReceptionProductEligible(service), true);
+  assert.equal(isReceptionProductEligible(onlineOnly), false);
+  assert.equal(supplierOrderable(supplier), true);
+  assert.equal(resolveMemberProductAvailability({ availableLocalQuantity: 0, supplierOrderable: supplierOrderable(supplier) }), "SUPPLIER_ORDER");
+  assert.equal(resolveMemberProductAvailability({ availableLocalQuantity: 0, supplierOrderable: supplierOrderable(unavailable) }), "UNAVAILABLE");
+  assert.equal(supplier.stockTracked, false);
+  assert.equal(supplier.supplierAvailabilityStatus, "available");
+  assert.equal(local.stockTracked, true);
+  const fs = await import("node:fs/promises");
+  const clubPage = await fs.readFile("app/club/shop/page.tsx", "utf8");
+  const checkout = await fs.readFile("components/club-staff-checkout.tsx", "utf8");
+  assert.match(clubPage, /if \(staff\) return isReceptionProductEligible\(product\)/);
+  assert.match(checkout, /catalogueProducts\.filter\(isReceptionProductEligible\)/);
+  assert.doesNotMatch(checkout, /supplierAvailabilityStatus:\s*"unavailable"/);
 });
 
 test("supplier-available variants survive the final universe without local inventory", () => {

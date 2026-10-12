@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { isProductOnChannel, type ClubCommerceProduct } from "../lib/club-commerce";
+import { isReceptionProductEligible } from "../lib/club-member-availability";
 import { mapCommerceProduct } from "../lib/supabase-club-repository";
 
 const sql=readFileSync("supabase/migrations/2026-12-07-club-pos-sellable-units-and-pt-packages.sql","utf8");
@@ -20,7 +21,9 @@ test("commerce product maps unit, channel and service-package fields",()=>{
 
 test("channel flags restrict POS and online visibility, while legacy products remain compatible",()=>{
   assert.equal(isProductOnChannel(product(["pos"]),"pos"),true);assert.equal(isProductOnChannel(product(["pos"]),"online"),false);assert.equal(isProductOnChannel(product(["online"]),"pos"),false);assert.equal(isProductOnChannel(product(undefined),"online"),true);
-  assert.match(checkout,/isProductOnChannel\(product,"pos"\)/);assert.match(readFileSync("app/member-hub/shop/page.tsx","utf8"),/isProductOnChannel\(product,"online"\)/);
+  assert.equal(isReceptionProductEligible(product(["pos"])),true);
+  assert.equal(isReceptionProductEligible(product(["online"])),false);
+  assert.match(checkout,/catalogueProducts\.filter\(isReceptionProductEligible\)/);assert.match(readFileSync("app/member-hub/shop/page.tsx","utf8"),/isProductOnChannel\(product,"online"\)/);
 });
 
 test("staff cash checkout reserves location stock before settling and cancels an unpayable order",()=>{

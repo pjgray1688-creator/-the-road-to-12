@@ -25,7 +25,7 @@ set local role authenticated;
 select public.club_import_supplier_catalogue_v2(
  '10000000-0000-4000-8000-000000000002','Active Sports','active-sports-ci.csv',
  '[
-  {"name":"Energy Can","parentKey":"test|energy can","brand":"Test Brand","category":"Drinks","subcategory":"Energy","description":"Single can fixture","size":"500ml","flavour":"Original","supplierSku":"AS-UNIT-001","barcode":"5000000000001","packQuantity":1,"memberOrderableUnit":"each","availabilityStatus":"available","availabilityCheckedAt":"2026-10-10T10:00:00Z","tradeCostExVatMinor":100,"suppliedVatRate":0.2,"sourceUrl":"https://supplier.example.test/energy","parentImageUrl":"https://images.example.test/energy-parent.jpg","variantImageUrl":"https://images.example.test/energy-unit.jpg","notes":"unit fixture","discontinued":false},
+  {"name":"Energy Can","parentKey":"test|energy can","brand":"Test Brand","category":"Drinks","subcategory":"Energy","description":"Single can fixture","size":"500ml","flavour":"Original","supplierSku":"AS-UNIT-001","barcode":"5000000000001","packQuantity":1,"memberOrderableUnit":"each","availabilityStatus":"available","availabilityCheckedAt":"2026-10-10T10:00:00Z","tradeCostExVatMinor":100,"suppliedVatRate":0.2,"sourceUrl":"https://supplier.example.test/energy","parentImageUrl":"https://images.example.test/energy-parent.jpg","notes":"unit fixture","discontinued":false},
   {"name":"Whey Protein","parentKey":"test|whey protein","brand":"Test Brand","category":"Supplements","subcategory":"Protein","description":"Case fixture","size":"12 x 60g","flavour":"Chocolate","supplierSku":"AS-CASE-CHOC","barcode":"5000000000002","packQuantity":12,"memberOrderableUnit":"case","availabilityStatus":"available","availabilityCheckedAt":"2026-10-10T10:00:00Z","tradeCostExVatMinor":2000,"suppliedVatRate":0.2,"sourceUrl":"https://supplier.example.test/whey","parentImageUrl":"https://images.example.test/whey-parent.jpg","variantImageUrl":"https://images.example.test/whey-choc.jpg","notes":"case fixture","discontinued":false},
   {"name":"Whey Protein","parentKey":"test|whey protein","brand":"Test Brand","category":"Supplements","subcategory":"Protein","description":"Case fixture","size":"12 x 60g","flavour":"Vanilla","supplierSku":"AS-CASE-VAN","barcode":"5000000000003","packQuantity":12,"memberOrderableUnit":"case","availabilityStatus":"unavailable","availabilityCheckedAt":"2026-10-10T10:00:00Z","tradeCostExVatMinor":2000,"suppliedVatRate":0.2,"sourceUrl":"https://supplier.example.test/whey","parentImageUrl":"https://images.example.test/whey-parent.jpg","variantImageUrl":"https://images.example.test/whey-vanilla.jpg","notes":"out-of-stock sibling","discontinued":false}
  ]'::jsonb,false
@@ -78,6 +78,43 @@ begin
  ) then
    raise exception 'Initial generated supplier/canonical price expected 3500 with populated cost and manual_price=false';
  end if;
+end $$;
+
+-- Parent-only and variant-specific image projection through the member RPC.
+set local role authenticated;
+select set_config('r12.active_sports_member_catalogue_images',
+  (select public.club_list_member_supplier_catalogue('10000000-0000-4000-8000-000000000002',null)::text),true);
+reset role;
+do $$
+declare catalogue jsonb:=current_setting('r12.active_sports_member_catalogue_images')::jsonb;
+begin
+ if not exists(select 1 from public.club_commerce_products cp
+   join public.club_supplier_products sp on sp.club_product_id=cp.id and sp.organisation_id=cp.organisation_id
+   where sp.organisation_id='10000000-0000-4000-8000-000000000002' and sp.supplier_sku='AS-UNIT-001'
+     and cp.media->>'url'='https://images.example.test/energy-parent.jpg') then
+   raise exception 'Parent-only image did not reach the canonical commerce product';
+ end if;
+ if not exists(select 1 from public.club_commerce_products cp
+   join public.club_supplier_products sp on sp.club_product_id=cp.id and sp.organisation_id=cp.organisation_id
+   where sp.organisation_id='10000000-0000-4000-8000-000000000002' and sp.supplier_sku='AS-CASE-CHOC'
+     and cp.media->>'url'='https://images.example.test/whey-choc.jpg') then
+   raise exception 'Variant-specific image did not take precedence over its parent image';
+ end if;
+ if not exists(
+   select 1 from jsonb_array_elements(catalogue) as p(parent)
+   where p.parent->>'name'='Energy Can'
+     and p.parent->>'imageReference'='https://images.example.test/energy-parent.jpg'
+     and exists(select 1 from jsonb_array_elements(p.parent->'variants') as v(variant)
+       where v.variant->>'supplierSku'='AS-UNIT-001' and v.variant->>'imageReference' is null)
+ ) then raise exception 'Member catalogue RPC lost the parent-only image or variant identity'; end if;
+ if not exists(
+   select 1 from jsonb_array_elements(catalogue) as p(parent)
+   where p.parent->>'name'='Whey Protein'
+     and p.parent->>'imageReference'='https://images.example.test/whey-parent.jpg'
+     and exists(select 1 from jsonb_array_elements(p.parent->'variants') as v(variant)
+       where v.variant->>'supplierSku'='AS-CASE-CHOC'
+         and v.variant->>'imageReference'='https://images.example.test/whey-choc.jpg')
+ ) then raise exception 'Member catalogue RPC lost the variant-specific image'; end if;
 end $$;
 
 -- Establish the approved supplier retail price through the same capability-checked
@@ -202,7 +239,7 @@ set local role authenticated;
 select public.club_import_supplier_catalogue_v2(
  '10000000-0000-4000-8000-000000000002','Active Sports','active-sports-ci-rerun.csv',
  '[
-  {"name":"Energy Can","parentKey":"test|energy can","brand":"Test Brand","category":"Drinks","subcategory":"Energy","description":"Single can fixture","size":"500ml","flavour":"Original","supplierSku":"AS-UNIT-001","barcode":"5000000000001","packQuantity":1,"memberOrderableUnit":"each","availabilityStatus":"available","availabilityCheckedAt":"2026-10-10T11:00:00Z","tradeCostExVatMinor":110,"suppliedVatRate":0.2,"sourceUrl":"https://supplier.example.test/energy","parentImageUrl":"https://images.example.test/energy-parent.jpg","variantImageUrl":"https://images.example.test/energy-unit.jpg","notes":"unit fixture","discontinued":false},
+  {"name":"Energy Can","parentKey":"test|energy can","brand":"Test Brand","category":"Drinks","subcategory":"Energy","description":"Single can fixture","size":"500ml","flavour":"Original","supplierSku":"AS-UNIT-001","barcode":"5000000000001","packQuantity":1,"memberOrderableUnit":"each","availabilityStatus":"available","availabilityCheckedAt":"2026-10-10T11:00:00Z","tradeCostExVatMinor":110,"suppliedVatRate":0.2,"sourceUrl":"https://supplier.example.test/energy","parentImageUrl":"https://images.example.test/energy-parent-updated.jpg","notes":"unit fixture","discontinued":false},
   {"name":"Whey Protein","parentKey":"test|whey protein","brand":"Test Brand","category":"Supplements","subcategory":"Protein","description":"Case fixture","size":"12 x 60g","flavour":"Chocolate","supplierSku":"AS-CASE-CHOC","barcode":"5000000000002","packQuantity":12,"memberOrderableUnit":"case","availabilityStatus":"available","availabilityCheckedAt":"2026-10-10T11:00:00Z","tradeCostExVatMinor":2100,"suppliedVatRate":0.2,"sourceUrl":"https://supplier.example.test/whey","parentImageUrl":"https://images.example.test/whey-parent.jpg","variantImageUrl":"https://images.example.test/whey-choc.jpg","notes":"case fixture","discontinued":false},
   {"name":"Whey Protein","parentKey":"test|whey protein","brand":"Test Brand","category":"Supplements","subcategory":"Protein","description":"Case fixture","size":"12 x 60g","flavour":"Vanilla","supplierSku":"AS-CASE-VAN","barcode":"5000000000003","packQuantity":12,"memberOrderableUnit":"case","availabilityStatus":"unavailable","availabilityCheckedAt":"2026-10-10T11:00:00Z","tradeCostExVatMinor":2100,"suppliedVatRate":0.2,"sourceUrl":"https://supplier.example.test/whey","parentImageUrl":"https://images.example.test/whey-parent.jpg","variantImageUrl":"https://images.example.test/whey-vanilla.jpg","notes":"out-of-stock sibling","discontinued":false}
  ]'::jsonb,false
@@ -304,6 +341,10 @@ begin
    or (select variant_image_url from public.club_supplier_products where organisation_id=o and supplier_sku='AS-CASE-CHOC')<>'https://images.example.test/whey-choc.jpg'
    or (select source_url from public.club_supplier_products where organisation_id=o and supplier_sku='AS-CASE-CHOC')<>'https://supplier.example.test/whey' then
    raise exception 'Repeat import failed to refresh supplier fields or preserve pack and media data';
+ end if;
+ if (select media->>'url' from public.club_commerce_products where id=(select club_product_id from public.club_supplier_products where organisation_id=o and supplier_sku='AS-UNIT-001') and organisation_id=o)<>'https://images.example.test/energy-parent-updated.jpg'
+   or (select media->>'url' from public.club_commerce_products where id=(select club_product_id from public.club_supplier_products where organisation_id=o and supplier_sku='AS-CASE-CHOC') and organisation_id=o)<>'https://images.example.test/whey-choc.jpg' then
+   raise exception 'Repeat import/link did not refresh parent imagery while preserving variant-image precedence';
  end if;
  if exists(select 1 from public.club_stock_movements where organisation_id=o and product_id=snapshot.canonical_product_id)
    or (select count(*) from public.club_stock_movements where organisation_id=o and product_id=snapshot.local_product_id)<>1 then

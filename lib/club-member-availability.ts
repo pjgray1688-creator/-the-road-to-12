@@ -1,4 +1,4 @@
-import type { ClubCommerceProduct } from "./club-commerce";
+import { isProductOnChannel, type ClubCommerceProduct } from "./club-commerce";
 
 export type MemberAvailabilityState = "IN_GYM" | "OTHER_GYM" | "SUPPLIER_ORDER" | "UNAVAILABLE";
 
@@ -17,4 +17,11 @@ export function memberAvailabilityLabel(state: MemberAvailabilityState): string 
 
 export function supplierOrderable(product: ClubCommerceProduct): boolean {
   return product.supplierAvailabilityStatus === "available" && product.supplierMemberOrderable !== false;
+}
+
+/** Reception may sell local stock, an available supplier-order unit, or a
+ * service, but only when the product is explicitly on the POS channel. */
+export function isReceptionProductEligible(product: ClubCommerceProduct): boolean {
+  return isProductOnChannel(product, "pos") &&
+    (product.stockTracked || product.isServiceProduct === true || supplierOrderable(product));
 }
