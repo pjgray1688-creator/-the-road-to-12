@@ -181,6 +181,10 @@ test('PostgreSQL 16 CI applies the repair and exercises the UI importer and comm
     assert.match(postgresImportTest, /Repeat linker created duplicate canonical commerce products/);
     assert.match(postgresImportTest, /club_set_supplier_variant_retail_price/);
     assert.doesNotMatch(postgresImportTest, /club_save_pos_product/);
+    assert.match(postgresImportTest, /model the same approved supplier setting explicitly[\s\S]*set member_orderable=true[\s\S]*active and member_orderable/i);
+    assert.match(postgresImportTest, /Member catalogue fixture auth\.uid\(\)[\s\S]*active organisation member[\s\S]*active, sellable, available/i);
+    assert.match(postgresImportTest, /club_list_member_supplier_catalogue\('10000000-0000-4000-8000-000000000002',null\)/);
+    assert.match(postgresImportTest, /Member catalogue RPC lost the parent-only image or variant identity/);
     assert.match(postgresImportTest, /insert into public\.club_commerce_products\(id,organisation_id,sku,name,brand,category,active,stock_tracked,sell_price_minor,currency,supplier_reference\)[\s\S]*LOCAL-WHEY-001/);
     assert.match(postgresImportTest, /set_config\('r12\.active_sports_fixture_local_product_id'[\s\S]*from public\.club_commerce_products/);
     assert.match(postgresImportTest, /public\.club_adjust_inventory\(\s*p_organisation_id\s*=>[\s\S]*p_idempotency_key\s*=>\s*'active-sports-ci-stock-11'::text/i);

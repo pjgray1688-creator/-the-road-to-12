@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { ACTIVE_SPORTS_HEADERS, prepareActiveSportsImport, supplierPricing, parseActiveSportsCommercialFields, durableSupplierRowsToProducts, supplierCatalogueOffersToDurableRows, buildClubShopProductUniverse, activeSportsCoverage, supplierVariantOrderable, activeSportsIdentity, type DurableSupplierParentRow } from "../lib/club-supplier-catalogue";
+import { ACTIVE_SPORTS_HEADERS, prepareActiveSportsImport, supplierPricing, parseActiveSportsCommercialFields, durableSupplierRowsToProducts, supplierCatalogueOffersToDurableRows, supplierRowsToDurableRows, buildClubShopProductUniverse, activeSportsCoverage, supplierVariantOrderable, activeSportsIdentity, type DurableSupplierParentRow } from "../lib/club-supplier-catalogue";
 import { resolveMemberProductAvailability, supplierOrderable } from "../lib/club-member-availability";
 import { paginateCards } from "../lib/club-pagination";
 import { groupProductFamilies, memberVariantChoices } from "../lib/club-product-families";
@@ -656,8 +656,12 @@ test("Active Sports Monster Energy cases are excluded without affecting local or
 });
 
 test("supplier parent imagery becomes commerce media with variant override", () => {
-  const parent: DurableSupplierParentRow = { parentKey: "p", supplierId: "active", supplierName: "Active Sports", memberOrderable: true, name: "Product", imageReference: "https://img.test/parent.jpg", variants: [{ id: "v", supplierId: "active", parentKey: "p", stockStatus: "available", retailPriceMinor: 1000 }] };
-  assert.equal(durableSupplierRowsToProducts([parent], "org")[0].media?.url, "https://img.test/parent.jpg");
+  const rpcRows = supplierRowsToDurableRows([{ parentKey: "p", supplierId: "active", supplierName: "Active Sports", memberOrderable: true, name: "Product", imageReference: "https://img.test/parent.jpg", variants: [{ id: "v", supplierId: "active", parentKey: "p", supplierSku: "AS-PARENT-ONLY", stockStatus: "available", retailPriceMinor: 1000, imageReference: null }] }]);
+  const parentFallback = durableSupplierRowsToProducts(rpcRows, "org")[0];
+  assert.equal(parentFallback.sku, "AS-PARENT-ONLY");
+  assert.equal(parentFallback.media?.url, "https://img.test/parent.jpg");
+  const variantRows = supplierRowsToDurableRows([{ ...rpcRows[0], variants: [{ ...rpcRows[0].variants[0], id: "variant-image", supplierSku: "AS-VARIANT", imageReference: "https://img.test/variant.jpg" }] }]);
+  assert.equal(durableSupplierRowsToProducts(variantRows, "org")[0].media?.url, "https://img.test/variant.jpg");
 });
 
 test("family tiles select an image-bearing sibling and preserve local GSN imagery", async () => {

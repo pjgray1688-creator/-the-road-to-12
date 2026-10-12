@@ -80,7 +80,52 @@ begin
  end if;
 end $$;
 
--- Parent-only and variant-specific image projection through the member RPC.
+-- The real Madhouse-only migration marks its Active Sports supplier
+-- member-orderable. This disposable organisation is deliberately outside that
+-- production trigger, so model the same approved supplier setting explicitly.
+update public.club_suppliers
+set member_orderable=true
+where id='10000000-0000-4000-8000-000000000004'
+  and organisation_id='10000000-0000-4000-8000-000000000002'
+  and lower(btrim(name))='active sports';
+
+do $$
+begin
+ if auth.uid() is distinct from '10000000-0000-4000-8000-000000000001'::uuid then
+   raise exception 'Member catalogue fixture auth.uid() is not the expected owner';
+ end if;
+ if not exists(select 1 from public.club_members
+   where organisation_id='10000000-0000-4000-8000-000000000002'
+     and user_id=auth.uid() and active) then
+   raise exception 'Member catalogue fixture user is not an active organisation member';
+ end if;
+ if not exists(select 1 from public.club_suppliers
+   where id='10000000-0000-4000-8000-000000000004'
+     and organisation_id='10000000-0000-4000-8000-000000000002'
+     and active and member_orderable) then
+   raise exception 'Fixture Active Sports supplier is not active and member-orderable';
+ end if;
+ if not exists(select 1 from public.club_supplier_parent_products
+   where organisation_id='10000000-0000-4000-8000-000000000002'
+     and supplier_id='10000000-0000-4000-8000-000000000004'
+     and parent_key='test|energy can' and active and archived_at is null
+     and parent_image_url='https://images.example.test/energy-parent.jpg') then
+   raise exception 'Parent-only image fixture parent is inactive, archived, or missing its image';
+ end if;
+ if not exists(select 1 from public.club_supplier_products sp
+   join public.club_commerce_products cp on cp.id=sp.club_product_id and cp.organisation_id=sp.organisation_id
+   where sp.organisation_id='10000000-0000-4000-8000-000000000002'
+     and sp.supplier_id='10000000-0000-4000-8000-000000000004'
+     and sp.supplier_sku='AS-UNIT-001' and sp.active and not sp.discontinued
+     and sp.sellable and sp.availability_status='available'
+     and sp.variant_image_url is null
+     and cp.media->>'url'='https://images.example.test/energy-parent.jpg') then
+   raise exception 'Parent-only image fixture variant is not active, sellable, available, and canonically linked';
+ end if;
+end $$;
+
+-- Parent-only and variant-specific image projection through the authenticated
+-- member RPC, with the same role and member-orderability gates as production.
 set local role authenticated;
 select set_config('r12.active_sports_member_catalogue_images',
   (select public.club_list_member_supplier_catalogue('10000000-0000-4000-8000-000000000002',null)::text),true);
