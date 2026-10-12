@@ -75,6 +75,21 @@ begin
       limit 1;
 
       if found then
+        -- Supplier pricing triggers own generated retail calculation and
+        -- propagation. Refresh the supplier row so its existing commercial
+        -- sync triggers can update the linked product without turning the
+        -- generated price into a manual price through the canonical guard.
+        -- Manual prices are authoritative on the supplier row and must not be
+        -- rewritten or routed through this generated-price path.
+        if not sp.manual_price
+          and sp.import_identity is not null
+          and sp.trade_cost_ex_vat_minor is not null
+          and sp.supplied_vat_rate is not null then
+          update public.club_supplier_products
+          set updated_at=now()
+          where id=sp.id and organisation_id=p_organisation_id;
+        end if;
+
         -- Keep all non-price synchronization independent of the protected
         -- canonical price column. In particular, this UPDATE must not name
         -- sell_price_minor when a manager has enabled manual supplier pricing.
@@ -87,12 +102,6 @@ begin
             active=not sp.discontinued,
             updated_at=now()
         where id=cp.id;
-
-        if not sp.manual_price then
-          update public.club_commerce_products
-          set sell_price_minor=v_price
-          where id=cp.id and sell_price_minor is distinct from v_price;
-        end if;
         v_updated:=v_updated+1;
       else
         insert into public.club_commerce_products(

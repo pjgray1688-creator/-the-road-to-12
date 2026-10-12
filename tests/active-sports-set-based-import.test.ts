@@ -85,9 +85,10 @@ test('forward importer fix keeps the update target out of JOIN ON scope', () => 
 
 test('commerce linker avoids guarded price writes for manual prices and still syncs generated prices', () => {
     assert.match(manualPriceLinkFix, /update public\.club_commerce_products[\s\S]*?set family_id=f\.id[\s\S]*?updated_at=now\(\)\s+where id=cp\.id;/i);
-    assert.match(manualPriceLinkFix, /if not sp\.manual_price then\s+update public\.club_commerce_products\s+set sell_price_minor=v_price/i);
-    assert.doesNotMatch(manualPriceLinkFix, /sell_price_minor\s*=\s*case\s+when not sp\.manual_price/i);
+    assert.match(manualPriceLinkFix, /if not sp\.manual_price[\s\S]*?update public\.club_supplier_products\s+set updated_at=now\(\)/i);
+    assert.doesNotMatch(manualPriceLinkFix, /update public\.club_commerce_products[\s\S]*?set[^;]*sell_price_minor/i);
     assert.match(manualPriceLinkFix, /case when sp\.manual_price then sp\.retail_price_minor else v_price end/i);
+    assert.match(manualPriceLinkFix, /supplier row so its existing commercial[\s\S]*?sync triggers can update the linked product/i);
     assert.match(manualPriceLinkFix, /security definer\s+set search_path=pg_catalog,public/i);
     assert.match(manualPriceLinkFix, /revoke all on function public\.club_link_supplier_catalogue_to_commerce\(uuid,text\) from public,anon/i);
     assert.match(manualPriceLinkFix, /grant execute on function public\.club_link_supplier_catalogue_to_commerce\(uuid,text\) to authenticated/i);
