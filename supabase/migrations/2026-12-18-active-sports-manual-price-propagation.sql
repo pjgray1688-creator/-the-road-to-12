@@ -1,5 +1,5 @@
--- Propagate staff-approved supplier prices from their authoritative offer row
--- to the linked canonical sales unit through the existing guarded update path.
+-- Staff-approved supplier prices are stored on the authoritative offer row;
+-- the commercial-audit trigger performs their canonical propagation.
 create or replace function public.club_set_supplier_variant_retail_price(
   p_organisation_id uuid,
   p_supplier_product_id uuid,
@@ -36,8 +36,12 @@ begin
   end if;
 
   if o.manual_price and o.retail_price_minor=p_retail_price_minor then
-    -- An idempotent retry must still repair a stale linked canonical price.
+    -- Run the supplier-row trigger path on an idempotent retry too. The
+    -- commercial audit trigger is the sole canonical-price propagation path.
     v_unchanged:=true;
+    update public.club_supplier_products
+    set updated_at=clock_timestamp()
+    where id=o.id and organisation_id=p_organisation_id;
   else
     update public.club_supplier_variant_prices
     set active=false,effective_to=now()
@@ -61,15 +65,18 @@ begin
     ) then
       raise exception 'Linked supplier sales unit is not eligible for supplier pricing' using errcode='22023';
     end if;
-
-    -- The canonical guard remains enabled. It accepts this update only because
-    -- the supplier row above is already authoritative for this same price.
-    update public.club_commerce_products
-    set sell_price_minor=p_retail_price_minor,updated_at=now()
-    where id=o.club_product_id and organisation_id=p_organisation_id
-      and supplier_reference='supplier_product:'||o.id::text
-      and not stock_tracked and service_id is null
-      and sell_price_minor is distinct from p_retail_price_minor;
+    -- The supplier commercial-audit trigger propagates the authoritative
+    -- supplier price through the canonical guard. Do not write canonical
+    -- pricing independently from this RPC.
+    if not exists(
+      select 1 from public.club_commerce_products
+      where id=o.club_product_id and organisation_id=p_organisation_id
+        and supplier_reference='supplier_product:'||o.id::text
+        and not stock_tracked and service_id is null
+        and sell_price_minor=p_retail_price_minor
+    ) then
+      raise exception 'Supplier price could not be synchronized to its linked sales unit' using errcode='22023';
+    end if;
   end if;
 
   if v_unchanged then

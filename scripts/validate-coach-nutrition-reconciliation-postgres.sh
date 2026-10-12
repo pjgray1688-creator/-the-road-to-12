@@ -100,5 +100,6 @@ psql_db "$state_c" --file=supabase/migrations/2026-12-16-active-sports-import-up
 psql_db "$state_c" --file=supabase/migrations/2026-12-17-active-sports-link-manual-price-fix.sql
 psql_db "$state_c" --file=supabase/migrations/2026-12-18-active-sports-manual-price-propagation.sql
 psql_db "$state_c" --file=supabase/migrations/2026-12-19-supplier-authoritative-canonical-price-guard.sql
+psql_db "$state_c" --file=supabase/migrations/2026-12-20-active-sports-generated-price-propagation.sql
 psql_db "$state_c" --file=tests/sql/active-sports-import-v2.sql
 echo "ACTIVE SPORTS IMPORT RPC PASSED"

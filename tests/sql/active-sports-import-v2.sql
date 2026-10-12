@@ -69,6 +69,15 @@ begin
  ) then
    raise exception 'Initial supplier sales-unit eligibility mismatch (expected same-org exact link, non-stock, non-service, cost 2000, retail 3500)';
  end if;
+ if not exists(
+   select 1 from public.club_supplier_products sp
+   join public.club_commerce_products cp on cp.id=sp.club_product_id and cp.organisation_id=sp.organisation_id
+   where sp.organisation_id=o and sp.supplier_sku='AS-CASE-VAN'
+     and sp.retail_price_minor=3500 and sp.manual_price=false
+     and cp.sell_price_minor=3500 and cp.cost_price_minor=2000
+ ) then
+   raise exception 'Initial generated supplier/canonical price expected 3500 with populated cost and manual_price=false';
+ end if;
 end $$;
 
 -- Establish the approved supplier retail price through the same capability-checked
@@ -198,6 +207,30 @@ select public.club_import_supplier_catalogue_v2(
   {"name":"Whey Protein","parentKey":"test|whey protein","brand":"Test Brand","category":"Supplements","subcategory":"Protein","description":"Case fixture","size":"12 x 60g","flavour":"Vanilla","supplierSku":"AS-CASE-VAN","barcode":"5000000000003","packQuantity":12,"memberOrderableUnit":"case","availabilityStatus":"unavailable","availabilityCheckedAt":"2026-10-10T11:00:00Z","tradeCostExVatMinor":2100,"suppliedVatRate":0.2,"sourceUrl":"https://supplier.example.test/whey","parentImageUrl":"https://images.example.test/whey-parent.jpg","variantImageUrl":"https://images.example.test/whey-vanilla.jpg","notes":"out-of-stock sibling","discontinued":false}
  ]'::jsonb,false
 );
+reset role;
+
+-- Repricing is expected to reach the existing canonical row from the supplier
+-- commercial trigger as part of import, before the linker runs again.
+do $$
+declare o uuid:='10000000-0000-4000-8000-000000000002'; supplier_price integer; is_manual boolean; canonical_price integer;
+begin
+ select sp.retail_price_minor,sp.manual_price,cp.sell_price_minor
+ into supplier_price,is_manual,canonical_price
+ from public.club_supplier_products sp
+ join public.club_commerce_products cp on cp.id=sp.club_product_id and cp.organisation_id=sp.organisation_id
+ where sp.organisation_id=o and sp.supplier_sku='AS-CASE-VAN';
+ if supplier_price is distinct from 3600 then
+   raise exception 'Generated supplier retail after repeat import expected 3600; observed %',supplier_price;
+ end if;
+ if is_manual is distinct from false then
+   raise exception 'Generated supplier manual flag after repeat import expected false; observed %',is_manual;
+ end if;
+ if canonical_price is distinct from 3600 then
+   raise exception 'Generated canonical price immediately after repeat import expected 3600; observed %',canonical_price;
+ end if;
+end $$;
+
+set local role authenticated;
 select public.club_link_supplier_catalogue_to_commerce('10000000-0000-4000-8000-000000000002','Active Sports');
 reset role;
 
@@ -257,6 +290,9 @@ begin
  end if;
  if canonical_price is distinct from 3600 then
    raise exception 'Non-manual canonical price expected 3600; observed %',canonical_price;
+ end if;
+ if (select cost_price_minor from public.club_commerce_products where id=(select club_product_id from public.club_supplier_products where organisation_id=o and supplier_sku='AS-CASE-VAN') and organisation_id=o) is distinct from 2000 then
+   raise exception 'Generated-price propagation changed canonical supplier cost';
  end if;
  if (select count(*) from public.club_commerce_products
      where organisation_id=o and supplier_reference like 'supplier_product:%')<>3 then
