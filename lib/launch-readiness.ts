@@ -41,7 +41,7 @@ export function launchReadiness(env: NodeJS.ProcessEnv = process.env): Readiness
     eitherPresence("billingWorker", "Billing worker bearer secret", [env.R12_BILLING_WORKER_SECRET, env.CRON_SECRET]),
     eitherPresence("notificationWorker", "Notification worker bearer secret", [env.R12_NOTIFICATION_WORKER_SECRET, env.CRON_SECRET]),
     presence("vercelCronSecret", "Vercel Cron authentication secret", env.CRON_SECRET),
-    { key: "workerSchedules", label: "Scheduled worker configuration", state: "external_verification_required", detail: "vercel.json declares hourly membership billing and five-minute queued supplier imports; verify the deployed Vercel project and plan. Notification delivery is intentionally unscheduled until a real SMTP adapter is available." },
+    { key: "workerSchedules", label: "Scheduled worker configuration", state: "external_verification_required", detail: "vercel.json schedules membership billing daily at 06:00 UTC. Queued supplier imports are not automatically polled; verify the deployed Vercel Cron configuration. Notification delivery is intentionally unscheduled until a real SMTP adapter is available." },
     ...smtp.checks,
     { key: "emailProvider", label: "SMTP delivery adapter", state: "adapter_unavailable", detail: "SMTP transport is not installed in this repository state; configuration alone cannot deliver mail." },
   ];

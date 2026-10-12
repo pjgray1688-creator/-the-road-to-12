@@ -6,7 +6,7 @@ Use this as the Vercel/provider-dashboard checklist. Never put secret values in 
 
 - Stripe Checkout/webhook and GoCardless redirect/webhook/collection-worker paths are implemented with signed webhook validation and idempotent domain processing.
 - The notification outbox uses the live stale-claim recovery, ten-minute leases, bounded three-attempt recovery, and concurrent-safe database claims.
-- Billing and explicitly queued supplier imports are declared in `vercel.json`. Deployment activation and schedule support still require Vercel verification.
+- Membership billing is scheduled daily at 06:00 UTC in `vercel.json`, compatible with Vercel Hobby. Explicitly queued supplier-import jobs retain a protected worker endpoint but are not automatically polled; the current Active Sports upload runs synchronously. Deployment activation still requires Vercel verification.
 - Application transactional SMTP is not code-complete: no real transport adapter is installed. The notification endpoint fails closed without claiming work, and no notification cron is declared.
 
 ## External setup required
@@ -35,15 +35,15 @@ In this checkout the Nodemailer package could not be installed because npm regis
 
 ## Worker operations
 
-`vercel.json` schedules active queue workers. Vercel adds `Authorization: Bearer $CRON_SECRET` to cron requests.
+`vercel.json` schedules membership billing once daily. Vercel adds `Authorization: Bearer $CRON_SECRET` to cron requests. The supplier-import worker remains available for trusted manual invocation, but no Vercel Cron polls that queue on Hobby.
 
 | Worker | Route | Auth env var | Schedule | Purpose | External dependency |
 | --- | --- | --- | --- | --- | --- |
-| Membership billing collections | `GET /api/internal/membership-billing-worker` | `CRON_SECRET` (dedicated secret accepted for manual calls) | Hourly, `0 * * * *` | Claims due GoCardless obligations and creates/reconciles collections idempotently | GoCardless live credentials and applied recurring-collections migration |
-| Queued supplier imports | `GET /api/internal/supplier-import-worker` | `CRON_SECRET` | Every 5 minutes, `*/5 * * * *` | Claims explicitly queued supplier-import jobs; direct Active Sports sync is separate | Applied supplier-import worker migrations; only queued work invokes supplier processing |
+| Membership billing collections | `GET /api/internal/membership-billing-worker` | `CRON_SECRET` (dedicated secret accepted for manual calls) | Daily at 06:00 UTC, `0 6 * * *` | Claims due GoCardless obligations and creates/reconciles collections idempotently | GoCardless live credentials and applied recurring-collections migration |
+| Queued supplier imports | `GET /api/internal/supplier-import-worker` | `CRON_SECRET` | No automatic schedule; trusted manual call only | Claims explicitly queued supplier-import jobs; direct Active Sports sync is separate and synchronous | Applied supplier-import worker migrations; queued work waits until this endpoint is invoked |
 | Notification delivery | `GET /api/internal/notification-worker` | `CRON_SECRET` (dedicated secret accepted for manual calls) | Not scheduled yet | Materialises due notification intents and delivers the existing outbox | A real application SMTP adapter and SMTP provider configuration are not available |
 
-The hourly and five-minute cadences require a Vercel plan supporting those frequencies (Pro or Enterprise; Hobby supports daily cron only). Confirm the deployed plan and Cron dashboard after deployment. Notification delivery intentionally remains unscheduled: while no transport exists, the endpoint returns 503 before generating or claiming intents.
+The billing cadence is daily because Vercel Hobby supports daily cron only. A due monthly collection can therefore wait up to about 24 hours for the next worker run. Supplier imports currently do not need continuous polling: the active Active Sports workflow imports synchronously, and no application caller enqueues generic supplier jobs. If queued supplier jobs are introduced, invoke the retained protected worker from an approved scheduler or trusted operator; they will not run automatically in this configuration. Notification delivery intentionally remains unscheduled: while no transport exists, the endpoint returns 503 before generating or claiming intents. A faster billing or supplier-job cadence requires a scheduler that supports it.
 
 Workers are safe to invoke repeatedly: billing uses durable claims and stable provider idempotency keys; supplier imports use the database claim RPC with `FOR UPDATE SKIP LOCKED`; notifications use the durable outbox and lease claims. Investigate failed responses using protected server logs and durable job/outbox state, not raw provider errors in responses.
 
@@ -67,7 +67,7 @@ Configure GoCardless webhook events for mandate and payment lifecycle changes us
 1. Configure production Vercel variables, including the canonical app URL and explicit GoCardless live mode; redeploy through the normal release workflow.
 2. Create/verify Stripe live webhook endpoint and selected events; store its signing secret in Vercel. Confirm Stripe is using the intended live account.
 3. Create/verify the GoCardless live access token and live webhook endpoint; store both secrets and explicitly set `GOCARDLESS_ENVIRONMENT=live`.
-4. Verify the deployed Vercel project is Pro/Enterprise, `CRON_SECRET` is configured, and the declared cron jobs appear in the Vercel dashboard. Verify worker responses/logs without triggering real collection runs outside the approved operational test plan.
+4. Verify `CRON_SECRET` is configured and the daily membership billing cron appears in the Vercel dashboard. Verify worker responses/logs without triggering real collection runs outside the approved operational test plan. Confirm whether the daily collection delay is acceptable; use a more frequent external scheduler if not. Queued supplier imports require a trusted manual/scheduler invocation until automatic polling is deliberately configured.
 5. Configure Supabase Auth SMTP separately with the approved sender/domain setup. Transactional application email remains unavailable until a real adapter is selected and implemented.
 6. Open Club → More → Launch readiness as an authorised owner/admin. It reports configuration presence/format, repository-declared cron schedules, and adapter availability, never secret values. It cannot verify a deployed cron is active, provider connectivity, sender-domain authentication, or provider-dashboard setup.
 

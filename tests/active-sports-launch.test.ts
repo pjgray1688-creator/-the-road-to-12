@@ -470,7 +470,7 @@ test("offline CLI validates the actual CSV contract and returns a failing status
   } finally { rmSync(directory, { recursive: true, force: true }); }
 });
 
-test("supplier import queue has an automatic scheduled worker boundary", async () => {
+test("supplier import queue retains a protected worker for explicitly queued jobs", async () => {
   const { readFileSync } = await import("node:fs");
   const migration = readFileSync("supabase/migrations/2026-10-24-supplier-import-worker-trigger.sql", "utf8");
   const route = readFileSync("app/api/internal/supplier-import-worker/route.ts", "utf8");
@@ -479,6 +479,7 @@ test("supplier import queue has an automatic scheduled worker boundary", async (
   assert.match(migration, /for update skip locked/i);
   assert.match(route, /runQueuedSupplierImportWorker/);
   assert.match(route, /verifyInternalWorkerAuth/);
+  assert.match(route, /process\.env\.CRON_SECRET/);
   assert.match(worker, /club_run_supplier_import_job/);
 });
 

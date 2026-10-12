@@ -14,7 +14,7 @@ All of these values are server-only. The worker fails before claiming work when 
 
 ## Scheduler
 
-Invoke `GET /api/internal/membership-billing-worker` with `Authorization: Bearer <R12_BILLING_WORKER_SECRET>` once per hour. An hourly schedule such as `0 * * * *` is intentionally more frequent than the monthly obligations; the database claim and the stable GoCardless idempotency key make repeated runs safe. Configure this in Vercel only after the migration and secrets have been reviewed and applied. No schedule is added by this repository change.
+Invoke `GET /api/internal/membership-billing-worker` with `Authorization: Bearer <R12_BILLING_WORKER_SECRET>`. The repository schedules it daily at 06:00 UTC (`0 6 * * *`) to remain compatible with Vercel Hobby. Because obligations are monthly, daily polling preserves the due-collection and idempotency rules, but a newly due collection can wait until the next run (up to about 24 hours). If the operating policy requires faster collection initiation, use a scheduler with a more frequent cadence before launch; do not change the billing rules to compensate. Configure the schedule only after the migration and secrets have been reviewed and applied.
 
 The route processes at most 25 due obligations per invocation. One rejected member collection does not stop the remainder of the batch. Ambiguous network/provider failures retain the claim for 15 minutes, then resume with the same logical obligation and provider idempotency key.
 
