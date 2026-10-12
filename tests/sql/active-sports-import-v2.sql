@@ -78,14 +78,39 @@ do $$
 declare o uuid:='10000000-0000-4000-8000-000000000002'; local_product uuid; saved jsonb;
 begin
  saved:=public.club_save_pos_product(
-   null,o,'LOCAL-WHEY-001',null,'Local Whey Case Shelf Stock','Test Brand',null,
-   'Supplements',true,true,7777,null,'GBP',null,null,'{}'::jsonb,
-   array['pos']::text[],'case',null,null,false,null,null
+   p_id => null::uuid,
+   p_organisation_id => o,
+   p_sku => 'LOCAL-WHEY-001'::text,
+   p_barcode => null::text,
+   p_name => 'Local Whey Case Shelf Stock'::text,
+   p_brand => 'Test Brand'::text,
+   p_description => null::text,
+   p_category => 'Supplements'::text,
+   p_active => true,
+   p_stock_tracked => true,
+   p_sell_price_minor => 7777,
+   p_cost_price_minor => null::integer,
+   p_currency => 'GBP'::text,
+   p_tax_code => null::text,
+   p_supplier_reference => null::text,
+   p_media => '{}'::jsonb,
+   p_sales_channels => array['pos']::text[],
+   p_unit_label => 'case'::text,
+   p_source_product_id => null::uuid,
+   p_units_per_source => null::integer,
+   p_service_product => false,
+   p_service_credit_quantity => null::integer,
+   p_service_validity_days => null::integer
  );
  local_product:=(saved->>'id')::uuid;
  perform public.club_adjust_inventory(
-   o,'10000000-0000-4000-8000-000000000003',local_product,
-   'delivery',11,'CI opening stock fixture','active-sports-ci-stock-11'
+   p_organisation_id => o,
+   p_location_id => '10000000-0000-4000-8000-000000000003'::uuid,
+   p_product_id => local_product,
+   p_movement_type => 'delivery'::text,
+   p_quantity_delta => 11,
+   p_reason => 'CI opening stock fixture'::text,
+   p_idempotency_key => 'active-sports-ci-stock-11'::text
  );
 end $$;
 reset role;

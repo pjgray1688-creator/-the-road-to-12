@@ -93,6 +93,8 @@ fi
 psql_db "$state_c" --file=tests/sql/nutrition-reconciliation-catalog.sql
 echo "STATE C AND RERUN PASSED; all nine Nutrition-table fingerprints are unchanged"
 
+echo "ACTIVE SPORTS — apply the existing POS product/inventory RPC migration required by the fixture"
+psql_db "$state_c" --file=supabase/migrations/2026-12-07-club-pos-sellable-units-and-pt-packages.sql
 echo "ACTIVE SPORTS — apply forward importer fix and exercise the real import/link path"
 psql_db "$state_c" --file=supabase/migrations/2026-12-16-active-sports-import-update-scope-fix.sql
 psql_db "$state_c" --file=tests/sql/active-sports-import-v2.sql

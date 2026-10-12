@@ -80,6 +80,7 @@ test('forward importer fix keeps the update target out of JOIN ON scope', () => 
 });
 
 test('PostgreSQL 16 CI applies the repair and exercises the UI importer and commerce linker', () => {
+    assert.match(postgresHarness, /2026-12-07-club-pos-sellable-units-and-pt-packages\.sql[\s\S]*2026-12-16-active-sports-import-update-scope-fix\.sql[\s\S]*tests\/sql\/active-sports-import-v2\.sql/);
     assert.match(postgresHarness, /2026-12-16-active-sports-import-update-scope-fix\.sql[\s\S]*tests\/sql\/active-sports-import-v2\.sql/);
     assert.match(postgresWorkflow, /image: postgres:16/);
     assert.match(deploymentManifest, /2026-12-15-coach-nutrition-reconciliation\.sql\s+supabase\/migrations\/2026-12-16-active-sports-import-update-scope-fix\.sql/);
@@ -90,8 +91,8 @@ test('PostgreSQL 16 CI applies the repair and exercises the UI importer and comm
     }
     assert.match(postgresImportTest, /updated_count=3/);
     assert.match(postgresImportTest, /club_set_supplier_variant_retail_price/);
-    assert.match(postgresImportTest, /club_save_pos_product/);
-    assert.match(postgresImportTest, /club_adjust_inventory/);
+    assert.match(postgresImportTest, /saved:=public\.club_save_pos_product\(\s*p_id\s*=>\s*null::uuid[\s\S]*p_service_validity_days\s*=>\s*null::integer/i);
+    assert.match(postgresImportTest, /public\.club_adjust_inventory\(\s*p_organisation_id\s*=>[\s\S]*p_idempotency_key\s*=>\s*'active-sports-ci-stock-11'::text/i);
     assert.doesNotMatch(postgresImportTest, /update public\.club_commerce_products set sell_price_minor|update public\.club_commerce_products set stock_tracked/i);
     assert.match(postgresImportTest, /active_sports_import_preservation_snapshot/);
     assert.match(postgresImportTest, /local_on_hand/);
