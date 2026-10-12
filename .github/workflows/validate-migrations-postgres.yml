@@ -6,13 +6,21 @@ on:
     paths:
       - 'supabase/migrations/**'
       - 'supabase/config.toml'
+      - 'supabase/deployment/**'
       - 'package.json'
+      - 'scripts/validate-coach-nutrition-reconciliation-postgres.sh'
+      - 'tests/coach-nutrition.test.ts'
+      - 'tests/sql/nutrition-reconciliation-*.sql'
       - '.github/workflows/validate-migrations-postgres.yml'
   pull_request:
     paths:
       - 'supabase/migrations/**'
       - 'supabase/config.toml'
+      - 'supabase/deployment/**'
       - 'package.json'
+      - 'scripts/validate-coach-nutrition-reconciliation-postgres.sh'
+      - 'tests/coach-nutrition.test.ts'
+      - 'tests/sql/nutrition-reconciliation-*.sql'
       - '.github/workflows/validate-migrations-postgres.yml'
 
 jobs:
@@ -55,9 +63,29 @@ jobs:
             if not exists (select 1 from pg_roles where rolname='service_role') then create role service_role nologin; end if;
           end $$;
           create table auth.users (id uuid primary key);
-          alter table auth.users add column email text;
-          create function auth.uid() returns uuid language sql stable as $$ select null::uuid $$;
-          create function auth.jwt() returns jsonb language sql stable as $$ select '{}'::jsonb $$;
+          alter table auth.users add column email text, add column email_confirmed_at timestamptz;
+          grant usage on schema auth to anon,authenticated,service_role;
+          create function auth.uid() returns uuid language sql stable as $$
+            select coalesce(
+              nullif(current_setting('request.jwt.claim.sub',true),''),
+              nullif(current_setting('request.jwt.claims',true),'')::jsonb->>'sub'
+            )::uuid
+          $$;
+          create function auth.jwt() returns jsonb language sql stable as $$
+            select coalesce(nullif(current_setting('request.jwt.claims',true),'')::jsonb,'{}'::jsonb)
+          $$;
+          grant execute on function auth.uid(),auth.jwt() to anon,authenticated,service_role;
+          -- Supabase hosts this legacy profile projection outside the tracked Club
+          -- migration chain. Keep only columns exercised by Coach/Nutrition CI.
+          create table public.profiles (
+            id uuid primary key references auth.users(id) on delete cascade,
+            first_name text,
+            last_name text,
+            display_name text,
+            email text,
+            timezone text,
+            generated_programme jsonb not null default '{}'::jsonb
+          );
           SQL
 
       - name: Apply dependency-complete R12 Club chain
@@ -96,12 +124,14 @@ jobs:
             supabase/migrations/2026-09-23-club-supplier-capabilities.sql
             supabase/migrations/2026-09-24-club-supplier-catalogue-operations.sql
             supabase/migrations/2026-09-25-club-madhouse-balance.sql
+            supabase/migrations/2026-09-26-coach-safe-workflow.sql
             supabase/migrations/2026-09-26-club-supplier-cycles.sql
             supabase/migrations/2026-09-27-club-payment-attempts-split-tender.sql
             supabase/migrations/2026-09-28-club-membership-billing-dunning.sql
             supabase/migrations/2026-09-29-club-shelf-removals-discounts.sql
             supabase/migrations/2026-09-30-club-member-import.sql
             supabase/migrations/2026-10-01-club-promotions-engine.sql
+            supabase/migrations/2026-10-02-club-member-joining.sql
             supabase/migrations/2026-10-04-club-stock-replenishment.sql
             supabase/migrations/2026-10-05-club-membership-cash-settlement.sql
           )
@@ -112,6 +142,34 @@ jobs:
               echo "PROMOTIONS_MIGRATION_EXECUTED_SUCCESSFULLY"
             fi
           done
+
+      - name: Reconcile to the deployed Madhouse final-state schema
+        run: |
+          set -euo pipefail
+          # The deployed path is the reviewed final-state bundle, not a replay
+          # of every historical RPC replacement. In particular, this bundle
+          # performs the exact-signature drop needed to change
+          # club_save_staff_permission from jsonb to void.
+          psql -v ON_ERROR_STOP=1 -f supabase/deployment/2026-11-22-madhouse-final-state-reconciliation.sql
+
+      - name: Apply migrations after the canonical final-state bundle
+        run: |
+          set -euo pipefail
+          migrations=(
+            # These incremental Coach migrations post-date the canonical
+            # 2026-11-22 deployed baseline and are not part of that bundle.
+            supabase/migrations/2026-11-23-coach-independent-client-relationships.sql
+            supabase/migrations/2026-11-24-coach-member-search-and-referrals.sql
+            supabase/migrations/2026-11-25-coach-cover-referral-fix.sql
+            supabase/migrations/2026-11-26-coach-invitation-email-polish.sql
+          )
+          for migration in "${migrations[@]}"; do
+            echo "Applying Nutrition prerequisite ${migration}"
+            psql -v ON_ERROR_STOP=1 -f "${migration}"
+          done
+
+      - name: Validate Nutrition reconciliation in all recovery states
+        run: bash scripts/validate-coach-nutrition-reconciliation-postgres.sh
 
       - name: Verify promotions catalogue objects
         run: |
