@@ -58,10 +58,17 @@ end $$;
 -- Establish the approved supplier retail price through the same capability-checked
 -- pricing RPC used by the supplier-catalogue action. Supplier-linked products stay
 -- supplier-orderable; local shelf stock is a separate POS product and ledger.
+select set_config(
+ 'r12.active_sports_fixture_variant_id',
+ (select id::text from public.club_supplier_products
+  where organisation_id='10000000-0000-4000-8000-000000000002'
+    and supplier_sku='AS-CASE-CHOC'),
+ true
+);
 set local role authenticated;
 select public.club_set_supplier_variant_retail_price(
  '10000000-0000-4000-8000-000000000002',
- (select id from public.club_supplier_products where organisation_id='10000000-0000-4000-8000-000000000002' and supplier_sku='AS-CASE-CHOC'),
+ current_setting('r12.active_sports_fixture_variant_id')::uuid,
  7777,true
 );
 

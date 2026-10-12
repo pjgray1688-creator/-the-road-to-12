@@ -95,5 +95,12 @@ test('PostgreSQL 16 CI applies the repair and exercises the UI importer and comm
     assert.doesNotMatch(postgresImportTest, /update public\.club_commerce_products set sell_price_minor|update public\.club_commerce_products set stock_tracked/i);
     assert.match(postgresImportTest, /active_sports_import_preservation_snapshot/);
     assert.match(postgresImportTest, /local_on_hand/);
+    assert.match(postgresImportTest, /set_config\([\s\S]*?r12\.active_sports_fixture_variant_id[\s\S]*?from public\.club_supplier_products[\s\S]*?set local role authenticated/i);
+    assert.match(postgresImportTest, /current_setting\('r12\.active_sports_fixture_variant_id'\)::uuid/);
+    const authenticatedSections = [...postgresImportTest.matchAll(/set local role authenticated;([\s\S]*?)reset role;/gi)];
+    assert.ok(authenticatedSections.length > 0);
+    for (const [, section] of authenticatedSections) {
+      assert.doesNotMatch(section, /\b(?:from|join|update|insert\s+into|delete\s+from)\s+public\.club_supplier_(?:products|parent_products|variant_prices|variant_costs|import_batches)/i);
+    }
     assert.match(postgresImportTest, /management-approved retail price/);
 });
