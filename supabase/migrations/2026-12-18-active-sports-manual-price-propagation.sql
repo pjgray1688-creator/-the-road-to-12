@@ -56,7 +56,8 @@ begin
     if not exists(
       select 1 from public.club_commerce_products
       where id=o.club_product_id and organisation_id=p_organisation_id
-        and not stock_tracked and cost_price_minor is null
+        and supplier_reference='supplier_product:'||o.id::text
+        and not stock_tracked and service_id is null
     ) then
       raise exception 'Linked supplier sales unit is not eligible for supplier pricing' using errcode='22023';
     end if;
@@ -66,7 +67,8 @@ begin
     update public.club_commerce_products
     set sell_price_minor=p_retail_price_minor,updated_at=now()
     where id=o.club_product_id and organisation_id=p_organisation_id
-      and not stock_tracked and cost_price_minor is null
+      and supplier_reference='supplier_product:'||o.id::text
+      and not stock_tracked and service_id is null
       and sell_price_minor is distinct from p_retail_price_minor;
   end if;
 

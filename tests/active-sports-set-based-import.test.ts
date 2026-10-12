@@ -19,6 +19,10 @@ const manualPricePropagationFix = fs.readFileSync(
   path.join(process.cwd(), 'supabase/migrations/2026-12-18-active-sports-manual-price-propagation.sql'),
   'utf8',
 );
+const supplierPriceGuardFix = fs.readFileSync(
+  path.join(process.cwd(), 'supabase/migrations/2026-12-19-supplier-authoritative-canonical-price-guard.sql'),
+  'utf8',
+);
 const postgresHarness = fs.readFileSync(
   path.join(process.cwd(), 'scripts/validate-coach-nutrition-reconciliation-postgres.sh'),
   'utf8',
@@ -104,17 +108,30 @@ test('approved supplier pricing propagates to the linked canonical product throu
     assert.match(manualPricePropagationFix, /club_capability_allowed\(p_organisation_id,auth\.uid\(\),'supplier\.catalogue_manage'\)/i);
     assert.match(manualPricePropagationFix, /select \* into o[\s\S]*organisation_id=p_organisation_id[\s\S]*for update/i);
     assert.match(manualPricePropagationFix, /update public\.club_supplier_products[\s\S]*retail_price_minor=p_retail_price_minor,manual_price=true/i);
-    assert.match(manualPricePropagationFix, /update public\.club_commerce_products[\s\S]*set sell_price_minor=p_retail_price_minor[\s\S]*organisation_id=p_organisation_id[\s\S]*and not stock_tracked and cost_price_minor is null/i);
+    assert.match(manualPricePropagationFix, /update public\.club_commerce_products[\s\S]*set sell_price_minor=p_retail_price_minor[\s\S]*organisation_id=p_organisation_id[\s\S]*supplier_reference='supplier_product:'\|\|o\.id::text[\s\S]*and not stock_tracked and service_id is null/i);
+    assert.doesNotMatch(manualPricePropagationFix, /cost_price_minor\s+is\s+null/i);
     assert.match(manualPricePropagationFix, /if o\.manual_price and o\.retail_price_minor=p_retail_price_minor then[\s\S]*v_unchanged:=true/i);
     assert.match(manualPricePropagationFix, /revoke all on function public\.club_set_supplier_variant_retail_price\(uuid,uuid,integer,boolean\) from public,anon/i);
     assert.match(manualPricePropagationFix, /grant execute on function public\.club_set_supplier_variant_retail_price\(uuid,uuid,integer,boolean\) to authenticated/i);
 });
 
+test('canonical price guard permits only exact supplier-authoritative prices and rejects mismatches', () => {
+    assert.match(supplierPriceGuardFix, /security definer\s+set search_path=pg_catalog,public/i);
+    assert.match(supplierPriceGuardFix, /organisation_id=new\.organisation_id[\s\S]*club_product_id=new\.id[\s\S]*new\.supplier_reference='supplier_product:'\|\|club_supplier_products\.id::text[\s\S]*for share/i);
+    assert.match(supplierPriceGuardFix, /new\.supplier_reference like 'supplier_product:%'[\s\S]*or exists\([\s\S]*organisation_id=new\.organisation_id and club_product_id=new\.id[\s\S]*raise exception/i);
+    assert.match(supplierPriceGuardFix, /new\.stock_tracked or new\.service_id is not null[\s\S]*raise exception/i);
+    assert.match(supplierPriceGuardFix, /new\.cost_price_minor is distinct from old\.cost_price_minor[\s\S]*raise exception/i);
+    assert.match(supplierPriceGuardFix, /offer\.retail_price_minor is not null[\s\S]*offer\.retail_price_minor=new\.sell_price_minor[\s\S]*return new/i);
+    assert.match(supplierPriceGuardFix, /if new\.cost_price_minor is not null then[\s\S]*raise exception 'Use the supplier pricing controls for this sales unit'/i);
+    assert.match(supplierPriceGuardFix, /revoke all on function public\.club_supplier_canonical_price_changed\(\) from public,anon,authenticated/i);
+    assert.doesNotMatch(supplierPriceGuardFix, /disable trigger|drop trigger|set_config|current_setting/i);
+});
+
 test('PostgreSQL 16 CI applies the repair and exercises the UI importer and commerce linker', () => {
-    assert.match(postgresHarness, /2026-12-07-club-pos-sellable-units-and-pt-packages\.sql[\s\S]*2026-12-16-active-sports-import-update-scope-fix\.sql[\s\S]*2026-12-17-active-sports-link-manual-price-fix\.sql[\s\S]*2026-12-18-active-sports-manual-price-propagation\.sql[\s\S]*tests\/sql\/active-sports-import-v2\.sql/);
-    assert.match(postgresHarness, /2026-12-16-active-sports-import-update-scope-fix\.sql[\s\S]*2026-12-17-active-sports-link-manual-price-fix\.sql[\s\S]*2026-12-18-active-sports-manual-price-propagation\.sql[\s\S]*tests\/sql\/active-sports-import-v2\.sql/);
+    assert.match(postgresHarness, /2026-12-07-club-pos-sellable-units-and-pt-packages\.sql[\s\S]*2026-12-16-active-sports-import-update-scope-fix\.sql[\s\S]*2026-12-17-active-sports-link-manual-price-fix\.sql[\s\S]*2026-12-18-active-sports-manual-price-propagation\.sql[\s\S]*2026-12-19-supplier-authoritative-canonical-price-guard\.sql[\s\S]*tests\/sql\/active-sports-import-v2\.sql/);
+    assert.match(postgresHarness, /2026-12-16-active-sports-import-update-scope-fix\.sql[\s\S]*2026-12-17-active-sports-link-manual-price-fix\.sql[\s\S]*2026-12-18-active-sports-manual-price-propagation\.sql[\s\S]*2026-12-19-supplier-authoritative-canonical-price-guard\.sql[\s\S]*tests\/sql\/active-sports-import-v2\.sql/);
     assert.match(postgresWorkflow, /image: postgres:16/);
-    assert.match(deploymentManifest, /2026-12-15-coach-nutrition-reconciliation\.sql\s+supabase\/migrations\/2026-12-16-active-sports-import-update-scope-fix\.sql\s+supabase\/migrations\/2026-12-17-active-sports-link-manual-price-fix\.sql\s+supabase\/migrations\/2026-12-18-active-sports-manual-price-propagation\.sql/);
+    assert.match(deploymentManifest, /2026-12-15-coach-nutrition-reconciliation\.sql\s+supabase\/migrations\/2026-12-16-active-sports-import-update-scope-fix\.sql\s+supabase\/migrations\/2026-12-17-active-sports-link-manual-price-fix\.sql\s+supabase\/migrations\/2026-12-18-active-sports-manual-price-propagation\.sql\s+supabase\/migrations\/2026-12-19-supplier-authoritative-canonical-price-guard\.sql/);
     assert.match(postgresImportTest, /club_import_supplier_catalogue_v2/);
     assert.match(postgresImportTest, /club_link_supplier_catalogue_to_commerce/);
     for (const contractField of ['name', 'parentKey', 'brand', 'category', 'subcategory', 'description', 'size', 'flavour', 'supplierSku', 'barcode', 'packQuantity', 'memberOrderableUnit', 'availabilityStatus', 'availabilityCheckedAt', 'tradeCostExVatMinor', 'suppliedVatRate', 'sourceUrl', 'parentImageUrl', 'variantImageUrl', 'notes']) {
@@ -128,7 +145,8 @@ test('PostgreSQL 16 CI applies the repair and exercises the UI importer and comm
     assert.match(postgresImportTest, /insert into public\.club_commerce_products\(id,organisation_id,sku,name,brand,category,active,stock_tracked,sell_price_minor,currency,supplier_reference\)[\s\S]*LOCAL-WHEY-001/);
     assert.match(postgresImportTest, /set_config\('r12\.active_sports_fixture_local_product_id'[\s\S]*from public\.club_commerce_products/);
     assert.match(postgresImportTest, /public\.club_adjust_inventory\(\s*p_organisation_id\s*=>[\s\S]*p_idempotency_key\s*=>\s*'active-sports-ci-stock-11'::text/i);
-    assert.doesNotMatch(postgresImportTest, /update public\.club_commerce_products set sell_price_minor|update public\.club_commerce_products set stock_tracked/i);
+    assert.match(postgresImportTest, /-- The canonical guard stays active:[\s\S]*?update public\.club_commerce_products set sell_price_minor=7778[\s\S]*?Expected arbitrary canonical price update to be rejected/);
+    assert.match(postgresImportTest, /set cost_price_minor=2001,sell_price_minor=8888[\s\S]*?Expected combined cost and arbitrary price update to be rejected/);
     assert.match(postgresImportTest, /active_sports_import_preservation_snapshot/);
     assert.match(postgresImportTest, /local_on_hand/);
     assert.match(postgresImportTest, /set_config\([\s\S]*?r12\.active_sports_fixture_variant_id[\s\S]*?from public\.club_supplier_products[\s\S]*?set local role authenticated/i);
@@ -141,6 +159,12 @@ test('PostgreSQL 16 CI applies the repair and exercises the UI importer and comm
     assert.match(postgresImportTest, /Manual supplier retail expected 7777; observed %/);
     assert.match(postgresImportTest, /Manual supplier flag expected true; observed %/);
     assert.match(postgresImportTest, /Canonical price after manual pricing expected 7777; observed %/);
+    assert.match(postgresImportTest, /cp\.cost_price_minor=2000 and cp\.sell_price_minor=3500/);
+    assert.match(postgresImportTest, /arbitrary canonical price update to be rejected/);
+    assert.match(postgresImportTest, /combined cost and arbitrary price update to be rejected/);
+    assert.match(postgresImportTest, /supplier-matching price not to authorize a cost edit/);
+    assert.match(postgresImportTest, /canonical supplier cost after manual pricing expected 2000/i);
+    assert.match(postgresImportTest, /Repeat import\/link changed canonical supplier cost/i);
     assert.match(postgresImportTest, /Post-repeat canonical price % differs from post-manual snapshot %/);
     assert.ok(postgresImportTest.indexOf('club_set_supplier_variant_retail_price') < postgresImportTest.indexOf('active_sports_import_preservation_snapshot'));
     assert.match(postgresImportTest, /Non-manual canonical price expected 3600; observed %/);

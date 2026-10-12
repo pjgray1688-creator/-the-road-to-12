@@ -59,6 +59,16 @@ begin
  end if;
  select club_product_id into p from public.club_supplier_products where organisation_id=o and supplier_sku='AS-CASE-CHOC';
  if p is null then raise exception 'Commerce linker did not create the canonical product'; end if;
+ if not exists(
+   select 1 from public.club_supplier_products sp
+   join public.club_commerce_products cp on cp.id=sp.club_product_id and cp.organisation_id=sp.organisation_id
+   where sp.organisation_id=o and sp.supplier_sku='AS-CASE-CHOC'
+     and cp.supplier_reference='supplier_product:'||sp.id::text
+     and cp.stock_tracked=false and cp.service_id is null
+     and cp.cost_price_minor=2000 and cp.sell_price_minor=3500
+ ) then
+   raise exception 'Initial supplier sales-unit eligibility mismatch (expected same-org exact link, non-stock, non-service, cost 2000, retail 3500)';
+ end if;
 end $$;
 
 -- Establish the approved supplier retail price through the same capability-checked
@@ -77,6 +87,47 @@ select public.club_set_supplier_variant_retail_price(
  current_setting('r12.active_sports_fixture_variant_id')::uuid,
  7777,true
 );
+reset role;
+
+-- The canonical guard stays active: a price that disagrees with the supplier
+-- authority is rejected, including a combined cost + arbitrary-price update.
+do $$
+declare o uuid:='10000000-0000-4000-8000-000000000002'; p uuid;
+begin
+ select club_product_id into strict p from public.club_supplier_products
+ where organisation_id=o and supplier_sku='AS-CASE-CHOC';
+ begin
+   update public.club_commerce_products set sell_price_minor=7778
+   where id=p and organisation_id=o;
+   raise exception 'Expected arbitrary canonical price update to be rejected';
+ exception when others then
+   if sqlerrm='Expected arbitrary canonical price update to be rejected' then raise; end if;
+   if sqlerrm<>'Use the supplier pricing controls for this sales unit' then raise; end if;
+ end;
+ begin
+   update public.club_commerce_products
+   set cost_price_minor=2001,sell_price_minor=8888
+   where id=p and organisation_id=o;
+   raise exception 'Expected combined cost and arbitrary price update to be rejected';
+ exception when others then
+   if sqlerrm='Expected combined cost and arbitrary price update to be rejected' then raise; end if;
+   if sqlerrm<>'Use the supplier pricing controls for this sales unit' then raise; end if;
+ end;
+ begin
+   update public.club_commerce_products
+   set cost_price_minor=2001,sell_price_minor=7777
+   where id=p and organisation_id=o;
+   raise exception 'Expected supplier-matching price not to authorize a cost edit';
+ exception when others then
+   if sqlerrm='Expected supplier-matching price not to authorize a cost edit' then raise; end if;
+   if sqlerrm<>'Use the supplier pricing controls for this sales unit' then raise; end if;
+ end;
+ if not exists(select 1 from public.club_commerce_products where id=p and organisation_id=o and sell_price_minor=7777 and cost_price_minor=2000) then
+   raise exception 'Rejected direct update changed canonical price or supplier cost';
+ end if;
+end $$;
+
+set local role authenticated;
 
 -- Record opening local stock as the authenticated R12 owner through the audited RPC.
 do $$
@@ -98,7 +149,7 @@ reset role;
 do $$
 declare o uuid:='10000000-0000-4000-8000-000000000002'; p uuid; supplier_price integer; is_manual boolean; canonical_price integer;
 begin
- select sp.club_product_id,sp.retail_price_minor,sp.manual_price,cp.sell_price_minor
+  select sp.club_product_id,sp.retail_price_minor,sp.manual_price,cp.sell_price_minor
  into p,supplier_price,is_manual,canonical_price
  from public.club_supplier_products sp
  left join public.club_commerce_products cp on cp.id=sp.club_product_id and cp.organisation_id=sp.organisation_id
@@ -112,12 +163,15 @@ begin
  if canonical_price is distinct from 7777 then
    raise exception 'Canonical price after manual pricing expected 7777; observed %',canonical_price;
  end if;
+ if (select cost_price_minor from public.club_commerce_products where id=p and organisation_id=o) is distinct from 2000 then
+   raise exception 'Canonical supplier cost after manual pricing expected 2000; observed %',(select cost_price_minor from public.club_commerce_products where id=p and organisation_id=o);
+ end if;
  if p is null then raise exception 'Linked supplier commerce product disappeared'; end if;
 end $$;
 
 create temporary table active_sports_import_preservation_snapshot as
 select sp.id as supplier_product_id,sp.club_product_id as canonical_product_id,cp.sell_price_minor as canonical_price_minor,
-       cp.stock_tracked as canonical_stock_tracked,
+       cp.stock_tracked as canonical_stock_tracked,cp.cost_price_minor as canonical_cost_price_minor,
        localp.id as local_product_id,localp.stock_tracked as local_stock_tracked,
        coalesce((select sum(sm.quantity_delta) from public.club_stock_movements sm where sm.organisation_id=sp.organisation_id and sm.product_id=localp.id),0) as local_on_hand
 from public.club_supplier_products sp
@@ -175,6 +229,10 @@ begin
  end if;
  if canonical_price is distinct from snapshot.canonical_price_minor then
    raise exception 'Post-repeat canonical price % differs from post-manual snapshot %',canonical_price,snapshot.canonical_price_minor;
+ end if;
+ if snapshot.canonical_cost_price_minor is distinct from 2000
+   or (select cost_price_minor from public.club_commerce_products where id=snapshot.canonical_product_id and organisation_id=o) is distinct from snapshot.canonical_cost_price_minor then
+   raise exception 'Repeat import/link changed canonical supplier cost';
  end if;
  if snapshot.canonical_product_id=snapshot.local_product_id then raise exception 'Supplier-order product was conflated with local stock product'; end if;
  if snapshot.canonical_stock_tracked then raise exception 'Supplier-order product was marked as locally stocked'; end if;
