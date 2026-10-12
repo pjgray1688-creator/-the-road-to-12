@@ -5,6 +5,12 @@ insert into auth.users(id,email) values ('10000000-0000-4000-8000-000000000001',
 insert into public.club_organisations(id,name,slug) values ('10000000-0000-4000-8000-000000000002','Active Sports RPC fixture','active-sports-rpc-fixture');
 insert into public.club_locations(id,organisation_id,name) values ('10000000-0000-4000-8000-000000000003','10000000-0000-4000-8000-000000000002','RPC Test Location');
 insert into public.club_members(organisation_id,user_id,role) values ('10000000-0000-4000-8000-000000000002','10000000-0000-4000-8000-000000000001','owner');
+-- Privileged fixture setup only: the stock product is a separate local POS item,
+-- not the supplier-orderable canonical product created by the importer/linker.
+insert into public.club_commerce_products(id,organisation_id,sku,name,brand,category,active,stock_tracked,sell_price_minor,currency,supplier_reference)
+values ('10000000-0000-4000-8000-000000000007','10000000-0000-4000-8000-000000000002','LOCAL-WHEY-001','Local Whey Case Shelf Stock','Test Brand','Supplements',true,true,7777,'GBP',null);
+select set_config('r12.active_sports_fixture_local_product_id',
+ (select id::text from public.club_commerce_products where organisation_id='10000000-0000-4000-8000-000000000002' and sku='LOCAL-WHEY-001'),true);
 -- Model a previous partial catalogue import: an existing supplier/parent and
 -- legacy exact variant with no import_identity must be adopted, not duplicated.
 insert into public.club_suppliers(id,organisation_id,name,slug)
@@ -72,37 +78,11 @@ select public.club_set_supplier_variant_retail_price(
  7777,true
 );
 
--- Create a normal locally-stocked POS product through the product-management RPC,
--- then record its opening delivery via the audited stock-adjustment RPC.
+-- Record opening local stock as the authenticated R12 owner through the audited RPC.
 do $$
-declare o uuid:='10000000-0000-4000-8000-000000000002'; local_product uuid; saved jsonb;
+declare o uuid:='10000000-0000-4000-8000-000000000002'; local_product uuid;
 begin
- saved:=public.club_save_pos_product(
-   p_id => null::uuid,
-   p_organisation_id => o,
-   p_sku => 'LOCAL-WHEY-001'::text,
-   p_barcode => null::text,
-   p_name => 'Local Whey Case Shelf Stock'::text,
-   p_brand => 'Test Brand'::text,
-   p_description => null::text,
-   p_category => 'Supplements'::text,
-   p_active => true,
-   p_stock_tracked => true,
-   p_sell_price_minor => 7777,
-   p_cost_price_minor => null::integer,
-   p_currency => 'GBP'::text,
-   p_tax_code => null::text,
-   p_supplier_reference => null::text,
-   p_media => '{}'::jsonb,
-   p_sales_channels => array['pos']::text[],
-   p_unit_label => 'case'::text,
-   p_source_product_id => null::uuid,
-   p_units_per_source => null::integer,
-   p_service_product => false,
-   p_service_credit_quantity => null::integer,
-   p_service_validity_days => null::integer
- );
- local_product:=(saved->>'id')::uuid;
+ local_product:=current_setting('r12.active_sports_fixture_local_product_id')::uuid;
  perform public.club_adjust_inventory(
    p_organisation_id => o,
    p_location_id => '10000000-0000-4000-8000-000000000003'::uuid,

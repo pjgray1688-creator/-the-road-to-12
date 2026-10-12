@@ -91,7 +91,9 @@ test('PostgreSQL 16 CI applies the repair and exercises the UI importer and comm
     }
     assert.match(postgresImportTest, /updated_count=3/);
     assert.match(postgresImportTest, /club_set_supplier_variant_retail_price/);
-    assert.match(postgresImportTest, /saved:=public\.club_save_pos_product\(\s*p_id\s*=>\s*null::uuid[\s\S]*p_service_validity_days\s*=>\s*null::integer/i);
+    assert.doesNotMatch(postgresImportTest, /club_save_pos_product/);
+    assert.match(postgresImportTest, /insert into public\.club_commerce_products\(id,organisation_id,sku,name,brand,category,active,stock_tracked,sell_price_minor,currency,supplier_reference\)[\s\S]*LOCAL-WHEY-001/);
+    assert.match(postgresImportTest, /set_config\('r12\.active_sports_fixture_local_product_id'[\s\S]*from public\.club_commerce_products/);
     assert.match(postgresImportTest, /public\.club_adjust_inventory\(\s*p_organisation_id\s*=>[\s\S]*p_idempotency_key\s*=>\s*'active-sports-ci-stock-11'::text/i);
     assert.doesNotMatch(postgresImportTest, /update public\.club_commerce_products set sell_price_minor|update public\.club_commerce_products set stock_tracked/i);
     assert.match(postgresImportTest, /active_sports_import_preservation_snapshot/);
