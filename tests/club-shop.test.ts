@@ -26,10 +26,10 @@ test("member shop renders compact category chips and featured-brand controls bel
   assert.match(component, /matchesFeaturedMemberBrand|filterMemberShopProducts/);
   assert.match(component, /rule\.bundleGroups \?\? \[\]/);
   assert.match(component, /group\.categories \?\? \[\]/);
-  assert.match(component, /setBrand\(brand === item\.id \? "" : item\.id\)/);
+  assert.match(component, /setBrand\(selectedBrand === canonicalMemberBrandName\(item\.label\) \? "" : item\.label\)/);
   assert.match(component, /setCategory\("All"\); setBrand\(""\); setQuery\(""\)/);
   assert.match(component, /aria-pressed=\{category === item\}/);
-  assert.match(component, /aria-pressed=\{brand === item\.id\}/);
+  assert.match(component, /aria-pressed=\{selectedBrand === canonicalMemberBrandName\(item\.label\)\}/);
   assert.match(component, /aria-label="Search products"/);
   assert.match(component, /<ClubMemberShop paginationResetKey=/);
   assert.match(taxonomy, /"Services", "Apparel", "Deals", "Protein", "Performance", "Health & Wellness", "Food & Drink", "Accessories"/);
@@ -37,28 +37,27 @@ test("member shop renders compact category chips and featured-brand controls bel
   assert.match(css, /@media\(min-width:761px\)\{\.categoryRail,\.brandRail\{flex-wrap:wrap/);
 });
 
-test("featured brand filters use the six supplied remote logos with accessible text fallbacks", () => {
+test("featured brands are text-only accessible buttons with one horizontal swipe row", () => {
   const component = readFileSync(new URL("../components/club-shop.tsx", import.meta.url), "utf8");
   const css = readFileSync(new URL("../components/club-shop.module.css", import.meta.url), "utf8");
-  for (const url of [
-    "https://tsw.com.sg/cdn/shop/files/applied-diet-whey-protein-per-25g-scoop-20g-protein-1g-carb-100cal-600mg-cla-carnitine-green-tea-halal-634158938115-484024.jpg?v=1764823255&width=1946",
-    "https://cdn.uppromote.com/storage/uploads/logos/1613055498_9331231_6ed2abf073678f63cb9671c3492341f3.png",
-    "https://seeklogo.com/images/S/scitec-nutrition-logo-58790A3263-seeklogo.com.png",
-    "https://www.discount-supplements.co.uk/cdn/shop/collections/reflex-nutrition-656329.png?v=1720518153",
-    "https://gympower.co.uk/cdn/shop/collections/BLACK_MAMBA.png?v=1751366467&width=640",
-    "https://gympower.co.uk/cdn/shop/collections/1516967336-72621800.png?v=1751366028&width=640",
-  ]) assert.ok(component.includes(url), `missing featured logo source: ${url}`);
+  assert.doesNotMatch(component, /https?:\/\//);
+  assert.doesNotMatch(component, /<img|brandLogoCanvas|FEATURED_BRAND_LOGOS/);
+  assert.match(component, /FEATURED_MEMBER_BRANDS\.map\(item => <button/);
   assert.match(component, /aria-label=\{`Filter by \$\{item\.label\}`\}/);
-  assert.match(component, /aria-pressed=\{brand === item\.id\}/);
-  assert.match(component, /failedBrandLogos\[item\.id\] \? item\.label/);
-  assert.match(component, /FEATURED_BRANDS_TEXT_ONLY\.has\(item\.id\)/);
-  assert.match(component, /onError=\{\(\) => setFailedBrandLogos/);
-  assert.match(component, /naturalWidth \/ naturalHeight > 5\.5/);
-  assert.match(component, /alt="" aria-hidden="true"/);
-  assert.match(component, /setBrand\(brand === item\.id \? "" : item\.id\)/);
+  assert.match(component, /aria-pressed=\{selectedBrand === canonicalMemberBrandName\(item\.label\)\}/);
+  assert.match(component, /setBrand\(selectedBrand === canonicalMemberBrandName\(item\.label\) \? "" : item\.label\)/);
   assert.match(css, /\.memberShop \.brandRail\{flex-wrap:nowrap!important;overflow-x:auto!important/);
-  assert.match(css, /\.brandLogoCanvas\{[^}]*width:96px;height:34px/);
-  assert.match(css, /\.brandLogo\{[^}]*object-fit:contain/);
+  assert.match(css, /\.memberShop \.brandWordmark\{display:flex;flex:0 0 auto/);
+});
+
+test("member brand select and featured buttons share one canonical brand state", () => {
+  const component = readFileSync(new URL("../components/club-shop.tsx", import.meta.url), "utf8");
+  const taxonomy = readFileSync(new URL("../lib/club-product-taxonomy.ts", import.meta.url), "utf8");
+  assert.match(component, /aria-label="Filter products by brand" value=\{brand\} onChange=\{event => setBrand\(event\.target\.value\)\}/);
+  assert.match(component, /memberShopBrandOptions\(unfilteredBrandCards\.flatMap/);
+  assert.match(component, /canonicalMemberBrandName\(item\.label\)/);
+  assert.match(taxonomy, /export function canonicalMemberBrandName/);
+  assert.match(taxonomy, /normalized\.includes\("grenade"\) && normalized\.includes\("carbkilla"\)/);
 });
 
 test("staff and member pagination count the same final renderable family cards used by the selector", () => {
@@ -70,7 +69,7 @@ test("staff and member pagination count the same final renderable family cards u
   assert.match(member, /const renderableCards=filterRenderableFamilyCards\(cards,availability\); const paged=paginateCards\(renderableCards,page\)/);
   assert.match(member, /of \{paged\.total\} products/);
   assert.match(selector, /const visibleCards = filterRenderableFamilyCards\(cards, availability\)/);
-  assert.match(families, /suppliedFamily && \(!suppliedFamily\.active \|\| suppliedFamily\.archivedAt\)/);
+  assert.match(families, /eligibleProducts = products\.filter[\s\S]*?originalFamilies\.get\(product\.familyId\)!\.active/);
   assert.match(families, /filterRenderableFamilyCards\(cards, availability\)/);
 });
 
