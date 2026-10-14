@@ -1,0 +1,35 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import test from "node:test";
+
+const media = readFileSync(new URL("../components/club-product-media.tsx", import.meta.url), "utf8");
+const familySelector = readFileSync(new URL("../components/club-product-family-selector.tsx", import.meta.url), "utf8");
+const memberShop = readFileSync(new URL("../components/club-member-shop.tsx", import.meta.url), "utf8");
+const staffShop = readFileSync(new URL("../components/club-staff-checkout.tsx", import.meta.url), "utf8");
+const css = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
+
+test("shared product media uses a contained image and a dimension-preserving accessible failure fallback", () => {
+  assert.match(media, /className=\{presentationClass\}[^>]*src=\{src\}[^>]*alt=\{product\.name\}/);
+  assert.match(media, /onError=\{\(\) => setFailedSrc\(src\)\}/);
+  assert.match(media, /failedSrc === src\) return <div className=\{`club-product-placeholder \$\{className \?\? ""\}`\.trim\(\)\} style=\{style\} role="img" aria-label=\{`Image unavailable for \$\{product\.name\}`\}>Image unavailable/);
+  assert.match(css, /\.club-product-media-image\{[^}]*object-fit:contain[^}]*object-position:center/);
+  assert.match(css, /\.club-family-image \.club-product-media-image,\.club-family-image \.club-product-placeholder\{width:100%;height:100%;padding:8px\}/);
+  assert.match(css, /\.club-product-placeholder\{[^}]*display:grid[^}]*place-items:center/);
+});
+
+test("member and staff family cards share the same image component and stable square frame", () => {
+  assert.match(familySelector, /ClubProductMedia product=\{cardImage\} style=\{\{ objectFit: "contain", objectPosition: "center", padding: 8 \}\}/);
+  assert.match(memberShop, /ClubProductFamilySelector/);
+  assert.match(staffShop, /ClubProductFamilySelector/);
+  assert.match(staffShop, /ClubProductFamilySelector compact/);
+  assert.match(css, /\.club-family-image\{width:100%;aspect-ratio:1 \/ 1;min-height:140px;display:grid;place-items:center;overflow:hidden/);
+  assert.match(css, /\.staff-checkout \.club-family-grid-compact \.club-family-image\{aspect-ratio:1 \/ 1;min-height:88px;height:88px/);
+  assert.match(css, /\.club-product-placeholder\.club-product-thumb\{display:grid;width:44px;height:44px/);
+  assert.match(css, /\.staff-checkout \.club-product-placeholder\.club-product-thumb\{width:64px;height:64px\}/);
+});
+
+test("family image selection and variant checkout path remain unchanged", () => {
+  assert.match(familySelector, /card\.variants\.find\(variant => productImageUrl\(variant\)\) \?\? card\.variants\[0\]/);
+  assert.match(familySelector, /const image = resolved\?\.variantImageReference/);
+  assert.match(familySelector, /onAdd\(resolved\)/);
+});

@@ -25,8 +25,9 @@ export function ClubProductMedia({ product, className, style }: { product: ClubC
 
 function ProductImageWithFallback({ product, src, className, style }: { product: ClubCommerceProduct; src: string; className?: string; style?: React.CSSProperties }) {
   const [failedSrc, setFailedSrc] = useState<string>();
-  if (failedSrc === src) return <div className="club-product-placeholder" role="img" aria-label={`Image unavailable for ${product.name}`}>Image unavailable</div>;
+  const presentationClass = ["club-product-media-image", className].filter(Boolean).join(" ");
+  if (failedSrc === src) return <div className={`club-product-placeholder ${className ?? ""}`.trim()} style={style} role="img" aria-label={`Image unavailable for ${product.name}`}>Image unavailable</div>;
   // Product media URLs are managed catalogue assets and may be hosted outside Next's image domains.
   // eslint-disable-next-line @next/next/no-img-element
-  return <img className={className} style={style} src={src} alt={product.name} loading="lazy" onError={() => setFailedSrc(src)} />;
+  return <img className={presentationClass} style={style} src={src} alt={product.name} loading="lazy" onError={() => setFailedSrc(src)} />;
 }

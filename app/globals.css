@@ -113,3 +113,11 @@
 .guided-structure{display:grid;gap:5px;margin:12px 0;padding:12px 14px;border:1px solid rgba(155,77,255,.55);border-radius:12px;background:rgba(155,77,255,.1)}.guided-structure strong{font-size:16px}.guided-structure small,.guided-structure-timer-status{color:var(--muted)}.guided-structure-timer{display:grid;gap:12px;margin:12px 0}.guided-structure-timer-heading{display:flex;align-items:center;justify-content:space-between;gap:16px}.guided-structure-timer-heading div{display:grid;gap:4px}.guided-structure-clock{font-variant-numeric:tabular-nums;font-size:clamp(30px,8vw,46px);font-weight:850;letter-spacing:-1px}.guided-structure-timer-status{margin:0}.guided-structure-actions{display:flex;gap:8px;flex-wrap:wrap}.guided-structure-actions button{min-height:44px}.guided-structure-actions .primary{padding-inline:18px}
 @media(max-width:760px){.coach-programme-block-toolbar{display:grid}.coach-programme-block-toolbar .primary{width:100%}.coach-programme-block{min-width:155px}}
 .guide-preview-button{width:auto;min-height:30px;padding:0 6px;font-size:12px;text-decoration:none}
+.club-product-media-image{display:block;max-width:100%;max-height:100%;object-fit:contain;object-position:center}
+.club-product-placeholder{box-sizing:border-box;display:grid;place-items:center;min-width:0;min-height:0;overflow:hidden;padding:10px;background:#11161c;color:#aeb6c2;text-align:center;font-size:11px;font-weight:700;line-height:1.2}
+.club-family-image{background:#11161c}
+.club-family-image .club-product-media-image,.club-family-image .club-product-placeholder{width:100%;height:100%;padding:8px}
+.club-product-thumb{padding:4px;background:#11161c}
+.club-product-placeholder.club-product-thumb{display:grid;width:44px;height:44px;padding:3px;border-radius:7px;font-size:7px}
+.staff-checkout .club-product-placeholder.club-product-thumb{width:64px;height:64px}
+.club-product-large.club-product-placeholder{width:100%;height:220px;max-height:280px;padding:16px;border-radius:12px}
