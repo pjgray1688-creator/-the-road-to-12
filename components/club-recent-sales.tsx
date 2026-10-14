@@ -18,6 +18,19 @@ export function ClubRecentSales({ organisationId, sales }: { organisationId: str
   const [selection, setSelection] = useState<Record<string, Record<string, number>>>({});
   const [details, setDetails] = useState<Record<string, { reason: string; reference: string; key: string }>>({});
   const [message, setMessage] = useState("");
+  const [search, setSearch] = useState("");
+  const [date, setDate] = useState("");
+  const [location, setLocation] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("");
+  const locations = [...new Set(sales.map(sale => sale.locationName))].sort((a, b) => a.localeCompare(b));
+  const visibleSales = sales.filter(sale => {
+    const query = search.trim().toLowerCase();
+    const localDate = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/London", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(sale.createdAt));
+    return (!query || [sale.id, sale.customerName, ...sale.items].some(value => value.toLowerCase().includes(query)))
+      && (!date || localDate === date)
+      && (!location || sale.locationName === location)
+      && (!paymentMethod || sale.tenders.some(tender => tender.method === paymentMethod));
+  });
   const detailFor = (tenderId: string) => details[tenderId] ?? { reason: "", reference: "", key: "" };
   const allocation = (sale: RecentSale) => sale.refundLines.flatMap(line => {
     const quantity = selection[sale.id]?.[line.orderItemId] ?? 0;
@@ -51,13 +64,23 @@ export function ClubRecentSales({ organisationId, sales }: { organisationId: str
     setSelection(current => ({ ...current, [sale.id]: { ...current[sale.id], [line.orderItemId]: quantity } }));
   };
 
-  return <section aria-label="Recent POS sales">
-    <div className="section-heading"><div><span className="eyebrow">RECENT POS SALES</span><h2>Receipts and refunds</h2><p className="muted">Choose the exact items or service units to refund. The refund value is calculated from the original receipt.</p></div></div>
-    {sales.length ? <div className="club-list">{sales.map(sale => {
+  return <section aria-label="Till log" className="club-till-log">
+    <div className="section-heading"><div><span className="eyebrow">STAFF TILL</span><h2>Till log</h2><p className="muted">Recent receipts, payment details and authorised refunds. Choose the exact items or service units to refund; values are calculated from the original receipt.</p></div></div>
+    <div className="club-till-log-filters" aria-label="Filter receipts">
+      <label>Search receipts<input aria-label="Search receipts" placeholder="Receipt, customer or item" value={search} onChange={event => setSearch(event.target.value)} /></label>
+      <label>Date<input aria-label="Filter receipts by date" type="date" value={date} onChange={event => setDate(event.target.value)} /></label>
+      <label>Venue<select aria-label="Filter receipts by venue" value={location} onChange={event => setLocation(event.target.value)}><option value="">All venues</option>{locations.map(value => <option key={value} value={value}>{value}</option>)}</select></label>
+      <label>Payment<select aria-label="Filter receipts by payment method" value={paymentMethod} onChange={event => setPaymentMethod(event.target.value)}><option value="">All methods</option>{[...new Set(sales.flatMap(sale => sale.tenders.map(tender => tender.method)))].sort().map(value => <option key={value} value={value}>{methodName(value)}</option>)}</select></label>
+    </div>
+    <p className="muted" aria-live="polite">Showing {visibleSales.length} of {sales.length} recent receipts</p>
+    {visibleSales.length ? <div className="club-list">{visibleSales.map(sale => {
       const chosen = selection[sale.id] ?? {};
       const estimate = refundSelectionTotal(sale.refundLines, chosen);
+      const refundedTotal = sale.tenders.reduce((sum, tender) => sum + tender.refundedMinor, 0);
       return <article className="club-recent-sale" key={sale.id}>
-        <div className="club-detail-row"><div><strong>{sale.customerName} · {money(sale.totalMinor)}</strong><small>{new Date(sale.createdAt).toLocaleString("en-GB")} · {sale.locationName} · {sale.status}</small><small>{sale.items.join(" · ") || "Sale items unavailable"}</small></div></div>
+        <header className="club-till-receipt-heading"><div><span className="eyebrow">RECEIPT {sale.id.slice(0, 8).toUpperCase()}</span><h3>{sale.customerName}</h3><small>{new Date(sale.createdAt).toLocaleString("en-GB", { timeZone: "Europe/London", dateStyle: "medium", timeStyle: "short" })} · {sale.locationName} · {sale.status}</small></div><div className="club-till-receipt-total"><strong>{money(sale.totalMinor)}</strong><small>{sale.tenders.map(tender => `${methodName(tender.method)} ${money(tender.amountMinor)}`).join(" + ") || "Payment details unavailable"}</small>{refundedTotal > 0 ? <small>Refunded {money(refundedTotal)} · remaining {money(Math.max(0, sale.totalMinor - refundedTotal))}</small> : <small>No refunds recorded</small>}</div></header>
+        <details className="club-refund-lines club-till-receipt-details"><summary>Items, payments and refund details</summary>
+          <div className="club-till-receipt-items"><strong>Items purchased</strong><span>{sale.items.join(" · ") || "Sale items unavailable"}</span></div>
         <details className="club-refund-lines"><summary>Refund items</summary>
           {sale.refundLines.length ? <div className="club-list">{sale.refundLines.map(line => {
             const selected = chosen[line.orderItemId] ?? 0;
@@ -89,8 +112,9 @@ export function ClubRecentSales({ organisationId, sales }: { organisationId: str
             </div> : null}
           </span></div>;
         })}
+        </details>
       </article>;
-    })}</div> : <p className="muted">No completed POS sales to show yet.</p>}
+    })}</div> : <p className="muted">{sales.length ? "No receipts match those filters." : "No completed POS sales to show yet."}</p>}
     {message ? <p role="status" className="muted">{message}</p> : null}
   </section>;
 }

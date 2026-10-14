@@ -879,12 +879,12 @@ test("shop selector uses compact flavour select and keeps missing media sellable
   assert.doesNotMatch(pricing, /label: "Missing image"/);
 });
 
-test("member and reception shops expose alphabetised brand filters", async () => {
+test("member shop exposes featured brand controls while reception retains its alphabetised brand filter", async () => {
   const fs = await import("node:fs/promises");
   const member = await fs.readFile("components/club-shop.tsx", "utf8");
   const reception = await fs.readFile("components/club-staff-checkout.tsx", "utf8");
-  assert.match(member, /Filter by brand/);
-  assert.match(member, /localeCompare\(b\)/);
+  assert.match(member, /FEATURED_MEMBER_BRANDS\.map\(item => <button/);
+  assert.match(member, /aria-label=\{`Filter by \$\{item\.label\}`\}/);
   assert.match(reception, /Filter products by brand/);
   assert.match(reception, /localeCompare\(b\)/);
 });

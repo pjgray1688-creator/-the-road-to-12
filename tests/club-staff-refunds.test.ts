@@ -36,13 +36,37 @@ test("refund recording never fakes external provider refunds or silently alters 
 test("authorized reception staff can find recent sales and record tender-specific line refunds", () => {
   assert.match(action, /hasCapability\(value\.organisation\.id, value\.userId, "refunds\.issue"\)/);
   assert.match(action, /club_issue_staff_line_refund/);
-  assert.match(page, /loaded\.canIssueRefund \? <ClubRecentSales/);
+  assert.match(page, /loaded\.staff && loaded\.canIssueRefund && view === "cash" && tillView === "log"/);
   assert.match(page, /\.eq\("channel", "staff_checkout"\)/);
   assert.match(view, /Refund to Balance/);
   assert.match(view, /Record cash refund/);
   assert.match(view, /Provider refund reference/);
   assert.match(view, /Choose the exact items or service units/);
   assert.match(view, /Selected refund total/);
+});
+
+test("Sell stays focused on checkout and receipts live under Cash & till", () => {
+  assert.match(page, /loaded\.staff && view === "sell" \? <ClubStaffCheckout/);
+  assert.doesNotMatch(page, /loaded\.staff && view === "sell" \? <>[\s\S]*?ClubRecentSales/);
+  assert.match(page, /view === "cash" \? <><nav className="club-shop-tabs club-till-subnav"/);
+  assert.match(page, /till=log/);
+  assert.match(page, /<ClubRecentSales organisationId=\{loaded\.organisation\.id\} sales=\{recentSales\} \/>/);
+  assert.match(page, /loaded\.canIssueRefund \? "log"/);
+  assert.match(page, /loaded\.canReconcile \? "close"/);
+});
+
+test("Till log presents searchable receipt totals and payment splits while retaining refund detail controls", () => {
+  assert.match(view, /aria-label="Till log"/);
+  assert.match(view, /Search receipts/);
+  assert.match(view, /Filter receipts by date/);
+  assert.match(view, /Filter receipts by venue/);
+  assert.match(view, /Filter receipts by payment method/);
+  assert.match(view, /RECEIPT \{sale\.id\.slice\(0, 8\)\.toUpperCase\(\)\}/);
+  assert.match(view, /sale\.tenders\.map\(tender => `\$\{methodName\(tender\.method\)\} \$\{money\(tender\.amountMinor\)\}`\)/);
+  assert.match(view, /Items, payments and refund details/);
+  assert.match(view, /Refund items/);
+  assert.match(view, /Refund history/);
+  assert.match(view, /staffIssueRefundAction/);
 });
 
 test("refund migration follows live launch migrations in deployment manifest", () => {

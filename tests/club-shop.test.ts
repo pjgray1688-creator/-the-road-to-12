@@ -16,6 +16,36 @@ test("Club shop presents factual order states without fake provider success", ()
   assert.match(component, /Gym Balance/); assert.match(component, /Cash box/);
 });
 
+test("member shop renders compact category chips and featured-brand wordmarks below search", () => {
+  const component = readFileSync(new URL("../components/club-shop.tsx", import.meta.url), "utf8");
+  const taxonomy = readFileSync(new URL("../lib/club-product-taxonomy.ts", import.meta.url), "utf8");
+  const css = readFileSync(new URL("../components/club-shop.module.css", import.meta.url), "utf8");
+  assert.match(component, /MEMBER_SHOP_CATEGORIES\.map\(item => <button/);
+  assert.match(component, /onClick=\{\(\) => setCategory\(category === item \? "All" : item\)\}/);
+  assert.match(component, /FEATURED_MEMBER_BRANDS\.map\(item => <button/);
+  assert.match(component, /matchesFeaturedMemberBrand|filterMemberShopProducts/);
+  assert.match(component, /rule\.bundleGroups \?\? \[\]/);
+  assert.match(component, /group\.categories \?\? \[\]/);
+  assert.match(component, /setBrand\(brand === item\.id \? "" : item\.id\)/);
+  assert.match(component, /setCategory\("All"\); setBrand\(""\); setQuery\(""\)/);
+  assert.match(component, /aria-pressed=\{category === item\}/);
+  assert.match(component, /aria-pressed=\{brand === item\.id\}/);
+  assert.match(component, /aria-label="Search products"/);
+  assert.match(component, /<ClubMemberShop paginationResetKey=/);
+  assert.match(taxonomy, /"Services", "Apparel", "Deals", "Protein", "Performance", "Health & Wellness", "Weight Management", "Food, Snacks & Accessories"/);
+  assert.match(css, /\.categoryRail,\.brandRail\{[^}]*overflow-x:auto/);
+  assert.match(css, /@media\(min-width:761px\)\{\.categoryRail,\.brandRail\{flex-wrap:wrap/);
+});
+
+test("member shop browsing changes leave checkout and basket actions on existing paths", () => {
+  const component = readFileSync(new URL("../components/club-shop.tsx", import.meta.url), "utf8");
+  assert.match(component, /purchaseAction\(/);
+  assert.match(component, /memberBasketStorageKey/);
+  assert.match(component, /writeMemberBasket/);
+  assert.match(component, /setBasket\(current => \(\{ \.\.\.current, \[item\.id\]/);
+  assert.match(component, /<ClubMemberShop[\s\S]*?add=\{add\}/);
+});
+
 test("shop actions require explicit organisation context and discrepancy details", () => {
   const actions = readFileSync(new URL("../app/club/shop/actions.ts", import.meta.url), "utf8");
   const checkout = readFileSync(new URL("../components/club-staff-checkout.tsx", import.meta.url), "utf8");
