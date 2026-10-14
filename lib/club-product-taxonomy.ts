@@ -54,17 +54,23 @@ export function inferMemberShopCategory(input: ProductCategoryInput): MemberShop
   const isGsnFood = /\bgsn\b/.test(identity) && includesAny(identity, ["wrap", "meal", "prepared", "chicken", "souvlaki"]);
   const isReadyFood = isGsnFood || includesAny(identity, ["gsn:", "gsn meal", "prepared meal", "ready meal", "meal pot", "meal deal", "protein bar", "protein wafer", "protein cookie", "protein brownie", "protein cake", "snack bar", "snack", "cookie", "brownie", "muffin", "chips", "crisps", "peanut butter cup"]);
   const pack = (input.packQuantity ?? 0) > 1 || /\b(?:case|box|multipack|multi-pack|pack|display)\b|\b\d+\s*x\s*\d+(?:\.\d+)?\s*(?:ml|g)\b/.test(normalized);
-  const rtd = includesAny(normalized, ["ready to drink", "ready-to-drink", "rtd", "can", "cans", "bottle", "drink", "milkshake", "protein water"]);
+  const productName = text(input.name);
+  const namedBottleAccessory = includesAny(productName, ["water bottle", "sports bottle", "gym bottle", "alpha bottle", "bottle jug", "bottle shaker"]) || /^bottle(?:\s|$)/.test(productName);
+  const powderOrSupplementFormat = includesAny(normalized, ["powder", "tub", "sachet", "capsule", "tablet", "supplement"]);
+  const rtd = includesAny(normalized, ["ready to drink", "ready-to-drink", "rtd", "can", "cans", "milkshake", "protein water", "energy drink", "hydration drink", "sports drink", "protein shake", "protein drink", "juice"]);
   const proteinDrink = includesAny(normalized, ["protein shake", "protein drink", "protein milkshake", "protein rtd"]);
-  const singleRtd = rtd && !pack;
-  const proteinPowder = includesAny(normalized, ["whey", "casein", "isolate", "beef protein", "vegan protein", "plant protein", "mass gainer", "mass gain", "weight gainer", "instant mass", "mass xl", "heavyweight", "protein powder", "protein sachet", "protein display"])
+  const bottledDrink = (proteinDrink || includesAny(normalized, ["energy drink", "hydration drink", "sports drink", "juice"])) && includesAny(normalized, ["bottle", "ml"]);
+  const singleRtd = (rtd || bottledDrink) && !pack && !namedBottleAccessory && !powderOrSupplementFormat;
+  const proteinSnack = includesAny(normalized, ["pancake", "bar", "cookie", "brownie", "chips", "crisps", "muffin", "snack", "wafer", "cup"]);
+  const proteinPowder = !proteinSnack && includesAny(normalized, ["whey", "casein", "isolate", "beef protein", "vegan protein", "plant protein", "mass gainer", "mass gain", "weight gainer", "instant mass", "mass xl", "heavyweight", "protein powder", "protein sachet", "protein display"])
     && includesAny(normalized, ["powder", "tub", "sachet", "display", "bag", "pouch", "whey", "casein", "isolate", "mass gainer", "mass gain", "weight gainer", "mass xl"]);
 
   if (proteinDrink && pack && !isReadyFood) return "Protein";
   if (isReadyFood || singleRtd || includesAny(normalized, ["energy drink", "protein water", "hydration drink", "sports drink", "juice", "canned drink", "bottled drink"])) return "Food & Drink";
 
   const accessoryWrap = includesAny(normalized, ["wrist wrap", "wrist wraps", "knee wrap", "knee wraps", "lifting wrap", "lifting wraps", "training wrap", "training wraps"]);
-  if (explicitCategory === "Accessories" || accessoryWrap || includesAny(normalized, ["shaker", "sports bottle", "water bottle", "gym bottle", "jug", "gloves", "lifting strap", "lifting straps", "straps", "knee sleeve", "knee sleeves", "gym bag", "liquid chalk", "chalk block", "gym accessory", "accessories"])) return "Accessories";
+  const accessory = accessoryWrap || includesAny(normalized, ["shaker", "gallon jug", "hydration jug", "water jug", "gym jug", "alpha pod", "gloves", "lifting strap", "lifting straps", "straps", "knee sleeve", "knee sleeves", "gym bag", "liquid chalk", "chalk block", "smelling salts", "tacky remover", "tacky", "lifting belt", "weightlifting belt", "gym belt", "gym accessory", "accessories"]) || /\bjug\b/.test(normalized);
+  if (explicitCategory === "Accessories" || namedBottleAccessory || accessory) return "Accessories";
   if (explicitCategory === "Health & Wellness" || includesAny(normalized, ["vitamin", "mineral", "omega", "fish oil", "joint support", "liver support", "organ support", "milk thistle", "sleep", "stress", "ashwagandha", "lion's mane", "lions mane", "wellness", "health", "herbal", "adaptogen", "fat burner", "fatburner", "fat loss", "weight management", "weight loss", "appetite suppressant", "thermogenic", "cutting formula", "diet fuel", "animal cuts", "l-carnitine", "carnitine", "curcumin", "magnesium", "zinc", "vitamin d", "d3", "glutathione", "probiotic"])) return "Health & Wellness";
   if (explicitCategory === "Performance" || includesAny(normalized, ["pre-workout", "pre workout", "preworkout", "creatine", "aakg", "amino", "eaa", "bcaa", "intra-workout", "intra workout", "hydration powder", "electrolyte powder", "pump", "performance", "recovery", "beta alanine", "citrulline", "carbohydrate fuel", "cream of rice", "cream of oats", "oat powder", "bulk oats", "carbohydrate powder", "powdered meal replacement", "meal replacement powder"])) return "Performance";
   if ((explicitCategory === "Protein" || proteinPowder) && proteinPowder && !isReadyFood && !singleRtd) return "Protein";
@@ -93,11 +99,26 @@ export function featuredMemberBrandId(brand?: string): FeaturedMemberBrandId | u
   return FEATURED_MEMBER_BRANDS.find(item => featuredBrandAliases[item.id].some(alias => normalized.includes(alias)))?.id;
 }
 
-export function matchesFeaturedMemberBrand(brand: string | undefined, selected: FeaturedMemberBrandId | ""): boolean {
-  return !selected || featuredMemberBrandId(brand) === selected;
+export function canonicalMemberBrandName(brand?: string): string {
+  const label = (brand ?? "").trim().replace(/\s+/g, " ");
+  if (!label) return "";
+  const normalized = normalBrand(label);
+  if (normalized === "grenadecarbkillabars") return "Grenade";
+  const featuredId = featuredMemberBrandId(label);
+  return featuredId ? FEATURED_MEMBER_BRANDS.find(item => item.id === featuredId)!.label : label;
 }
 
-export function filterMemberShopProducts<T extends ClubCommerceProduct>(products: T[], input: { category: string; brand: FeaturedMemberBrandId | ""; query: string; dealProductIds?: ReadonlySet<string> }): T[] {
+export function memberShopBrandOptions(brands: Array<string | undefined>): string[] {
+  return [...new Set(brands.map(canonicalMemberBrandName).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+}
+
+export function matchesFeaturedMemberBrand(brand: string | undefined, selected: string): boolean {
+  if (!selected) return true;
+  const featured = FEATURED_MEMBER_BRANDS.find(item => item.id === selected);
+  return featured ? featuredMemberBrandId(brand) === featured.id : canonicalMemberBrandName(brand) === canonicalMemberBrandName(selected);
+}
+
+export function filterMemberShopProducts<T extends ClubCommerceProduct>(products: T[], input: { category: string; brand: string; query: string; dealProductIds?: ReadonlySet<string> }): T[] {
   const deals = input.dealProductIds ?? new Set<string>();
   return products.filter(product => {
     const inCategory = input.category === "All"
