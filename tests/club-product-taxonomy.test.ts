@@ -80,6 +80,45 @@ test("presentation mapping classifies representative products without changing c
   assert.equal(inferMemberShopCategory({ name: "Unknown Supplement" }), undefined);
 });
 
+test("real Active Sports accessory families override the broad Merch & Apparel source bucket", () => {
+  const accessories = [
+    { name: "Gym / Fitness Gloves with Wrist Support", supplierCategory: "Merch & Apparel", subcategory: "Training Gloves" },
+    { name: "Knee Sleeves 7mm Neoprene", supplierCategory: "Merch & Apparel", subcategory: "Straps and Supports" },
+    { name: "Knee Wraps", supplierCategory: "Merch & Apparel", subcategory: "Straps and Supports" },
+    { name: "Wrist Wraps / Supports", supplierCategory: "Merch & Apparel", subcategory: "Straps and Supports" },
+    { name: "Padded Rubber Grip Lifting Straps", supplierCategory: "Merch & Apparel", subcategory: "Straps and Supports" },
+    { name: "Gloves - Profi", supplierCategory: "Merch & Apparel", subcategory: "Training Accessories" },
+    { name: "Profi Training Belt 6 Inch", supplierCategory: "Merch & Apparel", subcategory: "Training Accessories" },
+    { name: "Universal Competition Training Belt 4", supplierCategory: "Merch & Apparel", subcategory: "Training Accessories" },
+    { name: "Alpha Bottle Shaker V2", supplierCategory: "Accessories", subcategory: "Shakers" },
+    { name: "Alpha Bottle XL Jug", supplierCategory: "Accessories", subcategory: "Shakers" },
+    { name: "Alpha Bottle XXL Jug", supplierCategory: "Accessories", subcategory: "Shakers" },
+    { name: "Alpha Pod", supplierCategory: "Accessories", subcategory: "Storage" },
+    { name: "Screw Caps Shaker", supplierCategory: "Accessories", subcategory: "Shakers" },
+    { name: "US Half Gallon Water Jug", supplierCategory: "Accessories", subcategory: "Shakers" },
+    { name: "Hydrator Jug XXL", supplierCategory: "Accessories", subcategory: "Shakers" },
+    { name: "Liquid Chalk", supplierCategory: "Accessories", subcategory: "Straps and Supports" },
+    { name: "Smelling Salts", supplierCategory: "Accessories", subcategory: "Training Accessories" },
+    { name: "Tacky - All Purpose", supplierCategory: "Accessories", subcategory: "Training Accessories" },
+    { name: "Tacky - World's Strongest", supplierCategory: "Accessories", subcategory: "Training Accessories" },
+    { name: "Tacky Remover", supplierCategory: "Accessories", subcategory: "Training Accessories" },
+    { name: "Shaker Large", supplierCategory: "Merch & Apparel", subcategory: "Shakers" },
+    { name: "Water Jug", supplierCategory: "Merch & Apparel", subcategory: "Shakers" },
+  ];
+  for (const item of accessories) assert.equal(inferMemberShopCategory(item), "Accessories", item.name);
+
+  const notAccessories = [
+    { name: "GSN Greek Souvlaki Chicken Wrap" },
+    { name: "Protein Bar" },
+    { name: "Energy Drink Single Can", format: "single can" },
+    { name: "Whey Protein Powder Tub" },
+    { name: "Vitamin D3 Tablets" },
+  ];
+  for (const item of notAccessories) assert.notEqual(inferMemberShopCategory(item), "Accessories", item.name);
+  assert.equal(inferMemberShopCategory({ name: "Whey Protein Powder Tub" }), "Protein");
+  assert.equal(inferMemberShopCategory({ name: "Vitamin D3 Tablets" }), "Health & Wellness");
+});
+
 test("a deliberate canonical category override wins without changing inferred metadata", () => {
   const input = { name: "Whey Protein Powder", supplierCategory: "Protein" };
   assert.equal(inferMemberShopCategory(input), "Protein");

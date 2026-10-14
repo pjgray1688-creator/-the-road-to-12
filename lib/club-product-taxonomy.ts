@@ -46,7 +46,6 @@ export function inferMemberShopCategory(input: ProductCategoryInput): MemberShop
   const normalized = identity.replace(/[‐‑‒–—]/g, "-");
 
   if (input.isServiceProduct || explicitCategory === "Services" || includesAny(identity, ["coaching", "pt session", "personal training", "consultation", "appointment", "class credit", "sunbed minutes", "glow zone"])) return "Services";
-  if (explicitCategory === "Apparel" || includesAny(identity, ["merch", "apparel", "clothing", "wearable", "t-shirt", "tee shirt", "hoodie", "shirt", "vest", "shorts", "leggings", "joggers"])) return "Apparel";
   if (explicitCategory === "Deals") return "Deals";
 
   // Source buckets are noisy. Resolve clearly consumable food first, then
@@ -83,6 +82,7 @@ export function inferMemberShopCategory(input: ProductCategoryInput): MemberShop
   const contextualWrap = /\b(?:wrist|knee|lifting|training)\s+wraps?\b/.test(normalized);
   const bottleOrJug = namedBottleAccessory || /\bjug\b/.test(normalized);
   if (explicitCategory === "Accessories" || physicalAccessory || contextualWrap || bottleOrJug) return "Accessories";
+  if (explicitCategory === "Apparel" || includesAny(identity, ["merch", "apparel", "clothing", "wearable", "t-shirt", "tee shirt", "hoodie", "shirt", "vest", "shorts", "leggings", "joggers"])) return "Apparel";
   return undefined;
 }
 
