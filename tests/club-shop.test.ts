@@ -16,7 +16,7 @@ test("Club shop presents factual order states without fake provider success", ()
   assert.match(component, /Gym Balance/); assert.match(component, /Cash box/);
 });
 
-test("member shop renders compact category chips and featured-brand wordmarks below search", () => {
+test("member shop renders compact category chips and featured-brand controls below search", () => {
   const component = readFileSync(new URL("../components/club-shop.tsx", import.meta.url), "utf8");
   const taxonomy = readFileSync(new URL("../lib/club-product-taxonomy.ts", import.meta.url), "utf8");
   const css = readFileSync(new URL("../components/club-shop.module.css", import.meta.url), "utf8");
@@ -32,9 +32,43 @@ test("member shop renders compact category chips and featured-brand wordmarks be
   assert.match(component, /aria-pressed=\{brand === item\.id\}/);
   assert.match(component, /aria-label="Search products"/);
   assert.match(component, /<ClubMemberShop paginationResetKey=/);
-  assert.match(taxonomy, /"Services", "Apparel", "Deals", "Protein", "Performance", "Health & Wellness", "Weight Management", "Food, Snacks & Accessories"/);
+  assert.match(taxonomy, /"Services", "Apparel", "Deals", "Protein", "Performance", "Health & Wellness", "Food & Drink", "Accessories"/);
   assert.match(css, /\.categoryRail,\.brandRail\{[^}]*overflow-x:auto/);
   assert.match(css, /@media\(min-width:761px\)\{\.categoryRail,\.brandRail\{flex-wrap:wrap/);
+});
+
+test("featured brand filters use the six supplied remote logos with accessible text fallbacks", () => {
+  const component = readFileSync(new URL("../components/club-shop.tsx", import.meta.url), "utf8");
+  const css = readFileSync(new URL("../components/club-shop.module.css", import.meta.url), "utf8");
+  for (const url of [
+    "https://tsw.com.sg/cdn/shop/files/applied-diet-whey-protein-per-25g-scoop-20g-protein-1g-carb-100cal-600mg-cla-carnitine-green-tea-halal-634158938115-484024.jpg?v=1764823255&width=1946",
+    "https://cdn.uppromote.com/storage/uploads/logos/1613055498_9331231_6ed2abf073678f63cb9671c3492341f3.png",
+    "https://seeklogo.com/images/S/scitec-nutrition-logo-58790A3263-seeklogo.com.png",
+    "https://www.discount-supplements.co.uk/cdn/shop/collections/reflex-nutrition-656329.png?v=1720518153",
+    "https://gympower.co.uk/cdn/shop/collections/BLACK_MAMBA.png?v=1751366467&width=640",
+    "https://gympower.co.uk/cdn/shop/collections/1516967336-72621800.png?v=1751366028&width=640",
+  ]) assert.ok(component.includes(url), `missing featured logo source: ${url}`);
+  assert.match(component, /aria-label=\{`Filter by \$\{item\.label\}`\}/);
+  assert.match(component, /aria-pressed=\{brand === item\.id\}/);
+  assert.match(component, /failedBrandLogos\[item\.id\] \? item\.label/);
+  assert.match(component, /onError=\{\(\) => setFailedBrandLogos/);
+  assert.match(component, /alt="" aria-hidden="true"/);
+  assert.match(component, /setBrand\(brand === item\.id \? "" : item\.id\)/);
+  assert.match(css, /\.brandLogoCanvas\{[^}]*width:108px;height:38px/);
+  assert.match(css, /\.brandLogo\{[^}]*object-fit:contain/);
+});
+
+test("staff and member pagination count the same final renderable family cards used by the selector", () => {
+  const staff = readFileSync(new URL("../components/club-staff-checkout.tsx", import.meta.url), "utf8");
+  const member = readFileSync(new URL("../components/club-member-shop.tsx", import.meta.url), "utf8");
+  const selector = readFileSync(new URL("../components/club-product-family-selector.tsx", import.meta.url), "utf8");
+  const families = readFileSync(new URL("../lib/club-product-families.ts", import.meta.url), "utf8");
+  assert.match(staff, /filterRenderableFamilyCards\(groupProductFamilies[\s\S]*?paginateCards\(cards, page\)/);
+  assert.match(member, /const renderableCards=filterRenderableFamilyCards\(cards,availability\); const paged=paginateCards\(renderableCards,page\)/);
+  assert.match(member, /of \{paged\.total\} products/);
+  assert.match(selector, /const visibleCards = filterRenderableFamilyCards\(cards, availability\)/);
+  assert.match(families, /suppliedFamily && \(!suppliedFamily\.active \|\| suppliedFamily\.archivedAt\)/);
+  assert.match(families, /filterRenderableFamilyCards\(cards, availability\)/);
 });
 
 test("member shop browsing changes leave checkout and basket actions on existing paths", () => {

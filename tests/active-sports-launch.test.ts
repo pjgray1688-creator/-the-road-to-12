@@ -19,6 +19,31 @@ test("shop pagination pages family cards in groups of 48", () => {
   assert.equal(paginateCards(cards.slice(0, 48), 1).totalPages, 1);
 });
 
+test("shop totals and pagination use only renderable parent cards", async () => {
+  const { filterRenderableFamilyCards, groupProductFamilies } = await import("../lib/club-product-families");
+  const { paginateCards } = await import("../lib/club-pagination");
+  const base = { organisationId: "org", active: true, stockTracked: false, currency: "GBP", createdAt: "", updatedAt: "" } as any;
+  const products = [
+    { ...base, id: "available-a", familyId: "family-a", name: "Whey", sellPriceMinor: 1000 },
+    { ...base, id: "available-b", familyId: "family-a", name: "Whey", sellPriceMinor: 1100, variantOptions: { size: "2kg" } },
+    { ...base, id: "unavailable", familyId: "family-b", name: "Hidden", sellPriceMinor: 1200 },
+    { ...base, id: "no-price", familyId: "family-c", name: "Unpriced", sellPriceMinor: 0 },
+    { ...base, id: "archived-parent-product", familyId: "family-d", name: "Archived parent", sellPriceMinor: 1300 },
+  ];
+  const families = [
+    ...["family-a", "family-b", "family-c", "family-d"].map((id, index) => ({ id, organisationId: "org", name: id, active: id !== "family-d", archivedAt: id === "family-d" ? "2026-10-01" : undefined, sortPosition: index })),
+  ];
+  const availability = { "available-a": "IN_GYM", "available-b": "UNAVAILABLE", unavailable: "UNAVAILABLE", "no-price": "IN_GYM" };
+  const cards = filterRenderableFamilyCards(groupProductFamilies(products, families, "org", availability), availability);
+  assert.equal(cards.length, 1);
+  assert.deepEqual(cards[0].variants.map(item => item.id), ["available-a"]);
+  const page = paginateCards(cards, 1, 1);
+  assert.equal(page.total, cards.length);
+  assert.equal(page.totalPages, 1);
+  assert.equal(page.start, 1);
+  assert.equal(page.end, 1);
+});
+
 test("Rotherham Active Sports stocktake reconciles exact quantities by ledger delta", () => {
   const sql = readFileSync("supabase/migrations/2026-09-15-active-sports-rotherham-stocktake.sql", "utf8");
   for (const name of ["Creatine Gummies", "Cream of Rice", "Vitamin D3 + K2", "Shilajit", "Lions Mane", "Ashwa+", "Glutamine", "Loaded H2O", "Creatine Monohydrate Powder", "Loaded EAA", "100% Whey Protein Professional", "Performance Protein", "Instant Mass Heavyweight"]) assert.match(sql, new RegExp(name.replace(/[+%]/g, "\\$&")));
@@ -654,6 +679,21 @@ test("Active Sports Monster Energy cases are excluded without affecting local or
   assert.equal(durableSupplierRowsToProducts([monster], "org").length, 0);
   assert.equal(durableSupplierRowsToProducts([local], "org").length, 1);
   assert.equal(durableSupplierRowsToProducts([scitec], "org").length, 1);
+});
+
+test("only the stale Active Sports Ultra & Sugar Free Monster family is suppressed", () => {
+  const stale = { parentKey: "monster-ultra", supplierId: "as", supplierName: "Active Sports Nutrition", memberOrderable: true, brand: "Monster Energy - Ultra & Sugar Free", name: "Monster Ultra", variants: [{ id: "ultra", supplierId: "as", parentKey: "monster-ultra", size: "12 x 500ml cans", memberOrderableUnit: "Case", stockStatus: "available" as const, retailPriceMinor: 2000 }] };
+  const localCan = { id: "local-monster-can", organisationId: "org", name: "Monster Ultra White", brand: "Monster Energy", active: true, stockTracked: true, sellPriceMinor: 250, currency: "GBP", createdAt: "", updatedAt: "" } as any;
+  const stockedLinkedCan = { ...localCan, id: "stocked-linked-can", brand: "Monster Energy - Ultra & Sugar Free", supplierReference: "supplier_product:legacy-can", variantOptions: { size: "500ml", orderUnit: "each" } };
+  const scitec = { ...stale, parentKey: "monster-pak", brand: "Scitec Nutrition", name: "Monster Pak - Mega Vitamin and Mineral Pak", variants: [{ ...stale.variants[0], id: "scitec-monster-pak", size: "40 packs", memberOrderableUnit: "Unit" }] };
+  const otherMonsterFamily = { ...stale, parentKey: "monster-aussie", brand: "Monster Energy", name: "Aussie Lemonade Edition", variants: [{ ...stale.variants[0], id: "monster-aussie", size: "12 x 500ml cans" }] };
+  assert.equal(durableSupplierRowsToProducts([stale], "org").length, 0);
+  assert.equal(durableSupplierRowsToProducts([scitec], "org").length, 1);
+  assert.equal(durableSupplierRowsToProducts([otherMonsterFamily], "org").length, 1);
+  assert.equal(buildClubShopProductUniverse([], [otherMonsterFamily], "org").length, 0); // Existing case-format restriction remains applied at the shop boundary.
+  const universe = buildClubShopProductUniverse([localCan, stockedLinkedCan], [stale], "org");
+  assert.deepEqual(universe.map(product => product.id).sort(), ["local-monster-can", "stocked-linked-can"]);
+  assert.ok(universe.every(product => product.stockTracked));
 });
 
 test("supplier parent imagery becomes commerce media with variant override", () => {

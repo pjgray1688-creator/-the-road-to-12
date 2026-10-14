@@ -6,26 +6,41 @@ import type { ClubCommerceProduct } from "../lib/club-commerce";
 const product = (id: string, name: string): ClubCommerceProduct => ({ id, organisationId: "org", name, active: true, stockTracked: true, sellPriceMinor: 100, currency: "GBP", createdAt: "", updatedAt: "" });
 
 test("member category buttons use the required eight-category order", () => {
-  assert.deepEqual(MEMBER_SHOP_CATEGORIES, ["Services", "Apparel", "Deals", "Protein", "Performance", "Health & Wellness", "Weight Management", "Food, Snacks & Accessories"]);
+  assert.deepEqual(MEMBER_SHOP_CATEGORIES, ["Services", "Apparel", "Deals", "Protein", "Performance", "Health & Wellness", "Food & Drink", "Accessories"]);
 });
 
 test("presentation mapping classifies representative products without changing catalogue values", () => {
   assert.equal(inferMemberShopCategory({ name: "PT Session", isServiceProduct: true }), "Services");
   assert.equal(inferMemberShopCategory({ name: "R12 Gym Hoodie", category: "Merch & Apparel" }), "Apparel");
   assert.equal(inferMemberShopCategory({ name: "Whey Protein Powder", supplierCategory: "Protein" }), "Protein");
-  assert.equal(inferMemberShopCategory({ name: "Ready to drink protein shake", format: "bottle" }), "Protein");
+  assert.equal(inferMemberShopCategory({ name: "Protein Shake", format: "single bottle" }), "Food & Drink");
+  assert.equal(inferMemberShopCategory({ name: "Protein Shake", format: "12 x 330ml case" }), "Protein");
   assert.equal(inferMemberShopCategory({ name: "Creatine Monohydrate" }), "Performance");
   assert.equal(inferMemberShopCategory({ name: "Joint Support Vitamin D3" }), "Health & Wellness");
-  assert.equal(inferMemberShopCategory({ name: "Animal Cuts Fat Burner" }), "Weight Management");
-  assert.equal(inferMemberShopCategory({ name: "Protein Bar", category: "Supplements" }), "Food, Snacks & Accessories");
-  assert.equal(inferMemberShopCategory({ name: "Cream of Rice" }), "Food, Snacks & Accessories");
-  assert.equal(inferMemberShopCategory({ name: "GSN Chicken Meal" }), "Food, Snacks & Accessories");
+  assert.equal(inferMemberShopCategory({ name: "Animal Cuts Fat Burner" }), "Health & Wellness");
+  assert.equal(inferMemberShopCategory({ name: "Protein Bar", category: "Protein" }), "Food & Drink");
+  assert.equal(inferMemberShopCategory({ name: "Protein Cookie", supplierCategory: "Protein" }), "Food & Drink");
+  assert.equal(inferMemberShopCategory({ name: "Protein Chips" }), "Food & Drink");
+  assert.equal(inferMemberShopCategory({ name: "Protein Snack" }), "Food & Drink");
+  assert.equal(inferMemberShopCategory({ name: "Novelty Item", description: "Contains protein" }), "Food & Drink");
+  assert.equal(inferMemberShopCategory({ name: "Whey Protein Powder", category: "Supplements" }), "Protein");
+  assert.equal(inferMemberShopCategory({ name: "Whey Isolate Tub" }), "Protein");
+  assert.equal(inferMemberShopCategory({ name: "Clear Whey Powder" }), "Protein");
+  assert.equal(inferMemberShopCategory({ name: "Snack Bar" }), "Food & Drink");
+  assert.equal(inferMemberShopCategory({ name: "GSN Chicken Meal" }), "Food & Drink");
+  assert.equal(inferMemberShopCategory({ name: "Monster Energy Original", format: "single can" }), "Food & Drink");
+  assert.equal(inferMemberShopCategory({ name: "R12 Shaker" }), "Accessories");
+  assert.equal(inferMemberShopCategory({ name: "Training Gloves" }), "Accessories");
+  assert.equal(inferMemberShopCategory({ name: "Knee Sleeves" }), "Accessories");
+  assert.equal(inferMemberShopCategory({ name: "Bulk Cream of Rice Powder" }), "Performance");
+  assert.equal(inferMemberShopCategory({ name: "Cream of Rice", supplierCategory: "Supplements" }), "Performance");
+  assert.equal(inferMemberShopCategory({ name: "Powdered Meal Replacement", supplierCategory: "Food & Drinks" }), "Performance");
 });
 
 test("a deliberate canonical category override wins without changing inferred metadata", () => {
   const input = { name: "Whey Protein Powder", supplierCategory: "Protein" };
   assert.equal(inferMemberShopCategory(input), "Protein");
-  assert.equal(effectiveMemberShopCategory(input, "Food, Snacks & Accessories"), "Food, Snacks & Accessories");
+  assert.equal(effectiveMemberShopCategory(input, "Accessories"), "Accessories");
   assert.equal(effectiveMemberShopCategory(input, "not-a-category"), "Protein");
 });
 

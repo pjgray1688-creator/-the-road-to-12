@@ -1,7 +1,7 @@
 import { normalizeBarcode } from "./club-barcode";
 import { parseMinorUnits } from "./club-money";
 import { parseCsvRecords } from "./club-csv";
-import { canonicalSupplierFamilyBaseName, isActiveSportsMonsterCaseProduct, isLegacyDemoCommerceProduct, mergeSupplierPresentation, sortCommerceProductsForOperations, usableCommerceImageUrl, type ClubCommerceProduct } from "./club-commerce";
+import { canonicalSupplierFamilyBaseName, isActiveSportsMonsterCaseProduct, isLegacyDemoCommerceProduct, isStaleActiveSportsMonsterEnergyProduct, mergeSupplierPresentation, sortCommerceProductsForOperations, usableCommerceImageUrl, type ClubCommerceProduct } from "./club-commerce";
 import type { ClubProductFamily } from "./club-product-families";
 
 export type SupplierStockStatus = "available" | "unavailable" | "unknown";
@@ -80,7 +80,7 @@ export function buildClubShopProductUniverse(localProducts: ClubCommerceProduct[
     return matches.find((match, index) => matches.findIndex(other => other.id === match.id) === index);
   };
   const matchedSupplierIds = new Set<string>();
-  const eligibleLocal = localProducts.filter(product => product.active && !isLegacyDemoCommerceProduct(product) && !isActiveSportsMonsterCaseProduct(product));
+  const eligibleLocal = localProducts.filter(product => product.active && !isLegacyDemoCommerceProduct(product) && !isActiveSportsMonsterCaseProduct(product) && !isStaleActiveSportsMonsterEnergyProduct(product));
   const mergedLocal: ClubCommerceProduct[] = [];
   for (const product of eligibleLocal) {
     const supplier = supplierForLocal(product);
@@ -94,7 +94,7 @@ export function buildClubShopProductUniverse(localProducts: ClubCommerceProduct[
     // presentation was matched. Keep the supplier row unless it was actually
     // consumed by a confident merge, so supplier-only availability survives
     // missing/legacy local metadata.
-    ...supplierProducts.filter(product => product.active && !matchedSupplierIds.has(product.id) && !isLegacyDemoCommerceProduct(product) && !isActiveSportsMonsterCaseProduct(product)),
+    ...supplierProducts.filter(product => product.active && !matchedSupplierIds.has(product.id) && !isLegacyDemoCommerceProduct(product) && !isActiveSportsMonsterCaseProduct(product) && !isStaleActiveSportsMonsterEnergyProduct(product)),
   ]);
 }
 
@@ -174,11 +174,15 @@ export function durableSupplierRowsToProducts(rows: DurableSupplierParentRow[], 
     const baseName = canonicalSupplierFamilyBaseName(parent.name);
     return `${parent.supplierId}:${(parent.brand ?? "").trim().toLowerCase()}:${baseName}`;
   };
-  return rows.filter(parent => parent.memberOrderable !== false && !isActiveSportsMonsterCase(parent) && parent.variants.some(variant => available(variant.stockStatus))).flatMap(parent => parent.variants.map(variant => ({ id: variant.clubProductId ?? variant.id, organisationId, sku: variant.supplierSku, barcode: variant.barcode, name: parent.name, brand: parent.brand, description: parent.description, category: parent.category, active: true, stockTracked: variant.localStockTracked === true, sellPriceMinor: variant.retailPriceMinor ?? 0, currency: "GBP", supplierReference: `supplier_product:${variant.id}`, supplierMemberOrderable: parent.memberOrderable !== false && normaliseSupplierStockStatus(variant.stockStatus) === "available", supplierAvailabilityStatus: normaliseSupplierStockStatus(variant.stockStatus), variantImageReference: variant.imageReference, media: variant.imageReference ? { url: variant.imageReference } : parent.imageReference ? { url: parent.imageReference } : undefined, familyId: familyId(parent), variantOptions: Object.fromEntries([["orderUnit", variant.memberOrderableUnit], ["flavour", variant.flavour], ["size", variant.size], ["packQuantity", variant.packQuantity ? String(variant.packQuantity) : undefined]].filter((entry): entry is [string, string] => Boolean(entry[1]))), createdAt: "", updatedAt: "" })));
+  return rows.filter(parent => parent.memberOrderable !== false && !isActiveSportsMonsterCase(parent) && !isStaleActiveSportsMonsterEnergyFamily(parent) && parent.variants.some(variant => available(variant.stockStatus))).flatMap(parent => parent.variants.map(variant => ({ id: variant.clubProductId ?? variant.id, organisationId, sku: variant.supplierSku, barcode: variant.barcode, name: parent.name, brand: parent.brand, description: parent.description, category: parent.category, active: true, stockTracked: variant.localStockTracked === true, sellPriceMinor: variant.retailPriceMinor ?? 0, currency: "GBP", supplierReference: `supplier_product:${variant.id}`, supplierMemberOrderable: parent.memberOrderable !== false && normaliseSupplierStockStatus(variant.stockStatus) === "available", supplierAvailabilityStatus: normaliseSupplierStockStatus(variant.stockStatus), variantImageReference: variant.imageReference, media: variant.imageReference ? { url: variant.imageReference } : parent.imageReference ? { url: parent.imageReference } : undefined, familyId: familyId(parent), variantOptions: Object.fromEntries([["orderUnit", variant.memberOrderableUnit], ["flavour", variant.flavour], ["size", variant.size], ["packQuantity", variant.packQuantity ? String(variant.packQuantity) : undefined]].filter((entry): entry is [string, string] => Boolean(entry[1]))), createdAt: "", updatedAt: "" })));
 }
 
 function isActiveSportsMonsterCase(parent: DurableSupplierParentRow) {
   return parent.supplierName.trim().toLowerCase() === "active sports" && parent.brand?.trim().toLowerCase() === "monster energy" && parent.variants.some(variant => /(?:case|box|pack)/i.test(variant.memberOrderableUnit ?? "") && /12\s*x\s*500\s*ml/i.test(`${variant.size ?? ""} ${parent.name}`));
+}
+
+function isStaleActiveSportsMonsterEnergyFamily(parent: DurableSupplierParentRow) {
+  return /^active sports(?: nutrition)?$/i.test(parent.supplierName.trim()) && parent.brand?.trim().toLocaleLowerCase() === "monster energy - ultra & sugar free";
 }
 
 export function activeSportsCoverage(rows: DurableSupplierParentRow[], commerceProducts: ClubCommerceProduct[], families: ClubProductFamily[]) {

@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import type { ClubCommerceProduct } from "@/lib/club-commerce";
-import { groupProductFamilies, memberVariantChoices, money, type ClubProductFamily, type FamilyCard } from "@/lib/club-product-families";
+import { filterRenderableFamilyCards, groupProductFamilies, memberVariantChoices, money, type ClubProductFamily, type FamilyCard } from "@/lib/club-product-families";
 import { memberAvailabilityLabel, type MemberAvailabilityState } from "@/lib/club-member-availability";
 import { ClubProductMedia, productImageUrl, productWithImage, sharedProductImage } from "./club-product-media";
 
@@ -14,7 +14,7 @@ export function ClubProductFamilySelector({ compact = false, products, families 
   const choices = picked ? memberVariantChoices(picked.variants, selection, p => stateFor(p, availability) !== "UNAVAILABLE" && p.sellPriceMinor > 0) : undefined;
   const resolved = choices?.resolved;
   const controls = choices?.controls.filter(control => control.key !== "orderUnit" && control.key !== "packQuantity");
-  const visibleCards = cards.filter(card => card.variants.some(p => stateFor(p, availability) !== "UNAVAILABLE" && p.sellPriceMinor > 0));
+  const visibleCards = filterRenderableFamilyCards(cards, availability);
   const image = resolved?.variantImageReference ? { ...resolved, media: { url: resolved.variantImageReference } } : (resolved ?? (picked ? productWithImage(picked.variants) : undefined));
   const price = picked ? (() => { const values = picked.variants.filter(p => stateFor(p, availability) !== "UNAVAILABLE" && p.sellPriceMinor > 0).map(p => p.sellPriceMinor).sort((a,b)=>a-b); return values.length > 1 ? `From ${money(values[0])}` : values.length ? money(values[0]) : ""; })() : "";
   const resolvedLocations = resolved ? locationChoicesFor?.(resolved) ?? locationChoices : [];

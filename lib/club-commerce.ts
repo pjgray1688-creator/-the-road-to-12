@@ -40,6 +40,15 @@ export function isActiveSportsMonsterCaseProduct(product: ClubCommerceProduct) {
   return /\b(?:case|box|pack)\b/.test(text) && /\b12\s*x\s*500\s*ml\b/.test(text);
 }
 
+/** The retired Active Sports Monster Energy - Ultra & Sugar Free range is
+ * identified by its exact supplier-managed brand label. Local Monster cans and
+ * unrelated products such as Scitec Monster Pak are deliberately unaffected. */
+export function isStaleActiveSportsMonsterEnergyProduct(product: ClubCommerceProduct) {
+  return product.supplierReference?.startsWith("supplier_product:") === true &&
+    !product.stockTracked &&
+    product.brand?.trim().toLocaleLowerCase() === "monster energy - ultra & sugar free";
+}
+
 /** Overlay member-safe supplier presentation metadata on an existing commerce
  * row without replacing its authoritative retail price or local stock flags. */
 export function mergeSupplierPresentation(product: ClubCommerceProduct, supplier: ClubCommerceProduct): ClubCommerceProduct {
