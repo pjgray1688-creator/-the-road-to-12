@@ -51,10 +51,13 @@ test("featured brand filters use the six supplied remote logos with accessible t
   assert.match(component, /aria-label=\{`Filter by \$\{item\.label\}`\}/);
   assert.match(component, /aria-pressed=\{brand === item\.id\}/);
   assert.match(component, /failedBrandLogos\[item\.id\] \? item\.label/);
+  assert.match(component, /FEATURED_BRANDS_TEXT_ONLY\.has\(item\.id\)/);
   assert.match(component, /onError=\{\(\) => setFailedBrandLogos/);
+  assert.match(component, /naturalWidth \/ naturalHeight > 5\.5/);
   assert.match(component, /alt="" aria-hidden="true"/);
   assert.match(component, /setBrand\(brand === item\.id \? "" : item\.id\)/);
-  assert.match(css, /\.brandLogoCanvas\{[^}]*width:108px;height:38px/);
+  assert.match(css, /\.memberShop \.brandRail\{flex-wrap:nowrap!important;overflow-x:auto!important/);
+  assert.match(css, /\.brandLogoCanvas\{[^}]*width:96px;height:34px/);
   assert.match(css, /\.brandLogo\{[^}]*object-fit:contain/);
 });
 

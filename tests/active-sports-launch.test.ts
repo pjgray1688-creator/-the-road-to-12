@@ -813,6 +813,18 @@ test("reception requires explicit supplier availability for zero-stock supplier 
   assert.match(source, /availableLocalQuantity: local\.get\(product\.id\) \?\? 0/);
 });
 
+test("staff Sell excludes only the stale Active Sports Monster family before counts and brand filtering", async () => {
+  const { filterStaffCheckoutProducts } = await import("../components/club-staff-checkout");
+  const stale = { id: "stale-monster", organisationId: "org", name: "Monster Ultra", brand: "Monster Energy - Ultra & Sugar Free", active: true, stockTracked: false, supplierReference: "supplier_product:stale", supplierAvailabilityStatus: "available", supplierMemberOrderable: true, sellPriceMinor: 300, currency: "GBP", createdAt: "", updatedAt: "" } as any;
+  const localCan = { ...stale, id: "local-monster", name: "Monster Ultra White", brand: "Monster Energy", stockTracked: true, supplierReference: undefined };
+  const scitecPak = { ...stale, id: "scitec-monster-pak", name: "Monster Pak - Mega Vitamin and Mineral Pak", brand: "Scitec Nutrition" };
+  const visible = filterStaffCheckoutProducts([stale, localCan, scitecPak], "");
+  assert.deepEqual(visible.map(product => product.id), ["local-monster", "scitec-monster-pak"]);
+  assert.ok(!visible.some(product => product.brand === "Monster Energy - Ultra & Sugar Free"));
+  const source = await (await import("node:fs/promises")).readFile("components/club-staff-checkout.tsx", "utf8");
+  assert.match(source, /catalogueProducts\.filter\(product => isReceptionProductEligible\(product\) && !isStaleActiveSportsMonsterEnergyProduct\(product\)\)/);
+});
+
 test("reception exposes POS-channel local, supplier-orderable and service items without inventing stock", async () => {
   const { isReceptionProductEligible, resolveMemberProductAvailability, supplierOrderable } = await import("../lib/club-member-availability");
   const local = { id: "gsn", organisationId: "org", name: "GSN Bar", active: true, stockTracked: true, sellPriceMinor: 300, currency: "GBP", salesChannels: ["pos"], createdAt: "", updatedAt: "" } as any;
@@ -835,7 +847,7 @@ test("reception exposes POS-channel local, supplier-orderable and service items 
   const clubPage = await fs.readFile("app/club/shop/page.tsx", "utf8");
   const checkout = await fs.readFile("components/club-staff-checkout.tsx", "utf8");
   assert.match(clubPage, /if \(staff\) return isReceptionProductEligible\(product\)/);
-  assert.match(checkout, /catalogueProducts\.filter\(isReceptionProductEligible\)/);
+  assert.match(checkout, /catalogueProducts\.filter\(product => isReceptionProductEligible\(product\) && !isStaleActiveSportsMonsterEnergyProduct\(product\)\)/);
   assert.doesNotMatch(checkout, /supplierAvailabilityStatus:\s*"unavailable"/);
 });
 

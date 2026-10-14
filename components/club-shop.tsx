@@ -29,6 +29,9 @@ const FEATURED_BRAND_LOGOS: Record<FeaturedMemberBrandId, string> = {
   "black-mamba": "https://gympower.co.uk/cdn/shop/collections/BLACK_MAMBA.png?v=1751366467&width=640",
   "cnp-professional": "https://gympower.co.uk/cdn/shop/collections/1516967336-72621800.png?v=1751366028&width=640",
 };
+// The supplied Applied Nutrition URL is a whey-product pack shot, not a logo.
+// Keep the clean text wordmark rather than presenting a product photo as a brand mark.
+const FEATURED_BRANDS_TEXT_ONLY = new Set<FeaturedMemberBrandId>(["applied-nutrition"]);
 const stateLabel = (status: string) => ({ pending_payment: "Payment needed", awaiting_cash_verification: "Awaiting cash verification", cash_disputed: "Cash discrepancy", paid: "Paid", fulfilled: "Completed", cancelled: "Cancelled", refunded: "Refunded", order_confirmed: "Order confirmed", awaiting_delivery: "Awaiting delivery", ready_for_collection: "Ready for collection", collected: "Collected" } as Record<string, string>)[status] ?? status;
 const ShoppingCartIcon = () => <svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 4h2l2 12h11l2-8H6"/><circle cx="9" cy="20" r="1"/><circle cx="17" cy="20" r="1"/></svg>;
 const BarcodeScanIcon = () => <svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 8V5h3M17 5h3v3M20 16v3h-3M7 19H4v-3M8 8v8M11 8v8M14 8v8M16 8v8"/></svg>;
@@ -88,9 +91,9 @@ function ClubShopBase({ organisationId, userId, products, families = [], locatio
             <button type="button" className={`${styles.brandWordmark} ${!brand ? styles.brandWordmarkSelected : ""}`} aria-label="All brands" aria-pressed={!brand} onClick={() => setBrand("")}>All brands</button>
             {FEATURED_MEMBER_BRANDS.map(item => <button type="button" key={item.id} className={`${styles.brandWordmark} ${brand === item.id ? styles.brandWordmarkSelected : ""}`} aria-label={`Filter by ${item.label}`} aria-pressed={brand === item.id} onClick={() => setBrand(brand === item.id ? "" : item.id)}>
               {brand === item.id ? <span aria-hidden="true">✓ </span> : null}
-              {failedBrandLogos[item.id] ? item.label : <span className={styles.brandLogoCanvas}>
+              {FEATURED_BRANDS_TEXT_ONLY.has(item.id) || failedBrandLogos[item.id] ? item.label : <span className={styles.brandLogoCanvas}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img className={styles.brandLogo} src={FEATURED_BRAND_LOGOS[item.id]} alt="" aria-hidden="true" onError={() => setFailedBrandLogos(current => ({ ...current, [item.id]: true }))} />
+                <img className={styles.brandLogo} src={FEATURED_BRAND_LOGOS[item.id]} alt="" aria-hidden="true" onError={() => setFailedBrandLogos(current => ({ ...current, [item.id]: true }))} onLoad={event => { const { naturalWidth, naturalHeight } = event.currentTarget; if (naturalWidth < 40 || naturalHeight < 16 || naturalWidth / naturalHeight > 5.5 || naturalWidth / naturalHeight < 0.45) setFailedBrandLogos(current => ({ ...current, [item.id]: true })); }} />
               </span>}
             </button>)}
           </div>

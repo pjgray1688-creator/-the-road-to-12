@@ -23,7 +23,7 @@ test("channel flags restrict POS and online visibility, while legacy products re
   assert.equal(isProductOnChannel(product(["pos"]),"pos"),true);assert.equal(isProductOnChannel(product(["pos"]),"online"),false);assert.equal(isProductOnChannel(product(["online"]),"pos"),false);assert.equal(isProductOnChannel(product(undefined),"online"),true);
   assert.equal(isReceptionProductEligible(product(["pos"])),true);
   assert.equal(isReceptionProductEligible(product(["online"])),false);
-  assert.match(checkout,/catalogueProducts\.filter\(isReceptionProductEligible\)/);assert.match(readFileSync("app/member-hub/shop/page.tsx","utf8"),/isProductOnChannel\(product,"online"\)/);
+  assert.match(checkout,/catalogueProducts\.filter\(product => isReceptionProductEligible\(product\) && !isStaleActiveSportsMonsterEnergyProduct\(product\)\)/);assert.match(readFileSync("app/member-hub/shop/page.tsx","utf8"),/isProductOnChannel\(product,"online"\)/);
 });
 
 test("staff cash checkout reserves location stock before settling and cancels an unpayable order",()=>{

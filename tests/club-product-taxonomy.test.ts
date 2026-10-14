@@ -22,7 +22,7 @@ test("presentation mapping classifies representative products without changing c
   assert.equal(inferMemberShopCategory({ name: "Protein Cookie", supplierCategory: "Protein" }), "Food & Drink");
   assert.equal(inferMemberShopCategory({ name: "Protein Chips" }), "Food & Drink");
   assert.equal(inferMemberShopCategory({ name: "Protein Snack" }), "Food & Drink");
-  assert.equal(inferMemberShopCategory({ name: "Novelty Item", description: "Contains protein" }), "Food & Drink");
+  assert.equal(inferMemberShopCategory({ name: "Novelty Item", description: "Contains protein" }), undefined);
   assert.equal(inferMemberShopCategory({ name: "Whey Protein Powder", category: "Supplements" }), "Protein");
   assert.equal(inferMemberShopCategory({ name: "Whey Isolate Tub" }), "Protein");
   assert.equal(inferMemberShopCategory({ name: "Clear Whey Powder" }), "Protein");
@@ -35,6 +35,25 @@ test("presentation mapping classifies representative products without changing c
   assert.equal(inferMemberShopCategory({ name: "Bulk Cream of Rice Powder" }), "Performance");
   assert.equal(inferMemberShopCategory({ name: "Cream of Rice", supplierCategory: "Supplements" }), "Performance");
   assert.equal(inferMemberShopCategory({ name: "Powdered Meal Replacement", supplierCategory: "Food & Drinks" }), "Performance");
+  assert.notEqual(inferMemberShopCategory({ name: "Protein Pancakes", category: "Protein" }), "Protein");
+  assert.notEqual(inferMemberShopCategory({ name: "Protein Water", format: "single 500ml bottle" }), "Protein");
+  assert.notEqual(inferMemberShopCategory({ name: "Protein RTD Shake", format: "individual bottle" }), "Protein");
+  assert.equal(inferMemberShopCategory({ name: "Whey Protein Powder Tub", category: "Supplements" }), "Protein");
+  assert.equal(inferMemberShopCategory({ name: "Whey Protein Sachets", format: "powder sachets" }), "Protein");
+  assert.equal(inferMemberShopCategory({ name: "Protein Shake", format: "12 x 330ml case" }), "Protein");
+  assert.equal(inferMemberShopCategory({ name: "GSN Greek Souvlaki Chicken Wrap" }), "Food & Drink");
+  assert.equal(inferMemberShopCategory({ name: "GSN Chicken Meal" }), "Food & Drink");
+  assert.equal(inferMemberShopCategory({ name: "Canned Energy Drink", format: "single 250ml can" }), "Food & Drink");
+  assert.equal(inferMemberShopCategory({ name: "Lion's Mane" }), "Health & Wellness");
+  assert.equal(inferMemberShopCategory({ name: "AAKG" }), "Performance");
+  assert.equal(inferMemberShopCategory({ name: "Pre-Workout" }), "Performance");
+  assert.equal(inferMemberShopCategory({ name: "L-Carnitine Supplement" }), "Health & Wellness");
+  assert.notEqual(inferMemberShopCategory({ name: "GSN Sticky BBQ Chicken Wrap" }), "Accessories");
+  assert.equal(inferMemberShopCategory({ name: "Wrist Wraps" }), "Accessories");
+  assert.equal(inferMemberShopCategory({ name: "Knee Wraps" }), "Accessories");
+  assert.equal(inferMemberShopCategory({ name: "Gym Shaker" }), "Accessories");
+  assert.equal(inferMemberShopCategory({ name: "Water Jug" }), "Accessories");
+  assert.equal(inferMemberShopCategory({ name: "Unknown Supplement" }), undefined);
 });
 
 test("a deliberate canonical category override wins without changing inferred metadata", () => {
