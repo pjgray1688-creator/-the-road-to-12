@@ -49,7 +49,12 @@ test("owner transfer is current-owner-only, organisation-scoped, atomic and pres
   assert.match(manifest, /2026-12-25-notification-generator-null-safe-auth-lookup\.sql/);
   assert.match(manifest, /2026-12-26-notification-generator-record-alias-safety\.sql/);
   assert.match(harness, /tests\/sql\/staff-owner-transfer\.sql/);
-  assert.match(readFileSync("tests/sql/staff-owner-transfer.sql", "utf8"), /Demoted former owner should not retain transfer authority/);
+  const ownerTransferFixture = readFileSync("tests/sql/staff-owner-transfer.sql", "utf8");
+  assert.match(ownerTransferFixture, /request\.jwt\.claim\.sub','20000000-0000-4000-8000-000000000002'[\s\S]*?set local role authenticated;[\s\S]*?Self-transfer should have been rejected[\s\S]*?Cross-organisation target should have been rejected[\s\S]*?reset role;/);
+  assert.match(ownerTransferFixture, /reset role;\s*select set_config\('request\.jwt\.claim\.sub','',true\);\s*select set_config\('request\.jwt\.claim\.role','',true\);\s*select set_config\('request\.jwt\.claims','\{\}',true\);[\s\S]*?request\.jwt\.claim\.sub','20000000-0000-4000-8000-000000000001'[\s\S]*?set local role authenticated;[\s\S]*?Demoted former owner should not retain transfer authority[\s\S]*?exception when sqlstate '42501'/);
+  assert.match(migration, /Choose another active staff member; self-transfer is not allowed' using errcode='22023'/);
+  assert.match(migration, /Only the current active Owner can transfer ownership' using errcode='42501'/);
+  assert.match(migration, /The new Owner must already be an active member of this organisation' using errcode='22023'/);
 });
 
 test("notification cron is daily and both internal worker schedules use the existing Vercel config", () => {

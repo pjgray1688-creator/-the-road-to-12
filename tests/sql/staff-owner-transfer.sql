@@ -19,6 +19,7 @@ insert into public.coach_permissions(organisation_id,user_id,granted_by,active) 
  ('20000000-0000-4000-8000-000000000011','20000000-0000-4000-8000-000000000002','20000000-0000-4000-8000-000000000001',true);
 
 select set_config('request.jwt.claim.sub','20000000-0000-4000-8000-000000000001',true);
+select set_config('request.jwt.claim.role','authenticated',true);
 set local role authenticated;
 select public.club_transfer_organisation_owner('20000000-0000-4000-8000-000000000011','20000000-0000-4000-8000-000000000002');
 reset role;
@@ -38,23 +39,41 @@ begin
   end if;
 end $$;
 
-select set_config('request.jwt.claim.sub','20000000-0000-4000-8000-000000000001',true);
+-- Validation errors are tested as the NEW active Owner. The RPC checks
+-- caller ownership before validating a non-self target, so this role is
+-- necessary to reach cross-organisation target validation.
+select set_config('request.jwt.claim.sub','20000000-0000-4000-8000-000000000002',true);
+select set_config('request.jwt.claim.role','authenticated',true);
 set local role authenticated;
 do $$
 begin
   begin
-    perform public.club_transfer_organisation_owner('20000000-0000-4000-8000-000000000011','20000000-0000-4000-8000-000000000001');
+    perform public.club_transfer_organisation_owner('20000000-0000-4000-8000-000000000011','20000000-0000-4000-8000-000000000002');
     raise exception 'Self-transfer should have been rejected';
   exception when sqlstate '22023' then null; end;
   begin
     perform public.club_transfer_organisation_owner('20000000-0000-4000-8000-000000000011','20000000-0000-4000-8000-000000000003');
     raise exception 'Cross-organisation target should have been rejected';
   exception when sqlstate '22023' then null; end;
-  perform set_config('request.jwt.claim.sub','20000000-0000-4000-8000-000000000001',true);
+end $$;
+reset role;
+select set_config('request.jwt.claim.sub','',true);
+select set_config('request.jwt.claim.role','',true);
+select set_config('request.jwt.claims','{}',true);
+
+-- The demoted user is still authenticated and active, but no longer Owner.
+select set_config('request.jwt.claim.sub','20000000-0000-4000-8000-000000000001',true);
+select set_config('request.jwt.claim.role','authenticated',true);
+set local role authenticated;
+do $$
+begin
   begin
     perform public.club_transfer_organisation_owner('20000000-0000-4000-8000-000000000011','20000000-0000-4000-8000-000000000002');
     raise exception 'Demoted former owner should not retain transfer authority';
   exception when sqlstate '42501' then null; end;
 end $$;
 reset role;
+select set_config('request.jwt.claim.sub','',true);
+select set_config('request.jwt.claim.role','',true);
+select set_config('request.jwt.claims','{}',true);
 rollback;
