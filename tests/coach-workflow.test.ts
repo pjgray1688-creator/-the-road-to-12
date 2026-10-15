@@ -119,8 +119,12 @@ test("cover PT programme writes are denied by the executable policy", () => {
   assert.equal(canPersistProgrammeChanges({ relationship: "primary", coachUserId: "primary-pt", programmeOwnerUserId: "primary-pt" }), true);
 });
 
-test("Coach page keeps shared navigation available on access and error states", () => {
+test("Coach routes use the standalone Coach shell on access and error states", () => {
   const page = read("app/coach/page.tsx");
-  assert.match(page, /import \{ AppNav \} from "@\/components\/app-nav"/);
-  assert.equal((page.match(/<AppNav \/>/g) ?? []).length, 3);
+  const layout = read("app/coach/layout.tsx");
+  const shell = read("components/coach-product-shell.tsx");
+  assert.doesNotMatch(page, /AppNav/);
+  assert.match(layout, /CoachProductShell/);
+  assert.match(shell, /CoachNavigation/);
+  assert.match(shell, /Open R12/);
 });

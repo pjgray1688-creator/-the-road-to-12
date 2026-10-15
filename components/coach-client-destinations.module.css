@@ -1,0 +1,4 @@
+.page{padding:4px 0 24px}
+.heading{margin:0 0 22px}.heading h1{margin:.35rem 0;font-size:clamp(28px,5vw,42px);letter-spacing:-.035em}.heading p{max-width:620px;color:#b9b2c4}
+.list{display:grid;gap:10px}.card{display:flex;align-items:center;justify-content:space-between;gap:18px;min-height:78px;padding:16px 18px;border:1px solid #ffffff16;border-radius:16px;background:linear-gradient(130deg,#17141e,#101116);color:#f5f1fb;text-decoration:none}.card:hover{border-color:#7957a766;background:#1c1725}.card>span{display:grid;gap:5px;min-width:0}.card>span:last-child{text-align:right}.card small{color:#aaa3b4}.empty{padding:22px}
+@media(max-width:540px){.card{align-items:flex-start;flex-direction:column;gap:12px}.card>span:last-child{text-align:left}}

@@ -1,11 +1,26 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import styles from "./coach-navigation.module.css";
 
-export function CoachNavigation({ active, organisationId }: { active: "home" | "diary"; organisationId?: string }) {
-  const diary = organisationId ? `/coach/diary?org=${encodeURIComponent(organisationId)}` : "/coach/diary";
+const destinations = [
+  { href: "/coach", label: "Clients", key: "clients" },
+  { href: "/coach/diary", label: "Diary", key: "diary" },
+  { href: "/coach/programmes", label: "Programmes", key: "programmes" },
+  { href: "/coach/nutrition", label: "Nutrition", key: "nutrition" },
+  { href: "/coach/account", label: "Account", key: "account" },
+];
+
+export function CoachNavigation() {
+  const pathname = usePathname();
+  const active = pathname === "/coach" || pathname.startsWith("/coach/claim") || pathname.startsWith("/coach/join")
+    ? "clients"
+    : pathname.startsWith("/coach/diary") ? "diary"
+      : pathname.startsWith("/coach/programmes") ? "programmes"
+        : pathname.startsWith("/coach/nutrition") ? "nutrition"
+          : pathname.startsWith("/coach/account") ? "account" : "";
   return <nav className={styles.nav} aria-label="R12 Coach">
-    <Link href="/coach" aria-current={active === "home" ? "page" : undefined} className={active === "home" ? styles.selected : ""}>Workspace</Link>
-    <Link href={diary} aria-current={active === "diary" ? "page" : undefined} className={active === "diary" ? styles.selected : ""}>Diary</Link>
-    <Link href="/tutorial/coach">Guide</Link>
+    {destinations.map(item => <Link key={item.key} href={item.href} aria-current={active === item.key ? "page" : undefined} className={active === item.key ? styles.selected : ""}>{item.label}</Link>)}
   </nav>;
 }

@@ -4,16 +4,22 @@ import test from "node:test";
 
 test("root destinations share the persistent primary navigation", () => {
   const nav = fs.readFileSync("components/app-nav.tsx", "utf8");
-  for (const href of ['href: "/"', 'href: "/training"', 'href: "/progress"', 'href: "/account"']) assert.match(nav, new RegExp(href.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  for (const href of ['href: "/member-hub"', 'href: "/training"', 'href: "/progress"', 'href: "/account"']) assert.match(nav, new RegExp(href.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   assert.match(fs.readFileSync("app/training-polish.css", "utf8"), /\.app-nav \{ position: fixed;/);
   assert.match(fs.readFileSync("app/training-polish.css", "utf8"), /padding-bottom: calc\(88px/);
 });
 
-test("Coach Today navigation returns to the R12 training home, never the Club member hub", () => {
+test("member Today and Coach return navigation lead to the R12 member app, not public root or Club", () => {
   const nav = fs.readFileSync("components/app-nav.tsx", "utf8");
-  assert.match(nav, /href: "\/", label: "Today"/);
+  assert.match(nav, /href: "\/member-hub", label: "Today"/);
   assert.match(nav, /if \(pathname\.startsWith\("\/club"\)\) return null/);
-  assert.doesNotMatch(nav, /href: "\/member-hub", label: "Today"/);
+  assert.doesNotMatch(nav, /href: "\/", label: "Today"/);
+  assert.match(fs.readFileSync("components/coach-product-shell.tsx", "utf8"), /href="\/member-hub" className=\{styles\.switcher\}/);
+  assert.match(fs.readFileSync("app/coach/page.tsx", "utf8"), /href="\/member-hub">Open R12/);
+});
+
+test("public root remains the existing marketing/authenticated home route", () => {
+  assert.match(fs.readFileSync("app/page.tsx", "utf8"), /AuthenticatedHome/);
 });
 
 test("Today uses an in-app check-in and keeps history destinations in Progress", () => {
