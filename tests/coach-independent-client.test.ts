@@ -195,7 +195,7 @@ test("client referral returns to member R12, not the Coach workspace", () => {
   const claim = fs.readFileSync("components/coach-referral-claim.tsx", "utf8");
   assert.match(claim, /next=.*returnTo/);
   assert.match(claim, /Continue to R12/);
-  assert.match(claim, /href="\/"/);
+  assert.match(claim, /href="\/member-hub"/);
   assert.doesNotMatch(claim, /href="\/coach">Open Coach/);
 });
 

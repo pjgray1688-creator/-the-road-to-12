@@ -5,6 +5,7 @@ import { ClubSectionNav } from "@/components/club-shell";
 import { AppShell, EmptyState, PageHeader, Surface } from "@/components/ui";
 import { resolveClubOrganisationContext } from "@/lib/club-server-context";
 import { launchReadiness } from "@/lib/launch-readiness";
+import { siteUrl } from "@/lib/site-url";
 import { serverSupabase } from "@/lib/supabase-server";
 
 const stateLabel = { configured: "Configured", missing: "Missing", invalid: "Invalid", disabled: "Disabled", adapter_unavailable: "Adapter unavailable", external_verification_required: "External verification required" };
@@ -17,16 +18,17 @@ export default async function ClubLaunchReadinessPage({ searchParams }: { search
   if (!context || !["owner", "gym_admin"].includes(context.role)) return <AppShell className="module-page club-page"><PageHeader eyebrow="R12 CLUB" title="Launch readiness"/><EmptyState title="Admin access required">Only authorised Club administrators can inspect deployment configuration status.</EmptyState><AppNav/></AppShell>;
   const checks = launchReadiness();
   const q = `?org=${encodeURIComponent(context.organisation.id)}`;
+  const appOrigin = siteUrl();
   return <AppShell className="module-page club-page">
     <PageHeader eyebrow="R12 CLUB · ADMIN" title="Launch readiness" description="Configuration presence and format only. Secret values and live connectivity are never shown or tested."/>
     <ClubSectionNav organisation={context.organisation} role={context.role} contexts={context.availableContexts}/>
     <Surface><span className="eyebrow">SERVER CONFIGURATION</span><div className="club-list">{checks.map(check=><article className="club-detail-row" key={check.key}><span><strong>{check.label}</strong><small>{check.detail}</small></span><b aria-label={`${check.label}: ${stateLabel[check.state]}`}>{stateLabel[check.state]}</b></article>)}</div></Surface>
     <Surface><span className="eyebrow">PROVIDER DESTINATIONS</span><div className="club-list">
-      <div className="club-detail-row"><span><strong>Stripe webhook</strong><small>Register checkout completion, async success/failure, expired sessions and failed payment intents.</small></span><code>https://the-road-to-12.vercel.app/api/webhooks/stripe</code></div>
-      <div className="club-detail-row"><span><strong>GoCardless webhook</strong><small>Enable payment and mandate lifecycle events.</small></span><code>https://the-road-to-12.vercel.app/api/webhooks/gocardless</code></div>
-      <div className="club-detail-row"><span><strong>GoCardless callback</strong><small>Used by hosted mandate setup.</small></span><code>https://the-road-to-12.vercel.app/api/club/join/gocardless/complete</code></div>
-      <div className="club-detail-row"><span><strong>Billing worker</strong><small>GET · Vercel Cron runs daily at 06:00 UTC; Authorization uses CRON_SECRET. Due collections may wait until the next run.</small></span><code>https://the-road-to-12.vercel.app/api/internal/membership-billing-worker</code></div>
-      <div className="club-detail-row"><span><strong>Notification worker</strong><small>GET · Staff invite/resend and member-import activation actions nudge this authenticated outbox worker after responding. Vercel Cron provides a daily 06:15 UTC safety sweep; SMTP must be configured before messages can be claimed. Up to 1,000 messages per run within the bounded worker budget.</small></span><code>https://the-road-to-12.vercel.app/api/internal/notification-worker</code></div>
+      <div className="club-detail-row"><span><strong>Stripe webhook</strong><small>Register checkout completion, async success/failure, expired sessions and failed payment intents.</small></span><code>{appOrigin}/api/webhooks/stripe</code></div>
+      <div className="club-detail-row"><span><strong>GoCardless webhook</strong><small>Enable payment and mandate lifecycle events.</small></span><code>{appOrigin}/api/webhooks/gocardless</code></div>
+      <div className="club-detail-row"><span><strong>GoCardless callback</strong><small>Used by hosted mandate setup.</small></span><code>{appOrigin}/api/club/join/gocardless/complete</code></div>
+      <div className="club-detail-row"><span><strong>Billing worker</strong><small>GET · Vercel Cron runs daily at 06:00 UTC; Authorization uses CRON_SECRET. Due collections may wait until the next run.</small></span><code>{appOrigin}/api/internal/membership-billing-worker</code></div>
+      <div className="club-detail-row"><span><strong>Notification worker</strong><small>GET · Staff invite/resend and member-import activation actions nudge this authenticated outbox worker after responding. Vercel Cron provides a daily 06:15 UTC safety sweep; SMTP must be configured before messages can be claimed. Up to 1,000 messages per run within the bounded worker budget.</small></span><code>{appOrigin}/api/internal/notification-worker</code></div>
     </div><p className="muted">Supabase Auth confirmation and password-reset mail is configured separately in Supabase. Verify its Site URL, redirect allow-list and hosted template before invites.</p></Surface>
     <Surface><span className="eyebrow">SENDER IDENTITIES</span><div className="club-list">{[["Member and account mail","members@r12.live"],["Staff mail","staff@r12.live"],["Madhouse billing","madhouse.accounts@r12.live"]].map(([label,address])=><div className="club-detail-row" key={address}><strong>{label}</strong><code>{address}</code></div>)}</div><p className="muted">Sender domain authentication must be verified with SpaceMail. This page never tests SMTP connectivity or displays credentials.</p><Link href={`/club/staff/email-preview${q}`} className="member-hub-link">Preview and test emails</Link></Surface>
     <Link className="member-hub-link" href={`/club/more${q}`}>Back to More</Link><AppNav/>

@@ -7,10 +7,12 @@ import { verifyInternalWorkerAuth } from "../lib/internal-worker-auth";
 
 const env = (values: Record<string, string> = {}) => ({ NODE_ENV: "test", ...values }) as NodeJS.ProcessEnv;
 
-test("app URL prefers R12_APP_BASE_URL and rejects the landing domain", () => {
+test("app URL prefers R12_APP_BASE_URL and accepts the r12.live app origin only without a path", () => {
   assert.deepEqual(appBaseUrlStatus({ NODE_ENV: "production", R12_APP_BASE_URL: "https://app.example.test", NEXT_PUBLIC_SITE_URL: "https://legacy.example.test" } as NodeJS.ProcessEnv), {
     status: "configured", source: "R12_APP_BASE_URL", effectiveUrl: "https://app.example.test",
   });
+  const canonical = appBaseUrlStatus({ R12_APP_BASE_URL: "https://r12.live", NODE_ENV: "production" } as NodeJS.ProcessEnv);
+  assert.deepEqual(canonical, { status: "configured", source: "R12_APP_BASE_URL", effectiveUrl: "https://r12.live" });
   const invalid = appBaseUrlStatus({ R12_APP_BASE_URL: "https://r12.live/account", NODE_ENV: "production" } as NodeJS.ProcessEnv);
   assert.equal(invalid.status, "invalid");
   assert.equal(invalid.effectiveUrl, "https://the-road-to-12.vercel.app");
@@ -95,6 +97,8 @@ test("production launch checklist documents canonical webhook, callback, and wor
   assert.match(checklist, /imports synchronously/);
   assert.match(checklist, /daily.*Vercel Hobby|Vercel Hobby.*daily/i);
   assert.match(checklist, /Site URL/);
+  assert.match(checklist, /https:\/\/r12\.live/);
+  assert.match(checklist, /Cloudflare.*path|path.*Cloudflare/i);
   const vercel = JSON.parse(await readFile("vercel.json", "utf8"));
   assert.deepEqual(vercel.crons, [
     { path: "/api/internal/membership-billing-worker", schedule: "0 6 * * *" },

@@ -14,6 +14,8 @@ const sql = readFileSync("supabase/migrations/2026-11-21-notification-engine.sql
 const provider = readFileSync("lib/notification-provider.ts", "utf8");
 const route = readFileSync("app/api/internal/notification-worker/route.ts", "utf8");
 const docs = readFileSync("docs/notification-delivery.md", "utf8");
+const launchSupportSql = readFileSync("supabase/migrations/2026-12-24-staff-owner-transfer-and-member-activation-queue.sql", "utf8");
+const billingJoinSql = readFileSync("supabase/migrations/2026-11-19-madhouse-billing-and-tutorials.sql", "utf8");
 
 test("the existing notification intent table becomes the durable provider-neutral outbox", () => {
   assert.match(sql, /alter table public\.club_member_notification_intents/);
@@ -102,6 +104,29 @@ test("notification worker reports missing auth configuration without leaking sec
     if (secret === undefined) delete process.env.R12_NOTIFICATION_WORKER_SECRET; else process.env.R12_NOTIFICATION_WORKER_SECRET = secret;
     if (cron === undefined) delete process.env.CRON_SECRET; else process.env.CRON_SECRET = cron;
   }
+});
+
+test("notification worker failure logs identify the database/delivery operation without logging error details", () => {
+  assert.match(route, /let operation = "database_configuration"/);
+  assert.match(route, /operation = "generate_intents"/);
+  assert.match(route, /operation = "claim_intents"/);
+  assert.match(route, /operation = "deliver_or_update_state"/);
+  assert.match(route, /\{ code: typeof source\.code === "string" \? source\.code : "UNKNOWN", operation \}/);
+  assert.doesNotMatch(route, /console\.error\("\[notifications\] worker failed"[^\n]*message/);
+});
+
+test("the repository's explicit SQLSTATE 55000 guards are outside the notification worker RPC path", () => {
+  const memberResendStart = launchSupportSql.indexOf("create or replace function public.club_resend_member_activation_notification");
+  const workerClaimStart = launchSupportSql.indexOf("create or replace function public.club_claim_notification_intents_for_worker");
+  const ownerTransferStart = launchSupportSql.indexOf("create or replace function public.club_transfer_organisation_owner");
+  assert.ok(memberResendStart >= 0 && workerClaimStart > memberResendStart && ownerTransferStart > workerClaimStart);
+  assert.match(launchSupportSql.slice(memberResendStart, workerClaimStart), /Activation email is already being processed or was cancelled' using errcode='55000'/);
+  assert.doesNotMatch(launchSupportSql.slice(workerClaimStart, ownerTransferStart), /55000/);
+  assert.match(billingJoinSql, /Monthly joining fee is not configured' using errcode='55000'/);
+  assert.match(route, /club_generate_notification_intents/);
+  assert.match(route, /club_claim_notification_intents_for_worker/);
+  assert.match(route, /club_complete_notification_intent/);
+  assert.match(route, /club_fail_notification_intent/);
 });
 
 test("notification worker refuses to touch the outbox while no real transport is available", async () => {

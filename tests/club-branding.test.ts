@@ -7,7 +7,7 @@ test("Club has an independent install identity without changing the Member manif
   const clubManifest = readFileSync(new URL("../app/club/manifest.ts", import.meta.url), "utf8");
   const memberManifest = readFileSync(new URL("../app/manifest.ts", import.meta.url), "utf8");
   assert.match(clubManifest, /R12 Club/); assert.match(clubManifest, /club-icon-192/); assert.match(clubManifest, /start_url: "\/club"/);
-  assert.match(memberManifest, /start_url: "\/"/); assert.doesNotMatch(memberManifest, /club-icon/);
+  assert.match(memberManifest, /start_url: "\/member-hub"/); assert.doesNotMatch(memberManifest, /club-icon/);
 });
 
 test("Club title architecture is generic and tenant-safe", () => {

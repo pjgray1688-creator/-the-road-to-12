@@ -20,8 +20,10 @@ export async function GET(request: NextRequest) {
   if (auth === "missing_configuration") return NextResponse.json({ error: "Notification worker authentication is not configured" }, { status: 503 });
   if (auth === "unauthorized") return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!notificationTransportAvailable()) return NextResponse.json({ error: "Notification delivery adapter is unavailable; no intents were claimed." }, { status: 503 });
+  let operation = "database_configuration";
   try {
     const client = admin();
+    operation = "generate_intents";
     const { error: generationError } = await client.rpc("club_generate_notification_intents");
     if (generationError) throw generationError;
     const limits = notificationWorkerLimits();
@@ -44,6 +46,7 @@ export async function GET(request: NextRequest) {
       const remainingMs = limits.runtimeBudgetMs - (Date.now() - startedAt);
       const runtimeSafeBatchSize = Math.floor((remainingMs / limits.messageTimeoutMs) * limits.sendConcurrency);
       if (runtimeSafeBatchSize < 1) break;
+      operation = "claim_intents";
       const { data: rows, error } = await client.rpc("club_claim_notification_intents_for_worker", {
         p_limit: Math.min(limits.batchSize, runtimeSafeBatchSize),
         p_worker_id: workerId(),
@@ -55,6 +58,7 @@ export async function GET(request: NextRequest) {
       batches++;
       claimed += batch.length;
       for (let offset = 0; offset < batch.length; offset += limits.sendConcurrency) {
+        operation = "deliver_or_update_state";
         await Promise.all(batch.slice(offset, offset + limits.sendConcurrency).map(row => processRow({ ...row, template_key: row.template_key as NotificationTemplateKey })));
       }
     }
@@ -63,7 +67,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     const source = error as { code?: unknown; message?: unknown };
     const databaseConfigMissing = source instanceof Error && source.message === "Notification worker database configuration is missing";
-    console.error("[notifications] worker failed", { code: typeof source.code === "string" ? source.code : "UNKNOWN" });
+    console.error("[notifications] worker failed", { code: typeof source.code === "string" ? source.code : "UNKNOWN", operation });
     return NextResponse.json({ error: databaseConfigMissing ? "Notification worker database configuration is missing" : "Notification worker failed; review protected server logs." }, { status: 500 });
   }
 }

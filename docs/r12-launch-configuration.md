@@ -9,13 +9,23 @@ Use this as the Vercel/provider-dashboard checklist. Never put secret values in 
 - Membership billing is scheduled daily at 06:00 UTC in `vercel.json`, compatible with Vercel Hobby. Explicitly queued supplier-import jobs retain a protected worker endpoint but are not automatically polled; the current Active Sports upload runs synchronously. Deployment activation still requires Vercel verification.
 - Application transactional SMTP transport is implemented. Delivery remains disabled until server SMTP configuration is complete; the protected worker checks readiness before claiming queued work and is scheduled daily at 06:15 UTC.
 
+## Public app URL while preserving the landing site
+
+The Next.js app's root route is an authenticated app home, not the existing public R12 landing site. Do not point the bare-domain root `/` at this Vercel project or replace the current landing origin. The app can use `https://r12.live` as its canonical origin after Cloudflare routes app paths to the existing Vercel deployment. Keep the landing site as the origin for `/` and its existing marketing paths.
+
+Use a Cloudflare Worker (or equivalent path-aware reverse proxy) on the existing `r12.live` zone. Route only app paths to `https://the-road-to-12.vercel.app`, preserving method, path, query, request body, cookies and response `Set-Cookie` headers. Forward `x-forwarded-host: r12.live` and `x-forwarded-proto: https`; do not cache authenticated pages, `/api/*`, or auth responses. Keep `/` and all current marketing paths on their present landing origin. Route the required `/club*`, `/coach*`, `/member-hub*`, `/account*`, `/api/*`, `/training*`, `/nutrition*`, `/progress*`, `/history*`, `/onboarding*`, and `/join/madhouse` plus `/join/*` app paths, along with `/manifest.webmanifest` and app-owned public assets such as `/icons/*`, `/club-branding/*`, and `/product-images/*`. Compare this allowlist with the landing site's routes and asset paths before activation; resolve any collision explicitly rather than proxying all traffic. Route `/privacy` and `/terms` to the app only if those paths are not existing landing pages. The current app root is intentionally not included.
+
+The proxy must also serve the app's Next static chunks at `/_next/static/*`. If that path is used by the landing site too, use a distinct app asset origin/prefix or a Vercel rewrite arrangement that keeps both builds' chunk URLs isolated; do not blindly route the shared path and risk breaking landing assets. Test Server Actions, Supabase cookie set/refresh, deep links and checkout callbacks through the public hostname before changing provider callbacks.
+
+The browser will see `r12.live`, so host-only Supabase cookies will belong to that host across app paths; do not widen them with `Domain=.r12.live`. Same-origin proxying does not isolate cookies by path, so confirm the landing site's authentication does not collide with R12's Supabase cookie names/session. The PWA starts at `/member-hub`, not the marketing root. Native/app deep links should use the same public app paths once routing is live.
+
 ## External setup required
 
 ## Vercel production environment
 
 Set the following server-side values in the Production environment:
 
-- `R12_APP_BASE_URL=https://the-road-to-12.vercel.app` (preferred canonical app origin). `NEXT_PUBLIC_SITE_URL` is a legacy fallback; neither may point at `r12.live`.
+- `R12_APP_BASE_URL=https://r12.live` (preferred canonical app origin, after Cloudflare app-path routing is active). Set `NEXT_PUBLIC_SITE_URL=https://r12.live` as the legacy fallback as well. Until the path proxy and callback allowlist are ready, retain the current Vercel origin rather than switching early.
 - `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET`.
 - `GOCARDLESS_ACCESS_TOKEN`, `GOCARDLESS_WEBHOOK_SECRET`, and `GOCARDLESS_ENVIRONMENT=live` after the live provider setup is verified. The integration defaults to sandbox if the environment is omitted; set it explicitly.
 - `CRON_SECRET` for Vercel Cron requests. Billing and notification workers also accept their dedicated `R12_BILLING_WORKER_SECRET` / `R12_NOTIFICATION_WORKER_SECRET` for trusted manual calls.
@@ -52,12 +62,12 @@ Workers are safe to invoke repeatedly: billing uses durable claims and stable pr
 
 ## Provider endpoints
 
-- Stripe webhook: `https://the-road-to-12.vercel.app/api/webhooks/stripe`
-- GoCardless webhook: `https://the-road-to-12.vercel.app/api/webhooks/gocardless`
-- GoCardless redirect callback: `https://the-road-to-12.vercel.app/api/club/join/gocardless/complete`
-- Membership billing worker: `GET https://the-road-to-12.vercel.app/api/internal/membership-billing-worker`
-- Queued supplier import worker: `GET https://the-road-to-12.vercel.app/api/internal/supplier-import-worker`
-- Notification delivery worker: `GET https://the-road-to-12.vercel.app/api/internal/notification-worker`
+- Stripe webhook: `https://r12.live/api/webhooks/stripe` (after `/api/*` is proxied)
+- GoCardless webhook: `https://r12.live/api/webhooks/gocardless` (after `/api/*` is proxied)
+- GoCardless redirect callback: `https://r12.live/api/club/join/gocardless/complete` (after `/api/*` is proxied)
+- Membership billing worker: `GET https://r12.live/api/internal/membership-billing-worker`
+- Queued supplier import worker: `GET https://r12.live/api/internal/supplier-import-worker`
+- Notification delivery worker: `GET https://r12.live/api/internal/notification-worker`
 
 Vercel Cron supplies the bearer header from `CRON_SECRET`. Trusted manual calls may use the corresponding dedicated worker secret or `CRON_SECRET`; never put a secret in a URL or log.
 
@@ -77,7 +87,7 @@ Configure GoCardless webhook events for mandate and payment lifecycle changes us
 
 ### Supabase Auth redirects
 
-In Supabase Authentication → URL Configuration, set the Site URL to `https://the-road-to-12.vercel.app` and allow the production callback URLs `https://the-road-to-12.vercel.app/account` and `https://the-road-to-12.vercel.app/account/reset`. Add only the required preview/development origins separately if those environments need Auth callbacks. The app constructs confirmation and password-reset redirects from the active application origin. Supabase Auth SMTP is configured separately from application transactional SMTP.
+In Supabase Authentication → URL Configuration, once path routing is active, set the Site URL to `https://r12.live` and allow the production callback URLs `https://r12.live/account` and `https://r12.live/account/reset` (plus any specific existing claim callback that is configured to receive Auth redirects). Keep preview/development origins separate. Browser signup/reset redirects derive from the current app origin, so using the app at `r12.live` sends those callbacks back to `r12.live`. Supabase Auth SMTP is configured separately from application transactional SMTP.
 
 ## Notification lease recovery and delivery guarantees
 
