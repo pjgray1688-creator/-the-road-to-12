@@ -210,16 +210,43 @@ test("templates do not expose passwords or raw payment credentials", () => {
   assert.doesNotMatch(billing.text, /raw|secret|token/i);
 });
 
-test("launch invite templates use human roles, expiry, branded CTA and correct destinations", () => {
-  const manager = renderNotification({ templateKey: "staff_invitation", payload: { grantId: "not-for-report", email: "keenan@example.test", role: "gym_admin", organisationName: "Madhouse", venueNames: ["Rotherham", "Carlton"], expiresAt: "2026-11-14T12:00:00Z", testMode: true } });
-  assert.equal(manager.subject, "[TEST] Your R12 staff access is ready");
-  assert.match(manager.text, /Manager/); assert.match(manager.text, /Rotherham and Carlton/);
-  assert.match(manager.text, /14 November 2026/); assert.match(manager.cta, /Activate staff access/);
-  assert.match(manager.destination, /\/club\/staff\/claim\?grant=/); assert.match(manager.html, /MADHOUSE/);
-  const member = renderNotification({ templateKey: "member_activation", payload: { name: "Alex", organisationName: "Madhouse" } });
-  assert.equal(member.subject, "Activate your R12 membership account");
-  assert.match(member.text, /not buying or joining again/i); assert.match(member.cta, /Activate my R12 account/);
-  assert.match(member.destination, /\/member-hub\/link$/); assert.doesNotMatch(member.text, /membership id|phone|date of birth/i);
+test("staff invitation previews use branded human role labels, access summary, expiry and claim CTA", () => {
+  const renderStaff = (role: string, extras: Record<string, unknown> = {}) => renderNotification({ templateKey: "staff_invitation", payload: { name: "Keenan", email: "keenan@example.test", role, venueNames: ["Rotherham", "Carlton"], expiresAt: "2026-11-14T12:00:00Z", grantId: "preview-only", ...extras } });
+  const owner = renderStaff("owner", { coachEnabled: true, testMode: true });
+  assert.equal(owner.subject, "[TEST] Your R12 staff access is ready");
+  assert.match(owner.text, /Welcome aboard, Keenan\./); assert.match(owner.text, /Your staff access is ready\./);
+  assert.match(owner.text, /Role: Owner/); assert.match(owner.text, /Venues: Rotherham \+ Carlton/); assert.match(owner.text, /Coach\/PT: Enabled/);
+  assert.match(owner.text, /Use keenan@example\.test to sign in or create your R12 account/);
+  assert.match(owner.text, /Your invite is valid until 14 November 2026\./); assert.equal(owner.cta, "ACTIVATE STAFF ACCESS");
+  assert.match(owner.destination, /\/club\/staff\/claim\?grant=/); assert.equal(owner.destinationType, "Staff access activation page");
+  assert.match(owner.html, /R12 × MADHOUSE/); assert.match(owner.html, /MADHOUSE · ROTHERHAM · CARLTON/);
+  assert.match(owner.html, /TEST EMAIL — nothing will be changed/); assert.match(owner.html, /alt="R12 × Madhouse Gym"/);
+  assert.match(owner.html, /Everything’s ready when you are\./); assert.match(owner.text, /Your club\. Your progress\./);
+  assert.doesNotMatch(owner.text, /gym_admin|gym_staff|trainer/);
+
+  assert.match(renderStaff("gym_admin").text, /Role: Manager/);
+  assert.match(renderStaff("trainer").text, /Role: PT \/ Coach/);
+  assert.match(renderStaff("gym_staff").text, /Role: Operational Staff/);
+  const noCoach = renderStaff("gym_admin");
+  assert.doesNotMatch(noCoach.text, /Coach\/PT/);
+  assert.doesNotMatch(noCoach.text, /gym_admin|gym_staff|trainer/);
+  assert.equal(owner.sender, "staff"); assert.equal(owner.senderName, "R12 · Madhouse Staff"); assert.equal(owner.senderAddress, "staff@r12.live");
+});
+
+test("member activation uses the approved reassuring R12 × Madhouse copy in HTML and plain text", () => {
+  const member = renderNotification({ templateKey: "member_activation", payload: { name: "Alex", organisationName: "Madhouse", testMode: true } });
+  assert.equal(member.subject, "[TEST] Activate your R12 membership account");
+  assert.match(member.text, /Your gym just got an upgrade\./);
+  assert.match(member.text, /Your Madhouse membership is now on R12\./);
+  assert.match(member.text, /You’re already a member — you’re not joining or paying again\./);
+  assert.match(member.text, /ACTIVATE MY R12 ACCOUNT/);
+  assert.match(member.text, /Already use R12\? Sign in\. New to R12\? Create an account with the same email address linked to your membership\./);
+  assert.match(member.text, /Once you’re signed in, link your existing Madhouse membership\./);
+  assert.match(member.text, /Same gym\. Much smarter\./); assert.match(member.text, /Your club\. Your progress\./);
+  assert.match(member.destination, /\/member-hub\/link$/); assert.equal(member.destinationType, "R12 membership account link page");
+  assert.match(member.html, /ACTIVATE MY R12 ACCOUNT/); assert.match(member.html, /R12 × MADHOUSE/);
+  assert.doesNotMatch(member.text, /join now|buy now|subscription|membership id|phone|date of birth/i);
+  assert.equal(member.sender, "members"); assert.equal(member.senderName, "R12 · Madhouse"); assert.equal(member.senderAddress, "members@r12.live");
 });
 
 test("schedule updates use the existing member delivery template with member-safe appointment facts", () => {

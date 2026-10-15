@@ -6,9 +6,9 @@ import { resolveClubOperationalContext } from "@/lib/club-server-context";
 import { deliverNotification } from "@/lib/notification-provider";
 import { renderNotification, type NotificationTemplateKey } from "@/lib/notification-templates";
 
-const samples: Record<"staff_manager" | "staff_coach" | "member_activation", { templateKey: NotificationTemplateKey; payload: Record<string, unknown> }> = {
-  staff_manager: { templateKey: "staff_invitation", payload: { name: "Keenan", email: "keenan@example.test", role: "gym_admin", organisationName: "Madhouse", venueNames: ["Rotherham", "Carlton"], inviterName: "R12 Club Admin", expiresAt: "2026-11-14T12:00:00Z", grantId: "example-only" } },
-  staff_coach: { templateKey: "staff_invitation", payload: { name: "Luke", email: "luke@example.test", role: "trainer", organisationName: "Madhouse", venueNames: ["Rotherham", "Carlton"], inviterName: "R12 Club Admin", expiresAt: "2026-11-14T12:00:00Z", grantId: "example-only" } },
+const samples: Record<"staff_owner" | "staff_coach" | "member_activation", { templateKey: NotificationTemplateKey; payload: Record<string, unknown> }> = {
+  staff_owner: { templateKey: "staff_invitation", payload: { name: "Keenan", email: "keenan@example.test", role: "owner", coachEnabled: true, organisationName: "Madhouse", venueNames: ["Rotherham", "Carlton"], expiresAt: "2026-11-14T12:00:00Z", grantId: "example-only" } },
+  staff_coach: { templateKey: "staff_invitation", payload: { name: "Luke", email: "luke@example.test", role: "trainer", coachEnabled: true, organisationName: "Madhouse", venueNames: ["Rotherham", "Carlton"], expiresAt: "2026-11-14T12:00:00Z", grantId: "example-only" } },
   member_activation: { templateKey: "member_activation", payload: { name: "Alex", organisationName: "Madhouse", testMode: true } },
 };
 

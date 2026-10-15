@@ -30,27 +30,41 @@ export function renderNotification(input: NotificationTemplateInput) {
   let body = "Please sign in to R12 to continue.";
   let path = "/account";
   let cta = "Continue to R12";
+  let personalityLine = "";
+  let heading = "";
+  let accessSummary: Array<[string, string]> = [];
+  let footerPersonality = "";
 
   switch (input.templateKey) {
     case "staff_invitation":
       {
         const role = text(p.role);
-        const roleLabel = role === "gym_admin" ? "Manager" : role === "trainer" ? "PT / Coach" : role === "gym_staff" ? "Operational Staff" : role || "staff";
+        const roleLabel = role === "owner" ? "Owner" : role === "gym_admin" ? "Manager" : role === "trainer" ? "PT / Coach" : role === "gym_staff" ? "Operational Staff" : "Staff";
         const venues = Array.isArray(p.venueNames) ? p.venueNames.filter((value): value is string => typeof value === "string" && value.length > 0) : [];
         const expiry = text(p.expiresAt);
         const expiryLabel = expiry ? new Intl.DateTimeFormat("en-GB", { dateStyle: "long", timeZone: "Europe/London" }).format(new Date(expiry)) : "30 days from issue";
         sender = "staff";
         subject = "Your R12 staff access is ready";
-        body = `${text(p.inviterName, "The Madhouse team")} has prepared personal ${roleLabel} access for ${organisation}.${venues.length ? ` Your authorised venues are ${venues.join(" and ")}.` : " Your access follows the organisation’s venue permissions."} Use the same email address (${text(p.email)}) to sign in to your existing R12 account or create your own account. After signing in, review and accept the staff access request. This invitation is valid until ${expiryLabel}.`;
+        personalityLine = `Welcome aboard, ${name}.`;
+        heading = "Your staff access is ready.";
+        const rows: Array<[string, string]> = [["Role", roleLabel]];
+        if (venues.length) rows.push(["Venues", venues.join(" + ")]);
+        if (p.coachEnabled === true || p.coachRequested === true || role === "trainer") rows.push(["Coach/PT", "Enabled"]);
+        accessSummary = rows;
+        body = `We’ve set you up on R12 for Madhouse Gym.\n\nUse ${text(p.email)} to sign in or create your R12 account, then activate your staff access.\n\nYour invite is valid until ${expiryLabel}.`;
+        footerPersonality = "Everything’s ready when you are.";
         path = `/club/staff/claim?grant=${encodeURIComponent(text(p.grantId))}`;
-        cta = "Activate staff access";
+        cta = "ACTIVATE STAFF ACCESS";
       }
       break;
     case "member_activation":
       subject = "Activate your R12 membership account";
-      body = `Your existing ${organisation} gym membership is already recorded on R12. You are not buying or joining again. Use the same email address as your membership: sign in if you already have an R12 account, or create your own account if you are new. Once authenticated, you can confirm and link your existing membership.`;
+      personalityLine = "Your gym just got an upgrade.";
+      heading = "Your Madhouse membership is now on R12.";
+      body = "You’re already a member — you’re not joining or paying again.\n\nActivate your R12 account to access your membership, training, progress, shop and everything else we’re rolling out.\n\nAlready use R12? Sign in. New to R12? Create an account with the same email address linked to your membership. Once you’re signed in, link your existing Madhouse membership.";
+      footerPersonality = "Same gym. Much smarter.";
       path = "/member-hub/link";
-      cta = "Activate my R12 account";
+      cta = "ACTIVATE MY R12 ACCOUNT";
       break;
     case "coach_relationship_invite":
       {
@@ -90,7 +104,12 @@ export function renderNotification(input: NotificationTemplateInput) {
   const greeting = `Hi ${name},`;
   const url = link(path);
   const testPrefix = testMode ? "[TEST] " : "";
-  const textContent = `${testMode ? "[TEST MESSAGE — no access or membership is created by this email.]\n\n" : ""}${greeting}\n\n${body}\n\n${cta}: ${url}\n\nR12 · MADHOUSE\nYour club, your progress.`;
-  const htmlContent = `<div style="margin:0;background:#f4f1f8;padding:20px 12px;font-family:Arial,Helvetica,sans-serif;color:#211a2b"><main style="box-sizing:border-box;max-width:600px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden"><header style="padding:22px 24px;background:#17131f;color:#fff;border-bottom:4px solid #8b5cf6"><div style="font-size:26px;font-weight:900;letter-spacing:.06em">R12</div><div style="margin-top:3px;color:#d6c5ff;font-size:11px;font-weight:700;letter-spacing:.18em">MADHOUSE · ROTHERHAM · CARLTON</div></header>${testMode ? `<div style="padding:12px 24px;background:#fff4cf;color:#614400;font-size:13px;font-weight:700">TEST EMAIL — this message does not create or change access.</div>` : ""}<section style="padding:26px 24px 18px"><p style="margin:0 0 16px">${html(greeting)}</p><p style="margin:0;line-height:1.65;white-space:pre-line">${html(body)}</p><p style="margin:24px 0 8px"><a href="${html(url)}" style="display:inline-block;box-sizing:border-box;min-height:48px;padding:15px 20px;background:#6d28d9;color:#fff;border-radius:10px;text-decoration:none;font-weight:700">${html(cta)}</a></p><p style="margin:12px 0 0;color:#625a6c;font-size:12px;line-height:1.5">If the button does not work, copy this address into your browser:<br><a style="color:#6d28d9;overflow-wrap:anywhere" href="${html(url)}">${html(url)}</a></p></section><footer style="padding:18px 24px;background:#f8f6fb;border-top:1px solid #eee8f5;color:#625a6c;font-size:12px;line-height:1.5"><strong style="color:#211a2b">R12 · MADHOUSE</strong><br>Your club, your progress.<br>Rotherham · Carlton</footer></main></div>`;
-  return { sender, senderName: notificationConfig().fromNames[sender], senderAddress: senderAddress(sender), subject: `${testPrefix}${subject}`, cta, destination: url, text: textContent, html: htmlContent };
+  const textContent = `${testMode ? "TEST EMAIL — nothing will be changed.\n\n" : ""}${heading ? `${personalityLine}\n\n${heading}\n\n` : `${greeting}\n\n`}${accessSummary.length ? `YOUR ACCESS\n${accessSummary.map(([label, value]) => `${label}: ${value}`).join("\n")}\n\n` : ""}${body}\n\n${cta}: ${url}\n\n${footerPersonality ? `${footerPersonality}\n\n` : ""}R12 × MADHOUSE\nYour club. Your progress.`;
+  const logoUrl = link("/club-branding/madhouse-club-wide.png");
+  const contentHtml = heading
+    ? `<p style="margin:0 0 14px;color:#6d28d9;font-size:15px;font-style:italic">${html(personalityLine)}</p><h1 style="margin:0 0 18px;color:#211a2b;font-size:25px;line-height:1.2">${html(heading)}</h1>${accessSummary.length ? `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 20px;border:1px solid #e9e2f1;border-radius:12px;background:#faf9fc"><tr><td colspan="2" style="padding:14px 16px 8px;color:#6d28d9;font-size:11px;font-weight:bold;letter-spacing:1.5px">YOUR ACCESS</td></tr>${accessSummary.map(([label, value]) => `<tr><td style="padding:7px 16px;color:#675e70;font-size:13px">${html(label)}</td><td align="right" style="padding:7px 16px;color:#211a2b;font-size:14px;font-weight:bold">${html(value)}</td></tr>`).join("")}<tr><td colspan="2" style="height:8px"></td></tr></table>` : ""}<p style="margin:0;color:#403849;font-size:15px;line-height:1.65;white-space:pre-line">${html(body)}</p>`
+    : `<p style="margin:0 0 16px">${html(greeting)}</p><p style="margin:0;color:#403849;font-size:15px;line-height:1.65;white-space:pre-line">${html(body)}</p>`;
+  const htmlContent = `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0;background:#f2eff6;font-family:Arial,Helvetica,sans-serif;color:#211a2b"><tr><td align="center" style="padding:18px 10px"><table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="width:100%;max-width:600px;background:#ffffff;border:1px solid #e9e3ef;border-radius:14px;overflow:hidden"><tr><td align="center" style="padding:18px 22px 16px;background:#17131f;border-bottom:3px solid #8052d8"><img src="${html(logoUrl)}" width="220" alt="R12 × Madhouse Gym" style="display:block;width:220px;max-width:100%;height:auto;border:0"><div style="margin-top:10px;color:#ffffff;font-size:15px;font-weight:bold;letter-spacing:1px">R12 × MADHOUSE</div><div style="margin-top:4px;color:#d8c9f3;font-size:10px;font-weight:bold;letter-spacing:1.5px">MADHOUSE · ROTHERHAM · CARLTON</div></td></tr>${testMode ? `<tr><td style="padding:8px 22px;background:#f3effa;color:#5b4778;font-size:11px;font-weight:bold;letter-spacing:.3px">TEST EMAIL — nothing will be changed</td></tr>` : ""}<tr><td style="padding:24px 22px 10px">${contentHtml}<table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin:22px 0 0"><tr><td align="center" bgcolor="#6d28d9" style="border-radius:9px"><a href="${html(url)}" style="display:inline-block;min-height:48px;padding:15px 20px;box-sizing:border-box;color:#ffffff;font-size:13px;font-weight:bold;letter-spacing:.5px;text-decoration:none">${html(cta)}</a></td></tr></table><p style="margin:13px 0 0;color:#665d6e;font-size:12px;line-height:1.5">Button not opening? Copy this link into your browser:<br><a href="${html(url)}" style="color:#5c2bbd;word-break:break-all">${html(url)}</a></p></td></tr><tr><td style="padding:16px 22px;background:#f8f6fb;border-top:1px solid #eee9f3;color:#625a6c;font-size:12px;line-height:1.6"><div style="margin-bottom:7px;color:#6d28d9;font-style:italic">${html(footerPersonality || "")}</div><strong style="color:#211a2b">R12 × MADHOUSE</strong><br>Your club. Your progress.</td></tr></table></td></tr></table>`;
+  const destinationType = input.templateKey === "staff_invitation" ? "Staff access activation page" : input.templateKey === "member_activation" ? "R12 membership account link page" : "R12 account page";
+  return { sender, senderName: notificationConfig().fromNames[sender], senderAddress: senderAddress(sender), subject: `${testPrefix}${subject}`, cta, destination: url, destinationType, text: textContent, html: htmlContent };
 }
