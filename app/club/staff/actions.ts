@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { serverSupabase } from "@/lib/supabase-server";
 import { resolveClubOperationalContext } from "@/lib/club-server-context";
 import { clubCapabilities, resolveClubCapabilities } from "@/lib/club-capabilities";
+import { nudgeNotificationWorker } from "@/lib/notification-nudge";
 
 async function staffManager(organisationId: string) {
   const client = await serverSupabase();
@@ -31,6 +32,7 @@ export async function createStaffAccessGrant(input: { organisationId: string; em
   });
   if (error?.code === "23505") return { ok: false as const, error: "Active or pending staff access already exists for that email." };
   if (error) return { ok: false as const, error: "Staff access could not be prepared." };
+  nudgeNotificationWorker();
   revalidatePath("/club/staff");
   return { ok: true as const };
 }
@@ -49,6 +51,7 @@ export async function resendStaffInvitation(organisationId: string, grantId: str
   if (!manager) return { ok: false as const, error: "You don’t have permission to manage staff invitations." };
   const { error } = await manager.client.rpc("club_resend_staff_invitation", { p_organisation_id: manager.context.organisation.id, p_grant_id: grantId });
   if (error) return { ok: false as const, error: "The invitation could not be queued." };
+  nudgeNotificationWorker();
   revalidatePath("/club/staff");
   return { ok: true as const };
 }
@@ -108,5 +111,16 @@ export async function setCoachAccess(input: { organisationId: string; userId: st
   if (error) return { ok: false as const, error: "Coach access could not be updated." };
   revalidatePath("/club/staff");
   revalidatePath("/coach");
+  return { ok: true as const };
+}
+
+export async function transferOrganisationOwner(organisationId: string, newOwnerUserId: string) {
+  const manager = await staffManager(organisationId);
+  if (!manager || manager.context.role !== "owner") return { ok: false as const, error: "Only the current Owner can transfer organisation ownership." };
+  if (!newOwnerUserId || newOwnerUserId === manager.user.id) return { ok: false as const, error: "Choose another active person in this organisation." };
+  const { error } = await manager.client.rpc("club_transfer_organisation_owner", { p_organisation_id: manager.context.organisation.id, p_new_owner_user_id: newOwnerUserId });
+  if (error) return { ok: false as const, error: error.message.includes("active member") ? "The selected person must already have active access to this organisation." : "Ownership could not be transferred. Confirm you are the current Owner and try again." };
+  revalidatePath("/club/staff");
+  revalidatePath("/club");
   return { ok: true as const };
 }

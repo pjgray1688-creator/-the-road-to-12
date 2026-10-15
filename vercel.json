@@ -1,5 +1,6 @@
 {
   "crons": [
-    { "path": "/api/internal/membership-billing-worker", "schedule": "0 6 * * *" }
+    { "path": "/api/internal/membership-billing-worker", "schedule": "0 6 * * *" },
+    { "path": "/api/internal/notification-worker", "schedule": "15 6 * * *" }
   ]
 }

@@ -9,6 +9,7 @@ import { resolveClubCapabilities } from "@/lib/club-capabilities";
 import { ClubStaffAccessForm } from "@/components/club-staff-access-form";
 import { resendStaffInvitation, revokeStaffAccessGrant, setCoachAccess, setStaffActive } from "@/app/club/staff/actions";
 import { ClubStaffManageAccess } from "@/components/club-staff-manage-access";
+import { ClubOwnerTransfer } from "@/components/club-owner-transfer";
 
 const groups = [
   { label: "Members & memberships", match: ["members.", "memberships."] },
@@ -80,6 +81,7 @@ export default async function ClubStaffPage({ searchParams }: { searchParams?: P
   return <AppShell className="module-page club-page">
     <PageHeader eyebrow="R12 CLUB · STAFF" title="Staff" description="Prepare personal staff access, then manage each authenticated account." />
     <ClubSectionNav organisation={context.organisation} role={context.role} contexts={context.availableContexts} />
+    <p><Link className="member-hub-link" href={`/club/staff/email-preview?org=${encodeURIComponent(context.organisation.id)}`}>Preview & test staff/member emails</Link></p>
     <ClubStaffAccessForm organisationId={context.organisation.id} locations={locations} />
     <Surface>
       <div className="section-header"><div><span className="eyebrow">STAFF ACCOUNTS</span><h2>People with Club access</h2></div></div>
@@ -109,6 +111,7 @@ export default async function ClubStaffPage({ searchParams }: { searchParams?: P
       <p className="muted">The staff member uses <Link href="/account?mode=signUp&next=%2Fclub%2Fstaff%2Fclaim">Create or accept staff access</Link> with the invited email. Managers never set or see their password.</p>
     </Surface>
     <Surface><span className="eyebrow">YOUR PERMISSIONS</span><p className="muted">Grouped for quick review. Security remains enforced by the server.</p><div className="permission-groups">{groups.map(group => { const capabilities = resolveClubCapabilities(context.role); const items = capabilities.filter(capability => group.match.some(prefix => capability.startsWith(prefix))); return <div className="permission-group" key={group.label}><strong>{group.label}</strong><span>{items.length ? items.map(humanCapability).join(" · ") : "None enabled"}</span></div>; })}</div></Surface>
+    {context.role === "owner" ? <ClubOwnerTransfer organisationId={context.organisation.id} candidates={staff.filter(person => person.active && person.role !== "owner").map(person => ({ userId: person.user_id, name: person.display_name, role: roleLabel(person.role) }))} /> : null}
     <BackButton href={`/club?org=${encodeURIComponent(context.organisation.id)}`}>Back to overview</BackButton>
     <AppNav />
   </AppShell>;

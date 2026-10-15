@@ -1,7 +1,7 @@
 import { appBaseUrlStatus } from "./site-url";
 import { inspectSmtpConfiguration } from "./smtp-config";
 
-export type ReadinessState = "configured" | "missing" | "invalid" | "adapter_unavailable" | "external_verification_required";
+export type ReadinessState = "configured" | "missing" | "invalid" | "disabled" | "adapter_unavailable" | "external_verification_required";
 export type ReadinessCheck = { key: string; label: string; state: ReadinessState; detail: string };
 
 const present = (value: string | undefined) => Boolean(value?.trim());
@@ -25,6 +25,8 @@ export function launchReadiness(env: NodeJS.ProcessEnv = process.env): Readiness
   const stripeKeyDetail = !stripeKey ? "Required server setting is missing." : stripeKeyState === "invalid" ? "Key format is unexpected or a test key is configured for production." : "Value is present; Stripe account validity is not checked here.";
   const environment = env.GOCARDLESS_ENVIRONMENT?.trim().toLowerCase();
   const smtp = inspectSmtpConfiguration(env);
+  const emailProvider = env.R12_EMAIL_PROVIDER?.trim().toLowerCase();
+  const emailState: ReadinessState = emailProvider !== "smtp" ? "missing" : smtp.state === "configured" ? "configured" : smtp.state;
   const productionGoCardless = env.NODE_ENV === "production";
   const goCardlessState: ReadinessState = !environment ? "missing" : !["sandbox", "live"].includes(environment) || (productionGoCardless && environment !== "live") ? "invalid" : "configured";
   const supabaseUrl = supabaseUrlState(env.NEXT_PUBLIC_SUPABASE_URL);
@@ -41,8 +43,9 @@ export function launchReadiness(env: NodeJS.ProcessEnv = process.env): Readiness
     eitherPresence("billingWorker", "Billing worker bearer secret", [env.R12_BILLING_WORKER_SECRET, env.CRON_SECRET]),
     eitherPresence("notificationWorker", "Notification worker bearer secret", [env.R12_NOTIFICATION_WORKER_SECRET, env.CRON_SECRET]),
     presence("vercelCronSecret", "Vercel Cron authentication secret", env.CRON_SECRET),
-    { key: "workerSchedules", label: "Scheduled worker configuration", state: "external_verification_required", detail: "vercel.json schedules membership billing daily at 06:00 UTC. Queued supplier imports are not automatically polled; verify the deployed Vercel Cron configuration. Notification delivery is intentionally unscheduled until a real SMTP adapter is available." },
+    { key: "workerSchedules", label: "Scheduled worker configuration", state: "external_verification_required", detail: "Vercel Cron runs billing daily at 06:00 UTC and notifications daily at 06:15 UTC. Queueing important notifications also nudges the authenticated worker after the app response. Confirm Cron is enabled, CRON_SECRET is set, and the notification batch limits are suitable." },
     ...smtp.checks,
-    { key: "emailProvider", label: "SMTP delivery adapter", state: "adapter_unavailable", detail: "SMTP transport is not installed in this repository state; configuration alone cannot deliver mail." },
+    { key: "emailProvider", label: "SMTP delivery provider", state: emailState, detail: emailProvider !== "smtp" ? "Set R12_EMAIL_PROVIDER=smtp to enable authenticated SMTP; no secrets are displayed here." : emailState === "configured" ? "SMTP settings are present and syntactically valid; provider connectivity and domain authentication are not tested." : `SMTP configuration is ${smtp.state}; see the checks above. Delivery fails closed until complete.` },
+    { key: "memberActivationGate", label: "Member activation email release", state: env.R12_MEMBER_ACTIVATION_EMAILS_ENABLED === "true" ? "configured" : "disabled", detail: env.R12_MEMBER_ACTIVATION_EMAILS_ENABLED === "true" ? "Imported member activation intents are eligible for delivery by worker nudges and the daily safety sweep." : "Member activation emails are held in the outbox. Enable only after preview/test and launch approval." },
   ];
 }

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { serverSupabase } from "@/lib/supabase-server";
 import { resolveClubOperationalContext } from "@/lib/club-server-context";
 import { requiresMadhouseProviderCheckout } from "@/lib/madhouse-billing";
+import { nudgeNotificationWorker } from "@/lib/notification-nudge";
 
 type ActionResult = { ok: true; membershipId: string } | { ok: false; error: string };
 
@@ -54,6 +55,21 @@ export async function linkClubCustomerAction(input: { organisationId: string; cu
   } catch {
     return { ok: false, error: "That account could not be linked." };
   }
+}
+
+export async function resendMemberActivationAction(input: { organisationId: string; customerId: string }): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const supabase = await serverSupabase();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { ok: false, error: "Sign in to resend an activation email." };
+    const context = await resolveClubOperationalContext(supabase, user.id, input.organisationId);
+    if (!context || !(await context.repository.hasCapability(context.organisation.id, user.id, "members.link_account"))) return { ok: false, error: "You don’t have permission to manage member account links." };
+    const { error } = await supabase.rpc("club_resend_member_activation_notification", { p_organisation_id: context.organisation.id, p_customer_id: input.customerId });
+    if (error) return { ok: false, error: "Activation could not be queued. Check that this person has an email and no linked R12 account." };
+    nudgeNotificationWorker();
+    revalidatePath(`/club/members/customer/${encodeURIComponent(input.customerId)}?org=${encodeURIComponent(context.organisation.id)}`);
+    return { ok: true };
+  } catch { return { ok: false, error: "Activation could not be queued." }; }
 }
 
 export async function endMembershipAction(input: { organisationId: string; membershipId: string; effectiveAt?: string; status?: "cancelled" | "expired" }): Promise<ActionResult> {

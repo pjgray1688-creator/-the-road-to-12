@@ -4,8 +4,11 @@ import test from "node:test";
 import { NextRequest } from "next/server";
 import { GET as runNotificationWorker } from "../app/api/internal/notification-worker/route";
 import { renderNotification } from "../lib/notification-templates";
-import { deliverNotification, senderAddress } from "../lib/notification-provider";
-import { NOTIFICATION_MAX_ATTEMPTS, retryDelaySeconds, shouldRetry } from "../lib/notification-worker";
+import { deliverNotification, notificationTransportAvailable, senderAddress } from "../lib/notification-provider";
+import { inspectSmtpConfiguration } from "../lib/smtp-config";
+import { EventEmitter } from "node:events";
+import { sendSmtpMessage } from "../lib/smtp-transport";
+import { NOTIFICATION_MAX_ATTEMPTS, notificationWorkerLimits, retryDelaySeconds, shouldRetry } from "../lib/notification-worker";
 
 const sql = readFileSync("supabase/migrations/2026-11-21-notification-engine.sql", "utf8");
 const provider = readFileSync("lib/notification-provider.ts", "utf8");
@@ -71,6 +74,19 @@ test("worker availability is truthful and retries are bounded", async () => {
   assert.match(route, /status: stateUpdateFailures \? 500 : 200/);
 });
 
+test("worker throughput is configurable but has bounded batches, runtime and total work", () => {
+  assert.deepEqual(notificationWorkerLimits({} as NodeJS.ProcessEnv), {
+    batchSize: 100, maxBatches: 10, runtimeBudgetMs: 240_000, sendConcurrency: 10,
+    messageTimeoutMs: 20_000, maxMessagesPerRun: 1000,
+  });
+  assert.equal(notificationWorkerLimits({ NODE_ENV: "test", R12_NOTIFICATION_BATCH_SIZE: "250", R12_NOTIFICATION_MAX_BATCHES_PER_RUN: "99" } as NodeJS.ProcessEnv).batchSize, 100);
+  const reduced = notificationWorkerLimits({ NODE_ENV: "test", R12_NOTIFICATION_BATCH_SIZE: "40", R12_NOTIFICATION_MAX_BATCHES_PER_RUN: "3" } as NodeJS.ProcessEnv);
+  assert.equal(reduced.maxMessagesPerRun, 120);
+  assert.equal(reduced.maxBatches, 3);
+  assert.match(route, /runtimeSafeBatchSize/);
+  assert.match(route, /limits\.sendConcurrency/);
+});
+
 test("notification worker reports missing auth configuration without leaking secrets", async () => {
   const secret = process.env.R12_NOTIFICATION_WORKER_SECRET; const cron = process.env.CRON_SECRET;
   delete process.env.R12_NOTIFICATION_WORKER_SECRET; delete process.env.CRON_SECRET;
@@ -105,26 +121,105 @@ test("notification worker refuses to touch the outbox while no real transport is
   }
 });
 
-test("SMTP configuration cannot falsely mark mail delivered while transport is unavailable", async () => {
-  const provider = process.env.R12_EMAIL_PROVIDER;
+test("SMTP configuration fails closed when transport settings are incomplete", async () => {
+  const keys = ["R12_EMAIL_PROVIDER", "SMTP_HOST", "SMTP_PORT", "SMTP_SECURE", "SMTP_USERNAME", "SMTP_PASSWORD"] as const;
+  const previous = Object.fromEntries(keys.map(key => [key, process.env[key]]));
+  for (const key of keys) delete process.env[key];
   process.env.R12_EMAIL_PROVIDER = "smtp";
   try {
     const result = await deliverNotification({ id: "intent-1", recipientEmail: "member@example.test", sender: "members", subject: "Test", text: "Text", html: "<p>Text</p>" });
-    assert.deepEqual(result, { ok: false, state: "unavailable", code: "smtp_adapter_not_configured", message: "SMTP delivery is not wired in this environment.", retryable: false });
+    assert.deepEqual(result, { ok: false, state: "unavailable", code: "smtp_configuration_incomplete", message: "SMTP delivery is not configured completely.", retryable: false });
+    assert.equal(notificationTransportAvailable(), false);
+    assert.equal(inspectSmtpConfiguration().state, "missing");
     assert.equal(senderAddress("members"), "members@r12.live");
     assert.equal(senderAddress("staff"), "staff@r12.live");
     assert.equal(senderAddress("billing"), "madhouse.accounts@r12.live");
-  } finally { if (provider === undefined) delete process.env.R12_EMAIL_PROVIDER; else process.env.R12_EMAIL_PROVIDER = provider; }
+  } finally { for (const key of keys) { const value = previous[key]; if (value === undefined) delete process.env[key]; else process.env[key] = value; } }
+});
+
+test("SMTP accepts only complete authenticated TLS configuration and hides credentials from diagnostics", () => {
+  const validEnv = { ...process.env, SMTP_HOST: "smtp.example.test", SMTP_PORT: "587", SMTP_SECURE: "false", SMTP_USERNAME: "user@example.test", SMTP_PASSWORD: "very-secret" };
+  const config = inspectSmtpConfiguration(validEnv);
+  assert.equal(config.state, "configured");
+  assert.equal(config.configuration?.requireTLS, true);
+  assert.equal(config.configuration?.username, "user@example.test");
+  assert.doesNotMatch(JSON.stringify(config.checks), /very-secret|user@example/);
+  assert.equal(inspectSmtpConfiguration({ ...process.env, SMTP_HOST: "smtp.example.test", SMTP_PORT: "25", SMTP_SECURE: "false", SMTP_USERNAME: "user", SMTP_PASSWORD: undefined }).state, "invalid");
+});
+
+test("SMTP transport sends multipart mail over an already-secured test socket and records acceptance", async () => {
+  class FakeSmtpSocket extends EventEmitter {
+    destroy() { this.emit("close"); }
+    pause() { return this; }
+    resume() { return this; }
+    setTimeout() { return this; }
+    write(chunk: string, callback?: (error?: Error | null) => void) {
+      callback?.();
+      const value = chunk.toString();
+      let response = "";
+      if (value.startsWith("EHLO")) response = "250-smtp.test\r\n250 AUTH LOGIN\r\n";
+      else if (value.startsWith("AUTH LOGIN")) response = "334 VXNlcm5hbWU6\r\n";
+      else if (value === `${Buffer.from("user").toString("base64")}\r\n`) response = "334 UGFzc3dvcmQ6\r\n";
+      else if (value === `${Buffer.from("password").toString("base64")}\r\n`) response = "235 authenticated\r\n";
+      else if (value.startsWith("MAIL FROM:") || value.startsWith("RCPT TO:")) response = "250 accepted\r\n";
+      else if (value === "DATA\r\n") response = "354 send content\r\n";
+      else if (value.endsWith("\r\n.\r\n")) response = "250 queued-id-123\r\n";
+      else if (value === "QUIT\r\n") response = "221 bye\r\n";
+      if (response) setImmediate(() => this.emit("data", Buffer.from(response)));
+      return true;
+    }
+  }
+  const socket = new FakeSmtpSocket();
+  const result = await sendSmtpMessage({ id: "sample", recipientEmail: "member@example.test", sender: "members", subject: "Hello", text: "Plain copy", html: "<p>HTML copy</p>" }, {
+    host: "smtp.example.test", port: 465, secure: true, requireTLS: false, username: "user", password: "password",
+    from: { members: { address: "members@r12.live", name: "R12" }, staff: { address: "staff@r12.live", name: "R12" }, billing: { address: "billing@r12.live", name: "R12" } },
+  }, async () => { setImmediate(() => socket.emit("data", Buffer.from("220 smtp.test ready\r\n"))); return socket as never; });
+  assert.equal(result.provider, "smtp");
+  assert.match(result.reference, /queued-id-123/);
+});
+
+test("SMTP transport failures are retry-classified without exposing relay error details", async () => {
+  await assert.rejects(sendSmtpMessage({ id: "sample", recipientEmail: "member@example.test", sender: "members", subject: "Hello", text: "Text", html: "<p>Text</p>" }, {
+    host: "smtp.example.test", port: 465, secure: true, requireTLS: false, username: "user", password: "do-not-log-this",
+    from: { members: { address: "members@r12.live", name: "R12" }, staff: { address: "staff@r12.live", name: "R12" }, billing: { address: "billing@r12.live", name: "R12" } },
+  }, async () => { throw new Error("relay-secret-error"); }), error => {
+    assert.equal((error as { deliveryCode?: string }).deliveryCode, "smtp_transport_error");
+    assert.equal((error as Error).message, "SMTP delivery failed");
+    assert.doesNotMatch((error as Error).message, /relay-secret|do-not-log/);
+    return true;
+  });
+});
+
+test("unsupported email providers fail closed instead of reporting a send", async () => {
+  const old = process.env.R12_EMAIL_PROVIDER;
+  process.env.R12_EMAIL_PROVIDER = "unsupported-test-provider";
+  try {
+    assert.deepEqual(await deliverNotification({ id: "x", recipientEmail: "x@example.test", sender: "members", subject: "x", text: "x", html: "x" }), {
+      ok: false, state: "unavailable", code: "email_provider_unavailable", message: "Transactional email delivery is not configured.", retryable: false,
+    });
+  } finally { if (old === undefined) delete process.env.R12_EMAIL_PROVIDER; else process.env.R12_EMAIL_PROVIDER = old; }
 });
 
 test("templates do not expose passwords or raw payment credentials", () => {
   const invitation = renderNotification({ templateKey: "staff_invitation", payload: { grantId: "grant-1", email: "staff@example.com", role: "trainer", organisationName: "Madhouse" } });
-  assert.match(invitation.subject, /Madhouse/);
+  assert.match(invitation.subject, /R12 staff access/);
   assert.match(invitation.text, /staff@example.com/);
   assert.doesNotMatch(invitation.text, /password|card number|bank account/i);
   const billing = renderNotification({ templateKey: "monthly_payment_failed", payload: {} });
   assert.match(billing.text, /payment/i);
   assert.doesNotMatch(billing.text, /raw|secret|token/i);
+});
+
+test("launch invite templates use human roles, expiry, branded CTA and correct destinations", () => {
+  const manager = renderNotification({ templateKey: "staff_invitation", payload: { grantId: "not-for-report", email: "keenan@example.test", role: "gym_admin", organisationName: "Madhouse", venueNames: ["Rotherham", "Carlton"], expiresAt: "2026-11-14T12:00:00Z", testMode: true } });
+  assert.equal(manager.subject, "[TEST] Your R12 staff access is ready");
+  assert.match(manager.text, /Manager/); assert.match(manager.text, /Rotherham and Carlton/);
+  assert.match(manager.text, /14 November 2026/); assert.match(manager.cta, /Activate staff access/);
+  assert.match(manager.destination, /\/club\/staff\/claim\?grant=/); assert.match(manager.html, /MADHOUSE/);
+  const member = renderNotification({ templateKey: "member_activation", payload: { name: "Alex", organisationName: "Madhouse" } });
+  assert.equal(member.subject, "Activate your R12 membership account");
+  assert.match(member.text, /not buying or joining again/i); assert.match(member.cta, /Activate my R12 account/);
+  assert.match(member.destination, /\/member-hub\/link$/); assert.doesNotMatch(member.text, /membership id|phone|date of birth/i);
 });
 
 test("schedule updates use the existing member delivery template with member-safe appointment facts", () => {

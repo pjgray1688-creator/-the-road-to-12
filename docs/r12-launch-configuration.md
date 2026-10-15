@@ -7,7 +7,7 @@ Use this as the Vercel/provider-dashboard checklist. Never put secret values in 
 - Stripe Checkout/webhook and GoCardless redirect/webhook/collection-worker paths are implemented with signed webhook validation and idempotent domain processing.
 - The notification outbox uses the live stale-claim recovery, ten-minute leases, bounded three-attempt recovery, and concurrent-safe database claims.
 - Membership billing is scheduled daily at 06:00 UTC in `vercel.json`, compatible with Vercel Hobby. Explicitly queued supplier-import jobs retain a protected worker endpoint but are not automatically polled; the current Active Sports upload runs synchronously. Deployment activation still requires Vercel verification.
-- Application transactional SMTP is not code-complete: no real transport adapter is installed. The notification endpoint fails closed without claiming work, and no notification cron is declared.
+- Application transactional SMTP transport is implemented. Delivery remains disabled until server SMTP configuration is complete; the protected worker checks readiness before claiming queued work and is scheduled daily at 06:15 UTC.
 
 ## External setup required
 
@@ -23,27 +23,30 @@ Set the following server-side values in the Production environment:
 
 Application transactional email uses these server-only environment variables:
 
-- `R12_EMAIL_PROVIDER=smtp` selects the application SMTP transport when that adapter is included in the deployed build.
+- `R12_EMAIL_PROVIDER=smtp` selects the built-in Node SMTP transport; `mock` is test-only.
 - `SMTP_HOST`, `SMTP_PORT`, and `SMTP_SECURE` (strictly `true` or `false`). Use `true` with implicit TLS on port 465; use `false` with required STARTTLS on another port (commonly 587). The app does not allow a plaintext downgrade.
-- `SMTP_USERNAME` and `SMTP_PASSWORD` must be supplied together when the SMTP service requires authentication. Both may be omitted only when the provider explicitly permits a trusted relay without AUTH.
+- `SMTP_USERNAME` and `SMTP_PASSWORD` are both required for authenticated delivery. The app fails closed if either is absent.
 - `R12_EMAIL_FROM_MEMBERS=members@r12.live`, `R12_EMAIL_FROM_STAFF=staff@r12.live`, and `R12_EMAIL_FROM_BILLING=madhouse.accounts@r12.live` select the existing member, staff, and accounts sender identities. Optional display names are `R12_EMAIL_FROM_NAME_MEMBERS`, `R12_EMAIL_FROM_NAME_STAFF`, and `R12_EMAIL_FROM_NAME_BILLING`.
-- `R12_NOTIFICATION_WORKER_SECRET` (or the existing `CRON_SECRET`) protects the notification worker.
+- `R12_NOTIFICATION_WORKER_SECRET` (or the existing `CRON_SECRET`) protects trusted manual notification-worker calls; Vercel Cron supplies the `CRON_SECRET` bearer automatically.
+- `R12_EMAIL_TEST_RECIPIENTS` is a comma-separated allowlist for the protected staff email preview/test screen.
+- `R12_MEMBER_ACTIVATION_EMAILS_ENABLED` must remain unset/off until member activation templates and SMTP delivery are approved; set it to exactly `true` only when ready to release imported-member activation messages.
+- `R12_NOTIFICATION_BATCH_SIZE` defaults to 100 (maximum 100); `R12_NOTIFICATION_MAX_BATCHES_PER_RUN` defaults to 10 (maximum 10). The hard invocation cap is 1,000 claimed messages and a 240-second processing budget, with no more than ten concurrent sends.
 
 SMTP variables and sender identities are configuration only; the protected Launch readiness page does not connect to the provider or verify sender-domain authentication. SPF, DKIM, and DMARC must be configured with the selected SMTP provider/domain outside this repository. Supabase Auth confirmation and password-reset SMTP is separate: configure its SMTP sender as `members@r12.live` in Supabase Auth settings.
 
-In this checkout the Nodemailer package could not be installed because npm registry DNS is unavailable, so the real SMTP adapter is not present and notification delivery remains truthfully unavailable even if SMTP variables are set. Do not schedule the notification worker for live sends until a build containing the adapter is deployed and SMTP settings are configured. `mock` is test-only. In-app notification state remains independent and authoritative.
+Application SMTP is implemented using Node's TLS/network APIs; delivery remains unavailable until the provider and all required server variables are configured. `mock` is test-only. In-app notification state remains independent and authoritative.
 
 ## Worker operations
 
-`vercel.json` schedules membership billing once daily. Vercel adds `Authorization: Bearer $CRON_SECRET` to cron requests. The supplier-import worker remains available for trusted manual invocation, but no Vercel Cron polls that queue on Hobby.
+`vercel.json` schedules membership billing and notification delivery once daily. Vercel adds `Authorization: Bearer $CRON_SECRET` to cron requests. The supplier-import worker remains available for trusted manual invocation, but no Vercel Cron polls that queue on Hobby.
 
 | Worker | Route | Auth env var | Schedule | Purpose | External dependency |
 | --- | --- | --- | --- | --- | --- |
 | Membership billing collections | `GET /api/internal/membership-billing-worker` | `CRON_SECRET` (dedicated secret accepted for manual calls) | Daily at 06:00 UTC, `0 6 * * *` | Claims due GoCardless obligations and creates/reconciles collections idempotently | GoCardless live credentials and applied recurring-collections migration |
 | Queued supplier imports | `GET /api/internal/supplier-import-worker` | `CRON_SECRET` | No automatic schedule; trusted manual call only | Claims explicitly queued supplier-import jobs; direct Active Sports sync is separate and synchronous | Applied supplier-import worker migrations; queued work waits until this endpoint is invoked |
-| Notification delivery | `GET /api/internal/notification-worker` | `CRON_SECRET` (dedicated secret accepted for manual calls) | Not scheduled yet | Materialises due notification intents and delivers the existing outbox | A real application SMTP adapter and SMTP provider configuration are not available |
+| Notification delivery | `GET /api/internal/notification-worker` | `CRON_SECRET` (dedicated secret accepted for server-side queue nudges) | Post-response nudge after important queue actions; daily 06:15 UTC Cron safety sweep (`15 6 * * *`) | Materialises due notification intents and drains bounded outbox batches | SpaceMail SMTP credentials and authenticated sender domain |
 
-The billing cadence is daily because Vercel Hobby supports daily cron only. A due monthly collection can therefore wait up to about 24 hours for the next worker run. Supplier imports currently do not need continuous polling: the active Active Sports workflow imports synchronously, and no application caller enqueues generic supplier jobs. If queued supplier jobs are introduced, invoke the retained protected worker from an approved scheduler or trusted operator; they will not run automatically in this configuration. Notification delivery intentionally remains unscheduled: while no transport exists, the endpoint returns 503 before generating or claiming intents. A faster billing or supplier-job cadence requires a scheduler that supports it.
+The billing and notification Cron schedules remain daily to fit the current Vercel Hobby assumption (Hobby Cron is once per day with ±59-minute timing precision). Transactional notifications do not wait for that sweep: successful staff invite/resend and member-import activation queue actions nudge the authenticated worker after returning the application response. The durable daily sweep covers missed nudges. The worker claims multiple bounded batches (default 100 each, up to ten per invocation) within a 240-second processing budget, so hundreds of activations can drain in one launch nudge when the provider responds normally. Member activation messages remain excluded unless the explicit release variable is exactly `true`. Supplier imports currently do not need continuous polling: the active Active Sports workflow imports synchronously, and no application caller enqueues generic supplier jobs. If queued supplier jobs are introduced, invoke the retained protected worker from an approved scheduler or trusted operator; they will not run automatically in this configuration. The notification endpoint returns 503 before claiming intents if SMTP configuration is incomplete. See [Vercel Cron usage and pricing](https://vercel.com/docs/cron-jobs/usage-and-pricing) for current plan timing limits.
 
 Workers are safe to invoke repeatedly: billing uses durable claims and stable provider idempotency keys; supplier imports use the database claim RPC with `FOR UPDATE SKIP LOCKED`; notifications use the durable outbox and lease claims. Investigate failed responses using protected server logs and durable job/outbox state, not raw provider errors in responses.
 
@@ -54,7 +57,7 @@ Workers are safe to invoke repeatedly: billing uses durable claims and stable pr
 - GoCardless redirect callback: `https://the-road-to-12.vercel.app/api/club/join/gocardless/complete`
 - Membership billing worker: `GET https://the-road-to-12.vercel.app/api/internal/membership-billing-worker`
 - Queued supplier import worker: `GET https://the-road-to-12.vercel.app/api/internal/supplier-import-worker`
-- Notification delivery worker (do not schedule until the adapter exists): `GET https://the-road-to-12.vercel.app/api/internal/notification-worker`
+- Notification delivery worker: `GET https://the-road-to-12.vercel.app/api/internal/notification-worker`
 
 Vercel Cron supplies the bearer header from `CRON_SECRET`. Trusted manual calls may use the corresponding dedicated worker secret or `CRON_SECRET`; never put a secret in a URL or log.
 
@@ -64,12 +67,13 @@ Configure GoCardless webhook events for mandate and payment lifecycle changes us
 
 ## Sandbox-to-live checklist
 
-1. Configure production Vercel variables, including the canonical app URL and explicit GoCardless live mode; redeploy through the normal release workflow.
+1. Configure production Vercel variables, including the canonical app URL, explicit GoCardless live mode, SpaceMail SMTP credentials/sender identities, `R12_EMAIL_PROVIDER=smtp`, and a restricted test-recipient allowlist; redeploy through the normal release workflow.
 2. Create/verify Stripe live webhook endpoint and selected events; store its signing secret in Vercel. Confirm Stripe is using the intended live account.
 3. Create/verify the GoCardless live access token and live webhook endpoint; store both secrets and explicitly set `GOCARDLESS_ENVIRONMENT=live`.
-4. Verify `CRON_SECRET` is configured and the daily membership billing cron appears in the Vercel dashboard. Verify worker responses/logs without triggering real collection runs outside the approved operational test plan. Confirm whether the daily collection delay is acceptable; use a more frequent external scheduler if not. Queued supplier imports require a trusted manual/scheduler invocation until automatic polling is deliberately configured.
-5. Configure Supabase Auth SMTP separately with the approved sender/domain setup. Transactional application email remains unavailable until a real adapter is selected and implemented.
-6. Open Club → More → Launch readiness as an authorised owner/admin. It reports configuration presence/format, repository-declared cron schedules, and adapter availability, never secret values. It cannot verify a deployed cron is active, provider connectivity, sender-domain authentication, or provider-dashboard setup.
+4. Verify `CRON_SECRET` is configured and both daily cron jobs appear in the Vercel dashboard. Before real invitations, review all templates at `/club/staff/email-preview` and send only to an allowlisted internal address. Confirm email delivery state and the daily queue delay are acceptable. Queued supplier imports require a trusted manual/scheduler invocation until automatic polling is deliberately configured.
+5. Configure Supabase Auth SMTP separately with the approved sender/domain setup, Site URL and redirect allow-list.
+6. Open Club → Staff → Preview & test emails as an authorised manager/owner. Verify staff and member templates using an allowlisted internal recipient before issuing invites.
+7. Open Club → More → Launch readiness as an authorised owner/admin. It reports configuration presence/format and repository-declared cron schedules, never secret values. It cannot verify a deployed cron is active, provider connectivity, sender-domain authentication, or provider-dashboard setup.
 
 ### Supabase Auth redirects
 

@@ -102,5 +102,10 @@ psql_db "$state_c" --file=supabase/migrations/2026-12-18-active-sports-manual-pr
 psql_db "$state_c" --file=supabase/migrations/2026-12-19-supplier-authoritative-canonical-price-guard.sql
 psql_db "$state_c" --file=supabase/migrations/2026-12-20-active-sports-generated-price-propagation.sql
 psql_db "$state_c" --file=supabase/migrations/2026-12-21-active-sports-commerce-link-performance.sql
+psql_db "$state_c" --file=supabase/migrations/2026-12-22-member-import-home-location.sql
+psql_db "$state_c" --file=supabase/migrations/2026-12-23-club-attendance-station-leaderboard.sql
+psql_db "$state_c" --file=supabase/migrations/2026-12-24-staff-owner-transfer-and-member-activation-queue.sql
+psql_db "$state_c" --file=tests/sql/notification-outbox-launch.sql
+psql_db "$state_c" --file=tests/sql/staff-owner-transfer.sql
 psql_db "$state_c" --file=tests/sql/active-sports-import-v2.sql
 echo "ACTIVE SPORTS IMPORT RPC PASSED"

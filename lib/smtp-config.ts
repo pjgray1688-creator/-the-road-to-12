@@ -6,8 +6,8 @@ export type SmtpConfiguration = {
   port: number;
   secure: boolean;
   requireTLS: boolean;
-  username?: string;
-  password?: string;
+  username: string;
+  password: string;
   from: Record<"members" | "staff" | "billing", { address: string; name: string }>;
 };
 
@@ -46,12 +46,12 @@ export function inspectSmtpConfiguration(env: NodeJS.ProcessEnv = process.env) {
   const username = env.SMTP_USERNAME?.trim() || undefined;
   const password = env.SMTP_PASSWORD || undefined;
   const authState: SmtpFieldState = username && password ? "configured" : !username && !password ? "missing" : "invalid";
-  const authDetail = authState === "configured" ? "SMTP authentication credentials are both present; values are hidden." : authState === "missing" ? "No SMTP authentication credentials are set; use only if the provider permits a trusted relay without AUTH." : "Set both SMTP_USERNAME and SMTP_PASSWORD, or neither.";
+  const authDetail = authState === "configured" ? "SMTP authentication credentials are both present; values are hidden." : authState === "missing" ? "Set SMTP_USERNAME and SMTP_PASSWORD; authenticated delivery is required." : "Set both SMTP_USERNAME and SMTP_PASSWORD.";
 
   const senderInputs = {
-    members: { address: env.R12_EMAIL_FROM_MEMBERS?.trim() || "members@r12.live", name: env.R12_EMAIL_FROM_NAME_MEMBERS?.trim() || "R12" },
-    staff: { address: env.R12_EMAIL_FROM_STAFF?.trim() || "staff@r12.live", name: env.R12_EMAIL_FROM_NAME_STAFF?.trim() || "R12 Staff" },
-    billing: { address: env.R12_EMAIL_FROM_BILLING?.trim() || "madhouse.accounts@r12.live", name: env.R12_EMAIL_FROM_NAME_BILLING?.trim() || "Madhouse Accounts" },
+    members: { address: env.R12_EMAIL_FROM_MEMBERS?.trim() || "members@r12.live", name: env.R12_EMAIL_FROM_NAME_MEMBERS?.trim() || "R12 · Madhouse" },
+    staff: { address: env.R12_EMAIL_FROM_STAFF?.trim() || "staff@r12.live", name: env.R12_EMAIL_FROM_NAME_STAFF?.trim() || "R12 · Madhouse Staff" },
+    billing: { address: env.R12_EMAIL_FROM_BILLING?.trim() || "madhouse.accounts@r12.live", name: env.R12_EMAIL_FROM_NAME_BILLING?.trim() || "Madhouse Accounts · R12" },
   };
   const senders = Object.entries(senderInputs).map(([key, sender]) => field(
     `smtpSender${key[0].toUpperCase()}${key.slice(1)}`,
@@ -68,17 +68,16 @@ export function inspectSmtpConfiguration(env: NodeJS.ProcessEnv = process.env) {
     field("smtpAuth", "SMTP authentication", authState, authDetail),
     ...senders,
   ];
-  const requiredChecks = checks.filter(check => check.key !== "smtpAuth");
-  const state = requiredChecks.some(check => check.state === "invalid") || authState === "invalid"
+  const state = checks.some(check => check.state === "invalid")
     ? "invalid" as const
-    : requiredChecks.some(check => check.state === "missing") ? "missing" as const : "configured" as const;
+    : checks.some(check => check.state === "missing") ? "missing" as const : "configured" as const;
   const configuration = state === "configured" && host.value && port.value && secure.value !== null
     ? {
         host: host.value,
         port: port.value,
         secure: secure.value,
         requireTLS: !secure.value,
-        ...(username && password ? { username, password } : {}),
+        username: username!, password: password!,
         from: senderInputs,
       }
     : null;

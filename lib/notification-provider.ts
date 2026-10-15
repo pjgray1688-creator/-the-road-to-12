@@ -1,4 +1,6 @@
 import { siteUrl } from "./site-url";
+import { inspectSmtpConfiguration } from "./smtp-config";
+import { sendSmtpMessage } from "./smtp-transport";
 
 export type NotificationSender = "members" | "billing" | "staff";
 
@@ -24,12 +26,19 @@ export function notificationConfig() {
       billing: process.env.R12_EMAIL_FROM_BILLING ?? "madhouse.accounts@r12.live",
       staff: process.env.R12_EMAIL_FROM_STAFF ?? "staff@r12.live",
     },
+    fromNames: {
+      members: process.env.R12_EMAIL_FROM_NAME_MEMBERS ?? "R12 · Madhouse",
+      billing: process.env.R12_EMAIL_FROM_NAME_BILLING ?? "Madhouse Accounts · R12",
+      staff: process.env.R12_EMAIL_FROM_NAME_STAFF ?? "R12 · Madhouse Staff",
+    },
   } as const;
 }
 
-/** SMTP remains unavailable until a real transport is included. Mock is test-only. */
+/** SMTP is available only with complete authenticated TLS configuration; mock is non-production only. */
 export function notificationTransportAvailable() {
-  return notificationConfig().provider === "mock" && process.env.NODE_ENV !== "production";
+  const config = notificationConfig();
+  if (config.provider === "mock") return process.env.NODE_ENV !== "production";
+  return config.provider === "smtp" && inspectSmtpConfiguration().configuration !== null;
 }
 
 export function senderAddress(sender: NotificationSender) {
@@ -40,11 +49,23 @@ export function senderAddress(sender: NotificationSender) {
 export async function deliverNotification(_envelope: NotificationEnvelope): Promise<NotificationDelivery> {
   const provider = notificationConfig().provider;
   if (provider === "mock") return { ok: true, provider: "mock", reference: `mock-${_envelope.id}` };
-  return {
-    ok: false,
-    state: "unavailable",
-    code: provider === "smtp" ? "smtp_adapter_not_configured" : "email_provider_unavailable",
-    message: provider === "smtp" ? "SMTP delivery is not wired in this environment." : "Transactional email delivery is not configured.",
-    retryable: false,
-  };
+  if (provider === "smtp") {
+    if (!inspectSmtpConfiguration().configuration) {
+      return { ok: false, state: "unavailable", code: "smtp_configuration_incomplete", message: "SMTP delivery is not configured completely.", retryable: false };
+    }
+    try {
+      const result = await sendSmtpMessage(_envelope);
+      return { ok: true, provider: result.provider, reference: result.reference };
+    } catch (error) {
+      const source = error as { deliveryCode?: unknown; retryable?: unknown };
+      return {
+        ok: false,
+        state: "failed",
+        code: typeof source.deliveryCode === "string" ? source.deliveryCode : "smtp_delivery_failed",
+        message: "SMTP delivery failed. Check the provider connection and server logs.",
+        retryable: source.retryable !== false,
+      };
+    }
+  }
+  return { ok: false, state: "unavailable", code: "email_provider_unavailable", message: "Transactional email delivery is not configured.", retryable: false };
 }

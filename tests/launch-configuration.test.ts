@@ -24,7 +24,8 @@ test("launch readiness reports missing and invalid settings without returning th
   assert.equal(checks.find(check => check.key === "stripeSecret")?.state, "invalid");
   assert.equal(checks.find(check => check.key === "goCardlessEnvironment")?.state, "invalid");
   assert.equal(checks.find(check => check.key === "billingWorker")?.state, "missing");
-  assert.equal(checks.find(check => check.key === "emailProvider")?.state, "adapter_unavailable");
+  assert.equal(checks.find(check => check.key === "emailProvider")?.state, "missing");
+  assert.equal(checks.find(check => check.key === "memberActivationGate")?.state, "disabled");
   assert.equal(checks.find(check => check.key === "workerSchedules")?.state, "external_verification_required");
   assert.match(checks.find(check => check.key === "workerSchedules")?.detail ?? "", /daily at 06:00 UTC/);
   assert.equal(checks.find(check => check.key === "supabaseAnon")?.state, "missing");
@@ -47,6 +48,7 @@ test("worker auth accepts Vercel CRON_SECRET alongside dedicated worker credenti
 
 test("SMTP configuration accepts an authenticated required-STARTTLS relay without exposing secrets", () => {
   const config = env({
+    R12_EMAIL_PROVIDER: "smtp",
     SMTP_HOST: "smtp.example.test", SMTP_PORT: "587", SMTP_SECURE: "false",
     SMTP_USERNAME: "private-user", SMTP_PASSWORD: "private-password",
   });
@@ -59,7 +61,8 @@ test("SMTP configuration accepts an authenticated required-STARTTLS relay withou
   const readiness = launchReadiness(config);
   assert.doesNotMatch(JSON.stringify(readiness), /private-user|private-password/);
   assert.equal(readiness.find(check => check.key === "smtpAuth")?.state, "configured");
-  assert.equal(readiness.find(check => check.key === "emailProvider")?.state, "adapter_unavailable");
+  assert.equal(readiness.find(check => check.key === "emailProvider")?.state, "configured");
+  assert.equal(readiness.find(check => check.key === "memberActivationGate")?.state, "disabled");
 });
 
 test("SMTP readiness distinguishes missing required config and malformed host, port, and TLS mode", () => {
@@ -87,14 +90,15 @@ test("SMTP authentication credentials must be paired and sender addresses valida
 test("production launch checklist documents canonical webhook, callback, and worker URLs", async () => {
   const { readFile } = await import("node:fs/promises");
   const checklist = await readFile("docs/r12-launch-configuration.md", "utf8");
-  for (const route of ["/api/webhooks/stripe", "/api/webhooks/gocardless", "/api/club/join/gocardless/complete", "/api/internal/membership-billing-worker", "/api/internal/supplier-import-worker", "0 6 * * *"]) assert.ok(checklist.includes(route));
+  for (const route of ["/api/webhooks/stripe", "/api/webhooks/gocardless", "/api/club/join/gocardless/complete", "/api/internal/membership-billing-worker", "/api/internal/supplier-import-worker", "/api/internal/notification-worker", "0 6 * * *", "15 6 * * *"]) assert.ok(checklist.includes(route));
   assert.match(checklist, /No automatic schedule/);
   assert.match(checklist, /imports synchronously/);
-  assert.match(checklist, /Hobby supports daily cron only/);
+  assert.match(checklist, /daily.*Vercel Hobby|Vercel Hobby.*daily/i);
   assert.match(checklist, /Site URL/);
   const vercel = JSON.parse(await readFile("vercel.json", "utf8"));
   assert.deepEqual(vercel.crons, [
     { path: "/api/internal/membership-billing-worker", schedule: "0 6 * * *" },
+    { path: "/api/internal/notification-worker", schedule: "15 6 * * *" },
   ]);
   assert.ok(vercel.crons.every((cron: { schedule: string }) => /^\d{1,2} \d{1,2} \* \* \*$/.test(cron.schedule)), "Vercel Hobby cron entries must use a once-daily schedule");
 });
