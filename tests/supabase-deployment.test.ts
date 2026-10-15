@@ -27,6 +27,17 @@ test("deployment manifest contains existing files in dependency order", () => {
   assert.ok(position("supabase/migrations/2026-09-13-club-staff-capabilities-audit.sql") < position("supabase/migrations/2026-09-06-club-staff-access-grants.sql"));
   assert.ok(position("supabase/migrations/2026-12-24-staff-owner-transfer-and-member-activation-queue.sql") < position("supabase/migrations/2026-12-25-notification-generator-null-safe-auth-lookup.sql"));
   assert.ok(position("supabase/migrations/2026-12-25-notification-generator-null-safe-auth-lookup.sql") < position("supabase/migrations/2026-12-26-notification-generator-record-alias-safety.sql"));
+  assert.ok(position("supabase/migrations/2026-12-26-notification-generator-record-alias-safety.sql") < position("supabase/migrations/2026-12-27-staff-claim-context.sql"));
+});
+
+test("staff claim context is a narrowly scoped authenticated read model", () => {
+  const migration = readFileSync("supabase/migrations/2026-12-27-staff-claim-context.sql", "utf8");
+  assert.match(migration, /security definer set search_path=pg_catalog,public/);
+  assert.match(migration, /revoke all on function public\.club_get_my_staff_claim_context\(uuid\) from public,anon/);
+  assert.match(migration, /grant execute on function public\.club_get_my_staff_claim_context\(uuid\) to authenticated/);
+  assert.match(migration, /grant_row\.email_normalized=lower\(btrim\(coalesce\(auth\.jwt\(\)->>'email',''\)\)\)/);
+  assert.match(migration, /grant_row\.status='accepted' and grant_row\.accepted_by=auth\.uid\(\)/);
+  assert.match(migration, /location\.id=any\(coalesce\(grant_row\.location_ids/);
 });
 
 test("deployment runner is ledgered, deterministic and stops on unexpected SQL errors", () => {

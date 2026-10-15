@@ -4,6 +4,7 @@ const STATIC_ASSET_PATHS = [
   /^\/_next\/static\/.+\.(?:css|js|map|woff2?|ttf|otf)$/,
   /^\/(?:icons|club-branding)\/[^/]+\.(?:ico|jpg|jpeg|png|svg|webp)$/,
   /^\/(?:apple-touch-icon|favicon-(?:32|48)|icon)\.(?:png|svg)$/,
+  /^\/r12-app-assets\/[a-z0-9-]+\.(?:ico|png|svg)$/,
   /^\/(?:manifest\.webmanifest|club\/manifest\.webmanifest)$/
 ];
 

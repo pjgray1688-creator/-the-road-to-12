@@ -35,6 +35,7 @@ export function launchReadiness(env: NodeJS.ProcessEnv = process.env): Readiness
     { key: "supabaseUrl", label: "Supabase project URL", ...supabaseUrl },
     presence("supabaseAnon", "Supabase public client key", env.NEXT_PUBLIC_SUPABASE_ANON_KEY),
     presence("supabaseServiceRole", "Worker Supabase service-role key", env.SUPABASE_SERVICE_ROLE_KEY),
+    { key: "clubStationSession", label: "Shared Club station session signing key", state: env.R12_CLUB_STATION_SESSION_SECRET && Buffer.byteLength(env.R12_CLUB_STATION_SESSION_SECRET) >= 32 ? "configured" : "missing", detail: "A random server-only key of at least 32 bytes is required to bind station unlocks to the selected signed-in staff identity." },
     { key: "stripeSecret", label: "Stripe secret key", state: stripeKeyState, detail: stripeKeyDetail },
     presence("stripeWebhook", "Stripe webhook signing secret", env.STRIPE_WEBHOOK_SECRET),
     presence("goCardlessToken", "GoCardless access token", env.GOCARDLESS_ACCESS_TOKEN),

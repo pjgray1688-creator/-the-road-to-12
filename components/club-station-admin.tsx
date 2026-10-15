@@ -1,0 +1,9 @@
+"use client";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+type Location={id:string;name:string;active:boolean};
+export function ClubStationAdmin({organisationId,locations}:{organisationId:string;locations:Location[]}){
+  const [name,setName]=useState("");const [locationId,setLocationId]=useState(locations.find(item=>item.active)?.id??"");const [message,setMessage]=useState("");const [busy,setBusy]=useState(false);const router=useRouter();
+  const submit=async(event:React.FormEvent)=>{event.preventDefault();setBusy(true);setMessage("");try{const response=await fetch("/api/club/station/register",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({organisationId,locationId,stationName:name})});const result=await response.json();if(!response.ok)throw new Error(result.error);setMessage(`${name} is now registered as a shared Club station on this browser.`);router.replace("/club");router.refresh();}catch(error){setMessage(error instanceof Error?error.message:"This station could not be registered.");}finally{setBusy(false);}};
+  return <form onSubmit={submit} className="club-station-admin-form"><label>Station name<input value={name} onChange={event=>setName(event.target.value)} placeholder="Rotherham Front Desk" required minLength={2} maxLength={80}/></label><label>Venue<select value={locationId} onChange={event=>setLocationId(event.target.value)} required>{locations.filter(item=>item.active).map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</select></label><button className="primary" disabled={busy||!locationId}>{busy?"Registering…":"Register this browser as a shared station"}</button>{message&&<p role="status">{message}</p>}<p className="muted">Registration creates a protected device credential in this browser. Anyone using this station must unlock with their own Club PIN.</p></form>;
+}
