@@ -1,11 +1,14 @@
 import { createHash, randomBytes } from "node:crypto";
 import { NextResponse } from "next/server";
 import { serverSupabase } from "@/lib/supabase-server";
-import { CLUB_STATION_COOKIE, CLUB_STATION_USER_COOKIE, signClubStationSession, stationSessionTtlSeconds } from "@/lib/club-station";
+import { adminSupabase } from "@/lib/supabase-admin";
+import { CLUB_STATION_COOKIE, CLUB_STATION_USER_COOKIE } from "@/lib/club-station";
 export async function POST(request: Request) {
   if (!process.env.R12_CLUB_STATION_SESSION_SECRET || Buffer.byteLength(process.env.R12_CLUB_STATION_SESSION_SECRET) < 32) return NextResponse.json({ error: "Shared stations are not configured securely yet." }, { status: 503 });
   const supabase = await serverSupabase(); const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Sign in to configure a Club station." }, { status: 401 });
+  const origin = request.headers.get("origin");
+  if (!origin || origin !== new URL(request.url).origin) return NextResponse.json({ error: "This request could not be verified." }, { status: 403 });
   const body = await request.json().catch(() => ({}));
   const organisationId = typeof body.organisationId === "string" ? body.organisationId : "";
   const locationId = typeof body.locationId === "string" ? body.locationId : "";
@@ -14,9 +17,17 @@ export async function POST(request: Request) {
   const tokenHash = createHash("sha256").update(token).digest();
   const { data, error } = await supabase.rpc("club_register_shared_station", { p_organisation_id: organisationId, p_location_id: locationId, p_station_name: stationName, p_token_hash: `\\x${tokenHash.toString("hex")}` });
   if (error || typeof data !== "string") return NextResponse.json({ error: "This account cannot configure that Club station." }, { status: 403 });
-  const response = NextResponse.json({ ok: true, stationName });
+  const roster = await adminSupabase().rpc("club_station_list_staff", { p_station_id: data, p_token: token });
+  if (roster.error || !Array.isArray(roster.data)) return NextResponse.json({ error: "The station was registered, but its staff setup could not be checked. Please retry registration." }, { status: 503, headers: { "Cache-Control": "private, no-store" } });
+  const ready = roster.data.length > 0;
+  const response = NextResponse.json({ ok: true, ready, stationName }, { headers: { "Cache-Control": "private, no-store" } });
   const cookieOptions = { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "strict" as const, path: "/", maxAge: 60 * 60 * 24 * 365 };
-  response.cookies.set(CLUB_STATION_COOKIE, `${data}.${token}`, cookieOptions);
-  response.cookies.set(CLUB_STATION_USER_COOKIE, signClubStationSession(user.id, data), { ...cookieOptions, maxAge: stationSessionTtlSeconds() });
+  if (ready) {
+    response.cookies.set(CLUB_STATION_COOKIE, `${data}.${token}`, cookieOptions);
+    response.cookies.set(CLUB_STATION_USER_COOKIE, "", { ...cookieOptions, maxAge: 0 });
+  } else {
+    response.cookies.set(CLUB_STATION_COOKIE, "", { ...cookieOptions, maxAge: 0 });
+    response.cookies.set(CLUB_STATION_USER_COOKIE, "", { ...cookieOptions, maxAge: 0 });
+  }
   return response;
 }

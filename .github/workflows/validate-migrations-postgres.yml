@@ -12,6 +12,7 @@ on:
       - 'tests/coach-nutrition.test.ts'
       - 'tests/sql/nutrition-reconciliation-*.sql'
       - 'tests/sql/active-sports-import-v2.sql'
+      - 'tests/sql/club-station-pin-reauth.sql'
       - '.github/workflows/validate-migrations-postgres.yml'
   pull_request:
     paths:
@@ -23,6 +24,7 @@ on:
       - 'tests/coach-nutrition.test.ts'
       - 'tests/sql/nutrition-reconciliation-*.sql'
       - 'tests/sql/active-sports-import-v2.sql'
+      - 'tests/sql/club-station-pin-reauth.sql'
       - '.github/workflows/validate-migrations-postgres.yml'
 
 jobs:

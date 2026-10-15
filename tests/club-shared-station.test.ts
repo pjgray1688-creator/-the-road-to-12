@@ -15,6 +15,10 @@ test("shared-station migration is additive, manifest-ordered and exercised by th
   assert.match(migration,/revoke all on public\.club_shared_stations, public\.club_station_staff_pins from public, anon, authenticated/);
   assert.ok(manifest.indexOf("2026-12-27-staff-claim-context.sql")<manifest.indexOf("2026-12-28-club-shared-station-pin-auth.sql"));
   assert.match(harness,/--file=supabase\/migrations\/2026-12-28-club-shared-station-pin-auth\.sql/);
+  const reauthMigration=readFileSync("supabase/migrations/2026-12-30-club-station-password-reauth.sql","utf8");
+  assert.ok(manifest.indexOf("2026-12-29-pgcrypto-schema-qualified-functions.sql")<manifest.indexOf("2026-12-30-club-station-password-reauth.sql"));
+  assert.match(harness,/--file=supabase\/migrations\/2026-12-30-club-station-password-reauth\.sql[\s\S]*?tests\/sql\/club-station-pin-reauth\.sql/);
+  assert.match(reauthMigration,/create or replace function public\.club_station_set_pin_after_password/);
   const harnessOrder = [
     "2026-12-03-member-import-and-access.sql",
     "2026-12-04-member-pin-qr-access-pass.sql",
@@ -24,6 +28,42 @@ test("shared-station migration is additive, manifest-ordered and exercised by th
   ].map(file => harness.indexOf(`--file=supabase/migrations/${file}`));
   assert.ok(harnessOrder.every(position => position >= 0));
   assert.deepEqual(harnessOrder, [...harnessOrder].sort((a,b)=>a-b));
+});
+
+test("PIN password confirmation is server-verified for the exact signed-in staff identity",()=>{
+  const route=readFileSync("app/api/club/station/pin/route.ts","utf8");
+  const migration=readFileSync("supabase/migrations/2026-12-30-club-station-password-reauth.sql","utf8");
+  assert.match(route,/serverSupabase\(\)[\s\S]*auth\.getUser\(\)/);
+  assert.match(route,/createClient\(url, anonKey, \{ auth: \{ persistSession: false, autoRefreshToken: false/);
+  assert.match(route,/signInWithPassword\(\{ email: user\.email, password \}\)/);
+  assert.match(route,/verified\.data\.user\?\.id !== user\.id/);
+  assert.match(route,/admin\.rpc\(action === "disable" \? "club_station_disable_pin_after_password" : "club_station_set_pin_after_password"/);
+  assert.match(route,/request\.headers\.get\("origin"\) !== request\.nextUrl\.origin/);
+  assert.doesNotMatch(route,/auth_time|localStorage|setSession/);
+  assert.match(migration,/revoke all on function public\.club_station_set_pin_after_password[\s\S]*from public,anon,authenticated/);
+  assert.match(migration,/to service_role/);
+  assert.match(migration,/extensions\.crypt\(p_pin,extensions\.gen_salt\('bf',12\)\)/);
+  const sqlFixture=readFileSync("tests/sql/club-station-pin-reauth.sql","utf8");
+  assert.match(sqlFixture,/Expired reauthentication claim was accepted/);
+  assert.match(sqlFixture,/Five incorrect PINs did not reach the lockout threshold/);
+  assert.match(sqlFixture,/Authenticated browser role invoked the server-only PIN function/);
+});
+
+test("station setup cannot lock a browser until a staff PIN is eligible and managers have a safe recovery route",()=>{
+  const register=readFileSync("app/api/club/station/register/route.ts","utf8");
+  const adminUi=readFileSync("components/club-station-admin.tsx","utf8");
+  const chooser=readFileSync("components/club-station-lock.tsx","utf8");
+  const lockPage=readFileSync("app/club/lock/page.tsx","utf8");
+  assert.match(register,/club_station_list_staff/);
+  assert.match(register,/const ready = roster\.data\.length > 0/);
+  assert.match(register,/if \(ready\)[\s\S]*CLUB_STATION_COOKIE/);
+  assert.match(register,/if \(ready\)[\s\S]*CLUB_STATION_USER_COOKIE,[\s\S]*maxAge: 0/);
+  assert.match(adminUi,/if\(!result\.ready\)[\s\S]*Set your Club PIN/);
+  assert.match(lockPage,/staff\.permissions_manage/);
+  assert.match(lockPage,/roster\.data\.length===0/);
+  assert.match(chooser,/Refresh staff list/);
+  assert.match(chooser,/R12\/r12-app-assets|r12-app-assets\/icon-192\.png/);
+  assert.doesNotMatch(chooser,/No active staff are available for this station/);
 });
 
 test("staff PIN is bcrypt-hashed, private, recently reauthenticated and independently rate-limited",()=>{

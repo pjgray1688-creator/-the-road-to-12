@@ -135,3 +135,4 @@ supabase/migrations/2026-12-26-notification-generator-record-alias-safety.sql
 supabase/migrations/2026-12-27-staff-claim-context.sql
 supabase/migrations/2026-12-28-club-shared-station-pin-auth.sql
 supabase/migrations/2026-12-29-pgcrypto-schema-qualified-functions.sql
+supabase/migrations/2026-12-30-club-station-password-reauth.sql
