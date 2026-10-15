@@ -23,6 +23,9 @@ begin
   end;
 end $$;
 reset role;
+select set_config('request.jwt.claim.sub','',true);
+select set_config('request.jwt.claim.role','',true);
+select set_config('request.jwt.claims','{}',true);
 
 set local role anon;
 select set_config('request.jwt.claim.role','anon',true);
@@ -36,6 +39,9 @@ begin
   end;
 end $$;
 reset role;
+select set_config('request.jwt.claim.sub','',true);
+select set_config('request.jwt.claim.role','',true);
+select set_config('request.jwt.claims','{}',true);
 
 set local role service_role;
 select set_config('request.jwt.claim.role','service_role',true);
@@ -50,6 +56,9 @@ begin
   end if;
 end $$;
 reset role;
+select set_config('request.jwt.claim.sub','',true);
+select set_config('request.jwt.claim.role','',true);
+select set_config('request.jwt.claims','{}',true);
 
 -- Outbox tables are intentionally not directly readable by application roles.
 -- Inspect persisted state as the disposable test owner, not by granting the
@@ -67,6 +76,9 @@ begin
   perform public.club_fail_notification_intent('30000000-0000-4000-8000-000000000011','smtp_451','Temporary relay rejection',now(),'failed');
 end $$;
 reset role;
+select set_config('request.jwt.claim.sub','',true);
+select set_config('request.jwt.claim.role','',true);
+select set_config('request.jwt.claims','{}',true);
 
 do $$
 begin
@@ -86,17 +98,17 @@ begin
   end if;
   perform public.club_complete_notification_intent('30000000-0000-4000-8000-000000000011','ci-staff-sent');
   perform public.club_complete_notification_intent('30000000-0000-4000-8000-000000000012','ci-member-sent');
-  if exists(select 1 from public.club_member_notification_intents where id in ('30000000-0000-4000-8000-000000000011','30000000-0000-4000-8000-000000000012') and state<>'sent') then
-    raise exception 'Notification completion did not persist the terminal sent state';
-  end if;
 end $$;
 reset role;
+select set_config('request.jwt.claim.sub','',true);
+select set_config('request.jwt.claim.role','',true);
+select set_config('request.jwt.claims','{}',true);
 
 do $$
 begin
   if (select state from public.club_member_notification_intents where id='30000000-0000-4000-8000-000000000011')<>'sent'
      or (select state from public.club_member_notification_intents where id='30000000-0000-4000-8000-000000000012')<>'sent' then
-    raise exception 'Notification states did not reach the expected terminal sent state';
+    raise exception 'Notification completion did not persist the terminal sent state';
   end if;
 end $$;
 rollback;

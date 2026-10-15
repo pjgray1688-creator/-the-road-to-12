@@ -40,6 +40,29 @@ test("notification SQL fixture verifies only service_role can execute worker cla
   assert.match(launchSupportSql, /grant execute on function public\.club_claim_notification_intents_for_worker\(integer,text,boolean\) to service_role/);
 });
 
+test("notification outbox fixture keeps direct table inspection under the disposable database owner", () => {
+  const roleSegments = notificationOutboxFixtureSql.split(/(?=^(?:set local role|reset role);)/m);
+  for (const segment of roleSegments) {
+    if (!/^set local role (?:anon|authenticated|service_role);/.test(segment)) continue;
+    for (const statement of segment.split(";")) {
+      assert.doesNotMatch(statement, /\b(?:select|insert\s+into|update|delete\s+from)\b[^;]*\bpublic\.club_member_notification_intents\b/i);
+    }
+  }
+  for (const id of ["30000000-0000-4000-8000-000000000011", "30000000-0000-4000-8000-000000000012"]) {
+    const queryIndex = notificationOutboxFixtureSql.indexOf(`state from public.club_member_notification_intents where id='${id}'`);
+    assert.ok(queryIndex >= 0, `privileged state assertion exists for ${id}`);
+    const lastRoleSwitch = Math.max(
+      notificationOutboxFixtureSql.lastIndexOf("set local role", queryIndex),
+      notificationOutboxFixtureSql.lastIndexOf("reset role", queryIndex),
+    );
+    assert.ok(notificationOutboxFixtureSql.lastIndexOf("reset role", queryIndex) === lastRoleSwitch, `state assertion for ${id} follows RESET ROLE`);
+    const claimClearIndex = notificationOutboxFixtureSql.lastIndexOf("set_config('request.jwt.claim.role','',true)", queryIndex);
+    assert.ok(claimClearIndex > notificationOutboxFixtureSql.lastIndexOf("set local role", queryIndex), `state assertion for ${id} follows clearing the worker JWT claim`);
+  }
+  assert.equal((notificationOutboxFixtureSql.match(/reset role;\s*select set_config\('request\.jwt\.claim\.sub','',true\);\s*select set_config\('request\.jwt\.claim\.role','',true\);\s*select set_config\('request\.jwt\.claims','\{\}',true\);/g) ?? []).length, 5);
+  assert.match(notificationOutboxFixtureSql, /ci-notification-worker-retry[\s\S]*?ci-notification-worker-release[\s\S]*?member activation claimable/);
+});
+
 test("the existing notification intent table becomes the durable provider-neutral outbox", () => {
   assert.match(sql, /alter table public\.club_member_notification_intents/);
   assert.match(sql, /target_email/);
