@@ -1,1 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192"><rect width="192" height="192" rx="38" fill="#070a0d"/><path d="M39 50h114v18H106v77H86V68H39z" fill="#e8ff4c"/><text x="96" y="169" fill="white" font-size="18" text-anchor="middle" font-family="Arial" font-weight="bold">12%</text></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" role="img" aria-label="R12">
+  <rect width="192" height="192" rx="42" fill="#09090d"/>
+  <rect x="7" y="7" width="178" height="178" rx="36" fill="none" stroke="#7138d4" stroke-width="8"/>
+  <text x="96" y="124" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="91" font-weight="900" letter-spacing="-8">
+    <tspan fill="#f7f5ff">R</tspan><tspan fill="#9b62ff">12</tspan>
+  </text>
+</svg>
