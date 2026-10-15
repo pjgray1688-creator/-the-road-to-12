@@ -23,43 +23,76 @@ insert into public.club_member_notification_intents(
  'billing_obligation','30000000-0000-4000-8000-000000000099'
 );
 
-set local role service_role;
-select set_config('request.jwt.claim.role','service_role',true);
 do $$
-declare
-  missing_auth_email text;
-  before_count integer;
-  after_count integer;
+declare missing_auth_email text;
 begin
-  -- This models the optional Auth lookup in monthly dunning: no row is a null
-  -- scalar value, never an unassigned RECORD access.
+  -- Privileged fixture inspection: a SELECT INTO with no row produces NULL.
   select au.email into missing_auth_email from auth.users au
     where au.id='30000000-0000-4000-8000-000000000099';
   if missing_auth_email is not null then
     raise exception 'Missing optional Auth lookup unexpectedly returned an email';
   end if;
-
-  -- The production failure occurred after a zero-row billing FOR loop, when
-  -- the final stale-intent cleanup referenced SQL alias `o` shadowed by that
-  -- unassigned PL/pgSQL record. Keep this first call obligation-free.
+  -- Keep the first generator run obligation-free to exercise the zero-row
+  -- billing loop and stale-intent cleanup path.
   if (select count(*) from public.club_membership_billing_obligations
       where organisation_id='30000000-0000-4000-8000-000000000002')<>0 then
     raise exception 'Zero-obligation generation fixture unexpectedly has billing rows';
   end if;
+end $$;
+
+set local role authenticated;
+select set_config('request.jwt.claim.role','authenticated',true);
+do $$ begin
+  if auth.role()<>'authenticated' then raise exception 'Fixture did not simulate authenticated role'; end if;
+  begin
+    perform public.club_generate_notification_intents();
+    raise exception 'Authenticated user generated notification intents';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+reset role;
+select set_config('request.jwt.claim.sub','',true);
+select set_config('request.jwt.claim.role','',true);
+select set_config('request.jwt.claims','{}',true);
+
+set local role anon;
+select set_config('request.jwt.claim.role','anon',true);
+do $$ begin
+  if auth.role()<>'anon' then raise exception 'Fixture did not simulate anonymous role'; end if;
+  begin
+    perform public.club_generate_notification_intents();
+    raise exception 'Anonymous user generated notification intents';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+reset role;
+select set_config('request.jwt.claim.sub','',true);
+select set_config('request.jwt.claim.role','',true);
+select set_config('request.jwt.claims','{}',true);
+
+set local role service_role;
+select set_config('request.jwt.claim.role','service_role',true);
+do $$ begin
+  if auth.role()<>'service_role' then raise exception 'Generation fixture did not simulate service_role'; end if;
   perform public.club_generate_notification_intents();
+  perform public.club_generate_notification_intents();
+end $$;
+reset role;
+select set_config('request.jwt.claim.sub','',true);
+select set_config('request.jwt.claim.role','',true);
+select set_config('request.jwt.claims','{}',true);
+
+-- All persisted outbox and source-state assertions run as the disposable
+-- PostgreSQL owner, never using application/worker table grants.
+do $$
+declare intent_count integer;
+begin
   if (select state from public.club_member_notification_intents where id='30000000-0000-4000-8000-000000000034')<>'cancelled' then
     raise exception 'Generator did not safely cancel a billing intent whose source obligation is missing';
   end if;
-
-  select count(*) into before_count from public.club_member_notification_intents
+  select count(*) into intent_count from public.club_member_notification_intents
     where id in ('30000000-0000-4000-8000-000000000031','30000000-0000-4000-8000-000000000032','30000000-0000-4000-8000-000000000033');
-  if before_count<>3 then raise exception 'Staff/member notification fixtures were not present'; end if;
-
-  perform public.club_generate_notification_intents();
-
-  select count(*) into after_count from public.club_member_notification_intents
-    where id in ('30000000-0000-4000-8000-000000000031','30000000-0000-4000-8000-000000000032','30000000-0000-4000-8000-000000000033');
-  if after_count<>before_count then raise exception 'Repeated generation changed existing staff/member intents'; end if;
+  if intent_count<>3 then raise exception 'Repeated generation changed existing staff/member intents'; end if;
   if (select count(*) from public.club_member_notification_intents where organisation_id='30000000-0000-4000-8000-000000000002' and idempotency_key in ('generation-staff-unlinked','generation-staff-linked','generation-member-activation'))<>3 then
     raise exception 'Repeated generation created duplicate intents';
   end if;
@@ -69,7 +102,6 @@ begin
     raise exception 'Staff invite or member activation recipient was changed by generation';
   end if;
 end $$;
-reset role;
 
 -- A real monthly obligation remains eligible for generated dunning mail and
 -- the same stable key prevents duplicate billing intents on repeated runs.
@@ -95,15 +127,23 @@ insert into public.club_membership_billing_obligations(
 set local role service_role;
 select set_config('request.jwt.claim.role','service_role',true);
 do $$
+begin
+  if auth.role()<>'service_role' then raise exception 'Dunning fixture did not simulate service_role'; end if;
+  perform public.club_generate_notification_intents();
+  perform public.club_generate_notification_intents();
+end $$;
+reset role;
+select set_config('request.jwt.claim.sub','',true);
+select set_config('request.jwt.claim.role','',true);
+select set_config('request.jwt.claims','{}',true);
+
+do $$
 declare generated_count integer;
 begin
-  perform public.club_generate_notification_intents();
-  perform public.club_generate_notification_intents();
   select count(*) into generated_count from public.club_member_notification_intents
     where organisation_id='30000000-0000-4000-8000-000000000002'
       and idempotency_key='monthly-payment-failed:30000000-0000-4000-8000-000000000054'
       and target_email='existing-staff@example.test' and related_id='30000000-0000-4000-8000-000000000054';
   if generated_count<>1 then raise exception 'Monthly dunning generation was not idempotent with an eligible obligation'; end if;
 end $$;
-reset role;
 rollback;

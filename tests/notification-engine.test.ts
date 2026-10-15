@@ -126,6 +126,36 @@ test("notification generator handles a missing optional Auth email without readi
   assert.match(notificationGenerationFixtureSql, /Repeated generation created duplicate intents/);
 });
 
+test("notification generation fixture separates worker roles from privileged setup and state inspection", () => {
+  const protectedRelations = [
+    "auth\\.users",
+    "public\\.club_member_notification_intents",
+    "public\\.club_membership_billing_obligations",
+    "public\\.club_membership_billing_arrangements",
+    "public\\.club_membership_holders",
+    "public\\.club_memberships",
+    "public\\.club_products",
+    "public\\.club_organisations",
+  ];
+  for (const relation of protectedRelations) {
+    const expression = new RegExp(`\\b${relation}\\b`, "g");
+    for (const match of notificationGenerationFixtureSql.matchAll(expression)) {
+      const setRole = notificationGenerationFixtureSql.lastIndexOf("set local role", match.index);
+      const resetRole = notificationGenerationFixtureSql.lastIndexOf("reset role", match.index);
+      assert.ok(resetRole < 0 || resetRole > setRole, `direct ${relation.replaceAll("\\.", ".")} access uses the disposable owner`);
+    }
+  }
+  for (const role of ["authenticated", "anon"]) {
+    assert.match(notificationGenerationFixtureSql, new RegExp(`set local role ${role};[\\s\\S]*?request\\.jwt\\.claim\\.role','${role}'[\\s\\S]*?perform public\\.club_generate_notification_intents\\(\\);[\\s\\S]*?exception when insufficient_privilege[\\s\\S]*?reset role;`));
+  }
+  assert.match(notificationGenerationFixtureSql, /set local role service_role;\s*select set_config\('request\.jwt\.claim\.role','service_role',true\);\s*do \$\$ begin[\s\S]*?auth\.role\(\)<>'service_role'[\s\S]*?perform public\.club_generate_notification_intents\(\);[\s\S]*?end \$\$;\s*reset role;/);
+  assert.match(notificationGenerationFixtureSql, /reset role;\s*select set_config\('request\.jwt\.claim\.sub','',true\);\s*select set_config\('request\.jwt\.claim\.role','',true\);\s*select set_config\('request\.jwt\.claims','\{\}',true\);\s*\n\s*do \$\$/);
+  assert.match(notificationGenerationFixtureSql, /Missing optional Auth lookup unexpectedly returned an email/);
+  assert.match(notificationGenerationFixtureSql, /member activation recipient was changed by generation/);
+  assert.match(notificationGenerationFixtureSql, /Monthly dunning generation was not idempotent/);
+  assert.equal((notificationGenerationFixtureSql.match(/reset role;\s*select set_config\('request\.jwt\.claim\.sub','',true\);\s*select set_config\('request\.jwt\.claim\.role','',true\);\s*select set_config\('request\.jwt\.claims','\{\}',true\);/g) ?? []).length, 4);
+});
+
 test("notification generator uses distinct loop records and SQL aliases so empty loops are safe", () => {
   const start = notificationRecordFixSql.indexOf("create or replace function public.club_generate_notification_intents()");
   const end = notificationRecordFixSql.indexOf("revoke all on function public.club_generate_notification_intents()");
@@ -137,7 +167,7 @@ test("notification generator uses distinct loop records and SQL aliases so empty
   assert.match(generator, /current_issue\.id=intent\.related_id/);
   assert.doesNotMatch(generator, /\bo\.(?:id|user_id|organisation_id|arrangement_id)\b/);
   assert.doesNotMatch(generator, /\bi\.(?:id|organisation_id|priority|status)\b/);
-  assert.match(notificationGenerationFixtureSql, /zero-row billing FOR loop/);
+  assert.match(notificationGenerationFixtureSql, /zero-row[\s\S]*billing loop/);
   assert.match(notificationGenerationFixtureSql, /Zero-obligation generation fixture/);
   assert.match(notificationGenerationFixtureSql, /Monthly dunning generation was not idempotent/);
   assert.match(notificationGenerationFixtureSql, /billing intent whose source obligation is missing/);
