@@ -14,6 +14,15 @@ test("shared-station migration is additive, manifest-ordered and exercised by th
   assert.match(migration,/revoke all on public\.club_shared_stations, public\.club_station_staff_pins from public, anon, authenticated/);
   assert.ok(manifest.indexOf("2026-12-27-staff-claim-context.sql")<manifest.indexOf("2026-12-28-club-shared-station-pin-auth.sql"));
   assert.match(harness,/--file=supabase\/migrations\/2026-12-28-club-shared-station-pin-auth\.sql/);
+  const harnessOrder = [
+    "2026-12-03-member-import-and-access.sql",
+    "2026-12-04-member-pin-qr-access-pass.sql",
+    "2026-12-07-club-pos-sellable-units-and-pt-packages.sql",
+    "2026-12-23-club-attendance-station-leaderboard.sql",
+    "2026-12-28-club-shared-station-pin-auth.sql",
+  ].map(file => harness.indexOf(`--file=supabase/migrations/${file}`));
+  assert.ok(harnessOrder.every(position => position >= 0));
+  assert.deepEqual(harnessOrder, [...harnessOrder].sort((a,b)=>a-b));
 });
 
 test("staff PIN is bcrypt-hashed, private, recently reauthenticated and independently rate-limited",()=>{
