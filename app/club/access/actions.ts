@@ -12,6 +12,15 @@ async function authorised(organisationId: string) {
 export async function decideScannedAccessAction(input: { organisationId: string; locationId: string; credential: string; credentialType: "pin" | "qr" | "legacy_member_reference" | "barcode" }) {
   try { const client = await authorised(input.organisationId); if (!client || !input.locationId || !input.credential.trim()) return { ok: false, error: "Reception access is required." }; const { data, error } = await client.rpc("club_reception_access_decision", { p_organisation_id: input.organisationId, p_location_id: input.locationId, p_credential: input.credential, p_credential_type: input.credentialType }); if (error) return { ok: false, error: "The access decision could not be completed." }; return { ok: true, decision: data as Record<string, unknown> }; } catch { return { ok: false, error: "The access decision could not be completed." }; }
 }
+export async function checkInStationScanAction(input: { organisationId: string; locationId: string; stationLabel: string; credential: string }) {
+  try {
+    const client=await authorised(input.organisationId);
+    if(!client||!input.locationId||!input.stationLabel.trim()||!/^R12-[A-F0-9]{32}$/i.test(input.credential.trim())) return {ok:false,error:"Scan a valid R12 member QR code."};
+    const {data,error}=await client.rpc("club_checkin_station_scan",{p_organisation_id:input.organisationId,p_location_id:input.locationId,p_credential:input.credential.trim(),p_station_label:input.stationLabel.trim().slice(0,80)});
+    if(error)return {ok:false,error:"The check-in could not be completed. Please ask reception for help."};
+    return {ok:true,decision:data as Record<string,unknown>};
+  } catch { return {ok:false,error:"The check-in could not be completed. Please ask reception for help."}; }
+}
 export async function decideCustomerAccessAction(input: { organisationId: string; locationId: string; customerId: string }) {
   try { const client = await authorised(input.organisationId); if (!client || !input.locationId || !input.customerId) return { ok: false, error: "Reception access is required." }; const { data, error } = await client.rpc("club_reception_customer_access_decision", { p_organisation_id: input.organisationId, p_location_id: input.locationId, p_customer_id: input.customerId }); if (error) return { ok: false, error: "The access decision could not be completed." }; return { ok: true, decision: data as Record<string, unknown> }; } catch { return { ok: false, error: "The access decision could not be completed." }; }
 }
