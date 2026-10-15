@@ -22,7 +22,7 @@ test("Coach navigation and home provide a first-class Diary destination and comp
   assert.match(nav, /\/coach\/diary/);
   assert.match(workspace, /CoachScheduleSummary/);
   assert.match(workspace, /Next on your schedule/);
-  assert.match(workspace, /View diary/);
+  assert.doesNotMatch(workspace, /View diary/);
   assert.match(appNav, /pathname\.startsWith\("\/coach\/"\)/);
 });
 
@@ -32,7 +32,9 @@ test("Coach Diary reuses live schedule actions, day agenda, blocks, leave and ow
   assert.match(page, /<ClubScheduleCalendar/);
   assert.match(page, /canManageRota=\{false\}/);
   assert.match(page, /workingHours=\{workingHours\}/);
-  assert.match(calendar, /coachMode\?"My diary"/);
+  assert.doesNotMatch(calendar, /COACH DIARY · MADHOUSE|coachMode\?"Diary"/);
+  assert.match(page, /coach-visually-hidden">Diary<\/h1>/);
+  assert.doesNotMatch(page, /title="My diary"/);
   assert.match(calendar, /DAY VIEW/);
   assert.match(calendar, /shiftDay\(date,coachMode\?-1:-7\)/);
   assert.match(calendar, /Request leave/);
@@ -59,6 +61,7 @@ test("Coach Diary has a mobile date strip and safe empty/loading/error states", 
   const page = source("app/coach/diary/page.tsx");
   assert.match(calendarCss, /\.dateStrip/);
   assert.match(calendarCss, /@media\(max-width:720px\)/);
+  assert.match(calendarCss, /@media\(max-width:360px\)/);
   assert.match(diaryCss, /@media\(max-width:600px\)/);
   assert.match(page, /Your diary couldn’t be loaded/);
   assert.match(page, /No Madhouse diary is linked yet/);

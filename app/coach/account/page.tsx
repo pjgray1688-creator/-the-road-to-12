@@ -17,7 +17,7 @@ export default async function CoachAccountPage() {
   const memberEligible = !memberError && Array.isArray(memberships) && memberships.length > 0;
 
   return <main className={styles.page}>
-    <header className={styles.heading}><span className="eyebrow">ACCOUNT</span><h1>Account</h1></header>
+    <h1 className="coach-visually-hidden">Account</h1>
     <section className={styles.card} aria-labelledby="coach-identity-title"><div className={styles.identity}><span className={styles.avatar} aria-hidden="true">{displayName.split(/\s+/).map((part: string) => part[0]).slice(0, 2).join("").toUpperCase()}</span><div><h2 id="coach-identity-title">{displayName}</h2><p>{user.email ?? "Email not available"}</p></div></div><div className={styles.access}><span>Coach access</span><strong role="status">{coachError ? "Status unavailable" : coachAccess ? "Enabled" : "Not enabled"}</strong></div></section>
     <section className={styles.card} aria-label="Products and session">{memberEligible ? <div className={styles.productSwitch}><div><span className="eyebrow">R12 MEMBER</span><p>Switch to your member space.</p></div><Link className={styles.quietButton} href="/member-hub">Open R12</Link></div> : null}<div className={styles.signOut}><span className="eyebrow">SESSION</span><CoachAccountActions /></div></section>
   </main>;

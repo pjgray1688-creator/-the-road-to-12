@@ -86,7 +86,9 @@ test("zero-client Coach state has a useful Add client action", () => {
 });
 
 test("selected Coach client has one coherent workspace with safe empty and missing states", () => {
-  for (const label of ["Overview", "Programme", "Nutrition", "Check-ins", "Progress", "History"]) assert.match(clientWorkspace, new RegExp(label));
+  const sectionNavigation = fs.readFileSync("components/coach-client-section-nav.tsx", "utf8");
+  for (const label of ["Overview", "Programme", "Nutrition", "Sessions", "Progress"]) assert.match(sectionNavigation, new RegExp(label));
+  assert.match(clientWorkspace, /Check-ins/);
   assert.match(clientWorkspace, /What matters now/);
   assert.match(clientWorkspace, /Read only/);
   assert.match(clientWorkspace, /Primary PT owned/);
@@ -103,7 +105,7 @@ test("Coach home provides an authorised roster dashboard without a global direct
   assert.match(dashboard, /CLIENTS/);
   assert.match(dashboard, /NEEDS ATTENTION/);
   assert.match(dashboard, /RECENT ACTIVITY/);
-  assert.match(dashboard, /CLIENT ROSTER/);
+  assert.match(dashboard, /Client roster/);
   for (const label of ["Active", "Primary", "Cover", "Pending"]) assert.match(dashboard, new RegExp(label));
   assert.match(dashboard, /Search your clients/);
   assert.match(dashboard, /onSelectClient/);

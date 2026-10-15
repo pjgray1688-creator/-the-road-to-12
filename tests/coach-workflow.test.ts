@@ -46,7 +46,7 @@ test("Coach workflow keeps programme ownership separate from cover sessions", ()
   assert.match(sessionRoute, /p_exercise_logs/);
   assert.match(workspace, /programmed exercises/);
   assert.match(clientWorkspace, /programmeOwnerName/);
-  assert.match(clientWorkspace, /Coached sessions/);
+  assert.match(clientWorkspace, /Completed coached session|No coached sessions yet/);
   assert.match(clientWorkspace, /Delivered by you/);
   assert.match(workspace, /setNotes\(""\)/);
   assert.match(workspace, /Load/);

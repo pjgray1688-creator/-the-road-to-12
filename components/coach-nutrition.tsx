@@ -47,7 +47,7 @@ export function CoachNutrition({ clientUserId, clientName, initialData }: { clie
   const extras = days.reduce((total, item) => total + (item.extrasCount ?? 0), 0);
 
   return <AppShell className="module-page coach-nutrition-page">
-    <header className="coach-nutrition-heading"><div><span className="eyebrow">{clientName ?? "CLIENT WORKSPACE"}</span><h1>Nutrition</h1></div></header>
+    <h1 className="coach-visually-hidden">{clientName ? `${clientName} nutrition` : "Nutrition"}</h1>
     <CoachClientSectionNav clientUserId={clientUserId} active="nutrition"/>
     {data.canManage && !editingDraft ? <button className="primary nutrition-builder-start" onClick={beginDraft}>{draftPlan ? "Continue draft" : activePlan ? "Create revised draft" : "Create nutrition plan"}</button> : null}
     {draftPlan && !editingDraft ? <Surface><div className="section-heading-row"><div><span className="eyebrow">DRAFT</span><h2>{draftPlan.title}</h2><p className="muted">Last edited {draftPlan.updatedAt ? new Date(draftPlan.updatedAt).toLocaleDateString() : "recently"}</p></div><button className="primary" onClick={beginDraft}>Continue editing</button></div></Surface> : null}

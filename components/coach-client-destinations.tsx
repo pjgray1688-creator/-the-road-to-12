@@ -18,7 +18,7 @@ export function CoachClientDestinations({ clients, destination }: { clients: Coa
     : `/coach/nutrition?client=${encodeURIComponent(id)}`;
 
   return <main className={`module-page ${styles.page}`}>
-    <header className={styles.heading}><span className="eyebrow">CLIENT PLANS</span><h1>{title}</h1></header>
+    <h1 className="coach-visually-hidden">{title}</h1>
     {clients.length ? <>
       <label className={styles.search}><span className="sr-only">Search linked clients</span><input type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Find a client" /></label>
       <div className={styles.list} aria-label={`${title} clients`}>
