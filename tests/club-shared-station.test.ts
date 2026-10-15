@@ -6,6 +6,7 @@ import { signClubStationSession, verifyClubStationSession } from "@/lib/club-sta
 const migration=readFileSync("supabase/migrations/2026-12-28-club-shared-station-pin-auth.sql","utf8");
 const manifest=readFileSync("supabase/deployment/2026-11-22-madhouse-launch-migrations.txt","utf8");
 const harness=readFileSync("scripts/validate-coach-nutrition-reconciliation-postgres.sh","utf8");
+const workflow=readFileSync(".github/workflows/validate-migrations-postgres.yml","utf8");
 
 test("shared-station migration is additive, manifest-ordered and exercised by the disposable PostgreSQL harness",()=>{
   assert.match(migration,/create table if not exists public\.club_shared_stations/);
@@ -41,6 +42,11 @@ test("station chooser lists only active staff with an enabled PIN and omits emai
   assert.match(roster,/m\.active/);
   assert.doesNotMatch(roster,/returns table\([^)]*email/i);
   assert.doesNotMatch(roster,/select[^;]*u\.email/i);
+});
+
+test("PostgreSQL CI installs the real pgcrypto extension in Supabase's extensions schema",()=>{
+  assert.match(workflow,/create schema if not exists extensions;\s*create extension if not exists pgcrypto with schema extensions;/);
+  assert.match(migration,/extensions\.crypt\(p_pin,extensions\.gen_salt\('bf',12\)\)/);
 });
 
 test("PIN unlock verifies a named staff identity then establishes a fresh Supabase session",()=>{
@@ -101,8 +107,15 @@ test("R12 favicon, Apple icon, product manifests and product titles resolve to e
   const member=readFileSync("app/manifest.ts","utf8");
   const club=readFileSync("app/club/manifest.ts","utf8");
   const coach=readFileSync("app/coach/layout.tsx","utf8");
+  const iconSvg=readFileSync("public/r12-app-assets/icon.svg","utf8");
+  const serviceWorker=readFileSync("public/sw.js","utf8");
   assert.match(root,/r12-app-assets\/favicon\.ico/);assert.match(root,/r12-app-assets\/apple-touch-icon\.png/);
   assert.match(member,/r12-app-assets\/icon-192\.png/);assert.match(club,/r12-app-assets\/club-icon-192\.png/);assert.match(coach,/R12 Coach/);
+  assert.match(iconSvg,/<tspan fill="#f7f5ff">R<\/tspan><tspan fill="#9b62ff">12<\/tspan>/);
+  assert.doesNotMatch(iconSvg,/12%|#e8ff4c/);
+  assert.match(serviceWorker,/r12-shell-v5/);
   const ico=readFileSync("public/favicon.ico");assert.equal(ico.readUInt16LE(2),1);assert.equal(ico.readUInt16LE(4),1);assert.equal(ico[6],48);
-  for(const path of ["public/r12-app-assets/favicon-32.png","public/r12-app-assets/favicon-48.png","public/r12-app-assets/apple-touch-icon.png","public/r12-app-assets/icon-192.png","public/r12-app-assets/club-icon-192.png"])assert.ok(readFileSync(path).length>0);
+  const pngSize=(path:string)=>{const png=readFileSync(path);assert.equal(png.toString("hex",0,8),"89504e470d0a1a0a",`${path} must be a PNG`);return [png.readUInt32BE(16),png.readUInt32BE(20)];};
+  assert.match(root,/r12-app-assets\/favicon-16\.png/);
+  for(const [path,size] of [["public/r12-app-assets/favicon-16.png",16],["public/r12-app-assets/favicon-32.png",32],["public/r12-app-assets/favicon-48.png",48],["public/r12-app-assets/apple-touch-icon.png",180],["public/r12-app-assets/icon-192.png",192],["public/r12-app-assets/icon-512.png",512],["public/r12-app-assets/club-icon-192.png",192],["public/r12-app-assets/club-icon-512.png",512]] as const)assert.deepEqual(pngSize(path),[size,size],`${path} dimensions`);
 });

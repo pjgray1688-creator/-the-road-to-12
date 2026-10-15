@@ -54,7 +54,8 @@ jobs:
       - name: Bootstrap isolated Supabase platform primitives
         run: |
           psql -v ON_ERROR_STOP=1 <<'SQL'
-          create extension if not exists pgcrypto;
+          create schema if not exists extensions;
+          create extension if not exists pgcrypto with schema extensions;
           create schema if not exists auth;
           -- Supabase-managed roles are platform primitives only.  They are
           -- NOLOGIN roles with no extra privileges in this disposable CI DB;
