@@ -8,6 +8,7 @@ const migration = read("supabase/migrations/2026-11-17-club-staff-account-onboar
 const actions = read("app/club/staff/actions.ts");
 const form = read("components/club-staff-access-form.tsx");
 const staffPage = read("app/club/staff/page.tsx");
+const staffEditor = read("components/club-staff-manage-access.tsx");
 const claimPage = read("app/club/staff/claim/page.tsx");
 const accountPage = read("app/account/page.tsx");
 const resetPage = read("app/account/reset/page.tsx");
@@ -15,7 +16,7 @@ const bootstrap = read("docs/manual-sql/madhouse-first-organisation-bootstrap.sq
 
 test("manager prepares PT and operational invitations with server-derived packages", () => {
   assert.match(form, /<option value="gym_staff">Operational Staff<\/option>/);
-  assert.match(form, /<option value="trainer">PT<\/option>/);
+  assert.match(form, /<option value="trainer">PT \/ Coach<\/option>/);
   assert.match(form, /Enable Coach\/PT access when this person accepts/);
   assert.match(actions, /const expected = resolveClubCapabilities\(input\.role\)/);
   assert.match(actions, /p_capabilities: expected/);
@@ -66,15 +67,15 @@ test("Coach intent becomes explicit only at claim and roles never imply it", () 
   assert.equal(resolveClubCapabilities("gym_admin").includes("staff.permissions_manage"), true);
   assert.equal(resolveClubCapabilities("trainer").includes("staff.permissions_manage"), false);
   assert.doesNotMatch(resolveClubCapabilities.toString(), /coach/i);
-  assert.match(staffPage, /Coach\/PT \{row\.coach_requested \? "will be enabled" : "not requested"\}/);
+  assert.match(staffPage, /row\.coach_requested/);
 });
 
 test("revocation, owner protection, suspension and reactivation use existing authoritative RPCs", () => {
   assert.match(staffPage, /Cancel invitation/);
   assert.match(actions, /club_revoke_staff_access_grant/);
   assert.match(actions, /club_set_staff_active/);
-  assert.match(staffPage, /Suspend staff access/);
-  assert.match(staffPage, /Reactivate staff access/);
+  assert.match(staffEditor, /Suspend staff access/);
+  assert.match(staffEditor, /Reactivate staff access/);
   const permissionMigration = read("supabase/migrations/2026-11-16-club-staff-permission-model.sql");
   assert.match(permissionMigration, /if current_role='owner' then raise exception 'Owner role is protected'/);
   assert.match(permissionMigration, /The organisation must retain an active owner/);
@@ -98,8 +99,8 @@ test("password creation and recovery remain private Supabase Auth operations", (
 
 test("gym membership intent is informational and membership remains a separate workflow", () => {
   assert.match(migration, /add column if not exists member_intent boolean not null default false/);
-  assert.match(form, /This is a note only\. Gym membership is created separately/);
-  assert.match(staffPage, /Gym membership:/);
+  assert.match(form, /This is an information note only\. Gym membership is set up separately/);
+  assert.match(staffEditor, /Gym membership/);
   assert.doesNotMatch(migration, /insert into public\.club_memberships/);
   assert.doesNotMatch(migration, /insert into public\.club_membership_holders/);
 });

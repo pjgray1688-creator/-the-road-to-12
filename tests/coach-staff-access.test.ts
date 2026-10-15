@@ -5,6 +5,7 @@ import test from "node:test";
 const migration = fs.readFileSync("supabase/migrations/2026-10-05-coach-staff-access-management.sql", "utf8");
 const staffActions = fs.readFileSync("app/club/staff/actions.ts", "utf8");
 const staffPage = fs.readFileSync("app/club/staff/page.tsx", "utf8");
+const staffEditor = fs.readFileSync("components/club-staff-manage-access.tsx", "utf8");
 const coachAccessRoute = fs.readFileSync("app/api/coach/access/route.ts", "utf8");
 const coachBoundary = fs.readFileSync("supabase/migrations/2026-10-05-coach-organisation-boundary.sql", "utf8");
 
@@ -26,8 +27,8 @@ test("ordinary staff cannot administer Coach access", () => {
 test("authorised owners and managers may explicitly grant themselves Coach access", () => {
   assert.doesNotMatch(migration, /p_user_id\s*(?:<>|is distinct from)\s*auth\.uid\(\)/i);
   assert.match(migration, /active and role in \('trainer','gym_admin','owner'\)/i);
-  assert.match(staffPage, /\["trainer", "gym_admin", "owner"\]\.includes\(member\.role\)/);
-  assert.match(staffPage, /userId: member\.user_id, active: !coachEnabled/);
+  assert.match(staffEditor, /\["owner", "gym_admin", "trainer"\]\.includes\(role\)/);
+  assert.match(staffEditor, /setCoachAccess\(\{ organisationId, userId, active: !coachEnabled \}\)/);
 });
 
 test("Coach permission grants and status reads stay within the selected organisation", () => {
@@ -48,11 +49,11 @@ test("eligible roles do not inherit Coach access while ordinary staff and member
 });
 
 test("Club staff UI reports enabled, disabled and ineligible Coach states", () => {
-  assert.match(staffPage, /Coach\/PT: \{coachEligible \? coachEnabled \? "Enabled" : "Disabled" : "Not eligible"\}/);
-  assert.match(staffPage, /Enable Coach access/);
-  assert.match(staffPage, /Disable Coach access/);
-  assert.match(staffPage, /coachEligible && member\.active/);
-  assert.match(staffPage, /\["trainer", "gym_admin", "owner"\]\.includes\(member\.role\)/);
+  assert.match(staffEditor, /Coach access is managed separately from the Club role/);
+  assert.match(staffEditor, /coachEligible = \["owner", "gym_admin", "trainer"\]\.includes\(role\)/);
+  assert.match(staffEditor, /Enable Coach access/);
+  assert.match(staffEditor, /Disable Coach access/);
+  assert.match(staffEditor, /disabled=\{pending \|\| !active \|\| role !== savedRole\}/);
 });
 
 test("the existing Coach access contract observes permission activation and revocation", () => {

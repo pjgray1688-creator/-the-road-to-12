@@ -91,12 +91,16 @@ test("Coach access remains an explicit organisation permission, independent of C
 });
 
 test("Staff UI exposes package state, individual overrides, and separate Coach state", () => {
-  assert.match(staffPage, /Coach\/PT: \{coachEligible \? coachEnabled \? "Enabled" : "Disabled"/);
-  assert.match(staffPage, /Enable Coach access/);
-  assert.match(staffPage, /Disable Coach access/);
-  assert.match(staffEditor, /Individual permissions/);
-  assert.match(staffEditor, /checked=\{effective\.includes\(capability\)\}/);
-  assert.match(staffEditor, /management only/);
+  assert.match(staffPage, /<h2>Active staff<\/h2>/);
+  assert.match(staffPage, /<h2>Pending invitations<\/h2>/);
+  assert.match(staffEditor, /Coach access is managed separately from the Club role/);
+  assert.match(staffEditor, /Enable Coach access/);
+  assert.match(staffEditor, /Disable Coach access/);
+  assert.match(staffEditor, /<h4>Permissions<\/h4>/);
+  assert.match(staffEditor, /Role default/);
+  assert.match(staffEditor, /Allowed by exception/);
+  assert.match(staffEditor, /Blocked by exception/);
+  assert.match(staffEditor, /Not available for this role/);
 });
 
 test("audit attribution is always derived from the authenticated user", () => {

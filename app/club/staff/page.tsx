@@ -7,25 +7,22 @@ import { serverSupabase } from "@/lib/supabase-server";
 import { resolveClubOperationalContext } from "@/lib/club-server-context";
 import { resolveClubCapabilities } from "@/lib/club-capabilities";
 import { ClubStaffAccessForm } from "@/components/club-staff-access-form";
-import { resendStaffInvitation, revokeStaffAccessGrant, setCoachAccess, setStaffActive } from "@/app/club/staff/actions";
+import { resendStaffInvitation, revokeStaffAccessGrant } from "@/app/club/staff/actions";
 import { ClubStaffManageAccess } from "@/components/club-staff-manage-access";
 import { ClubOwnerTransfer } from "@/components/club-owner-transfer";
 
-const groups = [
-  { label: "Members & memberships", match: ["members.", "memberships."] },
-  { label: "Payments & cash", match: ["payments.", "cash.", "refunds."] },
-  { label: "Inventory", match: ["inventory.", "commerce.stock_"] },
-  { label: "Classes & services", match: ["classes.", "services."] },
-  { label: "Administration", match: ["staff.", "induction."] },
-];
-const humanCapability = (value: string) => ({
-  "members.view": "View members", "members.create": "Add members", "memberships.assign": "Assign memberships",
-  "payments.record_cash": "Record cash", "cash.reconcile": "Reconcile cash", "inventory.adjust": "Adjust stock",
-  "commerce.stock_remove": "Remove/comp stock", "classes.manage": "Manage classes", "services.manage": "Manage services",
-  "induction.manage_policy": "Manage induction policy", "induction.perform": "Perform inductions",
-  "staff.permissions_manage": "Manage staff permissions",
-} as Record<string, string>)[value] ?? value.replace(/[._]/g, " ");
-const roleLabel = (role: string) => role === "owner" ? "Owner" : role === "gym_admin" ? "Manager" : role === "trainer" ? "PT" : "Operational Staff";
+const roleLabel = (role: string) => role === "owner" ? "Owner" : role === "gym_admin" ? "Manager" : role === "trainer" ? "PT / Coach" : "Operational Staff";
+const initials = (name: string) => name.trim().split(/\s+/).slice(0, 2).map(part => part[0]?.toUpperCase() ?? "").join("") || "R12";
+const invitationLabel = (state: string, failure: unknown, expiresAt: string) => {
+  if (state === "sent") return "Sent · waiting for acceptance";
+  if (state === "failed" || failure) return "Delivery failed · resend available";
+  if (state === "cancelled") return "Cancelled";
+  if (state === "processing") return "Sending";
+  if (state === "unavailable") return "Delivery unavailable";
+  if (state === "scheduled") return "Scheduled";
+  if (new Date(expiresAt).getTime() < Date.now()) return "Expired";
+  return "Waiting to send";
+};
 
 type StaffAccountRow = {
   member_id: string;
@@ -66,52 +63,54 @@ export default async function ClubStaffPage({ searchParams }: { searchParams?: P
   const staffLocations = new Map<string, string[]>();
   for (const row of locationRows) {
     const key = String(row.user_id);
-    staffLocations.set(key, [...(staffLocations.get(key) ?? []), locationNames.get(String(row.location_id)) ?? "Unknown venue"]);
+    staffLocations.set(key, [...(staffLocations.get(key) ?? []), String(row.location_id)]);
   }
   const staffOverrides = new Map<string, Array<{ capability: string; decision: "allow" | "deny" }>>();
   for (const row of overrideRows) {
     const key = String(row.user_id);
-    staffOverrides.set(key, [...(staffOverrides.get(key) ?? []), {
-      capability: String(row.capability),
-      decision: row.decision === "deny" ? "deny" : "allow",
-    }]);
+    staffOverrides.set(key, [...(staffOverrides.get(key) ?? []), { capability: String(row.capability), decision: row.decision === "deny" ? "deny" : "allow" }]);
   }
   const coachAccess = new Map<string, boolean>(coachRows.map(row => [String(row.user_id), Boolean(row.active)]));
+  const ownCapabilities = resolveClubCapabilities(context.role);
+  const activeStaff = staff.filter(person => person.active);
+  const suspendedStaff = staff.filter(person => !person.active);
 
-  return <AppShell className="module-page club-page">
-    <PageHeader eyebrow="R12 CLUB · STAFF" title="Staff" description="Prepare personal staff access, then manage each authenticated account." />
+  return <AppShell className="module-page club-page staff-management-page">
+    <PageHeader eyebrow="R12 CLUB · PEOPLE" title="Staff" description="Manage staff access, roles and permissions." />
     <ClubSectionNav organisation={context.organisation} role={context.role} contexts={context.availableContexts} />
-    <p><Link className="member-hub-link" href={`/club/staff/email-preview?org=${encodeURIComponent(context.organisation.id)}`}>Preview & test staff/member emails</Link></p>
-    <ClubStaffAccessForm organisationId={context.organisation.id} locations={locations} />
+    <div className="staff-page-actions"><ClubStaffAccessForm organisationId={context.organisation.id} locations={locations} /><Link className="secondary staff-email-link" href={`/club/staff/email-preview?org=${encodeURIComponent(context.organisation.id)}`}>Email preview / test</Link></div>
+
     <Surface>
-      <div className="section-header"><div><span className="eyebrow">STAFF ACCOUNTS</span><h2>People with Club access</h2></div></div>
-      {staff.length ? staff.map(member => {
+      <div className="staff-section-heading"><div><span className="eyebrow">TEAM</span><h2>Active staff</h2></div><span className="staff-count">{activeStaff.length} active</span></div>
+      {activeStaff.length ? <div className="staff-list">{activeStaff.map(member => {
         const overrides = staffOverrides.get(member.user_id) ?? [];
-        const capabilities = resolveClubCapabilities(member.role, overrides);
         const coachEnabled = coachAccess.get(member.user_id) === true;
-        const coachEligible = ["trainer", "gym_admin", "owner"].includes(member.role);
-        const memberLocations = staffLocations.get(member.user_id) ?? [];
-        return <div className="club-detail-row staff-row" key={member.member_id}>
-          <div><strong>{member.display_name}</strong><span className="muted">{member.email ?? "No profile email"} · {roleLabel(member.role)}</span><span className="muted">{member.active ? "Active" : "Suspended"} · {member.user_id === user.id ? "You" : "Personal R12 account"} · {memberLocations.join(", ") || "Organisation-wide"}</span><span className="muted">Gym membership: {member.is_gym_member ? member.membership_name ?? "Active" : "None"}</span></div>
-          <span className="muted">{capabilities.length} effective permissions</span>
-          <div className="staff-coach-access"><strong>Coach/PT: {coachEligible ? coachEnabled ? "Enabled" : "Disabled" : "Not eligible"}</strong>{coachEligible && member.active ? <form action={async () => { "use server"; await setCoachAccess({ organisationId: context.organisation.id, userId: member.user_id, active: !coachEnabled }); }}><button className="secondary" type="submit">{coachEnabled ? "Disable Coach access" : "Enable Coach access"}</button></form> : null}</div>
-          {member.role !== "owner" ? <>
-            {member.active ? <ClubStaffManageAccess organisationId={context.organisation.id} userId={member.user_id} role={member.role} locationIds={locationRows.filter(row => String(row.user_id) === member.user_id).map(row => String(row.location_id))} locations={locations} overrides={overrides} /> : null}
-            <form action={async () => { "use server"; await setStaffActive({ organisationId: context.organisation.id, userId: member.user_id, active: !member.active }); }}><button className="secondary" type="submit">{member.active ? "Suspend staff access" : "Reactivate staff access"}</button></form>
-          </> : null}
-        </div>;
-      }) : <p className="muted">No staff accounts are configured.</p>}
+        const memberLocations = (staffLocations.get(member.user_id) ?? []).map(id => locationNames.get(id)).filter(Boolean) as string[];
+        const venueSummary = member.role === "owner" ? "Organisation-wide" : memberLocations.join(" + ") || "No venues assigned";
+        return <article className="staff-person" key={member.member_id}>
+          <div className="staff-person-avatar" aria-hidden="true">{initials(member.display_name)}</div>
+          <div className="staff-person-main"><strong>{member.display_name}</strong><span>{member.email ?? "No profile email"}</span></div>
+          <div className="staff-person-access"><strong>{roleLabel(member.role)}</strong>{coachEnabled ? <span className="staff-badge">Coach / PT</span> : null}<small>{venueSummary}</small></div>
+          <span className={`staff-status ${member.active ? "is-active" : "is-suspended"}`}>{member.active ? "Active" : "Suspended"}</span>
+          <ClubStaffManageAccess organisationId={context.organisation.id} userId={member.user_id} name={member.display_name} email={member.email} role={member.role} active={member.active} locationIds={staffLocations.get(member.user_id) ?? []} locations={locations} overrides={overrides} coachEnabled={coachEnabled} gymMembership={member.is_gym_member ? member.membership_name ?? "Active" : "None"} />
+        </article>;
+      })}</div> : <EmptyState title="No staff accounts yet">Send an invitation to give a team member Club access.</EmptyState>}
+      {suspendedStaff.length ? <details className="staff-suspended-list"><summary>Suspended access <small>{suspendedStaff.length}</small></summary><div className="staff-list">{suspendedStaff.map(member => <article className="staff-person" key={member.member_id}><div className="staff-person-avatar" aria-hidden="true">{initials(member.display_name)}</div><div className="staff-person-main"><strong>{member.display_name}</strong><span>{member.email ?? "No profile email"}</span></div><div className="staff-person-access"><strong>{roleLabel(member.role)}</strong><small>{(staffLocations.get(member.user_id) ?? []).map(id => locationNames.get(id)).filter(Boolean).join(" + ") || "No venues assigned"}</small></div><span className="staff-status is-suspended">Suspended</span><ClubStaffManageAccess organisationId={context.organisation.id} userId={member.user_id} name={member.display_name} email={member.email} role={member.role} active={member.active} locationIds={staffLocations.get(member.user_id) ?? []} locations={locations} overrides={staffOverrides.get(member.user_id) ?? []} coachEnabled={coachAccess.get(member.user_id) === true} gymMembership={member.is_gym_member ? member.membership_name ?? "Active" : "None"} /></article>)}</div></details> : null}
     </Surface>
+
     <Surface>
-      <div className="section-header"><div><span className="eyebrow">PENDING ACCESS</span><h2>Waiting for account acceptance</h2></div></div>
-      {pendingRows.length ? pendingRows.map(row => <div className="club-detail-row" key={String(row.id)}>
-        <div><strong>{String(row.display_name ?? "Staff member")} · {String(row.email_normalized)}</strong><span className="muted">{roleLabel(String(row.intended_role))} · Coach/PT {row.coach_requested ? "will be enabled" : "not requested"} · Gym member {row.member_intent ? "expected separately" : "not expected"}</span><span className="muted">{Array.isArray(row.location_ids) ? row.location_ids.map(id => locationNames.get(String(id)) ?? "Unknown venue").join(", ") || "All venues" : "Venues not set"} · Expires {new Date(String(row.expires_at)).toLocaleDateString("en-GB")}</span><span className="muted">Invitation: {String(invitationStatus.get(String(row.id))?.state ?? "pending")}{invitationStatus.get(String(row.id))?.failure_code ? ` · ${String(invitationStatus.get(String(row.id))?.failure_code)}` : ""}</span></div>
-        <div className="staff-actions"><form action={async () => { "use server"; await resendStaffInvitation(context.organisation.id, String(row.id)); }}><button className="secondary" type="submit">Resend invitation</button></form><form action={async () => { "use server"; await revokeStaffAccessGrant(context.organisation.id, String(row.id)); }}><button className="secondary" type="submit">Cancel invitation</button></form></div>
-      </div>) : <p className="muted">No pending staff access.</p>}
-      <p className="muted">The staff member uses <Link href="/account?mode=signUp&next=%2Fclub%2Fstaff%2Fclaim">Create or accept staff access</Link> with the invited email. Managers never set or see their password.</p>
+      <div className="staff-section-heading"><div><span className="eyebrow">INVITATIONS</span><h2>Pending invitations</h2><p className="muted">Invites are separate from active staff access.</p></div><span className="staff-count">{pendingRows.length} waiting</span></div>
+      {pendingRows.length ? <div className="staff-list staff-pending-list">{pendingRows.map(row => {
+        const venueList = Array.isArray(row.location_ids) ? row.location_ids.map(id => locationNames.get(String(id)) ?? "Unknown venue").join(" + ") || "All venues" : "Venues not set";
+        const notification = invitationStatus.get(String(row.id));
+        const state = invitationLabel(String(notification?.state ?? "pending"), notification?.failure_code, String(row.expires_at));
+        return <article className="staff-invite" key={String(row.id)}><div className="staff-invite-avatar" aria-hidden="true">{initials(String(row.display_name ?? "Staff member"))}</div><div className="staff-invite-main"><strong>{String(row.display_name ?? "Staff member")}</strong><span>{String(row.email_normalized)}</span><small>{roleLabel(String(row.intended_role))}{row.coach_requested ? " · Coach/PT" : ""} · {venueList}</small></div><div className="staff-invite-meta"><span className={`staff-invite-state ${state.startsWith("Delivery failed") || state === "Expired" ? "needs-attention" : ""}`}>{state}</span><small>Expires {new Date(String(row.expires_at)).toLocaleDateString("en-GB")}</small></div><div className="staff-invite-actions"><form action={async () => { "use server"; await resendStaffInvitation(context.organisation.id, String(row.id)); }}><button className="secondary" type="submit">Resend invitation</button></form><form action={async () => { "use server"; await revokeStaffAccessGrant(context.organisation.id, String(row.id)); }}><button className="secondary" type="submit">Cancel invitation</button></form></div></article>;
+      })}</div> : <p className="staff-empty-note">No invitations are waiting for acceptance.</p>}
+      <p className="staff-footnote">Invitees use their own R12 account and the invited email address. Gym membership is handled separately.</p>
     </Surface>
-    <Surface><span className="eyebrow">YOUR PERMISSIONS</span><p className="muted">Grouped for quick review. Security remains enforced by the server.</p><div className="permission-groups">{groups.map(group => { const capabilities = resolveClubCapabilities(context.role); const items = capabilities.filter(capability => group.match.some(prefix => capability.startsWith(prefix))); return <div className="permission-group" key={group.label}><strong>{group.label}</strong><span>{items.length ? items.map(humanCapability).join(" · ") : "None enabled"}</span></div>; })}</div></Surface>
-    {context.role === "owner" ? <ClubOwnerTransfer organisationId={context.organisation.id} candidates={staff.filter(person => person.active && person.role !== "owner").map(person => ({ userId: person.user_id, name: person.display_name, role: roleLabel(person.role) }))} /> : null}
+
+    <details className="staff-own-permissions"><summary>View my permissions <small>{ownCapabilities.length} enabled</small></summary><div className="permission-groups">{ownCapabilities.map(capability => <span key={capability}>{capability.replace(/[._]/g, " ")}</span>)}</div><p className="staff-footnote">Your role supplies a standard permission package. Server checks remain authoritative.</p></details>
+    {context.role === "owner" ? <details className="staff-owner-control"><summary><span><span className="eyebrow">OWNER ONLY</span><strong>Organisation ownership</strong></span><small>Protected change</small></summary><div className="staff-owner-body"><p className="staff-current-owner"><strong>Current Owner</strong><span>{staff.find(person => person.role === "owner")?.display_name ?? "You"}</span></p><p className="muted">Transfer ownership only when your launch checks are complete. The new Owner receives protected Owner authority; your account becomes Manager. Coach access, venue access and memberships remain unchanged.</p><ClubOwnerTransfer organisationId={context.organisation.id} candidates={staff.filter(person => person.active && person.role !== "owner").map(person => ({ userId: person.user_id, name: person.display_name, role: roleLabel(person.role) }))} /></div></details> : null}
     <BackButton href={`/club?org=${encodeURIComponent(context.organisation.id)}`}>Back to overview</BackButton>
     <AppNav />
   </AppShell>;
