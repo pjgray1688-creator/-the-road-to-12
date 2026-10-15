@@ -109,8 +109,8 @@ insert into public.club_products(id,organisation_id,name,kind,price_minor,curren
 values('30000000-0000-4000-8000-000000000051','30000000-0000-4000-8000-000000000002','CI Monthly Membership','membership',5000,'GBP','recurring');
 insert into public.club_memberships(id,organisation_id,product_id,status,starts_at,source)
 values('30000000-0000-4000-8000-000000000052','30000000-0000-4000-8000-000000000002','30000000-0000-4000-8000-000000000051','active',now(),'test');
-insert into public.club_membership_holders(membership_id,user_id)
-values('30000000-0000-4000-8000-000000000052','30000000-0000-4000-8000-000000000021');
+insert into public.club_membership_holders(organisation_id,membership_id,user_id)
+values('30000000-0000-4000-8000-000000000002','30000000-0000-4000-8000-000000000052','30000000-0000-4000-8000-000000000021');
 insert into public.club_membership_billing_arrangements(
   id,organisation_id,membership_id,user_id,amount_minor,currency,frequency,next_due_at
 ) values (

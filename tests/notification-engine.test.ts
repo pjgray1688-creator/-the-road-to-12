@@ -153,6 +153,7 @@ test("notification generation fixture separates worker roles from privileged set
   assert.match(notificationGenerationFixtureSql, /Missing optional Auth lookup unexpectedly returned an email/);
   assert.match(notificationGenerationFixtureSql, /member activation recipient was changed by generation/);
   assert.match(notificationGenerationFixtureSql, /Monthly dunning generation was not idempotent/);
+  assert.match(notificationGenerationFixtureSql, /insert into public\.club_membership_holders\(organisation_id,membership_id,user_id\)\s*values\('30000000-0000-4000-8000-000000000002','30000000-0000-4000-8000-000000000052','30000000-0000-4000-8000-000000000021'\)/);
   assert.equal((notificationGenerationFixtureSql.match(/reset role;\s*select set_config\('request\.jwt\.claim\.sub','',true\);\s*select set_config\('request\.jwt\.claim\.role','',true\);\s*select set_config\('request\.jwt\.claims','\{\}',true\);/g) ?? []).length, 4);
 });
 
