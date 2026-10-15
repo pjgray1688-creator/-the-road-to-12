@@ -19,6 +19,26 @@ const billingJoinSql = readFileSync("supabase/migrations/2026-11-19-madhouse-bil
 const notificationGeneratorFixSql = readFileSync("supabase/migrations/2026-12-25-notification-generator-null-safe-auth-lookup.sql", "utf8");
 const notificationRecordFixSql = readFileSync("supabase/migrations/2026-12-26-notification-generator-record-alias-safety.sql", "utf8");
 const notificationGenerationFixtureSql = readFileSync("tests/sql/notification-generation-launch.sql", "utf8");
+const notificationOutboxFixtureSql = readFileSync("tests/sql/notification-outbox-launch.sql", "utf8");
+const postgresWorkflow = readFileSync(".github/workflows/validate-migrations-postgres.yml", "utf8");
+
+test("PostgreSQL CI auth.role reads the session JWT role claims rather than assuming service_role", () => {
+  assert.match(postgresWorkflow, /create function auth\.role\(\) returns text language sql stable/);
+  assert.match(postgresWorkflow, /current_setting\('request\.jwt\.claim\.role',true\)/);
+  assert.match(postgresWorkflow, /current_setting\('request\.jwt\.claims',true\).*->>'role'/s);
+  assert.match(postgresWorkflow, /grant execute on function auth\.uid\(\),auth\.jwt\(\),auth\.role\(\) to anon,authenticated,service_role/);
+  assert.match(notificationOutboxFixtureSql, /set_config\('request\.jwt\.claim\.role','authenticated'/);
+  assert.match(notificationOutboxFixtureSql, /set_config\('request\.jwt\.claim\.role','anon'/);
+  assert.match(notificationOutboxFixtureSql, /set_config\('request\.jwt\.claim\.role','service_role'/);
+});
+
+test("notification SQL fixture verifies only service_role can execute worker claims", () => {
+  assert.match(notificationOutboxFixtureSql, /Ordinary authenticated user claimed notification work/);
+  assert.match(notificationOutboxFixtureSql, /Anonymous user claimed notification work/);
+  assert.match(notificationOutboxFixtureSql, /service role claim/);
+  assert.match(launchSupportSql, /revoke all on function public\.club_claim_notification_intents_for_worker\(integer,text,boolean\) from public,anon,authenticated/);
+  assert.match(launchSupportSql, /grant execute on function public\.club_claim_notification_intents_for_worker\(integer,text,boolean\) to service_role/);
+});
 
 test("the existing notification intent table becomes the durable provider-neutral outbox", () => {
   assert.match(sql, /alter table public\.club_member_notification_intents/);

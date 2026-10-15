@@ -77,7 +77,13 @@ jobs:
           create function auth.jwt() returns jsonb language sql stable as $$
             select coalesce(nullif(current_setting('request.jwt.claims',true),'')::jsonb,'{}'::jsonb)
           $$;
-          grant execute on function auth.uid(),auth.jwt() to anon,authenticated,service_role;
+          create function auth.role() returns text language sql stable as $$
+            select coalesce(
+              nullif(current_setting('request.jwt.claim.role',true),''),
+              nullif(current_setting('request.jwt.claims',true),'')::jsonb->>'role'
+            )
+          $$;
+          grant execute on function auth.uid(),auth.jwt(),auth.role() to anon,authenticated,service_role;
           -- Supabase hosts this legacy profile projection outside the tracked Club
           -- migration chain. Keep only columns exercised by Coach/Nutrition CI.
           create table public.profiles (
