@@ -112,6 +112,7 @@ psql_db "$state_c" --file=supabase/migrations/2026-12-25-notification-generator-
 psql_db "$state_c" --file=supabase/migrations/2026-12-26-notification-generator-record-alias-safety.sql
 psql_db "$state_c" --file=supabase/migrations/2026-12-27-staff-claim-context.sql
 psql_db "$state_c" --file=supabase/migrations/2026-12-28-club-shared-station-pin-auth.sql
+psql_db "$state_c" --file=supabase/migrations/2026-12-29-pgcrypto-schema-qualified-functions.sql
 psql_db "$state_c" --file=tests/sql/notification-outbox-launch.sql
 psql_db "$state_c" --file=tests/sql/notification-generation-launch.sql
 psql_db "$state_c" --file=tests/sql/staff-owner-transfer.sql

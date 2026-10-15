@@ -81,7 +81,7 @@ declare
   v_coach_name text;
   v_organisation_name text;
   v_owner uuid;
-  v_token text:=encode(gen_random_bytes(32),'hex');
+  v_token text:=encode(extensions.gen_random_bytes(32),'hex');
   v_existing boolean:=false;
   v_relationship public.coach_relationships%rowtype;
   v_invite public.coach_referral_invites%rowtype;
@@ -104,7 +104,7 @@ begin
   select coalesce(nullif(trim(concat_ws(' ',first_name,last_name)),''),display_name,'Your Coach') into v_coach_name from public.profiles where id=auth.uid();
   select name into v_organisation_name from public.club_organisations where id=v_relationship.organisation_id;
   insert into public.coach_referral_invites(relationship_id,token_hash,intended_email,created_by)
-    values(v_relationship.id,encode(digest(v_token,'sha256'),'hex'),v_email,auth.uid()) returning * into v_invite;
+    values(v_relationship.id,encode(extensions.digest(v_token,'sha256'),'hex'),v_email,auth.uid()) returning * into v_invite;
   if v_email is not null then
     insert into public.club_member_notification_intents(organisation_id,user_id,target_email,category,template_key,state,idempotency_key,not_before,sender_purpose,payload,related_type,related_id)
       values(v_relationship.organisation_id,v_relationship.client_user_id,v_email,'member_service','coach_relationship_invite','pending','coach-referral:'||v_invite.id,now(),'members',jsonb_build_object('relationshipType',p_relationship_type,'invitePath','/coach/join/'||v_token,'coachName',v_coach_name,'organisationName',v_organisation_name,'expiresAt',v_invite.expires_at),'coach_relationship',v_relationship.id);
@@ -116,7 +116,7 @@ create or replace function public.coach_resend_referral_invite(p_relationship_id
 returns jsonb language plpgsql security definer set search_path=pg_catalog,public as $$
 declare
   r public.coach_relationships%rowtype;
-  v_token text:=encode(gen_random_bytes(32),'hex');
+  v_token text:=encode(extensions.gen_random_bytes(32),'hex');
   v_email text;
   v_coach_name text;
   v_organisation_name text;
@@ -127,7 +127,7 @@ begin
   v_email:=nullif(r.client_email,'');
   update public.coach_referral_invites set revoked_at=now() where relationship_id=r.id and revoked_at is null;
   insert into public.coach_referral_invites(relationship_id,token_hash,intended_email,created_by)
-    values(r.id,encode(digest(v_token,'sha256'),'hex'),v_email,auth.uid()) returning * into i;
+    values(r.id,encode(extensions.digest(v_token,'sha256'),'hex'),v_email,auth.uid()) returning * into i;
   select coalesce(nullif(trim(concat_ws(' ',first_name,last_name)),''),display_name,'Your Coach') into v_coach_name from public.profiles where id=auth.uid();
   select name into v_organisation_name from public.club_organisations where id=r.organisation_id;
   if v_email is not null then
@@ -147,7 +147,7 @@ select jsonb_build_object(
 from public.coach_referral_invites i
 join public.coach_relationships r on r.id=i.relationship_id and r.status='pending'
 left join public.profiles p on p.id=r.coach_user_id
-where (i.token_hash=encode(digest(btrim(p_token),'sha256'),'hex') or i.token_hash=md5(btrim(p_token)))
+where (i.token_hash=encode(extensions.digest(btrim(p_token),'sha256'),'hex') or i.token_hash=md5(btrim(p_token)))
   and i.revoked_at is null and i.claimed_at is null and i.expires_at>now()
 limit 1;
 $$;
