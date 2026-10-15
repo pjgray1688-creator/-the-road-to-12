@@ -131,3 +131,4 @@ supabase/migrations/2026-12-22-member-import-home-location.sql
 supabase/migrations/2026-12-23-club-attendance-station-leaderboard.sql
 supabase/migrations/2026-12-24-staff-owner-transfer-and-member-activation-queue.sql
 supabase/migrations/2026-12-25-notification-generator-null-safe-auth-lookup.sql
+supabase/migrations/2026-12-26-notification-generator-record-alias-safety.sql

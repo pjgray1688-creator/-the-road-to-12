@@ -46,6 +46,8 @@ test("owner transfer is current-owner-only, organisation-scoped, atomic and pres
   assert.match(migration, /organisation\.owner_transferred/);
   assert.match(migration, /revoke all on function public\.club_transfer_organisation_owner/);
   assert.match(manifest, /2026-12-24-staff-owner-transfer-and-member-activation-queue\.sql/);
+  assert.match(manifest, /2026-12-25-notification-generator-null-safe-auth-lookup\.sql/);
+  assert.match(manifest, /2026-12-26-notification-generator-record-alias-safety\.sql/);
   assert.match(harness, /tests\/sql\/staff-owner-transfer\.sql/);
   assert.match(readFileSync("tests/sql/staff-owner-transfer.sql", "utf8"), /Demoted former owner should not retain transfer authority/);
 });
@@ -56,6 +58,9 @@ test("notification cron is daily and both internal worker schedules use the exis
   assert.match(notification.schedule, /^\d+ \d+ \* \* \*$/);
   assert.ok(vercel.crons.some(cron => cron.path === "/api/internal/membership-billing-worker"));
   assert.match(harness, /tests\/sql\/notification-outbox-launch\.sql/);
+  assert.match(harness, /2026-12-25-notification-generator-null-safe-auth-lookup\.sql/);
+  assert.match(harness, /2026-12-26-notification-generator-record-alias-safety\.sql/);
+  assert.match(harness, /tests\/sql\/notification-generation-launch\.sql/);
   assert.match(readFileSync("tests/sql/notification-outbox-launch.sql", "utf8"), /Retryable SMTP failure was not returned/);
 });
 

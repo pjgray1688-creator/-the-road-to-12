@@ -17,6 +17,7 @@ const docs = readFileSync("docs/notification-delivery.md", "utf8");
 const launchSupportSql = readFileSync("supabase/migrations/2026-12-24-staff-owner-transfer-and-member-activation-queue.sql", "utf8");
 const billingJoinSql = readFileSync("supabase/migrations/2026-11-19-madhouse-billing-and-tutorials.sql", "utf8");
 const notificationGeneratorFixSql = readFileSync("supabase/migrations/2026-12-25-notification-generator-null-safe-auth-lookup.sql", "utf8");
+const notificationRecordFixSql = readFileSync("supabase/migrations/2026-12-26-notification-generator-record-alias-safety.sql", "utf8");
 const notificationGenerationFixtureSql = readFileSync("tests/sql/notification-generation-launch.sql", "utf8");
 
 test("the existing notification intent table becomes the durable provider-neutral outbox", () => {
@@ -80,6 +81,23 @@ test("notification generator handles a missing optional Auth email without readi
   assert.match(notificationGenerationFixtureSql, /member@example\.test/);
   assert.match(notificationGenerationFixtureSql, /perform public\.club_generate_notification_intents\(\);\s*perform public\.club_generate_notification_intents\(\);/);
   assert.match(notificationGenerationFixtureSql, /Repeated generation created duplicate intents/);
+});
+
+test("notification generator uses distinct loop records and SQL aliases so empty loops are safe", () => {
+  const start = notificationRecordFixSql.indexOf("create or replace function public.club_generate_notification_intents()");
+  const end = notificationRecordFixSql.indexOf("revoke all on function public.club_generate_notification_intents()");
+  assert.ok(start >= 0 && end > start);
+  const generator = notificationRecordFixSql.slice(start, end);
+  for (const name of ["billing_row", "booking_row", "event_row", "issue_row", "manager_row"]) assert.match(generator, new RegExp(`\\b${name}\\s+record`));
+  assert.match(generator, /for billing_row in[\s\S]*?loop[\s\S]*?billing_row\.organisation_id[\s\S]*?end loop/);
+  assert.match(generator, /current_obligation\.id=intent\.related_id/);
+  assert.match(generator, /current_issue\.id=intent\.related_id/);
+  assert.doesNotMatch(generator, /\bo\.(?:id|user_id|organisation_id|arrangement_id)\b/);
+  assert.doesNotMatch(generator, /\bi\.(?:id|organisation_id|priority|status)\b/);
+  assert.match(notificationGenerationFixtureSql, /zero-row billing FOR loop/);
+  assert.match(notificationGenerationFixtureSql, /Zero-obligation generation fixture/);
+  assert.match(notificationGenerationFixtureSql, /Monthly dunning generation was not idempotent/);
+  assert.match(notificationGenerationFixtureSql, /billing intent whose source obligation is missing/);
 });
 
 test("worker availability is truthful and retries are bounded", async () => {

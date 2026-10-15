@@ -25,6 +25,8 @@ test("deployment manifest contains existing files in dependency order", () => {
   assert.ok(position("supabase/migrations/2026-10-13-glow-zone-transactional.sql") < position("supabase/migrations/2026-09-17-glow-age-status-read.sql"));
   assert.ok(position("supabase/migrations/2026-09-03-club-foundation.sql") < position("supabase/migrations/2026-09-03-club-branding.sql"));
   assert.ok(position("supabase/migrations/2026-09-13-club-staff-capabilities-audit.sql") < position("supabase/migrations/2026-09-06-club-staff-access-grants.sql"));
+  assert.ok(position("supabase/migrations/2026-12-24-staff-owner-transfer-and-member-activation-queue.sql") < position("supabase/migrations/2026-12-25-notification-generator-null-safe-auth-lookup.sql"));
+  assert.ok(position("supabase/migrations/2026-12-25-notification-generator-null-safe-auth-lookup.sql") < position("supabase/migrations/2026-12-26-notification-generator-record-alias-safety.sql"));
 });
 
 test("deployment runner is ledgered, deterministic and stops on unexpected SQL errors", () => {
