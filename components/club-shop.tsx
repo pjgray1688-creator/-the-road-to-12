@@ -15,7 +15,7 @@ import { normalizeBarcode } from "@/lib/club-barcode";
 import styles from "./club-shop.module.css";
 import { ClubMemberShop } from "./club-member-shop";
 import { ClubProductMedia } from "./club-product-media";
-import { canonicalMemberBrandName, filterMemberShopProducts, FEATURED_MEMBER_BRANDS, memberShopBrandOptions, MEMBER_SHOP_CATEGORIES, sortMemberShopProducts } from "@/lib/club-product-taxonomy";
+import { canonicalMemberBrandName, filterMemberShopProducts, memberShopBrandOptions, MEMBER_SHOP_CATEGORIES, sortMemberShopProducts } from "@/lib/club-product-taxonomy";
 import { memberAvailabilityLabel, resolveMemberProductAvailability, supplierOrderable, type MemberAvailabilityState } from "@/lib/club-member-availability";
 import { applyPromotionRules, type PromotionLine, type PromotionRule } from "@/lib/club-promotions";
 
@@ -79,13 +79,6 @@ function ClubShopBase({ organisationId, userId, products, families = [], locatio
         <div className={styles.searchWithScan}><input aria-label="Search products" placeholder="Search products" value={query} onChange={event => setQuery(event.target.value)} /><button type="button" className={styles.scanButton} aria-label="Product barcode" onClick={() => void startCameraScan()} disabled={scanning}>{scanning ? "…" : <BarcodeScanIcon />}</button></div>
         <label className={styles.memberBrandSelect}>Brand<select aria-label="Filter products by brand" value={brand} onChange={event => setBrand(event.target.value)}><option value="">All brands</option>{selectableBrandOptions.map(option => <option value={option} key={option}>{option}</option>)}</select></label>
         <nav className={styles.categoryRail} aria-label="Shop categories" tabIndex={0}>{MEMBER_SHOP_CATEGORIES.map(item => <button type="button" className={`${styles.filterChip}${category === item ? ` ${styles.filterChipSelected}` : ""}`} aria-label={item} aria-pressed={category === item} key={item} onClick={() => setCategory(category === item ? "All" : item)}>{category === item ? <span aria-hidden="true">✓ </span> : null}{item}</button>)}{category !== "All" ? <button type="button" className={styles.clearFilter} onClick={() => setCategory("All")}>Clear category</button> : null}</nav>
-        <div className={styles.featuredBrands}>
-          <div className={styles.featuredBrandsHeading}><span className="eyebrow">FEATURED BRANDS</span>{brand ? <button type="button" className={styles.clearFilter} onClick={() => setBrand("")}>All brands</button> : null}</div>
-          <div className={styles.brandRail} role="group" aria-label="Filter by featured brand" tabIndex={0}>
-            <button type="button" className={`${styles.brandWordmark} ${!brand ? styles.brandWordmarkSelected : ""}`} aria-label="All brands" aria-pressed={!brand} onClick={() => setBrand("")}>All brands</button>
-            {FEATURED_MEMBER_BRANDS.map(item => <button type="button" key={item.id} className={`${styles.brandWordmark} ${selectedBrand === canonicalMemberBrandName(item.label) ? styles.brandWordmarkSelected : ""}`} aria-label={`Filter by ${item.label}`} aria-pressed={selectedBrand === canonicalMemberBrandName(item.label)} onClick={() => setBrand(selectedBrand === canonicalMemberBrandName(item.label) ? "" : item.label)}>{selectedBrand === canonicalMemberBrandName(item.label) ? <span aria-hidden="true">✓ </span> : null}{item.label}</button>)}
-          </div>
-        </div>
         {category !== "All" || brand || query ? <div className={styles.activeFilters}><span>{[category !== "All" ? category : "", selectedBrand, query ? `“${query.trim()}”` : ""].filter(Boolean).join(" · ")}</span><button type="button" className={styles.clearFilter} onClick={() => { setCategory("All"); setBrand(""); setQuery(""); }}>Clear filters</button></div> : null}
       </section>
       <section aria-label="Scan a product" className={styles.scannerInline}>

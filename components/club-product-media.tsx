@@ -1,11 +1,8 @@
 "use client";
 import { useState } from "react";
 import type { ClubCommerceProduct } from "@/lib/club-commerce";
-
-export function productImageUrl(product: ClubCommerceProduct | undefined) {
-  const value = product?.media?.url ?? product?.media?.variantImageReference ?? product?.media?.parentImageReference;
-  return typeof value === "string" && value.trim() ? value : undefined;
-}
+import { productImageUrl } from "@/lib/club-product-image";
+export { productImageUrl } from "@/lib/club-product-image";
 
 /** Pick the concrete image-bearing variant for a family tile or fallback. */
 export function productWithImage(products: ClubCommerceProduct[]) {

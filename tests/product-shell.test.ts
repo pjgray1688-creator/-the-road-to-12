@@ -4,9 +4,16 @@ import test from "node:test";
 
 test("root destinations share the persistent primary navigation", () => {
   const nav = fs.readFileSync("components/app-nav.tsx", "utf8");
-  for (const href of ['href: "/member-hub"', 'href: "/training"', 'href: "/progress"', 'href: "/account"']) assert.match(nav, new RegExp(href.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  for (const href of ['href: "/"', 'href: "/training"', 'href: "/progress"', 'href: "/account"']) assert.match(nav, new RegExp(href.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   assert.match(fs.readFileSync("app/training-polish.css", "utf8"), /\.app-nav \{ position: fixed;/);
   assert.match(fs.readFileSync("app/training-polish.css", "utf8"), /padding-bottom: calc\(88px/);
+});
+
+test("Coach Today navigation returns to the R12 training home, never the Club member hub", () => {
+  const nav = fs.readFileSync("components/app-nav.tsx", "utf8");
+  assert.match(nav, /href: "\/", label: "Today"/);
+  assert.match(nav, /if \(pathname\.startsWith\("\/club"\)\) return null/);
+  assert.doesNotMatch(nav, /href: "\/member-hub", label: "Today"/);
 });
 
 test("Today uses an in-app check-in and keeps history destinations in Progress", () => {

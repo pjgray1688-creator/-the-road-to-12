@@ -931,14 +931,16 @@ test("shop selector uses compact flavour select and keeps missing media sellable
   assert.doesNotMatch(pricing, /label: "Missing image"/);
 });
 
-test("member shop exposes featured brand controls while reception retains its alphabetised brand filter", async () => {
+test("member and reception shops retain canonical brand filters without the removed Featured Brands strip", async () => {
   const fs = await import("node:fs/promises");
   const member = await fs.readFile("components/club-shop.tsx", "utf8");
   const reception = await fs.readFile("components/club-staff-checkout.tsx", "utf8");
-  assert.match(member, /FEATURED_MEMBER_BRANDS\.map\(item => <button/);
-  assert.match(member, /aria-label=\{`Filter by \$\{item\.label\}`\}/);
+  assert.doesNotMatch(member, /FEATURED BRANDS|FEATURED_MEMBER_BRANDS|brandWordmark/);
+  assert.match(member, /aria-label="Filter products by brand"/);
+  assert.match(member, /memberShopBrandOptions\(unfilteredBrandCards\.flatMap/);
   assert.match(reception, /Filter products by brand/);
-  assert.match(reception, /localeCompare\(b\)/);
+  assert.match(reception, /memberShopBrandOptions\(products\.map\(product => product\.brand\)\)/);
+  assert.match(reception, /canonicalMemberBrandName\(product\.brand\) === canonicalMemberBrandName\(brand\)/);
 });
 
 test("catalogue search ignores punctuation and spacing", async () => {

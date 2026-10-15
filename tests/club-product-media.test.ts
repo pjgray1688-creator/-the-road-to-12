@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { productImageUrl } from "../lib/club-product-image";
 
 const media = readFileSync(new URL("../components/club-product-media.tsx", import.meta.url), "utf8");
 const familySelector = readFileSync(new URL("../components/club-product-family-selector.tsx", import.meta.url), "utf8");
@@ -39,4 +40,34 @@ test("family image selection and variant checkout path remain unchanged", () => 
   assert.match(familySelector, /card\.variants\.find\(variant => productImageUrl\(variant\)\) \?\? card\.variants\[0\]/);
   assert.match(familySelector, /const image = resolved\?\.variantImageReference/);
   assert.match(familySelector, /onAdd\(resolved\)/);
+});
+
+test("member and staff use one current supplier-image resolver while local imagery keeps precedence", () => {
+  const product = { id: "applied-whey", organisationId: "org", name: "Applied Nutrition Whey", active: true, stockTracked: false, sellPriceMinor: 3000, currency: "GBP", supplierReference: "supplier_product:variant-1", variantImageReference: "https://cdn.test/applied-current.png", media: { url: "https://cdn.test/applied-stale.png" }, createdAt: "", updatedAt: "" };
+  assert.equal(productImageUrl(product), "https://cdn.test/applied-current.png");
+  assert.equal(productImageUrl({ ...product, variantImageReference: undefined }), "https://cdn.test/applied-stale.png");
+  const local = { ...product, supplierReference: undefined, variantImageReference: "https://cdn.test/local-variant.png" };
+  assert.equal(productImageUrl(local), "https://cdn.test/applied-stale.png");
+  const memberPage = readFileSync("app/member-hub/shop/page.tsx", "utf8");
+  const staffPage = readFileSync("app/club/shop/page.tsx", "utf8");
+  assert.match(memberPage, /buildClubShopProductUniverse\(localProducts, supplierParents, organisationId\)/);
+  assert.match(staffPage, /buildClubShopProductUniverse\(localProducts, durableRows, organisation\.id\)/);
+  assert.doesNotMatch(memberPage, /media: \{ url: info\.variantImageUrl \}/);
+  assert.match(memberShop, /ClubProductFamilySelector/);
+  assert.match(staffShop, /ClubProductFamilySelector compact/);
+});
+
+test("mobile staff basket is a safe-area floating shortcut to the existing basket state", () => {
+  assert.match(staffShop, /basketQuantity > 0 \|\| step === "success"/);
+  assert.match(staffShop, /aria-controls="staff-checkout-basket"/);
+  assert.match(staffShop, /className=\{`staff-checkout-basket\$\{mobileBasketOpen/);
+  assert.match(staffShop, /aria-label="Close basket"/);
+  assert.match(css, /\.staff-mobile-basket\{position:fixed[^}]*env\(safe-area-inset-bottom\)/);
+  assert.match(css, /\.staff-checkout-basket\.is-mobile-open\{position:fixed/);
+});
+
+test("shared mobile Club layout keeps wide operational tables scrollable and modals inside the viewport", () => {
+  assert.match(css, /\.club-page \.table-wrap\{max-width:100%;overflow-x:auto/);
+  assert.match(css, /\.club-page \.modal \.sheet\{width:100%;max-height:calc\(100svh/);
+  assert.match(css, /\.club-page\{width:100%;padding-inline:14px;overflow-x:clip\}/);
 });

@@ -16,20 +16,19 @@ test("Club shop presents factual order states without fake provider success", ()
   assert.match(component, /Gym Balance/); assert.match(component, /Cash box/);
 });
 
-test("member shop renders compact category chips and featured-brand controls below search", () => {
+test("member shop keeps compact category chips and the brand select below search", () => {
   const component = readFileSync(new URL("../components/club-shop.tsx", import.meta.url), "utf8");
   const taxonomy = readFileSync(new URL("../lib/club-product-taxonomy.ts", import.meta.url), "utf8");
   const css = readFileSync(new URL("../components/club-shop.module.css", import.meta.url), "utf8");
   assert.match(component, /MEMBER_SHOP_CATEGORIES\.map\(item => <button/);
   assert.match(component, /onClick=\{\(\) => setCategory\(category === item \? "All" : item\)\}/);
-  assert.match(component, /FEATURED_MEMBER_BRANDS\.map\(item => <button/);
   assert.match(component, /matchesFeaturedMemberBrand|filterMemberShopProducts/);
   assert.match(component, /rule\.bundleGroups \?\? \[\]/);
   assert.match(component, /group\.categories \?\? \[\]/);
-  assert.match(component, /setBrand\(selectedBrand === canonicalMemberBrandName\(item\.label\) \? "" : item\.label\)/);
+  assert.match(component, /aria-label="Filter products by brand" value=\{brand\}/);
   assert.match(component, /setCategory\("All"\); setBrand\(""\); setQuery\(""\)/);
   assert.match(component, /aria-pressed=\{category === item\}/);
-  assert.match(component, /aria-pressed=\{selectedBrand === canonicalMemberBrandName\(item\.label\)\}/);
+  assert.doesNotMatch(component, /FEATURED_MEMBER_BRANDS/);
   assert.match(component, /aria-label="Search products"/);
   assert.match(component, /<ClubMemberShop paginationResetKey=/);
   assert.match(taxonomy, /"Services", "Apparel", "Deals", "Protein", "Performance", "Health & Wellness", "Food & Drink", "Accessories"/);
@@ -37,25 +36,21 @@ test("member shop renders compact category chips and featured-brand controls bel
   assert.match(css, /@media\(min-width:761px\)\{\.categoryRail,\.brandRail\{flex-wrap:wrap/);
 });
 
-test("featured brands are text-only accessible buttons with one horizontal swipe row", () => {
+test("member shop removes the Featured Brands strip while retaining its canonical brand dropdown", () => {
   const component = readFileSync(new URL("../components/club-shop.tsx", import.meta.url), "utf8");
-  const css = readFileSync(new URL("../components/club-shop.module.css", import.meta.url), "utf8");
-  assert.doesNotMatch(component, /https?:\/\//);
-  assert.doesNotMatch(component, /<img|brandLogoCanvas|FEATURED_BRAND_LOGOS/);
-  assert.match(component, /FEATURED_MEMBER_BRANDS\.map\(item => <button/);
-  assert.match(component, /aria-label=\{`Filter by \$\{item\.label\}`\}/);
-  assert.match(component, /aria-pressed=\{selectedBrand === canonicalMemberBrandName\(item\.label\)\}/);
-  assert.match(component, /setBrand\(selectedBrand === canonicalMemberBrandName\(item\.label\) \? "" : item\.label\)/);
-  assert.match(css, /\.memberShop \.brandRail\{flex-wrap:nowrap!important;overflow-x:auto!important/);
-  assert.match(css, /\.memberShop \.brandWordmark\{display:flex;flex:0 0 auto/);
+  const staff = readFileSync(new URL("../components/club-staff-checkout.tsx", import.meta.url), "utf8");
+  assert.doesNotMatch(component, /FEATURED BRANDS|FEATURED_MEMBER_BRANDS|brandRail|brandWordmark/);
+  assert.doesNotMatch(staff, /FEATURED BRANDS|Featured Brands/);
+  assert.match(component, /aria-label="Filter products by brand" value=\{brand\} onChange=\{event => setBrand\(event\.target\.value\)\}/);
 });
 
-test("member brand select and featured buttons share one canonical brand state", () => {
+test("member brand select remains the single brand-filter control and keeps canonical matching", () => {
   const component = readFileSync(new URL("../components/club-shop.tsx", import.meta.url), "utf8");
   const taxonomy = readFileSync(new URL("../lib/club-product-taxonomy.ts", import.meta.url), "utf8");
   assert.match(component, /aria-label="Filter products by brand" value=\{brand\} onChange=\{event => setBrand\(event\.target\.value\)\}/);
   assert.match(component, /memberShopBrandOptions\(unfilteredBrandCards\.flatMap/);
-  assert.match(component, /canonicalMemberBrandName\(item\.label\)/);
+  assert.match(component, /canonicalMemberBrandName\(item\.brand\) === canonicalMemberBrandName\(brand\)/);
+  assert.match(component, /setBrand\(""\)/);
   assert.match(taxonomy, /export function canonicalMemberBrandName/);
   assert.match(taxonomy, /normalized\.includes\("grenade"\) && normalized\.includes\("carbkilla"\)/);
 });
@@ -151,8 +146,8 @@ test("staff checkout presents a real physical location context", () => {
 test("POS and family picker use exact product media without inventing imagery", () => {
   const checkout = readFileSync(new URL("../components/club-staff-checkout.tsx", import.meta.url), "utf8");
   const picker = readFileSync(new URL("../components/club-member-shop.tsx", import.meta.url), "utf8");
-  const media = readFileSync(new URL("../components/club-product-media.tsx", import.meta.url), "utf8");
-  assert.match(media, /product\?\.media\?\.url/);
+  const resolver = readFileSync(new URL("../lib/club-product-image.ts", import.meta.url), "utf8");
+  assert.match(resolver, /product\?\.media\?\.url/);
   assert.match(checkout, /ClubProductMedia product=\{product\}/);
   assert.match(checkout, /checkout-scan-confirmation/);
   assert.match(checkout, /Added to basket/);

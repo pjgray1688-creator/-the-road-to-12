@@ -129,6 +129,27 @@
 .club-product-detail-image{display:grid;place-items:center;width:min(100%,340px);height:clamp(128px,25svh,210px);margin:0 auto;overflow:hidden;border-radius:12px;background:#11161c}
 .club-product-detail-image .club-product-large,.club-product-detail-image .club-product-placeholder{display:grid;width:100%;height:100%;max-width:100%;max-height:100%;padding:12px;object-fit:contain;object-position:center}
 @media(max-width:640px){.club-product-detail-image{width:min(100%,260px);height:clamp(118px,20svh,160px)}}
+@media(max-width:760px){
+  .club-page{width:100%;padding-inline:14px;overflow-x:clip}
+  .club-page :where(section,.surface,.card,form,article){min-width:0}
+  .club-page .surface{padding:14px}
+  .club-page .club-form{width:100%}
+  .club-page .club-detail-row{gap:10px;padding:12px 10px}
+  .club-page .table-wrap{max-width:100%;overflow-x:auto;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch}
+  .club-page .table-wrap table{min-width:620px}
+  .club-shop-tabs{scrollbar-width:none;overscroll-behavior-x:contain}
+  .staff-checkout{grid-template-columns:minmax(0,1fr);padding-bottom:calc(88px + env(safe-area-inset-bottom))}
+  .staff-checkout-basket{display:none}
+  .staff-checkout-basket.is-mobile-open{position:fixed;z-index:51;inset:auto 0 0;display:grid;width:100%;max-width:640px;max-height:min(82svh,760px);margin-inline:auto;overflow-y:auto;padding:16px 14px calc(18px + env(safe-area-inset-bottom));border:1px solid var(--club-border);border-radius:20px 20px 0 0;background:#111018;box-shadow:0 -18px 55px #000b;overscroll-behavior:contain}
+  .staff-mobile-basket{position:fixed;z-index:45;right:14px;bottom:calc(12px + env(safe-area-inset-bottom));left:14px;display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:56px;padding:0 18px;border:1px solid #704da0;border-radius:15px;background:linear-gradient(105deg,#8e45d6,#6728ad);color:#fff;box-shadow:0 10px 32px #0009;font-weight:800;text-align:left}
+  .staff-mobile-basket strong{font-size:16px;font-variant-numeric:tabular-nums}
+  .staff-basket-scrim{position:fixed;z-index:50;inset:0;width:100%;height:100%;background:rgba(0,0,0,.68);touch-action:manipulation}
+  .club-family-modal{padding:0;align-items:end}
+  .club-family-sheet{width:100%;max-width:none;max-height:calc(100svh - env(safe-area-inset-top) - 10px);overflow-y:auto;padding:16px 16px calc(18px + env(safe-area-inset-bottom));border-radius:20px 20px 0 0}
+  .club-page .modal .sheet{width:100%;max-height:calc(100svh - env(safe-area-inset-top) - 10px);padding:18px 16px calc(18px + env(safe-area-inset-bottom));border-radius:20px 20px 0 0}
+  .club-page .modal{padding:0;align-items:end}
+}
+@media(min-width:761px){.staff-mobile-basket,.staff-basket-scrim{display:none!important}}
 .club-checkin-kiosk{min-height:100svh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:clamp(18px,4vh,36px);padding:clamp(20px,5vw,64px);background:radial-gradient(ellipse at 50% 0%,#281447 0%,#090b10 60%);color:#f7f4ff;text-align:center}
 .club-checkin-kiosk header h1{font-size:clamp(30px,6vw,58px);margin:8px 0}.club-checkin-kiosk header p{color:#c4bbd2;font-size:clamp(16px,2vw,22px)}
 .club-checkin-config{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;width:min(100%,720px);text-align:left}.club-checkin-config label{display:grid;gap:6px;min-width:min(100%,240px);color:#d5cede;font-size:13px;font-weight:700}.club-checkin-config select,.club-checkin-config input{min-height:48px;padding:0 13px;border:1px solid #4b3a5f;border-radius:10px;background:#15121b;color:#fff;font:inherit}
