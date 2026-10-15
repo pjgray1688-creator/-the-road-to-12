@@ -47,6 +47,16 @@ test("PIN password confirmation is server-verified for the exact signed-in staff
   assert.match(sqlFixture,/Expired reauthentication claim was accepted/);
   assert.match(sqlFixture,/Five incorrect PINs did not reach the lockout threshold/);
   assert.match(sqlFixture,/Authenticated browser role invoked the server-only PIN function/);
+  const ownerHashInspection=sqlFixture.indexOf("extensions.crypt('2468',pin_hash)");
+  const ownerResetBeforeHash=sqlFixture.lastIndexOf("reset role;",ownerHashInspection);
+  const restrictedPinSetup=sqlFixture.indexOf("select public.club_station_set_pin_after_password(");
+  assert.ok(ownerResetBeforeHash>restrictedPinSetup,"hash inspection must run as the disposable DB owner");
+  const failedPinAssertion=sqlFixture.indexOf("Five incorrect PINs did not reach the lockout threshold");
+  const ownerResetBeforeFailedPinAssertion=sqlFixture.lastIndexOf("reset role;",failedPinAssertion);
+  const failedPinRpcBlock=sqlFixture.indexOf("for i in 1..5 loop");
+  assert.ok(ownerResetBeforeFailedPinAssertion>failedPinRpcBlock,"lockout state inspection must run as the disposable DB owner after restricted RPC attempts");
+  assert.match(sqlFixture,/set local role service_role[\s\S]*?club_station_verify_pin[\s\S]*?reset role;/);
+  assert.match(sqlFixture,/set local role authenticated[\s\S]*?club_station_set_my_pin[\s\S]*?reset role;/);
 });
 
 test("station setup cannot lock a browser until a staff PIN is eligible and managers have a safe recovery route",()=>{

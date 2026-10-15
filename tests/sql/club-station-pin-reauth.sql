@@ -18,6 +18,10 @@ set local role service_role;
 select public.club_station_set_pin_after_password(
  '40000000-0000-4000-8000-000000000002','40000000-0000-4000-8000-000000000001','2468'
 );
+reset role;
+
+-- These are test-only inspections of protected state and pgcrypto output.
+-- Run them as the disposable database owner, not as the simulated worker role.
 do $$
 begin
  if not exists(select 1 from public.club_station_staff_pins
@@ -34,6 +38,8 @@ end $$;
 
 -- Five incorrect PINs lock this person; the correct PIN is rejected until the
 -- lock window has elapsed, then succeeds for that exact station and identity.
+select set_config('request.jwt.claim.role','service_role',true);
+set local role service_role;
 do $$
 declare i integer; result jsonb;
 begin
@@ -41,13 +47,16 @@ begin
    result:=public.club_station_verify_pin('40000000-0000-4000-8000-000000000004','ci-station-token','40000000-0000-4000-8000-000000000001','1111');
    if result is not null then raise exception 'Wrong PIN was accepted'; end if;
  end loop;
- if (select failed_attempts from public.club_station_staff_pins where organisation_id='40000000-0000-4000-8000-000000000002' and user_id='40000000-0000-4000-8000-000000000001')<>5 then
-   raise exception 'Five incorrect PINs did not reach the lockout threshold';
- end if;
  result:=public.club_station_verify_pin('40000000-0000-4000-8000-000000000004','ci-station-token','40000000-0000-4000-8000-000000000001','2468');
  if result is not null then raise exception 'Correct PIN bypassed the five-attempt lockout'; end if;
 end $$;
 reset role;
+do $$
+begin
+ if (select failed_attempts from public.club_station_staff_pins where organisation_id='40000000-0000-4000-8000-000000000002' and user_id='40000000-0000-4000-8000-000000000001')<>5 then
+   raise exception 'Five incorrect PINs did not reach the lockout threshold';
+ end if;
+end $$;
 
 update public.club_station_staff_pins set locked_until=now()-interval '1 second'
 where organisation_id='40000000-0000-4000-8000-000000000002' and user_id='40000000-0000-4000-8000-000000000001';
@@ -64,6 +73,7 @@ end $$;
 select public.club_station_disable_pin_after_password('40000000-0000-4000-8000-000000000002','40000000-0000-4000-8000-000000000001');
 reset role;
 
+-- Inspect final protected state and grants as the disposable database owner.
 do $$
 begin
  if (select enabled from public.club_station_staff_pins where organisation_id='40000000-0000-4000-8000-000000000002' and user_id='40000000-0000-4000-8000-000000000001') is distinct from false then
