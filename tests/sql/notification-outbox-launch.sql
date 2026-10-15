@@ -45,17 +45,39 @@ begin
   if auth.role()<>'service_role' then raise exception 'CI auth.role() did not read the service role claim'; end if;
   select count(*) into claimed from public.club_claim_notification_intents_for_worker(100,'ci-notification-worker',false);
   if claimed<>1 then raise exception 'Default claim should process staff mail but hold member activation'; end if;
-  if (select state from public.club_member_notification_intents where id='30000000-0000-4000-8000-000000000012')<>'pending' then
-    raise exception 'Member activation was claimed before its explicit release';
-  end if;
   if (select count(*) from public.club_claim_notification_intents_for_worker(100,'ci-notification-worker-repeat',false))<>0 then
     raise exception 'Repeat worker run claimed a message that already had an active lease';
   end if;
+end $$;
+reset role;
 
+-- Outbox tables are intentionally not directly readable by application roles.
+-- Inspect persisted state as the disposable test owner, not by granting the
+-- simulated worker role broader table access.
+do $$
+begin
+  if (select state from public.club_member_notification_intents where id='30000000-0000-4000-8000-000000000012')<>'pending' then
+    raise exception 'Member activation was claimed before its explicit release';
+  end if;
+end $$;
+
+set local role service_role;
+do $$
+begin
   perform public.club_fail_notification_intent('30000000-0000-4000-8000-000000000011','smtp_451','Temporary relay rejection',now(),'failed');
+end $$;
+reset role;
+
+do $$
+begin
   if (select state from public.club_member_notification_intents where id='30000000-0000-4000-8000-000000000011')<>'scheduled' then
     raise exception 'Retryable SMTP failure was not returned to the scheduled path';
   end if;
+end $$;
+
+set local role service_role;
+do $$
+begin
   if (select count(*) from public.club_claim_notification_intents_for_worker(100,'ci-notification-worker-retry',false))<>1 then
     raise exception 'Retryable staff notification was not claimable again';
   end if;
@@ -69,4 +91,12 @@ begin
   end if;
 end $$;
 reset role;
+
+do $$
+begin
+  if (select state from public.club_member_notification_intents where id='30000000-0000-4000-8000-000000000011')<>'sent'
+     or (select state from public.club_member_notification_intents where id='30000000-0000-4000-8000-000000000012')<>'sent' then
+    raise exception 'Notification states did not reach the expected terminal sent state';
+  end if;
+end $$;
 rollback;
