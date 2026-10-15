@@ -80,10 +80,12 @@ export function buildClubShopProductUniverse(localProducts: ClubCommerceProduct[
     return matches.find((match, index) => matches.findIndex(other => other.id === match.id) === index);
   };
   const matchedSupplierIds = new Set<string>();
+  const isStaleGenericAppliedRtd = (product: Pick<ClubCommerceProduct, "brand" | "name">) => (product.brand ?? "").trim().toLowerCase() === "applied nutrition" && product.name.trim().toLowerCase() === "high protein shake rtd";
   const eligibleLocal = localProducts.filter(product => product.active && !isLegacyDemoCommerceProduct(product) && !isActiveSportsMonsterCaseProduct(product) && !isStaleActiveSportsMonsterEnergyProduct(product));
   const mergedLocal: ClubCommerceProduct[] = [];
   for (const product of eligibleLocal) {
     const supplier = supplierForLocal(product);
+    if (isStaleGenericAppliedRtd(supplier ?? product) && (supplier !== undefined || product.supplierReference?.startsWith("supplier_product:") === true)) continue;
     if (supplier && matchedSupplierIds.has(supplier.id)) continue;
     if (supplier) matchedSupplierIds.add(supplier.id);
     mergedLocal.push(supplier ? mergeSupplierPresentation({ ...product, costPriceMinor: undefined }, supplier) : { ...product, costPriceMinor: undefined });
@@ -94,7 +96,7 @@ export function buildClubShopProductUniverse(localProducts: ClubCommerceProduct[
     // presentation was matched. Keep the supplier row unless it was actually
     // consumed by a confident merge, so supplier-only availability survives
     // missing/legacy local metadata.
-    ...supplierProducts.filter(product => product.active && !matchedSupplierIds.has(product.id) && !isLegacyDemoCommerceProduct(product) && !isActiveSportsMonsterCaseProduct(product) && !isStaleActiveSportsMonsterEnergyProduct(product)),
+    ...supplierProducts.filter(product => product.active && !matchedSupplierIds.has(product.id) && !isLegacyDemoCommerceProduct(product) && !isActiveSportsMonsterCaseProduct(product) && !isStaleActiveSportsMonsterEnergyProduct(product) && !isStaleGenericAppliedRtd(product)),
   ]);
 }
 
@@ -358,11 +360,18 @@ export function prepareActiveSportsImport(csv: string, options: { duplicateChoic
   const result = normalizeActiveSportsCsv(csv);
   const errors = [...result.errors]; const duplicates = new Set<number>();
   const rows = result.rows.map(row => {
+    const isGenericAppliedRtd = row.brand?.trim().toLowerCase() === "applied nutrition" && row.name.trim().toLowerCase() === "high protein shake rtd";
+    const parentName = isGenericAppliedRtd
+      ? /\b330\s*ml\b/i.test(row.size ?? "") ? "High Protein Shake RTD 20G"
+        : /\b500\s*ml\b/i.test(row.size ?? "") ? "High Protein Shake RTD 42G" : undefined
+      : row.name;
+    if (!parentName) { errors.push({ row: 1, reason: "Applied Nutrition High Protein Shake RTD requires a recognised 330ml or 500ml format" }); return null; }
     const trade = row.currentBoldTradeCostExVatMinor;
     // Explicit VAT FREE remains zero. Blank VAT defaults to 20%; never replace explicit rates.
     const vat = row.purchaseVatRate ?? (row.purchaseVatTreatment === "vat_free" ? 0 : 0.2);
-    return { ...row, purchaseVatRate: vat, purchaseVatTreatment: vat === 0 ? "vat_free" as const : "standard" as const, currentBoldTradeCostExVatMinor: trade, memberOrderableUnit: row.memberOrderableUnit?.toLowerCase(), identity: activeSportsIdentity(row) };
-  });
+    const normalized = { ...row, name: parentName ?? row.name, parentKey: `${(row.brand ?? "").toLowerCase()}|${(parentName ?? row.name).toLowerCase()}`, purchaseVatRate: vat, purchaseVatTreatment: vat === 0 ? "vat_free" as const : "standard" as const, currentBoldTradeCostExVatMinor: trade, memberOrderableUnit: row.memberOrderableUnit?.toLowerCase() };
+    return { ...normalized, identity: activeSportsIdentity(normalized) };
+  }).filter((row): row is NonNullable<typeof row> => row !== null);
   const records = parseCsvRecords(csv);
   const duplicateCandidates: Array<{ detail: ActiveSportsDuplicateRow; keys: string[]; signature: string }> = [];
   let missingCommercialData = 0;
