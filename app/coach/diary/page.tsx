@@ -34,7 +34,7 @@ export default async function CoachDiaryPage({ searchParams }: { searchParams?: 
   const allHours = !hoursResult.error && Array.isArray(hoursResult.data) ? hoursResult.data as WeeklyWorkingHours[] : [];
   const workingHours = allHours.filter(item => item.staffUserId === user.id);
   const userName = [user.user_metadata?.first_name, user.user_metadata?.last_name].filter(Boolean).join(" ") || user.user_metadata?.display_name || "My diary";
-  return <AppShell className={`module-page ${styles.page}`}><PageHeader eyebrow={`${context.organisation.name.toUpperCase()} · R12 COACH`} title="My diary" description="Your sessions, classes, diary blocks and Madhouse rota — all in UK local time."/>
+  return <AppShell className={`module-page ${styles.page}`}>
     {eligible.length > 1 ? <div className={styles.contextSwitch} aria-label="Choose organisation">{eligible.map(item => <Link className={item.organisation.id === context.organisation.id ? styles.selected : ""} aria-current={item.organisation.id === context.organisation.id ? "page" : undefined} key={item.organisation.id} href={`/coach/diary?org=${encodeURIComponent(item.organisation.id)}&date=${encodeURIComponent(date)}`}>{item.organisation.name}</Link>)}</div> : null}
     {unavailable ? <EmptyState title="Your diary couldn’t be loaded">Try again shortly. No schedule information was changed.</EmptyState> : <ClubScheduleCalendar key={`${context.organisation.id}-${date}`} organisationId={context.organisation.id} events={events} staff={[{ userId: user.id, name: userName }]} rotaStaff={[]} locations={locations} initialDate={date} workingHours={workingHours} currentUserId={user.id} canManageTeamHours={false} canManageRota={false} coachMode/>}
     </AppShell>;

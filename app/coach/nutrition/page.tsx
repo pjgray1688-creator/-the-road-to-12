@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { serverSupabase } from "@/lib/supabase-server";
 import { CoachNutrition } from "@/components/coach-nutrition";
 import { CoachClientDestinations } from "@/components/coach-client-destinations";
+import Link from "next/link";
 
 export default async function CoachNutritionPage({ searchParams }: { searchParams: Promise<{ client?: string }> }) {
   const params = await searchParams;
@@ -15,6 +16,13 @@ export default async function CoachNutritionPage({ searchParams }: { searchParam
     return <CoachClientDestinations clients={!clientsError && Array.isArray(clients) ? clients as never : []} destination="nutrition" />;
   }
   const client = params.client;
-  const { data, error } = await supabase.rpc("nutrition_get_coach_view", { p_client_user_id: client });
-  return <CoachNutrition clientUserId={client} initialData={error ? { activePlan: null, draftPlan: null, checkins: [], checkinDays: [], feedback: [], canManage: false } : (data ?? { activePlan: null, draftPlan: null, checkins: [], checkinDays: [], feedback: [], canManage: false })} />;
+  const [{ data: linkedClients, error: clientsError }, { data, error }] = await Promise.all([
+    supabase.rpc("coach_list_clients"),
+    supabase.rpc("nutrition_get_coach_view", { p_client_user_id: client }),
+  ]);
+  const authorizedClient = !clientsError && Array.isArray(linkedClients)
+    ? linkedClients.find((item: { clientUserId?: string; name?: string }) => item.clientUserId === client)
+    : null;
+  if (!authorizedClient) return <main className="module-page coach-client-unavailable"><section className="card"><h1>Client unavailable</h1><p>This client workspace is no longer available to your account.</p><Link className="secondary" href="/coach">Back to Clients</Link></section></main>;
+  return <CoachNutrition clientUserId={client} clientName={authorizedClient.name ?? "Client"} initialData={error ? { activePlan: null, draftPlan: null, checkins: [], checkinDays: [], feedback: [], canManage: false } : (data ?? { activePlan: null, draftPlan: null, checkins: [], checkinDays: [], feedback: [], canManage: false })} />;
 }

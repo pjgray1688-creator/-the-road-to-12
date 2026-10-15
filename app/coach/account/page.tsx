@@ -17,10 +17,8 @@ export default async function CoachAccountPage() {
   const memberEligible = !memberError && Array.isArray(memberships) && memberships.length > 0;
 
   return <main className={styles.page}>
-    <header><span className="eyebrow">R12 COACH · ACCOUNT</span><h1>Account &amp; settings</h1><p>Your Coach access uses your existing R12 account.</p></header>
-    <section className={styles.card} aria-labelledby="coach-identity-title"><span className="eyebrow">SIGNED-IN IDENTITY</span><h2 id="coach-identity-title">{displayName}</h2><p>{user.email ?? "Email not available"}</p></section>
-    <section className={styles.card} aria-labelledby="coach-access-title"><span className="eyebrow">ACCESS</span><h2 id="coach-access-title">Coach access</h2><p role="status">{coachError ? "Access status couldn’t be checked." : coachAccess ? "Enabled" : "Not enabled for this account."}</p></section>
-    {memberEligible ? <section className={styles.card}><span className="eyebrow">PRODUCT SWITCHER</span><h2>R12 Member</h2><p>Your existing member access is available with this account.</p><Link className="primary" href="/member-hub">Open R12</Link></section> : null}
-    <section className={styles.card}><span className="eyebrow">SESSION</span><p>Sign out here to end this session on this device.</p><CoachAccountActions /></section>
+    <header className={styles.heading}><span className="eyebrow">ACCOUNT</span><h1>Account</h1></header>
+    <section className={styles.card} aria-labelledby="coach-identity-title"><div className={styles.identity}><span className={styles.avatar} aria-hidden="true">{displayName.split(/\s+/).map((part: string) => part[0]).slice(0, 2).join("").toUpperCase()}</span><div><h2 id="coach-identity-title">{displayName}</h2><p>{user.email ?? "Email not available"}</p></div></div><div className={styles.access}><span>Coach access</span><strong role="status">{coachError ? "Status unavailable" : coachAccess ? "Enabled" : "Not enabled"}</strong></div></section>
+    <section className={styles.card} aria-label="Products and session">{memberEligible ? <div className={styles.productSwitch}><div><span className="eyebrow">R12 MEMBER</span><p>Switch to your member space.</p></div><Link className={styles.quietButton} href="/member-hub">Open R12</Link></div> : null}<div className={styles.signOut}><span className="eyebrow">SESSION</span><CoachAccountActions /></div></section>
   </main>;
 }

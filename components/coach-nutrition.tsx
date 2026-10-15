@@ -1,8 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
-import { AppShell, PageHeader, Surface } from "@/components/ui";
+import { AppShell, Surface } from "@/components/ui";
+import { CoachClientSectionNav } from "@/components/coach-client-section-nav";
 
 type Item = { id?: string; description: string; portionText?: string; sortOrder?: number };
 type Alternative = { id?: string; description: string; sortOrder?: number };
@@ -17,7 +17,7 @@ const blankPlan = (): Plan => ({ id: "", status: "draft", title: "Nutrition plan
 const clonePlan = (plan: Plan): Plan => ({ ...plan, id: "", status: "draft", meals: (plan.meals ?? []).map((meal, index) => ({ ...meal, id: undefined, sortOrder: index, items: (meal.items ?? []).map((item, itemIndex) => ({ ...item, id: undefined, sortOrder: itemIndex })), alternatives: (meal.alternatives ?? []).map((item, itemIndex) => ({ ...item, id: undefined, sortOrder: itemIndex })) })), supplements: (plan.supplements ?? []).map((item, index) => ({ ...item, id: undefined, sortOrder: index })) });
 function reorder<T>(items: T[], index: number, direction: -1 | 1) { const target = index + direction; if (target < 0 || target >= items.length) return items; const next = [...items]; [next[index], next[target]] = [next[target], next[index]]; return next; }
 
-export function CoachNutrition({ clientUserId, initialData }: { clientUserId: string; initialData: Data }) {
+export function CoachNutrition({ clientUserId, clientName, initialData }: { clientUserId: string; clientName?: string; initialData: Data }) {
   const [data, setData] = useState<Data>(initialData);
   const [editingDraft, setEditingDraft] = useState<Plan | null>(initialData.draftPlan ?? null);
   const [message, setMessage] = useState("");
@@ -47,8 +47,8 @@ export function CoachNutrition({ clientUserId, initialData }: { clientUserId: st
   const extras = days.reduce((total, item) => total + (item.extrasCount ?? 0), 0);
 
   return <AppShell className="module-page coach-nutrition-page">
-    <PageHeader eyebrow="COACH · NUTRITION" title="Nutrition" description="Plan, review and support this client."><Link className="back-button" href={`/coach?client=${encodeURIComponent(clientUserId)}&section=overview`}>Back to client</Link></PageHeader>
-    <nav className="coach-client-nav" aria-label="Client workspace"><Link href={`/coach/nutrition?client=${clientUserId}`} aria-current="page">Nutrition</Link><Link href={`/coach?client=${encodeURIComponent(clientUserId)}&section=programme`}>Programme</Link><Link href={`/coach?client=${encodeURIComponent(clientUserId)}&section=overview`}>Overview</Link><Link href={`/coach?client=${encodeURIComponent(clientUserId)}&section=checkins`}>Check-ins</Link><Link href={`/coach?client=${encodeURIComponent(clientUserId)}&section=progress`}>Progress</Link><Link href={`/coach?client=${encodeURIComponent(clientUserId)}&section=history`}>History</Link></nav>
+    <header className="coach-nutrition-heading"><div><span className="eyebrow">{clientName ?? "CLIENT WORKSPACE"}</span><h1>Nutrition</h1></div></header>
+    <CoachClientSectionNav clientUserId={clientUserId} active="nutrition"/>
     {data.canManage && !editingDraft ? <button className="primary nutrition-builder-start" onClick={beginDraft}>{draftPlan ? "Continue draft" : activePlan ? "Create revised draft" : "Create nutrition plan"}</button> : null}
     {draftPlan && !editingDraft ? <Surface><div className="section-heading-row"><div><span className="eyebrow">DRAFT</span><h2>{draftPlan.title}</h2><p className="muted">Last edited {draftPlan.updatedAt ? new Date(draftPlan.updatedAt).toLocaleDateString() : "recently"}</p></div><button className="primary" onClick={beginDraft}>Continue editing</button></div></Surface> : null}
     {editingDraft ? <Surface><div className="section-heading-row"><div><span className="eyebrow">PLAN BUILDER</span><h2>{editingDraft.id ? "Edit draft" : "New nutrition plan"}</h2></div><button className="text-button" onClick={() => setEditingDraft(null)}>Close</button></div>
