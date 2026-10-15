@@ -16,6 +16,8 @@ const route = readFileSync("app/api/internal/notification-worker/route.ts", "utf
 const docs = readFileSync("docs/notification-delivery.md", "utf8");
 const launchSupportSql = readFileSync("supabase/migrations/2026-12-24-staff-owner-transfer-and-member-activation-queue.sql", "utf8");
 const billingJoinSql = readFileSync("supabase/migrations/2026-11-19-madhouse-billing-and-tutorials.sql", "utf8");
+const notificationGeneratorFixSql = readFileSync("supabase/migrations/2026-12-25-notification-generator-null-safe-auth-lookup.sql", "utf8");
+const notificationGenerationFixtureSql = readFileSync("tests/sql/notification-generation-launch.sql", "utf8");
 
 test("the existing notification intent table becomes the durable provider-neutral outbox", () => {
   assert.match(sql, /alter table public\.club_member_notification_intents/);
@@ -61,6 +63,23 @@ test("billing and maintenance generation uses authoritative source state", () =>
   assert.match(sql, /order_ready_for_collection/);
   assert.match(sql, /induction-reminder:/);
   assert.match(sql, /club_generate_notification_intents/);
+});
+
+test("notification generator handles a missing optional Auth email without reading an unassigned record", () => {
+  const generatorStart = notificationGeneratorFixSql.indexOf("create or replace function public.club_generate_notification_intents()");
+  const generatorEnd = notificationGeneratorFixSql.indexOf("revoke all on function public.club_generate_notification_intents()");
+  assert.ok(generatorStart >= 0 && generatorEnd > generatorStart);
+  const generator = notificationGeneratorFixSql.slice(generatorStart, generatorEnd);
+  assert.match(generator, /v_email text/);
+  assert.match(generator, /select au\.email into v_email from auth\.users au where au\.id=o\.user_id/);
+  assert.match(generator, /if v_email is not null then[\s\S]*?values\(o\.organisation_id,o\.user_id,v_email/);
+  assert.doesNotMatch(generator, /select\s+(?:au\.)?email\s+into\s+u\b/i);
+  assert.match(generator, /for manager in select m\.user_id,au\.email/);
+  assert.match(notificationGenerationFixtureSql, /new-staff@example\.test/);
+  assert.match(notificationGenerationFixtureSql, /existing-staff@example\.test/);
+  assert.match(notificationGenerationFixtureSql, /member@example\.test/);
+  assert.match(notificationGenerationFixtureSql, /perform public\.club_generate_notification_intents\(\);\s*perform public\.club_generate_notification_intents\(\);/);
+  assert.match(notificationGenerationFixtureSql, /Repeated generation created duplicate intents/);
 });
 
 test("worker availability is truthful and retries are bounded", async () => {

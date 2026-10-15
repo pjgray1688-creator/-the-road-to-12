@@ -105,7 +105,9 @@ psql_db "$state_c" --file=supabase/migrations/2026-12-21-active-sports-commerce-
 psql_db "$state_c" --file=supabase/migrations/2026-12-22-member-import-home-location.sql
 psql_db "$state_c" --file=supabase/migrations/2026-12-23-club-attendance-station-leaderboard.sql
 psql_db "$state_c" --file=supabase/migrations/2026-12-24-staff-owner-transfer-and-member-activation-queue.sql
+psql_db "$state_c" --file=supabase/migrations/2026-12-25-notification-generator-null-safe-auth-lookup.sql
 psql_db "$state_c" --file=tests/sql/notification-outbox-launch.sql
+psql_db "$state_c" --file=tests/sql/notification-generation-launch.sql
 psql_db "$state_c" --file=tests/sql/staff-owner-transfer.sql
 psql_db "$state_c" --file=tests/sql/active-sports-import-v2.sql
 echo "ACTIVE SPORTS IMPORT RPC PASSED"
