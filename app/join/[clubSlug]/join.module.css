@@ -1,0 +1,48 @@
+.joinPage{width:min(100%,920px);margin-inline:auto;padding:calc(24px + env(safe-area-inset-top)) clamp(16px,4vw,36px) calc(40px + env(safe-area-inset-bottom));gap:22px;color:#f5f2fa}
+.brand{display:flex;align-items:center;gap:11px;color:#fff}
+.brand :global(.brand-lockup){width:44px;height:44px;display:grid;place-items:center;flex:0 0 auto}
+.brand :global(.brand-lockup img){width:44px;height:44px;object-fit:contain}
+.brand>span{display:grid;gap:3px;letter-spacing:.04em}
+.brand strong{font-size:13px;font-weight:850}
+.brand small{font-size:10px;letter-spacing:.12em;color:#aaa2b7}
+.joinPage :global(.page-header){display:block;padding:4px 0 2px}
+.joinPage :global(.page-header .eyebrow){color:#c8a4f8;font-size:11px;letter-spacing:.13em;font-weight:800}
+.joinPage :global(.page-header h1){font-size:clamp(32px,6vw,48px);line-height:1.05;letter-spacing:-.045em;margin-top:8px;color:#fff}
+.joinPage :global(.page-header-description){max-width:56ch;color:#b8b2c0;line-height:1.55;margin-top:11px}
+.choiceSurface{display:grid;gap:12px;padding:clamp(18px,4vw,30px)!important;border:1px solid rgba(178,123,241,.3)!important;background:linear-gradient(145deg,rgba(33,24,47,.94),rgba(15,16,22,.98))!important;border-radius:20px!important}
+.choiceSurface h2{font-size:clamp(19px,3vw,24px);letter-spacing:-.02em}
+.choiceIntro,.catalogueNote,.choiceSurface>p{color:#bcb5c6;line-height:1.55}
+.choiceIntro{max-width:62ch;font-size:14px}
+.actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:5px}
+.action{position:relative;display:grid;align-content:center;gap:6px;min-height:94px;padding:17px 48px 17px 18px;border:1px solid rgba(255,255,255,.12);border-radius:14px;background:rgba(255,255,255,.035);color:#fff!important;text-decoration:none!important;transition:border-color .16s ease,background .16s ease,transform .16s ease}
+.action:hover,.action:focus-visible{border-color:rgba(193,151,247,.65);background:rgba(151,93,217,.12);outline:none}
+.action:focus-visible,.signIn:focus-visible{box-shadow:0 0 0 3px rgba(177,122,239,.32)}
+.action strong{font-size:16px;line-height:1.25}
+.action small{color:#bdb6c7;font-size:13px;line-height:1.4}
+.action>span{position:absolute;right:17px;top:50%;transform:translateY(-50%);font-size:25px;color:#c69af5}
+.actionPrimary{border-color:rgba(186,133,246,.58);background:linear-gradient(135deg,#713bb5,#54278e);box-shadow:0 10px 26px rgba(60,25,100,.18)}
+.actionPrimary small{color:#eee4f8}
+.actionPrimary>span{color:#fff}
+.signIn{display:inline-flex;align-items:center;justify-content:space-between;gap:12px;width:fit-content;min-height:44px;margin-top:1px;color:#d5b7f6!important;text-decoration:none!important;font-size:14px;font-weight:700}
+.signIn span{font-size:19px}
+.catalogueNote{border-top:1px solid rgba(255,255,255,.08);padding-top:12px;font-size:12px}
+.joinPage :global(.onboarding){max-width:760px;width:100%;align-self:center;margin:0;padding:clamp(18px,4vw,30px);border:1px solid rgba(178,123,241,.3);border-radius:20px;background:linear-gradient(145deg,rgba(29,23,40,.96),rgba(14,16,21,.98));box-shadow:0 20px 50px rgba(0,0,0,.22)}
+.joinPage :global(.onboarding h2){font-size:clamp(21px,4vw,28px);line-height:1.2;letter-spacing:-.025em}
+.joinPage :global(.onboarding p){line-height:1.5}
+.joinPage :global(.onboarding .eyebrow){display:inline-block;margin-bottom:8px;color:#c69af5}
+.joinPage :global(.onboardingForm){gap:15px;margin-top:18px;padding-top:18px;border-color:rgba(255,255,255,.1)}
+.joinPage :global(.onboardingForm label){gap:7px;color:#ddd7e5;font-size:13px}
+.joinPage :global(.onboardingForm input:not([type=checkbox])){width:100%;min-height:48px;margin:0;padding:11px 13px;border:1px solid rgba(255,255,255,.15);border-radius:10px;background:#101016;color:#fff;font:inherit}
+.joinPage :global(.onboardingForm select){width:100%;min-height:48px;margin:0;padding:11px 13px;border:1px solid rgba(255,255,255,.15);border-radius:10px;background:#101016;color:#fff;font:inherit}
+.joinPage :global(.onboardingForm input:focus){outline:2px solid rgba(180,123,242,.55);outline-offset:1px}
+.joinPage :global(.onboardingForm select:focus){outline:2px solid rgba(180,123,242,.55);outline-offset:1px}
+.joinPage :global(.onboardingForm input[type=checkbox]){width:19px;height:19px;margin:0;accent-color:#9b59dd}
+.joinPage :global(.form-grid){display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.joinPage :global(.hint){padding:14px;border:1px solid rgba(183,131,239,.2);border-radius:12px;background:rgba(122,77,170,.1);color:#c7bfd1;font-size:13px;line-height:1.55}
+.joinPage :global(.hint strong){color:#fff}
+.joinPage :global(.onboardingForm .primary),.joinPage :global(.onboarding .primary),.joinPage :global(.onboarding .secondary){display:inline-flex;align-items:center;justify-content:center;min-height:50px;padding:0 20px;border:1px solid transparent;border-radius:11px;background:linear-gradient(135deg,#8c4cd0,#6932a8);color:#fff;text-decoration:none;font-weight:800}
+.joinPage :global(.onboarding .secondary){width:fit-content;background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.14)}
+.joinPage :global(.error-text){padding:12px 14px;border:1px solid rgba(255,111,131,.35);border-radius:10px;background:rgba(122,35,52,.16);color:#ffb7c1;line-height:1.5}
+.joinPage :global([role=status]){color:#d9c9ea;line-height:1.5}
+@media(max-width:600px){.joinPage{gap:17px}.actions{grid-template-columns:1fr}.action{min-height:78px}.joinPage :global(.form-grid){grid-template-columns:1fr}.joinPage :global(.onboardingForm .primary),.joinPage :global(.onboarding .primary),.joinPage :global(.onboarding .secondary){width:100%}.joinPage :global(.onboarding .secondary){width:100%}}
+@media(prefers-reduced-motion:reduce){.action{transition:none}}
