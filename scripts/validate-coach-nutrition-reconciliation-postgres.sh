@@ -98,6 +98,9 @@ psql_db "$state_c" --file=supabase/migrations/2026-12-03-member-import-and-acces
 psql_db "$state_c" --file=supabase/migrations/2026-12-04-member-pin-qr-access-pass.sql
 echo "ACTIVE SPORTS — apply the existing POS product/inventory RPC migration required by the fixture"
 psql_db "$state_c" --file=supabase/migrations/2026-12-07-club-pos-sellable-units-and-pt-packages.sql
+echo "MEMBERSHIPS — apply access lifecycle and eligibility prerequisites for household coverage tests"
+psql_db "$state_c" --file=supabase/migrations/2026-12-12-membership-access-lifecycle.sql
+psql_db "$state_c" --file=supabase/migrations/2026-12-13-member-age-induction-access-eligibility.sql
 echo "ACTIVE SPORTS — apply forward importer fix and exercise the real import/link path"
 psql_db "$state_c" --file=supabase/migrations/2026-12-16-active-sports-import-update-scope-fix.sql
 psql_db "$state_c" --file=supabase/migrations/2026-12-17-active-sports-link-manual-price-fix.sql
@@ -114,6 +117,9 @@ psql_db "$state_c" --file=supabase/migrations/2026-12-27-staff-claim-context.sql
 psql_db "$state_c" --file=supabase/migrations/2026-12-28-club-shared-station-pin-auth.sql
 psql_db "$state_c" --file=supabase/migrations/2026-12-29-pgcrypto-schema-qualified-functions.sql
 psql_db "$state_c" --file=supabase/migrations/2026-12-30-club-station-password-reauth.sql
+psql_db "$state_c" --file=supabase/migrations/2026-12-30-member-account-readiness-and-cash-evidence.sql
+psql_db "$state_c" --file=supabase/migrations/2026-12-31-cash-membership-period-and-anniversary-safety.sql
+psql_db "$state_c" --file=tests/sql/member-household-billing-lifecycle.sql
 psql_db "$state_c" --file=tests/sql/notification-outbox-launch.sql
 psql_db "$state_c" --file=tests/sql/notification-generation-launch.sql
 psql_db "$state_c" --file=tests/sql/staff-owner-transfer.sql
