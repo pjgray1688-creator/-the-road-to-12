@@ -4,6 +4,7 @@ import test from "node:test";
 
 const migration = readFileSync("supabase/migrations/2026-12-31-cash-membership-period-and-anniversary-safety.sql", "utf8");
 const fixture = readFileSync("tests/sql/member-household-billing-lifecycle.sql", "utf8");
+const postgresHarness = readFileSync("scripts/validate-coach-nutrition-reconciliation-postgres.sh", "utf8");
 const action = readFileSync("app/club/shop/actions.ts", "utf8");
 const component = readFileSync("components/club-membership-cash-payment.tsx", "utf8");
 
@@ -62,7 +63,9 @@ test("synthetic PostgreSQL lifecycle fixture covers household recovery, duplicat
 test("household SQL fixture keeps protected billing reads out of authenticated role except deliberate denials", () => {
   let role = "database owner";
   const restrictedReads: string[] = [];
+  const restrictedInternalCalls: string[] = [];
   const protectedTableAccess = /\b(?:from|join|update|insert\s+into|delete\s+from)\s+public\.club_membership_billing_(?:arrangements|obligations|payments)\b/i;
+  const restrictedFunctions = /public\.club_membership_anniversary\s*\(/i;
 
   for (const [index, line] of fixture.split(/\r?\n/).entries()) {
     if (/^\s*set local role authenticated\s*;/i.test(line)) role = "authenticated";
@@ -72,16 +75,40 @@ test("household SQL fixture keeps protected billing reads out of authenticated r
     if (role === "authenticated" && protectedTableAccess.test(line)) {
       restrictedReads.push(`${index + 1}:${line.trim()}`);
     }
+    if (role === "authenticated" && restrictedFunctions.test(line)) {
+      restrictedInternalCalls.push(`${index + 1}:${line.trim()}`);
+    }
   }
 
   assert.equal(restrictedReads.length, 3, `unexpected direct billing-table access under authenticated: ${restrictedReads.join(" | ")}`);
   assert.match(restrictedReads[0], /billing_obligations/);
   assert.match(restrictedReads[1], /billing_arrangements/);
   assert.match(restrictedReads[2], /billing_payments/);
+  assert.deepEqual(restrictedInternalCalls, [], `restricted anniversary helper called under authenticated: ${restrictedInternalCalls.join(" | ")}`);
+  assert.equal((fixture.match(/public\.club_membership_anniversary\s*\(/g) ?? []).length, 2, "anniversary logic should be exercised only in owner setup/assertion contexts");
   assert.equal(role, "database owner", "fixture must reset the session role before rollback");
   assert.match(fixture, /Authenticated user directly read protected billing obligations/);
   assert.match(fixture, /Authenticated user directly read protected billing arrangements/);
   assert.match(fixture, /Authenticated user directly read protected cash evidence/);
   assert.equal((fixture.match(/exception when insufficient_privilege then null; end;/g) ?? []).length, 3);
   assert.match(fixture, /club_list_customer_billing\('40000000-0000-4000-8000-000000000010','40000000-0000-4000-8000-000000000022'\)/);
+});
+
+test("disposable PostgreSQL harness reports independent fixture failures together and keeps migration setup fail-fast", () => {
+  assert.match(postgresHarness, /psql_db\s+"\$state_c"\s+--file="\$fixture"\s+>"\$log_file"\s+2>&1/);
+  assert.match(postgresHarness, /fixture_failures\+=\("\$\{label\}: \$\{sql_error\}"\)/);
+  assert.match(postgresHarness, /POSTGRES FIXTURE FAILURE SUMMARY \(\$\{#fixture_failures\[@\]\} failed\):/);
+  assert.match(postgresHarness, /exit 1/);
+  assert.match(postgresHarness, /psql:\.\*:\[0-9\]\+: \(ERROR\|FATAL\|PANIC\):/);
+  assert.doesNotMatch(postgresHarness, /ON_ERROR_STOP=off|set\s+\+e/);
+  const fixtureCalls = [
+    "Household billing lifecycle",
+    "Notification outbox permissions and retry",
+    "Notification generation",
+    "Staff owner transfer",
+    "Club station PIN reauthentication",
+    "Active Sports import RPC",
+  ].map(label => postgresHarness.indexOf(`run_sql_fixture "${label}"`));
+  assert.ok(fixtureCalls.every(position => position >= 0), "each independent SQL fixture should be run through aggregated diagnostics");
+  assert.deepEqual(fixtureCalls, [...fixtureCalls].sort((a, b) => a - b), "fixture execution order should remain deterministic");
 });

@@ -19,6 +19,34 @@ psql_db() {
   psql --no-psqlrc --set ON_ERROR_STOP=1 --dbname="$database" "$@"
 }
 
+# Each SQL fixture is a separate transaction-scoped test unit. If one fails,
+# psql closes its connection and PostgreSQL rolls that fixture's transaction
+# back; independent fixtures can then still run against the unchanged disposable
+# baseline. Migration/setup failures above remain fail-fast because later work
+# depends on them.
+fixture_failures=()
+fixture_count=0
+run_sql_fixture() {
+  local label="$1"
+  local fixture="$2"
+  local log_file="$tmp_dir/fixture-${fixture_count}-$(basename "$fixture").log"
+  local status=0
+  fixture_count=$((fixture_count + 1))
+  echo "FIXTURE — ${label} (${fixture})"
+  if psql_db "$state_c" --file="$fixture" >"$log_file" 2>&1; then
+    cat "$log_file"
+    echo "FIXTURE PASSED — ${label}"
+  else
+    status=$?
+    cat "$log_file"
+    local sql_error
+    sql_error="$(grep -E '^psql:.*:[0-9]+: (ERROR|FATAL|PANIC):' "$log_file" | head -n 1 || true)"
+    if [[ -z "$sql_error" ]]; then sql_error="psql exited ${status}; see preceding fixture output"; fi
+    fixture_failures+=("${label}: ${sql_error}")
+    echo "FIXTURE FAILED — ${label} (exit ${status})" >&2
+  fi
+}
+
 cleanup() {
   local status=$?
   for database in "${databases[@]}"; do
@@ -122,10 +150,22 @@ psql_db "$state_c" --file=supabase/migrations/2026-12-29-pgcrypto-schema-qualifi
 psql_db "$state_c" --file=supabase/migrations/2026-12-30-club-station-password-reauth.sql
 psql_db "$state_c" --file=supabase/migrations/2026-12-30-member-account-readiness-and-cash-evidence.sql
 psql_db "$state_c" --file=supabase/migrations/2026-12-31-cash-membership-period-and-anniversary-safety.sql
-psql_db "$state_c" --file=tests/sql/member-household-billing-lifecycle.sql
-psql_db "$state_c" --file=tests/sql/notification-outbox-launch.sql
-psql_db "$state_c" --file=tests/sql/notification-generation-launch.sql
-psql_db "$state_c" --file=tests/sql/staff-owner-transfer.sql
-psql_db "$state_c" --file=tests/sql/club-station-pin-reauth.sql
-psql_db "$state_c" --file=tests/sql/active-sports-import-v2.sql
-echo "ACTIVE SPORTS IMPORT RPC PASSED"
+
+# These fixtures have separate synthetic identities and each owns a BEGIN /
+# ROLLBACK boundary. Continue across independent fixture files so one SQL
+# failure cannot hide diagnostics from the rest of the disposable test suite.
+run_sql_fixture "Household billing lifecycle" tests/sql/member-household-billing-lifecycle.sql
+run_sql_fixture "Notification outbox permissions and retry" tests/sql/notification-outbox-launch.sql
+run_sql_fixture "Notification generation" tests/sql/notification-generation-launch.sql
+run_sql_fixture "Staff owner transfer" tests/sql/staff-owner-transfer.sql
+run_sql_fixture "Club station PIN reauthentication" tests/sql/club-station-pin-reauth.sql
+run_sql_fixture "Active Sports import RPC" tests/sql/active-sports-import-v2.sql
+
+if ((${#fixture_failures[@]})); then
+  echo "POSTGRES FIXTURE FAILURE SUMMARY (${#fixture_failures[@]} failed):" >&2
+  for fixture_failure in "${fixture_failures[@]}"; do
+    echo " - ${fixture_failure}" >&2
+  done
+  exit 1
+fi
+echo "ALL DISPOSABLE POSTGRES FIXTURES PASSED"
