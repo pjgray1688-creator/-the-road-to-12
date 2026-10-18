@@ -93,6 +93,9 @@ fi
 psql_db "$state_c" --file=tests/sql/nutrition-reconciliation-catalog.sql
 echo "STATE C AND RERUN PASSED; all nine Nutrition-table fingerprints are unchanged"
 
+echo "MEMBERSHIPS — apply paid-provider and recurring-coverage prerequisites"
+psql_db "$state_c" --file=supabase/migrations/2026-12-01-paid-member-provider-checkout.sql
+psql_db "$state_c" --file=supabase/migrations/2026-12-02-gocardless-recurring-collections.sql
 echo "CLUB ACCESS — apply real member import/access and PIN/QR prerequisites"
 psql_db "$state_c" --file=supabase/migrations/2026-12-03-member-import-and-access.sql
 psql_db "$state_c" --file=supabase/migrations/2026-12-04-member-pin-qr-access-pass.sql
