@@ -214,14 +214,16 @@ export async function ensureStaffCustomerBalanceAction(input: { organisationId: 
   } catch { return { ok: false, error: "Balance details could not be loaded." }; }
 }
 
-export async function recordMembershipCashPaymentAction(input: { organisationId: string; obligationId: string; locationId: string; amountMinor: number; currency?: string; idempotencyKey?: string }): Promise<{ ok: true } | { ok: false; error: string }> {
+export async function recordMembershipCashPaymentAction(input: { organisationId: string; obligationId: string; locationId: string; amountMinor: number; currency?: string; idempotencyKey?: string; receiptDate: string; billingPeriodStart: string; billingPeriodEnd: string; paidThroughDate: string; verificationNote: string }): Promise<{ ok: true; coverageNeedsReview: boolean } | { ok: false; error: string }> {
   try {
     const value = await context(input.organisationId);
     if (!value || !input.obligationId || !input.locationId || !Number.isInteger(input.amountMinor) || input.amountMinor <= 0 || !(await value.repository.hasCapability(value.organisation.id, value.userId, "payments.record_cash"))) return { ok: false, error: "You don’t have permission to record membership cash." };
-    const { error } = await (await serverSupabase()).rpc("club_record_membership_cash_payment", { p_organisation_id: value.organisation.id, p_obligation_id: input.obligationId, p_location_id: input.locationId, p_amount_minor: input.amountMinor, p_currency: input.currency ?? "GBP", p_idempotency_key: input.idempotencyKey?.trim() || crypto.randomUUID() });
+    if (!input.receiptDate || !input.billingPeriodStart || !input.billingPeriodEnd || !input.paidThroughDate || input.verificationNote.trim().length < 3) return { ok: false, error: "Record the received date, billing period, paid-through date and verification note." };
+    const { data, error } = await (await serverSupabase()).rpc("club_record_verified_membership_cash_payment", { p_organisation_id: value.organisation.id, p_obligation_id: input.obligationId, p_location_id: input.locationId, p_amount_minor: input.amountMinor, p_currency: input.currency ?? "GBP", p_idempotency_key: input.idempotencyKey?.trim() || crypto.randomUUID(), p_receipt_date: input.receiptDate, p_billing_period_start: input.billingPeriodStart, p_billing_period_end: input.billingPeriodEnd, p_paid_through_date: input.paidThroughDate, p_verification_note: input.verificationNote.trim() });
     if (error) return { ok: false, error: "Membership cash payment could not be recorded." };
     revalidatePath("/club/members"); revalidatePath("/club/membership-billing"); revalidatePath("/club/payments"); revalidatePath("/club");
-    return { ok: true };
+    const result = data && typeof data === "object" ? data as { coverageNeedsReview?: unknown } : {};
+    return { ok: true, coverageNeedsReview: result.coverageNeedsReview === true };
   } catch { return { ok: false, error: "Membership cash payment could not be recorded." }; }
 }
 

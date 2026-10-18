@@ -72,6 +72,22 @@ export async function resendMemberActivationAction(input: { organisationId: stri
   } catch { return { ok: false, error: "Activation could not be queued." }; }
 }
 
+export async function verifyMemberPersonalEmailAction(input: { organisationId: string; customerId: string; email: string; method: "in_person" | "member_confirmed"; note: string }): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const supabase = await serverSupabase();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { ok: false, error: "Sign in to verify a member email." };
+    const context = await resolveClubOperationalContext(supabase, user.id, input.organisationId);
+    if (!context || !(await context.repository.hasCapability(context.organisation.id, user.id, "members.link_account"))) return { ok: false, error: "You don’t have permission to verify member emails." };
+    if (!input.email.trim().includes("@") || input.note.trim().length < 8) return { ok: false, error: "Enter the member’s own email and how they confirmed control of it." };
+    const { error } = await supabase.rpc("club_verify_member_personal_email", { p_organisation_id: context.organisation.id, p_customer_id: input.customerId, p_email: input.email.trim(), p_method: input.method, p_note: input.note.trim() });
+    if (error) return { ok: false, error: "Email verification could not be recorded. Confirm the address matches this member’s current record." };
+    revalidatePath(`/club/members/customer/${encodeURIComponent(input.customerId)}?org=${encodeURIComponent(context.organisation.id)}`);
+    revalidatePath(`/club/members/import?org=${encodeURIComponent(context.organisation.id)}`);
+    return { ok: true };
+  } catch { return { ok: false, error: "Email verification could not be recorded." }; }
+}
+
 export async function endMembershipAction(input: { organisationId: string; membershipId: string; effectiveAt?: string; status?: "cancelled" | "expired" }): Promise<ActionResult> {
   try {
     const supabase = await serverSupabase(); const { data: { user } } = await supabase.auth.getUser();

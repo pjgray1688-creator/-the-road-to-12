@@ -44,6 +44,13 @@ test("arrangements produce immutable, deterministic billing periods", () => {
   assert.equal(nextBillingDate(september, "annual")?.toISOString(), "2027-09-30T09:00:00.000Z");
   assert.equal(nextBillingDate(september, "other"), null);
   assert.equal(nextBillingDate(new Date("2026-01-31T09:00:00Z"), "monthly")?.toISOString(), "2026-02-28T09:00:00.000Z");
+  const jan31 = new Date("2024-01-31T10:00:00Z");
+  const febLeap = nextBillingDate(jan31, "monthly", null, 31)!;
+  assert.equal(febLeap.toISOString(), "2024-02-29T10:00:00.000Z");
+  assert.equal(nextBillingDate(febLeap, "monthly", null, 31)?.toISOString(), "2024-03-31T10:00:00.000Z");
+  const febNonLeap = nextBillingDate(new Date("2025-01-31T10:00:00Z"), "monthly", null, 31)!;
+  assert.equal(febNonLeap.toISOString(), "2025-02-28T10:00:00.000Z");
+  assert.equal(nextBillingDate(febNonLeap, "monthly", null, 31)?.toISOString(), "2025-03-31T10:00:00.000Z");
   assert.match(sql, /club_membership_billing_arrangements/);
   assert.match(sql, /unique \(organisation_id, membership_id\)/);
   assert.match(sql, /unique \(arrangement_id, period_key\)/);
