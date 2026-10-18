@@ -2,11 +2,24 @@
 begin;
 insert into public.club_organisations(id,name,slug) values
  ('30000000-0000-4000-8000-000000000001','Notification launch test','notification-launch-test');
+-- The readiness trigger only allows a member activation through when it maps
+-- to a real unlinked profile with a unique address (or explicit verification).
+-- Model the valid unique-address path so this fixture reaches the worker gate.
+insert into public.club_customers(id,organisation_id,user_id,display_name,email,status) values
+ ('30000000-0000-4000-8000-000000000013','30000000-0000-4000-8000-000000000001',null,'Unique activation member','member@example.test','member');
 insert into public.club_member_notification_intents(
-  id,organisation_id,user_id,target_email,category,template_key,state,idempotency_key,not_before,sender_purpose,payload
+  id,organisation_id,user_id,target_email,category,template_key,state,idempotency_key,not_before,sender_purpose,payload,related_type,related_id
 ) values
- ('30000000-0000-4000-8000-000000000011','30000000-0000-4000-8000-000000000001',null,'staff@example.test','staff','staff_invitation','pending','test-staff-invite',now()-interval '1 minute','staff','{}'),
- ('30000000-0000-4000-8000-000000000012','30000000-0000-4000-8000-000000000001',null,'member@example.test','member_service','member_activation','pending','test-member-activation',now(),'members','{}');
+ ('30000000-0000-4000-8000-000000000011','30000000-0000-4000-8000-000000000001',null,'staff@example.test','staff','staff_invitation','pending','test-staff-invite',now()-interval '1 minute','staff','{}','staff_access_grant','30000000-0000-4000-8000-000000000014'),
+ ('30000000-0000-4000-8000-000000000012','30000000-0000-4000-8000-000000000001',null,'member@example.test','member_service','member_activation','pending','test-member-activation',now(),'members','{}','customer','30000000-0000-4000-8000-000000000013');
+
+do $$
+begin
+  if (select state from public.club_member_notification_intents where id='30000000-0000-4000-8000-000000000012')<>'pending'
+     or (select target_email from public.club_member_notification_intents where id='30000000-0000-4000-8000-000000000012')<>'member@example.test' then
+    raise exception 'Outbox gate fixture was rejected by member activation recipient-safety checks';
+  end if;
+end $$;
 
 -- Only the service role may claim worker messages. Exercise authenticated and
 -- anonymous role claims before the authorised worker call below.
@@ -60,17 +73,18 @@ select set_config('request.jwt.claim.sub','',true);
 select set_config('request.jwt.claim.role','',true);
 select set_config('request.jwt.claims','{}',true);
 
--- Outbox tables are intentionally not directly readable by application roles.
--- Inspect persisted state as the disposable test owner, not by granting the
--- simulated worker role broader table access.
+-- The unique-member intent is deliberately left pending by p_include=false;
+-- this emulates R12_MEMBER_ACTIVATION_EMAILS_ENABLED=false at the claim RPC
+-- boundary. Inspect as the disposable owner, never by broadening table grants.
 do $$
 begin
   if (select state from public.club_member_notification_intents where id='30000000-0000-4000-8000-000000000012')<>'pending' then
-    raise exception 'Member activation was claimed before its explicit release';
+    raise exception 'Member activation was claimed while the activation release flag was false';
   end if;
 end $$;
 
 set local role service_role;
+select set_config('request.jwt.claim.role','service_role',true);
 do $$
 begin
   perform public.club_fail_notification_intent('30000000-0000-4000-8000-000000000011','smtp_451','Temporary relay rejection',now(),'failed');
@@ -88,6 +102,7 @@ begin
 end $$;
 
 set local role service_role;
+select set_config('request.jwt.claim.role','service_role',true);
 do $$
 begin
   if (select count(*) from public.club_claim_notification_intents_for_worker(100,'ci-notification-worker-retry',false))<>1 then

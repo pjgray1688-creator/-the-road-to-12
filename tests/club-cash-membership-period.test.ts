@@ -7,6 +7,7 @@ const fixture = readFileSync("tests/sql/member-household-billing-lifecycle.sql",
 const postgresHarness = readFileSync("scripts/validate-coach-nutrition-reconciliation-postgres.sh", "utf8");
 const action = readFileSync("app/club/shop/actions.ts", "utf8");
 const component = readFileSync("components/club-membership-cash-payment.tsx", "utf8");
+const accessSafetyFix = readFileSync("supabase/migrations/2027-01-01-club-access-safety-empty-booking-fix.sql", "utf8");
 
 test("cash settlement records received date, scheduled billing period and paid-through date separately", () => {
   assert.match(migration, /drop constraint if exists club_membership_billing_arrangement_payment_method_family_check/);
@@ -111,4 +112,13 @@ test("disposable PostgreSQL harness reports independent fixture failures togethe
   ].map(label => postgresHarness.indexOf(`run_sql_fixture "${label}"`));
   assert.ok(fixtureCalls.every(position => position >= 0), "each independent SQL fixture should be run through aggregated diagnostics");
   assert.deepEqual(fixtureCalls, [...fixtureCalls].sort((a, b) => a - b), "fixture execution order should remain deterministic");
+});
+
+test("access safety facts safely return an absent booking before and after the booking lookup path", () => {
+  assert.match(accessSafetyFix, /booking_row public\.club_induction_bookings%rowtype/);
+  assert.match(accessSafetyFix, /security definer set search_path=pg_catalog,public/);
+  assert.match(accessSafetyFix, /'inductionBooking',case when booking_row\.id is null then null/);
+  assert.doesNotMatch(accessSafetyFix, /grant execute on function public\.club_access_safety_facts/);
+  assert.match(fixture, /Optional induction booking should be null when no induction policy exists/);
+  assert.match(fixture, /Required induction without a booking did not return a safe null booking\/due state/);
 });

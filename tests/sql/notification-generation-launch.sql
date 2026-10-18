@@ -5,6 +5,8 @@ insert into public.club_organisations(id,name,slug) values
  ('30000000-0000-4000-8000-000000000002','Notification generation test','notification-generation-test');
 insert into auth.users(id,email) values
  ('30000000-0000-4000-8000-000000000021','existing-staff@example.test');
+insert into public.club_customers(id,organisation_id,user_id,display_name,email,status) values
+ ('30000000-0000-4000-8000-000000000043','30000000-0000-4000-8000-000000000002',null,'Unique activation member','member@example.test','member');
 
 -- A staff invitation is email-addressed whether or not the recipient already
 -- has an R12 Auth account. Member activation is also intentionally unlinked.
@@ -37,6 +39,14 @@ begin
   if (select count(*) from public.club_membership_billing_obligations
       where organisation_id='30000000-0000-4000-8000-000000000002')<>0 then
     raise exception 'Zero-obligation generation fixture unexpectedly has billing rows';
+  end if;
+end $$;
+
+do $$
+begin
+  if (select state from public.club_member_notification_intents where id='30000000-0000-4000-8000-000000000033')<>'pending'
+     or (select target_email from public.club_member_notification_intents where id='30000000-0000-4000-8000-000000000033')<>'member@example.test' then
+    raise exception 'Generation fixture recipient failed the member activation safety guard before generation';
   end if;
 end $$;
 
@@ -99,7 +109,7 @@ begin
   if not exists(select 1 from public.club_member_notification_intents where id='30000000-0000-4000-8000-000000000031' and target_email='new-staff@example.test' and user_id is null)
      or not exists(select 1 from public.club_member_notification_intents where id='30000000-0000-4000-8000-000000000032' and target_email='existing-staff@example.test' and user_id='30000000-0000-4000-8000-000000000021')
      or not exists(select 1 from public.club_member_notification_intents where id='30000000-0000-4000-8000-000000000033' and target_email='member@example.test' and template_key='member_activation' and user_id is null) then
-    raise exception 'Staff invite or member activation recipient was changed by generation';
+    raise exception 'Staff invite or eligible member activation recipient was changed during generation';
   end if;
 end $$;
 

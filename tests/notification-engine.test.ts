@@ -49,7 +49,7 @@ test("notification outbox fixture keeps direct table inspection under the dispos
     }
   }
   for (const id of ["30000000-0000-4000-8000-000000000011", "30000000-0000-4000-8000-000000000012"]) {
-    const queryIndex = notificationOutboxFixtureSql.indexOf(`state from public.club_member_notification_intents where id='${id}'`);
+    const queryIndex = notificationOutboxFixtureSql.lastIndexOf(`state from public.club_member_notification_intents where id='${id}'`);
     assert.ok(queryIndex >= 0, `privileged state assertion exists for ${id}`);
     const lastRoleSwitch = Math.max(
       notificationOutboxFixtureSql.lastIndexOf("set local role", queryIndex),
@@ -61,6 +61,19 @@ test("notification outbox fixture keeps direct table inspection under the dispos
   }
   assert.equal((notificationOutboxFixtureSql.match(/reset role;\s*select set_config\('request\.jwt\.claim\.sub','',true\);\s*select set_config\('request\.jwt\.claim\.role','',true\);\s*select set_config\('request\.jwt\.claims','\{\}',true\);/g) ?? []).length, 5);
   assert.match(notificationOutboxFixtureSql, /ci-notification-worker-retry[\s\S]*?ci-notification-worker-release[\s\S]*?member activation claimable/);
+  assert.match(notificationOutboxFixtureSql, /Unique activation member/);
+  assert.match(notificationOutboxFixtureSql, /related_type,related_id[\s\S]*?member_activation/);
+  assert.match(notificationOutboxFixtureSql, /Default claim should process staff mail but hold member activation/);
+  assert.match(notificationOutboxFixtureSql, /Explicit release did not make the member activation claimable/);
+  assert.equal((notificationOutboxFixtureSql.match(/set local role service_role;\s*select set_config\('request\.jwt\.claim\.role','service_role',true\);\s*do \$\$/g) ?? []).length, 3, "every service-only RPC block must set the actual Supabase JWT claim, not only SET ROLE");
+});
+
+test("notification generation fixture models a valid unique member recipient before asserting generator integrity", () => {
+  assert.match(notificationGenerationFixtureSql, /Unique activation member/);
+  assert.match(notificationGenerationFixtureSql, /member_activation'[\s\S]*?'customer','30000000-0000-4000-8000-000000000043'/);
+  assert.match(notificationGenerationFixtureSql, /target_email='member@example\.test' and template_key='member_activation'/);
+  assert.match(route, /p_include_member_activation: process\.env\.R12_MEMBER_ACTIVATION_EMAILS_ENABLED === "true"/);
+  assert.match(launchSupportSql, /p_include_member_activation or template_key<>'member_activation'/);
 });
 
 test("the existing notification intent table becomes the durable provider-neutral outbox", () => {
@@ -151,7 +164,7 @@ test("notification generation fixture separates worker roles from privileged set
   assert.match(notificationGenerationFixtureSql, /set local role service_role;\s*select set_config\('request\.jwt\.claim\.role','service_role',true\);\s*do \$\$ begin[\s\S]*?auth\.role\(\)<>'service_role'[\s\S]*?perform public\.club_generate_notification_intents\(\);[\s\S]*?end \$\$;\s*reset role;/);
   assert.match(notificationGenerationFixtureSql, /reset role;\s*select set_config\('request\.jwt\.claim\.sub','',true\);\s*select set_config\('request\.jwt\.claim\.role','',true\);\s*select set_config\('request\.jwt\.claims','\{\}',true\);\s*\n\s*do \$\$/);
   assert.match(notificationGenerationFixtureSql, /Missing optional Auth lookup unexpectedly returned an email/);
-  assert.match(notificationGenerationFixtureSql, /member activation recipient was changed by generation/);
+  assert.match(notificationGenerationFixtureSql, /eligible member activation recipient was changed during generation/);
   assert.match(notificationGenerationFixtureSql, /Monthly dunning generation was not idempotent/);
   assert.match(notificationGenerationFixtureSql, /insert into public\.club_membership_holders\(organisation_id,membership_id,user_id\)\s*values\('30000000-0000-4000-8000-000000000002','30000000-0000-4000-8000-000000000052','30000000-0000-4000-8000-000000000021'\)/);
   assert.equal((notificationGenerationFixtureSql.match(/reset role;\s*select set_config\('request\.jwt\.claim\.sub','',true\);\s*select set_config\('request\.jwt\.claim\.role','',true\);\s*select set_config\('request\.jwt\.claims','\{\}',true\);/g) ?? []).length, 4);

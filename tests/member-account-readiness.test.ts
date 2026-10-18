@@ -134,6 +134,9 @@ test("readiness migration is in the deployment manifest and disposable PostgreSQ
   assert.ok(manifest.indexOf("2026-12-30-member-account-readiness-and-cash-evidence.sql") < manifest.indexOf("2026-12-31-cash-membership-period-and-anniversary-safety.sql"));
   assert.ok(harness.indexOf("2026-12-30-member-account-readiness-and-cash-evidence.sql") < harness.indexOf("2026-12-31-cash-membership-period-and-anniversary-safety.sql"));
   assert.ok(harness.indexOf("2026-12-31-cash-membership-period-and-anniversary-safety.sql") < harness.indexOf("tests/sql/member-household-billing-lifecycle.sql"));
+  assert.ok(manifest.indexOf("2026-12-31-cash-membership-period-and-anniversary-safety.sql") < manifest.indexOf("2027-01-01-club-access-safety-empty-booking-fix.sql"));
+  assert.ok(harness.indexOf("2026-12-31-cash-membership-period-and-anniversary-safety.sql") < harness.indexOf("2027-01-01-club-access-safety-empty-booking-fix.sql"));
+  assert.ok(harness.indexOf("2027-01-01-club-access-safety-empty-booking-fix.sql") < harness.indexOf("tests/sql/member-household-billing-lifecycle.sql"));
   assert.match(cashMigration, /billing_period_start date/);
   assert.match(cashMigration, /billing_period_end date/);
   assert.match(cashMigration, /club_membership_anniversary\(a\.next_due_at/);

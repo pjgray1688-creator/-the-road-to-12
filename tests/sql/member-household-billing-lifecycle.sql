@@ -295,15 +295,45 @@ end $$;
 
 -- Verify home location is only a preference: both members are eligible at
 -- both active venues via the same organisation-wide membership grant.
+-- The internal safety facts are also called with no induction policy. Its
+-- optional booking result must be JSON null even though the booking lookup
+-- branch was never entered (the production regression path).
 do $$
 declare facts jsonb; holder uuid; venue uuid;
 begin
+ select public.club_access_safety_facts('40000000-0000-4000-8000-000000000010','40000000-0000-4000-8000-000000000020','40000000-0000-4000-8000-000000000011',now()) into facts;
+ if facts->'inductionBooking' is distinct from 'null'::jsonb then
+  raise exception 'Optional induction booking should be null when no induction policy exists: %',facts;
+ end if;
  foreach holder in array array['40000000-0000-4000-8000-000000000002'::uuid,'40000000-0000-4000-8000-000000000003'::uuid] loop
   for venue in select id from public.club_locations where organisation_id='40000000-0000-4000-8000-000000000010' order by id loop
    select public.club_access_safety_facts('40000000-0000-4000-8000-000000000010',case when holder='40000000-0000-4000-8000-000000000002' then '40000000-0000-4000-8000-000000000020'::uuid else '40000000-0000-4000-8000-000000000021'::uuid end,venue,now()) into facts;
    if coalesce((facts->>'membershipEligible')::boolean,false) is not true then raise exception 'Home preference incorrectly restricted attendance at venue % for holder %: %',venue,holder,facts; end if;
   end loop;
  end loop;
+end $$;
+
+-- Exercise the separate required-induction path with no booking row. This
+-- reaches SELECT INTO booking_row, but must still return a null booking.
+insert into public.club_induction_policies(
+ id,organisation_id,requirement,grace_days,overdue_access,appointment_extension_enabled,
+ requires_reacknowledgement,active,created_by
+) values (
+ '40000000-0000-4000-8000-000000000070','40000000-0000-4000-8000-000000000010',
+ 'in_person',30,'hold',true,false,true,'40000000-0000-4000-8000-000000000001'
+);
+insert into public.club_induction_versions(id,policy_id,organisation_id,version,status,effective_at,published_at)
+values (
+ '40000000-0000-4000-8000-000000000071','40000000-0000-4000-8000-000000000070',
+ '40000000-0000-4000-8000-000000000010',1,'published',now()-interval '1 day',now()-interval '1 day'
+);
+do $$
+declare facts jsonb;
+begin
+ facts:=public.club_access_safety_facts('40000000-0000-4000-8000-000000000010','40000000-0000-4000-8000-000000000020','40000000-0000-4000-8000-000000000011',now());
+ if facts->'inductionBooking' is distinct from 'null'::jsonb or facts->>'inductionState'<>'due' then
+  raise exception 'Required induction without a booking did not return a safe null booking/due state: %',facts;
+ end if;
 end $$;
 
 -- Expired and cancelled cash memberships may record auditable receipt evidence,

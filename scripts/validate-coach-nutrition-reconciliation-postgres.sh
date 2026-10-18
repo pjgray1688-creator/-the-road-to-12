@@ -150,6 +150,7 @@ psql_db "$state_c" --file=supabase/migrations/2026-12-29-pgcrypto-schema-qualifi
 psql_db "$state_c" --file=supabase/migrations/2026-12-30-club-station-password-reauth.sql
 psql_db "$state_c" --file=supabase/migrations/2026-12-30-member-account-readiness-and-cash-evidence.sql
 psql_db "$state_c" --file=supabase/migrations/2026-12-31-cash-membership-period-and-anniversary-safety.sql
+psql_db "$state_c" --file=supabase/migrations/2027-01-01-club-access-safety-empty-booking-fix.sql
 
 # These fixtures have separate synthetic identities and each owns a BEGIN /
 # ROLLBACK boundary. Continue across independent fixture files so one SQL
