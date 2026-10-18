@@ -122,7 +122,8 @@ test("readiness migration is in the deployment manifest and disposable PostgreSQ
   assert.ok(harness.indexOf("2026-12-30-club-station-password-reauth.sql") < harness.indexOf("2026-12-30-member-account-readiness-and-cash-evidence.sql"));
   assert.ok(harness.indexOf("2026-12-30-member-account-readiness-and-cash-evidence.sql") < harness.indexOf("tests/sql/member-household-billing-lifecycle.sql"));
   assert.ok(harness.indexOf("tests/sql/member-household-billing-lifecycle.sql") < harness.indexOf("tests/sql/notification-outbox-launch.sql"));
-  assert.match(householdFixture, /payment_failed/);
+  assert.match(householdFixture, /Missed cash renewal did not enter grace/);
+  assert.doesNotMatch(householdFixture, /club_ingest_membership_payment_event/);
   assert.match(householdFixture, /club_evaluate_membership_billing/);
   assert.match(householdFixture, /household-cash-recovery/);
   assert.match(householdFixture, /club_record_verified_membership_cash_payment/);

@@ -108,10 +108,16 @@ select set_config('request.jwt.claim.sub','40000000-0000-4000-8000-000000000001'
 select set_config('request.jwt.claim.role','authenticated',true);
 set local role authenticated;
 do $$
-declare obligation_id uuid; due_at timestamptz; period_start date; period_end date; boundary timestamptz; result jsonb;
+declare obligation_id uuid; due_at timestamptz; period_start date; period_end date; result jsonb; billing_item jsonb;
 begin
-  select id,next_due_at,(coverage_start_at at time zone 'UTC')::date,(coverage_end_at at time zone 'UTC')::date-1
-  into obligation_id,due_at,period_start,period_end from public.club_membership_billing_obligations where id='40000000-0000-4000-8000-000000000068';
+  select item.value into billing_item
+  from jsonb_array_elements(public.club_list_customer_billing('40000000-0000-4000-8000-000000000010','40000000-0000-4000-8000-000000000022')) item(value)
+  where item.value->>'id'='40000000-0000-4000-8000-000000000068';
+  if billing_item is null then raise exception 'Authorised billing projection did not return the scheduled January period'; end if;
+  obligation_id:=(billing_item->>'id')::uuid;
+  due_at:=(billing_item->>'next_due_at')::timestamptz;
+  period_start:=((billing_item->>'coverage_start_at')::timestamptz at time zone 'UTC')::date;
+  period_end:=((billing_item->>'coverage_end_at')::timestamptz at time zone 'UTC')::date-1;
   if period_start<>date '2024-01-31' or period_end<>date '2024-02-28' then raise exception 'January month-end period was not represented correctly'; end if;
   result:=public.club_record_verified_membership_cash_payment('40000000-0000-4000-8000-000000000010',obligation_id,'40000000-0000-4000-8000-000000000011',2500,'GBP','cash-early-jan',date '2024-01-30',period_start,period_end,period_end,'Synthetic early cash receipt');
   begin
@@ -119,26 +125,39 @@ begin
     raise exception 'Idempotent cash receipt accepted conflicting verification evidence';
   exception when unique_violation then null; end;
   result:=public.club_record_verified_membership_cash_payment('40000000-0000-4000-8000-000000000010',obligation_id,'40000000-0000-4000-8000-000000000011',2500,'GBP','cash-early-jan',date '2024-01-30',period_start,period_end,period_end,'Synthetic early cash receipt');
-  if (select next_due_at from public.club_membership_billing_arrangements where id='40000000-0000-4000-8000-000000000067')<>timestamptz '2024-02-29 10:00:00+00' then raise exception 'Jan 31 leap-year anniversary did not land on Feb 29'; end if;
-  select id,next_due_at,(coverage_start_at at time zone 'UTC')::date,(coverage_end_at at time zone 'UTC')::date-1
-  into obligation_id,due_at,period_start,period_end from public.club_membership_billing_obligations
-  where arrangement_id='40000000-0000-4000-8000-000000000067' and next_due_at=timestamptz '2024-02-29 10:00:00+00';
+  if not exists(select 1 from jsonb_array_elements(public.club_list_customer_billing('40000000-0000-4000-8000-000000000010','40000000-0000-4000-8000-000000000022')) item(value)
+    where item.value->>'membership_id'='40000000-0000-4000-8000-000000000045' and (item.value->>'next_due_at')::timestamptz=timestamptz '2024-02-29 10:00:00+00') then raise exception 'Jan 31 leap-year anniversary did not land on Feb 29'; end if;
+  select item.value into billing_item from jsonb_array_elements(public.club_list_customer_billing('40000000-0000-4000-8000-000000000010','40000000-0000-4000-8000-000000000022')) item(value)
+  where item.value->>'membership_id'='40000000-0000-4000-8000-000000000045' and (item.value->>'next_due_at')::timestamptz=timestamptz '2024-02-29 10:00:00+00';
+  obligation_id:=(billing_item->>'id')::uuid;
+  due_at:=(billing_item->>'next_due_at')::timestamptz;
+  period_start:=((billing_item->>'coverage_start_at')::timestamptz at time zone 'UTC')::date;
+  period_end:=((billing_item->>'coverage_end_at')::timestamptz at time zone 'UTC')::date-1;
   if period_start<>date '2024-02-29' or period_end<>date '2024-03-30' then raise exception 'Leap-day monthly period was not represented correctly'; end if;
   result:=public.club_record_verified_membership_cash_payment('40000000-0000-4000-8000-000000000010',obligation_id,'40000000-0000-4000-8000-000000000011',2500,'GBP','cash-on-time-feb',date '2024-02-29',period_start,period_end,period_end,'Synthetic on-time cash receipt');
-  if (select next_due_at from public.club_membership_billing_arrangements where id='40000000-0000-4000-8000-000000000067')<>timestamptz '2024-03-31 10:00:00+00' then raise exception 'Leap-day payment lost the original 31st anniversary'; end if;
-  select id,next_due_at,(coverage_start_at at time zone 'UTC')::date,(coverage_end_at at time zone 'UTC')::date-1
-  into obligation_id,due_at,period_start,period_end from public.club_membership_billing_obligations
-  where arrangement_id='40000000-0000-4000-8000-000000000067' and next_due_at=timestamptz '2024-03-31 10:00:00+00';
+  if not exists(select 1 from jsonb_array_elements(public.club_list_customer_billing('40000000-0000-4000-8000-000000000010','40000000-0000-4000-8000-000000000022')) item(value)
+    where item.value->>'membership_id'='40000000-0000-4000-8000-000000000045' and (item.value->>'next_due_at')::timestamptz=timestamptz '2024-03-31 10:00:00+00') then raise exception 'Leap-day payment lost the original 31st anniversary'; end if;
+  select item.value into billing_item from jsonb_array_elements(public.club_list_customer_billing('40000000-0000-4000-8000-000000000010','40000000-0000-4000-8000-000000000022')) item(value)
+  where item.value->>'membership_id'='40000000-0000-4000-8000-000000000045' and (item.value->>'next_due_at')::timestamptz=timestamptz '2024-03-31 10:00:00+00';
+  obligation_id:=(billing_item->>'id')::uuid;
+  due_at:=(billing_item->>'next_due_at')::timestamptz;
+  period_start:=((billing_item->>'coverage_start_at')::timestamptz at time zone 'UTC')::date;
+  period_end:=((billing_item->>'coverage_end_at')::timestamptz at time zone 'UTC')::date-1;
   result:=public.club_record_verified_membership_cash_payment('40000000-0000-4000-8000-000000000010',obligation_id,'40000000-0000-4000-8000-000000000011',2500,'GBP','cash-late-mar',date '2024-05-15',period_start,period_end,period_end,'Synthetic late cash receipt after a missed month');
-  if (select next_due_at from public.club_membership_billing_arrangements where id='40000000-0000-4000-8000-000000000067')<>timestamptz '2024-04-30 10:00:00+00' then raise exception 'Late payment reset the contractual renewal date instead of advancing one scheduled period'; end if;
-  if exists(select 1 from public.club_membership_billing_obligations where arrangement_id='40000000-0000-4000-8000-000000000067' and next_due_at>timestamptz '2024-04-30 10:00:00+00') then raise exception 'A late receipt generated future obligations from its receipt date'; end if;
-  if (select count(*) from public.club_membership_billing_payments where obligation_id in (
-    select id from public.club_membership_billing_obligations where arrangement_id='40000000-0000-4000-8000-000000000067'
-  ))<>3 then raise exception 'Early, on-time and late receipts did not settle exactly three scheduled periods'; end if;
+  if not exists(select 1 from jsonb_array_elements(public.club_list_customer_billing('40000000-0000-4000-8000-000000000010','40000000-0000-4000-8000-000000000022')) item(value)
+    where item.value->>'membership_id'='40000000-0000-4000-8000-000000000045' and (item.value->>'next_due_at')::timestamptz=timestamptz '2024-04-30 10:00:00+00') then raise exception 'Late payment reset the contractual renewal date instead of advancing one scheduled period'; end if;
+  if exists(select 1 from jsonb_array_elements(public.club_list_customer_billing('40000000-0000-4000-8000-000000000010','40000000-0000-4000-8000-000000000022')) item(value)
+    where item.value->>'membership_id'='40000000-0000-4000-8000-000000000045' and (item.value->>'next_due_at')::timestamptz>timestamptz '2024-04-30 10:00:00+00') then raise exception 'A late receipt generated future obligations from its receipt date'; end if;
 end $$;
 reset role;
 select set_config('request.jwt.claim.sub','',true);
 select set_config('request.jwt.claim.role','',true);
+do $$
+begin
+ if (select count(*) from public.club_membership_billing_payments where obligation_id in (
+   select id from public.club_membership_billing_obligations where membership_id='40000000-0000-4000-8000-000000000045'
+ ))<>3 then raise exception 'Early, on-time and late receipts did not settle exactly three scheduled periods'; end if;
+end $$;
 
 -- Distinct payer membership and a holder with no email do not merge people.
 insert into public.club_memberships(id,organisation_id,product_id,status,starts_at,source,assignment_idempotency_key) values
@@ -168,18 +187,19 @@ begin
  exception when unique_violation then null; end;
 end $$;
 
--- A payment failure enters shared grace without creating a second obligation.
-set local role service_role;
-select set_config('request.jwt.claim.role','service_role',true);
-select public.club_ingest_membership_payment_event(
- '40000000-0000-4000-8000-000000000010','fixture','household-failed-1','payment_failed',
- '40000000-0000-4000-8000-000000000061',5000,'GBP',null,'declined',now()-interval '10 days');
+-- A missed cash renewal enters grace through the configured billing evaluator;
+-- cash is not represented as an asynchronous provider failure event.
+select set_config('request.jwt.claim.sub','40000000-0000-4000-8000-000000000001',true);
+select set_config('request.jwt.claim.role','authenticated',true);
+set local role authenticated;
+select public.club_evaluate_membership_billing('40000000-0000-4000-8000-000000000010',now()-interval '5 days');
 reset role;
+select set_config('request.jwt.claim.sub','',true);
 select set_config('request.jwt.claim.role','',true);
 
 do $$
 begin
- if (select state from public.club_membership_billing_obligations where id='40000000-0000-4000-8000-000000000061')<>'grace' then raise exception 'Payment failure did not enter grace'; end if;
+ if (select state from public.club_membership_billing_obligations where id='40000000-0000-4000-8000-000000000061')<>'grace' then raise exception 'Missed cash renewal did not enter grace'; end if;
  if (select count(*) from public.club_membership_billing_obligations where arrangement_id='40000000-0000-4000-8000-000000000060')<>1 then raise exception 'Payment failure duplicated the billing obligation'; end if;
  if (select count(*) from public.club_member_access_projection where organisation_id='40000000-0000-4000-8000-000000000010' and customer_id in ('40000000-0000-4000-8000-000000000020','40000000-0000-4000-8000-000000000021') and access_state='grace' and access_allowed)<>2 then raise exception 'Household holders did not share access during grace'; end if;
 end $$;
@@ -217,6 +237,24 @@ begin
  if (select access_allowed from public.club_member_access_projection where organisation_id='40000000-0000-4000-8000-000000000010' and customer_id='40000000-0000-4000-8000-000000000021') is distinct from true then raise exception 'Independent manual access override was lost to shared payment suspension'; end if;
 end $$;
 
+-- Remove the two independent access paths after proving each one works, so the
+-- recovery assertion below can prove that the household arrangement itself
+-- restores both holders rather than being masked by another entitlement.
+update public.club_memberships set status='expired',ends_at=now()-interval '1 second'
+where id='40000000-0000-4000-8000-000000000043';
+update public.club_entitlement_grants set starts_at=now()-interval '2 seconds',ends_at=now()-interval '1 second'
+where membership_id='40000000-0000-4000-8000-000000000043' and user_id='40000000-0000-4000-8000-000000000002';
+update public.club_entitlement_grants set starts_at=now()-interval '2 seconds',ends_at=now()-interval '1 second'
+where membership_id is null and user_id='40000000-0000-4000-8000-000000000003' and source='staff_override_fixture';
+select public.club_refresh_customer_access_projection('40000000-0000-4000-8000-000000000010','40000000-0000-4000-8000-000000000020');
+select public.club_refresh_customer_access_projection('40000000-0000-4000-8000-000000000010','40000000-0000-4000-8000-000000000021');
+do $$
+begin
+ if (select count(*) from public.club_member_access_projection where organisation_id='40000000-0000-4000-8000-000000000010' and customer_id in ('40000000-0000-4000-8000-000000000020','40000000-0000-4000-8000-000000000021') and access_state='action_required' and not access_allowed)<>2 then
+   raise exception 'Expired independent access paths masked household suspension';
+ end if;
+end $$;
+
 -- Recover the failed household cash period. It records the scheduled coverage
 -- period separately from the actual receipt/paid-through dates and restores all
 -- holders without creating a second obligation for the same period.
@@ -224,19 +262,24 @@ select set_config('request.jwt.claim.sub','40000000-0000-4000-8000-000000000001'
 select set_config('request.jwt.claim.role','authenticated',true);
 set local role authenticated;
 do $$
-declare result jsonb; period_start date; period_end date; boundary timestamptz; due_at timestamptz; anchor_day integer;
+declare result jsonb; period_start date; period_end date; boundary timestamptz; due_at timestamptz; anchor_day integer; billing_item jsonb;
 begin
- select o.next_due_at,coalesce(a.billing_anchor_day,extract(day from o.next_due_at at time zone 'UTC')::integer),
-   (coalesce(o.coverage_start_at,o.next_due_at) at time zone 'UTC')::date,
-   coalesce(o.coverage_end_at,public.club_membership_anniversary(o.next_due_at,coalesce(a.billing_anchor_day,extract(day from o.next_due_at at time zone 'UTC')::integer),1))
- into due_at,anchor_day,period_start,boundary
- from public.club_membership_billing_obligations o join public.club_membership_billing_arrangements a on a.id=o.arrangement_id
- where o.id='40000000-0000-4000-8000-000000000061';
+ select item.value into billing_item
+ from jsonb_array_elements(public.club_list_customer_billing('40000000-0000-4000-8000-000000000010','40000000-0000-4000-8000-000000000022')) item(value)
+ where item.value->>'id'='40000000-0000-4000-8000-000000000061';
+ if billing_item is null then raise exception 'Authorised billing projection did not return the household obligation'; end if;
+ due_at:=(billing_item->>'next_due_at')::timestamptz;
+ anchor_day:=(billing_item->>'billing_anchor_day')::integer;
+ period_start:=((coalesce(billing_item->>'coverage_start_at',billing_item->>'next_due_at'))::timestamptz at time zone 'UTC')::date;
+ boundary:=coalesce((billing_item->>'coverage_end_at')::timestamptz,
+   public.club_membership_anniversary(due_at,coalesce(anchor_day,extract(day from due_at at time zone 'UTC')::integer),1));
  period_end:=(boundary at time zone 'UTC')::date-1;
  result:=public.club_record_verified_membership_cash_payment('40000000-0000-4000-8000-000000000010','40000000-0000-4000-8000-000000000061','40000000-0000-4000-8000-000000000011',5000,'GBP','household-cash-recovery',current_date,period_start,period_end,greatest(current_date,period_end),'Synthetic verified household cash receipt');
  if result->>'coverageNeedsReview'='true' then raise exception 'Active household cash settlement unexpectedly requires reactivation review'; end if;
  result:=public.club_record_verified_membership_cash_payment('40000000-0000-4000-8000-000000000010','40000000-0000-4000-8000-000000000061','40000000-0000-4000-8000-000000000011',5000,'GBP','household-cash-recovery',current_date,period_start,period_end,greatest(current_date,period_end),'Synthetic verified household cash receipt');
- if (select next_due_at from public.club_membership_billing_arrangements where id='40000000-0000-4000-8000-000000000060') is distinct from public.club_membership_anniversary(due_at,anchor_day,1) then
+ if not exists(select 1 from jsonb_array_elements(public.club_list_customer_billing('40000000-0000-4000-8000-000000000010','40000000-0000-4000-8000-000000000022')) item(value)
+   where item.value->>'membership_id'='40000000-0000-4000-8000-000000000040'
+     and (item.value->>'next_due_at')::timestamptz=public.club_membership_anniversary(due_at,anchor_day,1)) then
    raise exception 'Cash receipt reset household renewal schedule from the received date';
  end if;
 end $$;
@@ -249,7 +292,7 @@ begin
  if exists(select 1 from public.club_membership_payment_access_suspensions where membership_id='40000000-0000-4000-8000-000000000040' and active) then raise exception 'Successful collection did not clear payment suspension'; end if;
  if (select count(*) from public.club_membership_billing_payments where obligation_id='40000000-0000-4000-8000-000000000061')<>1 then raise exception 'Repeated cash settlement duplicated payment evidence'; end if;
  if (select count(*) from public.club_membership_billing_obligations where arrangement_id='40000000-0000-4000-8000-000000000060')<>2 then raise exception 'Recovery did not create exactly one next-period obligation'; end if;
- if (select count(*) from public.club_member_access_projection where organisation_id='40000000-0000-4000-8000-000000000010' and customer_id in ('40000000-0000-4000-8000-000000000020','40000000-0000-4000-8000-000000000021') and access_allowed)<>2 then raise exception 'Recovered payment did not restore household coverage'; end if;
+ if (select count(*) from public.club_member_access_projection where organisation_id='40000000-0000-4000-8000-000000000010' and customer_id in ('40000000-0000-4000-8000-000000000020','40000000-0000-4000-8000-000000000021') and membership_id='40000000-0000-4000-8000-000000000040' and access_allowed)<>2 then raise exception 'Recovered payment did not restore household coverage for both holders'; end if;
  if not exists(select 1 from public.club_membership_billing_payments where provider_event_key='household-cash-recovery' and billing_period_start is not null and billing_period_end>=billing_period_start and receipt_date=current_date and paid_through_date>=receipt_date) then raise exception 'Household cash receipt did not retain distinct verified dates'; end if;
 end $$;
 
@@ -280,14 +323,28 @@ values
 select set_config('request.jwt.claim.sub','40000000-0000-4000-8000-000000000001',true);
 select set_config('request.jwt.claim.role','authenticated',true);
 set local role authenticated;
-do $$ declare result jsonb; period_start date; period_end date; boundary timestamptz; due_at timestamptz; anchor_day integer; begin
- select o.next_due_at,coalesce(a.billing_anchor_day,extract(day from o.next_due_at at time zone 'UTC')::integer),(coalesce(o.coverage_start_at,o.next_due_at) at time zone 'UTC')::date,coalesce(o.coverage_end_at,public.club_membership_anniversary(o.next_due_at,coalesce(a.billing_anchor_day,extract(day from o.next_due_at at time zone 'UTC')::integer),1)) into due_at,anchor_day,period_start,boundary from public.club_membership_billing_obligations o join public.club_membership_billing_arrangements a on a.id=o.arrangement_id where o.id='40000000-0000-4000-8000-000000000065';
+do $$ declare result jsonb; period_start date; period_end date; boundary timestamptz; due_at timestamptz; anchor_day integer; billing_item jsonb; begin
+ select item.value into billing_item
+ from jsonb_array_elements(public.club_list_customer_billing('40000000-0000-4000-8000-000000000010','40000000-0000-4000-8000-000000000024')) item(value)
+ where item.value->>'id'='40000000-0000-4000-8000-000000000065';
+ if billing_item is null then raise exception 'Authorised billing projection did not return expired membership period'; end if;
+ due_at:=(billing_item->>'next_due_at')::timestamptz;
+ anchor_day:=(billing_item->>'billing_anchor_day')::integer;
+ period_start:=((coalesce(billing_item->>'coverage_start_at',billing_item->>'next_due_at'))::timestamptz at time zone 'UTC')::date;
+ boundary:=coalesce((billing_item->>'coverage_end_at')::timestamptz,public.club_membership_anniversary(due_at,coalesce(anchor_day,extract(day from due_at at time zone 'UTC')::integer),1));
  period_end:=(boundary at time zone 'UTC')::date-1;
  result:=public.club_record_verified_membership_cash_payment('40000000-0000-4000-8000-000000000010','40000000-0000-4000-8000-000000000065','40000000-0000-4000-8000-000000000011',2500,'GBP','cash-expired-receipt',current_date,period_start,period_end,current_date+31,'Synthetic verified counter receipt');
  if result->>'coverageNeedsReview'<>'true' then raise exception 'Expired membership cash result did not require coverage review'; end if;
  result:=public.club_record_verified_membership_cash_payment('40000000-0000-4000-8000-000000000010','40000000-0000-4000-8000-000000000065','40000000-0000-4000-8000-000000000011',2500,'GBP','cash-expired-receipt',current_date,period_start,period_end,current_date+31,'Synthetic verified counter receipt');
  if result->>'coverageNeedsReview'<>'true' then raise exception 'Idempotent expired cash result did not require coverage review'; end if;
- select o.next_due_at,coalesce(a.billing_anchor_day,extract(day from o.next_due_at at time zone 'UTC')::integer),(coalesce(o.coverage_start_at,o.next_due_at) at time zone 'UTC')::date,coalesce(o.coverage_end_at,public.club_membership_anniversary(o.next_due_at,coalesce(a.billing_anchor_day,extract(day from o.next_due_at at time zone 'UTC')::integer),1)) into due_at,anchor_day,period_start,boundary from public.club_membership_billing_obligations o join public.club_membership_billing_arrangements a on a.id=o.arrangement_id where o.id='40000000-0000-4000-8000-000000000066';
+ select item.value into billing_item
+ from jsonb_array_elements(public.club_list_customer_billing('40000000-0000-4000-8000-000000000010','40000000-0000-4000-8000-000000000025')) item(value)
+ where item.value->>'id'='40000000-0000-4000-8000-000000000066';
+ if billing_item is null then raise exception 'Authorised billing projection did not return cancelled membership period'; end if;
+ due_at:=(billing_item->>'next_due_at')::timestamptz;
+ anchor_day:=(billing_item->>'billing_anchor_day')::integer;
+ period_start:=((coalesce(billing_item->>'coverage_start_at',billing_item->>'next_due_at'))::timestamptz at time zone 'UTC')::date;
+ boundary:=coalesce((billing_item->>'coverage_end_at')::timestamptz,public.club_membership_anniversary(due_at,coalesce(anchor_day,extract(day from due_at at time zone 'UTC')::integer),1));
  period_end:=(boundary at time zone 'UTC')::date-1;
  result:=public.club_record_verified_membership_cash_payment('40000000-0000-4000-8000-000000000010','40000000-0000-4000-8000-000000000066','40000000-0000-4000-8000-000000000012',2500,'GBP','cash-cancelled-receipt',current_date,period_start,period_end,current_date+31,'Synthetic verified counter receipt');
  if result->>'coverageNeedsReview'<>'true' then raise exception 'Cancelled membership cash result did not require coverage review'; end if;
@@ -314,6 +371,12 @@ end $$;
 -- Verify direct authenticated access to restricted cash evidence remains denied.
 set local role authenticated;
 do $$ begin
+ begin perform 1 from public.club_membership_billing_obligations where id='40000000-0000-4000-8000-000000000061';
+   raise exception 'Authenticated user directly read protected billing obligations';
+ exception when insufficient_privilege then null; end;
+ begin perform 1 from public.club_membership_billing_arrangements where id='40000000-0000-4000-8000-000000000060';
+   raise exception 'Authenticated user directly read protected billing arrangements';
+ exception when insufficient_privilege then null; end;
  begin perform 1 from public.club_membership_billing_payments where provider_event_key='cash-expired-receipt';
    raise exception 'Authenticated user directly read protected cash evidence';
  exception when insufficient_privilege then null; end;

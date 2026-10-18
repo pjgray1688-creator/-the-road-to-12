@@ -58,3 +58,30 @@ test("synthetic PostgreSQL lifecycle fixture covers household recovery, duplicat
     "rollback;",
   ]) assert.ok(fixture.includes(phrase), `household lifecycle fixture is missing ${phrase}`);
 });
+
+test("household SQL fixture keeps protected billing reads out of authenticated role except deliberate denials", () => {
+  let role = "database owner";
+  const restrictedReads: string[] = [];
+  const protectedTableAccess = /\b(?:from|join|update|insert\s+into|delete\s+from)\s+public\.club_membership_billing_(?:arrangements|obligations|payments)\b/i;
+
+  for (const [index, line] of fixture.split(/\r?\n/).entries()) {
+    if (/^\s*set local role authenticated\s*;/i.test(line)) role = "authenticated";
+    else if (/^\s*set local role service_role\s*;/i.test(line)) role = "service_role";
+    else if (/^\s*reset role\s*;/i.test(line)) role = "database owner";
+
+    if (role === "authenticated" && protectedTableAccess.test(line)) {
+      restrictedReads.push(`${index + 1}:${line.trim()}`);
+    }
+  }
+
+  assert.equal(restrictedReads.length, 3, `unexpected direct billing-table access under authenticated: ${restrictedReads.join(" | ")}`);
+  assert.match(restrictedReads[0], /billing_obligations/);
+  assert.match(restrictedReads[1], /billing_arrangements/);
+  assert.match(restrictedReads[2], /billing_payments/);
+  assert.equal(role, "database owner", "fixture must reset the session role before rollback");
+  assert.match(fixture, /Authenticated user directly read protected billing obligations/);
+  assert.match(fixture, /Authenticated user directly read protected billing arrangements/);
+  assert.match(fixture, /Authenticated user directly read protected cash evidence/);
+  assert.equal((fixture.match(/exception when insufficient_privilege then null; end;/g) ?? []).length, 3);
+  assert.match(fixture, /club_list_customer_billing\('40000000-0000-4000-8000-000000000010','40000000-0000-4000-8000-000000000022'\)/);
+});
