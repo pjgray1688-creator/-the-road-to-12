@@ -1,6 +1,21 @@
 -- Record the contractual billing period separately from receipt and paid-through
 -- dates. Never move a renewal anniversary based on when counter cash is entered.
 
+-- The original inline check's generated identifier was truncated to the
+-- singular `...arrangement...` form, while the cash migration's explicit
+-- plural identifier was truncated differently. Both checks can therefore
+-- coexist, leaving the old check to reject cash. Remove those exact legacy
+-- names and retain one concise check with the established allowlist.
+alter table public.club_membership_billing_arrangements
+  drop constraint if exists club_membership_billing_arrangement_payment_method_family_check;
+alter table public.club_membership_billing_arrangements
+  drop constraint if exists club_membership_billing_arrangements_payment_method_family_chec;
+alter table public.club_membership_billing_arrangements
+  drop constraint if exists club_member_billing_arrangement_method_family_check;
+alter table public.club_membership_billing_arrangements
+  add constraint club_member_billing_arrangement_method_family_check
+  check (payment_method_family in ('direct_debit','recurring_card','cash','other'));
+
 alter table public.club_membership_billing_arrangements
   add column if not exists billing_anchor_day integer check (billing_anchor_day is null or billing_anchor_day between 1 and 31);
 
