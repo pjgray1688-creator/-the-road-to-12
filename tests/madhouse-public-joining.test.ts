@@ -18,6 +18,21 @@ test("Madhouse public join actions are explicit and keep their safe R12 return r
   assert.doesNotMatch(joinPage,/href=["']\/club/);
 });
 
+test("a verified Auth user can discover the seeded Madhouse plan and start joining without prior staff or club membership",()=>{
+  const catalogue=readFileSync("supabase/migrations/2027-01-05-two-stripe-merchant-isolation.sql","utf8");
+  const seed=readFileSync("supabase/deployment/2027-01-06-hosted-stripe-test-seed.sql","utf8");
+  const start=catalogue.slice(catalogue.indexOf("create or replace function public.club_start_membership_joining_optional_home_location"),catalogue.indexOf("revoke all on function public.club_start_membership_joining_optional_home_location"));
+  assert.match(joinPage,/club_list_joinable_organisations/);
+  assert.match(joinPage,/club_list_joinable_memberships/);
+  assert.match(joinPage,/club_list_join_locations/);
+  assert.match(seed,/member_joinable\)[\s\S]*?true,true/);
+  assert.match(seed,/Stripe Launch Test Monthly/);
+  assert.match(seed,/:'monthly_price_minor'/);
+  assert.match(seed,/:'joining_fee_minor'/);
+  assert.match(start,/if auth\.uid\(\) is null then raise exception 'Authentication required'/);
+  assert.doesNotMatch(start,/exists\s*\(\s*select[^;]*from public\.club_members\s+where/);
+});
+
 test("join page has scoped premium desktop/mobile actions and readable form controls",()=>{
   assert.match(joinPage,/styles\.joinPage/);
   assert.match(joinStyles,/\.actions\{display:grid;grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);

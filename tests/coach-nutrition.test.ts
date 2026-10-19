@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
@@ -31,6 +32,17 @@ test("nutrition authorization distinguishes Primary plan ownership from Cover re
   assert.match(migration, /coachPrivateNotes.*case when p_include_private/);
   assert.match(migration, /draftPlan/);
   assert.match(migration, /owner_coach_user_id=auth\.uid\(\).*status='draft'/);
+});
+
+test("SQL-language nutrition authorization closes EXISTS before its terminal semicolon", () => {
+  const match = migration.match(/create or replace function public\.nutrition_can_read_client\(p_client_user_id uuid\)[\s\S]*?as \$\$([\s\S]*?)\$\$;/);
+  assert.ok(match, "nutrition_can_read_client SQL function body must be present");
+  const body = match[1].trim();
+  assert.match(body, /where a\.client_user_id=p_client_user_id and a\.coach_user_id=auth\.uid\(\) and a\.active\s*\)\s*;$/);
+  assert.doesNotMatch(body, /a\.active\s*;/);
+  assert.equal((body.match(/;/g) ?? []).length, 1, "SQL expression must have only its final semicolon");
+  const assembled = execFileSync("python3", ["scripts/hosted-test-migration-sql.py", "supabase/migrations/2026-11-27-coach-nutrition-accountability.sql", "supabase/migrations/2026-11-27-coach-nutrition-accountability.sql", "a".repeat(64)], { encoding: "utf8" });
+  assert.match(assembled, /where a\.client_user_id=p_client_user_id and a\.coach_user_id=auth\.uid\(\) and a\.active\s*\)\s*;\s*\$\$;/);
 });
 
 test("plan activation supersedes history atomically and daily check-ins retain first plan attribution", () => {

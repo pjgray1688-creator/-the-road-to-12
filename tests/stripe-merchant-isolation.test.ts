@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import { readStripeMerchantConfig } from "../lib/stripe-merchant";
 import { createStripeCommerceCheckoutSession } from "../lib/stripe-commerce-provider";
+import { appBaseUrlStatus } from "../lib/site-url";
 
 const migration = readFileSync("supabase/migrations/2027-01-05-two-stripe-merchant-isolation.sql", "utf8");
 const franchiseWebhook = readFileSync("app/api/webhooks/stripe/route.ts", "utf8");
@@ -33,6 +34,22 @@ test("merchant config requires separate entity-specific credentials and never fa
   assert.equal(readStripeMerchantConfig("madhouse_products_services", productsEnv).legalEntityNumber, "17383213");
   assert.throws(() => readStripeMerchantConfig("madhouse_franchise", productsEnv), /configuration is incomplete/);
   assert.throws(() => readStripeMerchantConfig("madhouse_products_services", { ...productsEnv, STRIPE_PRODUCTS_SERVICES_SECRET_KEY: "sk_live_wrong_mode" }), /does not match its configured mode/);
+});
+
+test("Stripe test credentials are allowed only on an explicit Vercel Preview and Preview return URLs stay on that deployment", () => {
+  const preview = {
+    NODE_ENV: "production", VERCEL_ENV: "preview", VERCEL_URL: "r12-launch-preview.vercel.app",
+    NEXT_PUBLIC_SITE_URL: "https://the-road-to-12.vercel.app",
+    STRIPE_FRANCHISE_SECRET_KEY: "sk_test_preview", STRIPE_FRANCHISE_WEBHOOK_SECRET: "whsec_preview",
+    STRIPE_FRANCHISE_ACCOUNT_ID: "acct_preview", STRIPE_FRANCHISE_MODE: "test",
+  } as NodeJS.ProcessEnv;
+  assert.equal(readStripeMerchantConfig("madhouse_franchise", preview).mode, "test");
+  assert.deepEqual(appBaseUrlStatus(preview), {
+    status: "configured", source: "VERCEL_URL", effectiveUrl: "https://r12-launch-preview.vercel.app",
+  });
+  assert.equal(appBaseUrlStatus({ ...preview, VERCEL_URL: "https://evil.example/path" }).status, "invalid");
+  assert.throws(() => readStripeMerchantConfig("madhouse_franchise", { ...preview, VERCEL_ENV: "production" }), /must use live mode/);
+  assert.throws(() => readStripeMerchantConfig("madhouse_franchise", { ...preview, VERCEL_ENV: undefined }), /must use live mode/);
 });
 
 test("local Stripe end-to-end helper is test-only, loopback-bound, and never links to hosted Supabase", () => {
