@@ -6,23 +6,23 @@ import { coachTutorialSteps, madhouseTutorialSteps, memberTutorialSteps, MEMBER_
 import { madhouseCatalogue } from "../lib/madhouse-catalogue";
 
 const migration = readFileSync("supabase/migrations/2026-11-19-madhouse-billing-and-tutorials.sql", "utf8");
+const stripeSubscriptions = readFileSync("supabase/migrations/2027-01-04-stripe-membership-subscriptions.sql", "utf8");
 const joinForm = readFileSync("components/club-joining-form.tsx", "utf8");
 const tutorial = readFileSync("components/tutorial-experience.tsx", "utf8");
 
-test("monthly Madhouse joining requires upfront card payment and recurring Direct Debit authority", () => {
+test("monthly Madhouse joining requires verified Stripe payment and subscription authority", () => {
   assert.equal(madhouseCheckoutKind({ priceMinor: 2700, billing: "recurring" }), "monthly_recurring");
-  assert.match(migration, /v_checkout='monthly_recurring' then 'card_and_direct_debit'/);
-  assert.match(migration, /upfront_provider=case when v_checkout='free' then null else 'stripe'/);
-  assert.match(migration, /recurring_provider=case when v_checkout='monthly_recurring' then 'gocardless'/);
-  assert.match(migration, /upfront_payment_state='confirmed'.*recurring_authority_state='confirmed'/s);
+  assert.match(stripeSubscriptions, /new\.payment_method:='card'.*new\.recurring_provider:='stripe'/s);
+  assert.match(stripeSubscriptions, /upfront_payment_state<>'confirmed'.*recurring_authority_state<>'confirmed'/s);
   assert.match(migration, /Monthly joining fee is not configured/);
 });
 
-test("Madhouse public joining does not offer recurring card versus Direct Debit", () => {
+test("Madhouse public joining transparently shows one Stripe subscription checkout", () => {
   assert.doesNotMatch(joinForm, /<option value="card">/);
   assert.doesNotMatch(joinForm, /<option value="direct_debit">/);
-  assert.match(joinForm, /name="paymentMethod" value="card_and_direct_debit"/);
-  assert.match(joinForm, /joining fee.*Direct Debit/s);
+  assert.match(joinForm, /name="paymentMethod" value="card"/);
+  assert.match(joinForm, /joining fee plus.*first month.*Ongoing:.*monthly through Stripe/s);
+  assert.doesNotMatch(joinForm, /Set up Direct Debit/);
 });
 
 test("day and week passes are one-off exact paid periods", () => {

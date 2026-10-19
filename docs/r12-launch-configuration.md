@@ -4,7 +4,7 @@ Use this as the Vercel/provider-dashboard checklist. Never put secret values in 
 
 ## Repository code status
 
-- Stripe Checkout/webhook and GoCardless redirect/webhook/collection-worker paths are implemented with signed webhook validation and idempotent domain processing.
+- New Madhouse joins use Stripe Checkout subscriptions with signed webhook validation, durable idempotency and provider-order-safe reconciliation. Existing GoCardless arrangements retain their redirect/webhook/collection-worker path and are not migrated or charged again.
 - The notification outbox uses the live stale-claim recovery, ten-minute leases, bounded three-attempt recovery, and concurrent-safe database claims.
 - Membership billing is scheduled daily at 06:00 UTC in `vercel.json`, compatible with Vercel Hobby. Explicitly queued supplier-import jobs retain a protected worker endpoint but are not automatically polled; the current Active Sports upload runs synchronously. Deployment activation still requires Vercel verification.
 - Application transactional SMTP transport is implemented. Delivery remains disabled until server SMTP configuration is complete; the protected worker checks readiness before claiming queued work and is scheduled daily at 06:15 UTC.
@@ -26,7 +26,9 @@ The browser will see `r12.live`, so host-only Supabase cookies will belong to th
 Set the following server-side values in the Production environment:
 
 - `R12_APP_BASE_URL=https://r12.live` (preferred canonical app origin, after Cloudflare app-path routing is active). Set `NEXT_PUBLIC_SITE_URL=https://r12.live` as the legacy fallback as well. Until the path proxy and callback allowlist are ready, retain the current Vercel origin rather than switching early.
-- `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET`.
+- `STRIPE_SECRET_KEY` and the endpoint-specific `STRIPE_WEBHOOK_SECRET` for the Madhouse Franchise Limited Stripe account.
+- `STRIPE_FRANCHISE_ACCOUNT_ID=acct_...` for that same account. Checkout verifies the secret key's account before creating a session, preventing accidental Products and Services routing.
+- `STRIPE_MEMBERSHIP_MODE=test` for an authorised test deployment, or `live` only for the reviewed production deployment. Webhooks fail closed when the event mode differs.
 - `GOCARDLESS_ACCESS_TOKEN`, `GOCARDLESS_WEBHOOK_SECRET`, and `GOCARDLESS_ENVIRONMENT=live` after the live provider setup is verified. The integration defaults to sandbox if the environment is omitted; set it explicitly.
 - `CRON_SECRET` for Vercel Cron requests. Billing and notification workers also accept their dedicated `R12_BILLING_WORKER_SECRET` / `R12_NOTIFICATION_WORKER_SECRET` for trusted manual calls.
 - `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` for protected server workers. Keep the service-role key server-only.
@@ -72,14 +74,18 @@ Workers are safe to invoke repeatedly: billing uses durable claims and stable pr
 
 Vercel Cron supplies the bearer header from `CRON_SECRET`. Trusted manual calls may use the corresponding dedicated worker secret or `CRON_SECRET`; never put a secret in a URL or log.
 
-Membership Stripe Checkout uses the Franchise account configured by `STRIPE_SECRET_KEY`; its endpoint-specific signing secret goes in `STRIPE_WEBHOOK_SECRET`. Madhouse class Checkout uses the separate Products & Services account configured by `STRIPE_PRODUCTS_SERVICES_SECRET_KEY`; its endpoint-specific signing secret goes in `STRIPE_PRODUCTS_SERVICES_WEBHOOK_SECRET`. For class testing, use a test-mode secret beginning `sk_test_`, configure the endpoint at `/api/webhooks/stripe/classes` in that same Stripe account's test mode, and subscribe it to `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`, `checkout.session.expired`, and `payment_intent.payment_failed`. Do not copy the Franchise webhook secret into the class setting. Leave `MADHOUSE_CLASS_STRIPE_LIVE_ENABLED` unset or `false`; the class provider rejects live keys unless that flag is explicitly enabled.
+Membership Stripe Checkout routes through the Madhouse Franchise account configured by `STRIPE_SECRET_KEY` and verified against `STRIPE_FRANCHISE_ACCOUNT_ID`; its endpoint-specific signing secret goes in `STRIPE_WEBHOOK_SECRET`. Madhouse class and shop Checkout route through Products & Services configured by `STRIPE_PRODUCTS_SERVICES_SECRET_KEY`; its endpoint-specific signing secret goes in `STRIPE_PRODUCTS_SERVICES_WEBHOOK_SECRET`. Do not copy webhook secrets across accounts. Class checkout remains test-only unless `MADHOUSE_CLASS_STRIPE_LIVE_ENABLED=true` is deliberately set. Subscribe each endpoint only to the event types used by that account’s flow; the Franchise endpoint handles joining, subscription, invoice, refund and dispute lifecycle events, while Products & Services handles commerce and class checkout events.
+
+The joining page sends server-authoritative one-time and recurring price data to Franchise Stripe: the joining fee is one-time and the selected membership price recurs monthly. Browser return alone never activates access; only signed provider events recorded by the database state machine can create membership, entitlement, billing or access state.
+
+For launch verification, first complete a single controlled test-mode checkout for each distinct flow. Verify the correct merchant account and amount, browser return leaves access inactive, signed events update the authoritative payment state, duplicate events are idempotent, and no membership or class booking becomes paid without verified provider state. No live charge, Stripe product/price mutation, webhook registration or production migration is part of repository validation.
 
 Configure GoCardless webhook events for mandate and payment lifecycle changes used by the integration. Copy the webhook secret for the selected environment into `GOCARDLESS_WEBHOOK_SECRET`; sandbox and live have separate credentials and webhook endpoints/configuration.
 
 ## Sandbox-to-live checklist
 
 1. Configure production Vercel variables, including the canonical app URL, explicit GoCardless live mode, SpaceMail SMTP credentials/sender identities, `R12_EMAIL_PROVIDER=smtp`, and a restricted test-recipient allowlist; redeploy through the normal release workflow.
-2. Create/verify Stripe live webhook endpoint and selected events; store its signing secret in Vercel. Confirm Stripe is using the intended live account.
+2. Create/verify the Stripe live webhook endpoint and selected events; store its signing secret in Vercel, set `STRIPE_MEMBERSHIP_MODE=live`, and confirm both credentials are from Madhouse Franchise Limited.
 3. Create/verify the GoCardless live access token and live webhook endpoint; store both secrets and explicitly set `GOCARDLESS_ENVIRONMENT=live`.
 4. Verify `CRON_SECRET` is configured and both daily cron jobs appear in the Vercel dashboard. Before real invitations, review all templates at `/club/staff/email-preview` and send only to an allowlisted internal address. Confirm email delivery state and the daily queue delay are acceptable. Queued supplier imports require a trusted manual/scheduler invocation until automatic polling is deliberately configured.
 5. Configure Supabase Auth SMTP separately with the approved sender/domain setup, Site URL and redirect allow-list.
