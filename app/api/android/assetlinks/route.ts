@@ -1,1 +1,2 @@
+export const dynamic = "force-dynamic";
 import { androidAssetLinks } from "@/lib/android-apps";export async function GET(){const statements=androidAssetLinks(process.env.R12_ANDROID_APP_LINKS_JSON);return Response.json(statements,{status:statements.length?200:503,headers:{"cache-control":statements.length?"public, max-age=300, s-maxage=300":"no-store"}});}

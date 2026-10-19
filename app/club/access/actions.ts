@@ -1,6 +1,6 @@
 "use server";
 import { serverSupabase } from "@/lib/supabase-server";
-import { resolveClubOrganisationContext } from "@/lib/club-server-context";
+import { isClubStaffRole, resolveClubOrganisationContext } from "@/lib/club-server-context";
 import { cookies } from "next/headers";
 import { CLUB_STATION_COOKIE, CLUB_STATION_USER_COOKIE, stationCookieValue, verifyClubStationSession } from "@/lib/club-station";
 
@@ -8,7 +8,7 @@ async function authorised(organisationId: string) {
   const client = await serverSupabase(); const { data: { user } } = await client.auth.getUser();
   if (!user) return;
   const club = await resolveClubOrganisationContext(client, user.id, organisationId);
-  if (!club || !(await club.repository.hasCapability(organisationId, user.id, "members.view"))) return;
+  if (!club || !isClubStaffRole(club.role) || !(await club.repository.hasCapability(organisationId, user.id, "members.view"))) return;
   return client;
 }
 export async function decideScannedAccessAction(input: { organisationId: string; locationId: string; credential: string; credentialType: "pin" | "qr" | "legacy_member_reference" | "barcode" }) {
