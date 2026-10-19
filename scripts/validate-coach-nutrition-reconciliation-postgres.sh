@@ -236,6 +236,8 @@ echo "ANNIVERSARY MIGRATION GUARD PASSED — corrected synthetic anchor/evidence
 
 psql_db "$state_c" --single-transaction --file=supabase/migrations/2026-12-31-cash-membership-period-and-anniversary-safety.sql
 psql_db "$state_c" --file=supabase/migrations/2027-01-01-club-access-safety-empty-booking-fix.sql
+psql_db "$state_c" --single-transaction --file=supabase/migrations/2027-01-02-golden-ticket-lifetime-memberships.sql
+psql_db "$state_c" --single-transaction --file=supabase/migrations/2027-01-03-paypal-pay-in-3-checkout-foundation.sql
 
 # These fixtures have separate synthetic identities and each owns a BEGIN /
 # ROLLBACK boundary. Continue across independent fixture files so one SQL

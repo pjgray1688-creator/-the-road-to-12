@@ -1,0 +1,22 @@
+# PayPal Pay in 3 foundation (disabled)
+
+This is a disabled eligibility and persistence foundation, not a payment integration. `R12_PAYPAL_PAY_IN_3_ENABLED` is false unless explicitly set to the exact string `true`; the database readiness row also defaults to disabled, unapproved by PayPal, and unapproved by the accountant. The current server action is eligibility-only: it does not create a provider order, write an order intent, capture funds, or grant entitlements. No checkout button is exposed.
+
+The receiving merchant is always Madhouse Franchise Limited (company 17383077), independent of gym location. Madhouse Products and Services Limited (17383213) remains the separate provider of transformation services and invoices Franchise under a separately agreed intercompany arrangement. This code neither creates an intercompany invoice nor assumes accounting/tax details. Rotherham/Carlton remain operational locations, not merchant-routing keys.
+
+The allowlist uses stable database-bound canonical codes: `madhouse.transformation.{bronze,silver,gold}.v1`, `madhouse.membership.yearly.v1`, and `madhouse.membership.golden-ticket-lifetime.v1`. The migration binds only structurally matching Madhouse catalogue rows; ambiguous rows remain unmapped. Runtime checks use product ID plus its stored code, product structure, and existing entitlement definitions—not a buyer-supplied name or amount. The annual product remains one-off. Golden Ticket remains lifetime (`is_lifetime=true`, `duration_days=NULL`), non-sellable publicly, and can pass the staff eligibility gate only for a named in-organisation customer, an explicit reason, and `memberships.assign` authority. The separate Golden lifetime migration continues to prohibit all billing arrangements and obligations.
+
+## Future approved boundary
+
+Before enabling anything, PayPal must approve the Franchise merchant and the exact goods/services model, including Pay in 3, transformation package descriptions, merchant category, refunds, disputes, and any applicable UK consumer-credit/advertising requirements. An accountant must approve the Franchise/MPS intercompany invoicing, VAT treatment, revenue recognition, and reconciliation. Configure the Franchise PayPal merchant ID and server-only credentials; confirm the merchant account is owned by company 17383077. Keep credentials out of `NEXT_PUBLIC_*`, browser bundles, logs, and the database.
+
+A later implementation must create a server-side order intent transactionally with a buyer-scoped idempotency key, immutable product/amount/currency snapshot, canonical product ID, and Franchise merchant ID. Browser approval is not payment. The server must capture only against that persisted order using a stable provider idempotency key. A verified PayPal webhook must validate signature, merchant, order/capture reference, amount, currency, and event uniqueness before atomically marking the capture and invoking the existing package/membership entitlement assignment exactly once. A lifetime sale must additionally bind the staff authorizer, customer, and reason to that order. Never create an R12 instalment schedule: PayPal Pay in 3 is one merchant settlement. Refunds must be provider-confirmed and auditable before any entitlement adjustment policy is applied. None of those provider/capture/finalization operations is implemented here.
+
+## Configuration and approval checklist
+
+- `R12_PAYPAL_PAY_IN_3_ENABLED=false` (leave false until all approvals and end-to-end verification are complete).
+- `PAYPAL_CLIENT_ID` and `PAYPAL_CLIENT_SECRET`: server-only credentials for the approved Franchise account; not present/configured by this change.
+- Database readiness: Franchise entity number `17383077`, verified PayPal merchant account ID, PayPal approval, accountant approval, and explicit `enabled=true`; migration initializes these gates as false/null.
+- Verify buyer/transaction eligibility through PayPal’s approved checkout integration before showing the option. PayPal alone makes the financing decision and collects instalments.
+- Confirm supported PayPal UK integration, merchant account capability, settlement, refund and webhook configuration with PayPal. Confirm accounting/legal requirements with the accountant.
+- Only after review: implement create/capture/webhook/refund server boundaries, audit coverage, and customer-facing UI. Test with PayPal sandbox first. No existing Stripe joining, GoCardless recurring, Club Manager collection, or ordinary shop flow should be rerouted.
