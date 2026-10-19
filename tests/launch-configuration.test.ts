@@ -24,6 +24,8 @@ test("launch readiness reports missing and invalid settings without returning th
     STRIPE_WEBHOOK_SECRET: "whsec_private", GOCARDLESS_ENVIRONMENT: "production", GOCARDLESS_ACCESS_TOKEN: "token_private",
   } as NodeJS.ProcessEnv);
   assert.equal(checks.find(check => check.key === "stripeSecret")?.state, "invalid");
+  assert.equal(checks.find(check => check.key === "stripeMembershipMode")?.state, "missing");
+  assert.equal(checks.find(check => check.key === "stripeFranchiseAccount")?.state, "missing");
   assert.equal(checks.find(check => check.key === "goCardlessEnvironment")?.state, "invalid");
   assert.equal(checks.find(check => check.key === "billingWorker")?.state, "missing");
   assert.equal(checks.find(check => check.key === "emailProvider")?.state, "missing");
@@ -32,6 +34,17 @@ test("launch readiness reports missing and invalid settings without returning th
   assert.match(checks.find(check => check.key === "workerSchedules")?.detail ?? "", /daily at 06:00 UTC/);
   assert.equal(checks.find(check => check.key === "supabaseAnon")?.state, "missing");
   assert.doesNotMatch(JSON.stringify(checks), /private|whsec|token_private/);
+});
+
+test("Stripe membership readiness binds mode, key and Franchise account", () => {
+  const testChecks = launchReadiness({ NODE_ENV: "test", STRIPE_MEMBERSHIP_MODE: "test", STRIPE_SECRET_KEY: "sk_test_private", STRIPE_FRANCHISE_ACCOUNT_ID: "acct_franchise" } as NodeJS.ProcessEnv);
+  assert.equal(testChecks.find(check => check.key === "stripeSecret")?.state, "configured");
+  assert.equal(testChecks.find(check => check.key === "stripeMembershipMode")?.state, "configured");
+  assert.equal(testChecks.find(check => check.key === "stripeFranchiseAccount")?.state, "configured");
+  const wrongMode = launchReadiness({ NODE_ENV: "production", STRIPE_MEMBERSHIP_MODE: "test", STRIPE_SECRET_KEY: "sk_test_private", STRIPE_FRANCHISE_ACCOUNT_ID: "acct_franchise" } as NodeJS.ProcessEnv);
+  assert.equal(wrongMode.find(check => check.key === "stripeSecret")?.state, "invalid");
+  assert.equal(wrongMode.find(check => check.key === "stripeMembershipMode")?.state, "invalid");
+  assert.doesNotMatch(JSON.stringify(testChecks), /sk_test_private|acct_franchise/);
 });
 
 test("production readiness requires the GoCardless live mode and validates Supabase public configuration", () => {
