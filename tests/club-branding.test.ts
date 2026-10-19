@@ -4,12 +4,12 @@ import test from "node:test";
 import { clubTitle } from "../lib/club-metadata";
 
 test("Club operations and member Android install identities remain separate", () => {
-  const clubManifest = readFileSync(new URL("../app/club/manifest.ts", import.meta.url), "utf8");
+  const clubManifest = readFileSync(new URL("../app/club/manifest.webmanifest/route.ts", import.meta.url), "utf8");
   const memberManifest = readFileSync(new URL("../app/manifest.ts", import.meta.url), "utf8");
   const androidApps = readFileSync(new URL("../lib/android-apps.ts", import.meta.url), "utf8");
-  assert.match(clubManifest, /R12 Club/); assert.match(clubManifest, /club-icon-192/); assert.match(clubManifest, /start_url: "\/club"/);
+  assert.match(clubManifest, /manifestResponse\("club"\)/);
   assert.match(memberManifest, /webManifest\("r12"\)/); assert.doesNotMatch(memberManifest, /club-icon/);
-  assert.match(androidApps, /startUrl:"\/member-hub"/); assert.match(androidApps, /manifestPath:"\/member-hub\/manifest\.webmanifest"/);
+  assert.match(androidApps, /startUrl: "\/club\/reception"/); assert.match(androidApps, /manifestPath: "\/club\/manifest\.webmanifest"/);
 });
 
 test("Club title architecture is generic and tenant-safe", () => {

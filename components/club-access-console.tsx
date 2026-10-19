@@ -44,13 +44,14 @@ const reason: Record<string, string> = {
 const ageLabel: Record<string, string> = { adult: "18 or over", under_18: "Under 18", under_16: "Under 16", missing_date_of_birth: "Date of birth missing", date_of_birth_conflict: "Date of birth conflict" };
 const inductionLabel: Record<string, string> = { not_required: "Not required", complete: "Complete", due: "Due within grace", booked: "Booked", overdue: "Overdue" };
 
-export function ClubAccessConsole({ organisationId, locations, customers }: {
+export function ClubAccessConsole({ organisationId, locations, customers, initialLocationId }: {
   organisationId: string;
   locations: Array<{ id: string; name: string; active: boolean }>;
   customers: Array<{ id: string; displayName: string; email?: string; phone?: string }>;
+  initialLocationId?: string;
 }) {
   const active = locations.filter((location) => location.active);
-  const [locationId, setLocationId] = useState(active[0]?.id ?? "");
+  const [locationId, setLocationId] = useState(active.find(location => location.id === initialLocationId)?.id ?? active[0]?.id ?? "");
   const [credentialType, setCredentialType] = useState<CredentialType>("pin");
   const [credential, setCredential] = useState("");
   const [query, setQuery] = useState("");

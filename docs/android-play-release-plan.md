@@ -2,16 +2,16 @@
 
 ## Audit and implemented slice
 
-The repository had Next.js PWA routes, one root manifest, one staff Club manifest, cookie-based Supabase auth, safe internal return paths, icons and a static-assets-only service worker. It had no Android/Capacitor/TWA project. Coach and Glow inherited the R12 install identity, and the root manifest incorrectly started at Member Hub.
+The repository has four separate Next.js PWA/TWA identities, cookie-based Supabase authentication, safe internal return paths, distinct icons and a static-assets-only service worker. Android apps use the app hostname `app.r12.live`; Club is the staff reception application and starts at `/club/reception`.
 
-This change adds four distinct PWA/TWA identities, package IDs, start routes, icons, path-specific deep-link scopes, unsigned/signed AAB commands, an API-36 guard, external signing placeholders and a credential-free Digital Asset Links endpoint. The service worker still never caches documents, APIs or private data.
+The Android release descriptors use four distinct package IDs, start routes, icons and path-specific deep-link scopes. Scripts build unsigned or signed AABs, enforce API 36 and serve validated Digital Asset Links fingerprints through the standard route. The service worker still never caches documents, APIs or private data.
 
 Glow Zone is not rebuilt. Both `/member-hub/glow-zone` and standalone `/glow-zone` render one shared customer component using existing `club_glow_balance`, history and loyalty actions. Existing staff age verification, sales, row-locked/idempotent deductions and audit records remain unchanged under `/club/sunbeds`. Standalone resolution requires an existing `club_customers.user_id`; it creates no member role, membership, entitlement or door access. Active membership only reveals actual member prices and never grants free minutes.
 
 ## Fastest credible path
 
 1. Today: reserve the exact package IDs, confirm account type/date and Android developer verification, obtain legal/store identity details, and start any mandatory closed tests.
-2. Deploy to a production-equivalent preview, then production only through the normal release process. Verify all manifests/icons, privacy/deletion URLs, auth redirects and `r12.live` HTTPS.
+2. Deploy to a production-equivalent preview, then production only through the normal release process. Verify all manifests/icons, privacy/deletion URLs, auth redirects and `app.r12.live` HTTPS.
 3. Enrol each app in Play App Signing, return its app-signing SHA-256 fingerprint, configure asset links, and verify fullscreen TWA launch.
 4. With JDK/SDK/API 36/Bubblewrap installed, generate AABs, inspect via bundletool and upload to Internal testing.
 5. Provide stable reviewer accounts/instructions and complete each app’s listing/App content independently.
@@ -23,10 +23,10 @@ If this is a personal developer account created after 13 November 2023, every ap
 
 - All: cold launch, offline/error states, sign-in, sign-up/email verification, password reset, sign-out/relaunch, privacy/deletion, back navigation and no browser chrome.
 - R12: training launch/persistence/occurrence identity/progress/WHOOP; no external purchase CTA for paid digital-only fitness.
-- Club: member hub, membership/access, classes, physical service purchases, existing Glow entry; never invent entitlement.
+- Club: staff reception, organisation/location selection and denied-role handling; never open the member hub as the Club app, and never invent entitlements.
 - Coach: authorised and denied users, client privacy/roles, valid one-to-one service journeys.
 - Glow: Glow-only customer sees the same balance/history as staff; no gym access; member pricing uses actual active membership; staff age verification plus one idempotent deduction appears once in both customer journeys; reconciliation reuses the existing customer.
-- Links: only `/training/*`, `/member-hub/*`, `/coach/*`, `/glow-zone/*` map to the corresponding package; shared auth stays same-origin.
+- Links: only `/training/*`, `/club/*`, `/coach/*`, `/glow-zone/*` map to their corresponding app packages; shared auth stays same-origin.
 
 Use approved test accounts/fixtures. Never alter live billing/membership, create demo payments or deduct real minutes for review.
 
@@ -49,15 +49,15 @@ Use approved test accounts/fixtures. Never alter live billing/membership, create
 - Provide verified legal developer name/address/contact, final privacy/support email/site/phone, and make listing/privacy identities consistent.
 - Provide durable review accounts: training member, Club member with/without Glow credit, Coach, and Glow-only adult; include any OTP/location instructions.
 - Approve store copy, 1024×500 feature graphics, current phone screenshots and the included Coach/Glow icon candidates.
-- Complete per app: App access, Ads, Content rating, adult Target audience, Data safety, deletion URL `https://r12.live/account/delete`, privacy URL `https://r12.live/privacy`, Health declaration and payments statements.
+- Complete per app: App access, Ads, Content rating, adult Target audience, Data safety, deletion URL `https://app.r12.live/account/delete`, privacy URL `https://app.r12.live/privacy`, Health declaration and payments statements.
 - Confirm closed-test eligibility and supply tester Google Group/list.
 
 ## Genuine blockers
 
-- This environment has no usable Java, Gradle, Android SDK, adb or bundletool, so no APK/AAB/install test was possible.
+- This Mac environment has no usable Java runtime, Android SDK, adb, Bubblewrap CLI or Gradle, so no AAB/install test was possible.
 - The R12 Android experience must not expose external Stripe checkout for paid digital-only fitness features. Before R12 submission, either provide a Play Billing compliant path or exclude those purchase/access surfaces from the Android experience; physical club, PT and Glow Zone purchases can remain on their existing eligible paths.
 - No signing keys/fingerprints were available; none were invented.
-- `r12.live` was unreachable from available verification tools, so deployed TWA/auth verification is outstanding.
+- Vercel does not currently list `app.r12.live` on the `the-road-to-12` project, so app-host routing and deployed TWA/auth verification are outstanding. The project must be configured by its owner without changing the marketing host.
 - The privacy contact remains marked as a development placeholder and the legal developer identity is unknown.
 - Account deletion needs an operational owner/SLA and legally reviewed retention schedule.
 - Feature graphics/screenshots and final icon approval are missing.
