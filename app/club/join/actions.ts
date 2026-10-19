@@ -62,6 +62,7 @@ export async function claimExistingMemberAction(organisationId: string, customer
 type ProviderContext = {
   id: string; organisation_slug: string; product_name: string; currency: string; upfront_amount_minor: number;
   checkout_kind: string; joining_fee_minor: number; first_period_minor: number;
+  upfront_payment_state: string; recurring_authority_state: string;
   email: string; stripe_checkout_session_id?: string | null; stripe_checkout_generation: number;
   gocardless_redirect_flow_id?: string | null; gocardless_mandate_id?: string | null; gocardless_flow_generation: number;
 };
@@ -103,7 +104,7 @@ export async function startJoinCardCheckoutAction(requestId: string): Promise<Pr
     if (context.stripe_checkout_session_id) {
       const existing = await retrieveStripeCheckoutSession(context.stripe_checkout_session_id);
       if (existing.status === "open" && existing.url) return { ok: true, url: existing.url };
-      if (existing.status === "complete") return { ok: true, pending: true, message: "Stripe is confirming your card payment. This page will update after the signed webhook arrives." };
+      if (existing.status === "complete" && ![context.upfront_payment_state, context.recurring_authority_state].includes("failed")) return { ok: true, pending: true, message: "Stripe is confirming your payment and subscription. This page will update after the signed webhook arrives." };
       context = await prepareProvider(requestId, "stripe", context.stripe_checkout_session_id);
     }
     const base = siteUrl();

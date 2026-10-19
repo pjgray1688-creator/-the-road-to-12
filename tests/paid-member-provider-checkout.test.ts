@@ -115,6 +115,9 @@ test("Stripe subscription events retain payment, payer, subscription and billing
   assert.equal(paid?.amountMinor, 4200);
   assert.equal(paid?.currency, "GBP");
   assert.equal(paid?.requestId, "join-1");
+  const incomplete = stripeMembershipEvent({ type: "customer.subscription.updated", created: 1, data: { object: { id: "sub_1", object: "subscription", status: "incomplete" } } });
+  assert.equal(incomplete?.eventType, "subscription_incomplete");
+  assert.equal(incomplete?.status, "incomplete");
   assert.equal(stripeMembershipEvent({ type: "customer.subscription.updated", created: 1, data: { object: { id: "sub_1", object: "subscription", status: "past_due" } } })?.eventType, "subscription_past_due");
   assert.equal(stripeMembershipEvent({ type: "charge.dispute.created", created: 1, data: { object: { id: "dp_1", charge: "ch_1", amount: 2700, status: "needs_response" } } })?.eventType, "dispute_opened");
 });
@@ -157,7 +160,13 @@ test("Stripe subscription state is durable, replay-safe and never activates from
   assert.match(subscriptionMigration, /values\(r\.organisation_id,m\.id,r\.user_id,r\.customer_id,'stripe','recurring_card'/);
   assert.match(subscriptionMigration, /payment_reversed/);
   assert.match(subscriptionMigration, /p_occurred_at>=o\.last_provider_event_at/);
+  assert.match(subscriptionMigration, /Stripe customer does not match this join/);
+  assert.match(subscriptionMigration, /p_status='incomplete' then 'pending'/);
+  assert.match(subscriptionMigration, /p_period_start is null or coverage_start_at=p_period_start or next_due_at=p_period_start/);
+  assert.match(subscriptionMigration, /if a\.next_due_at<=o\.next_due_at then/);
+  assert.doesNotMatch(subscriptionMigration, /p_currency is null or upper\(p_currency\)/);
   assert.doesNotMatch(actions, /club_activate_verified_stripe_join/);
+  assert.match(actions, /existing\.status === "complete".*includes\("failed"\)/s);
   assert.match(stripeWebhook, /club_record_stripe_membership_event/);
   assert.match(stripeWebhook, /STRIPE_MEMBERSHIP_MODE/);
 });
