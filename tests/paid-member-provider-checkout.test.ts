@@ -37,6 +37,8 @@ test("monthly Stripe Checkout separates the joining fee from the recurring subsc
     assert.equal(body.get("line_items[0][price_data][recurring][interval]"), "month");
     assert.equal(body.get("line_items[1][price_data][unit_amount]"), "1500");
     assert.equal(body.get("subscription_data[metadata][join_request_id]"), "join-1");
+    assert.equal(body.get("subscription_data[metadata][join_generation]"), "2");
+    assert.equal(body.get("metadata[join_generation]"), "2");
     assert.equal(body.get("metadata[join_request_id]"), "join-1");
     assert.equal(body.get("payment_method_types[0]"), "card");
   } finally {
@@ -110,11 +112,12 @@ test("Stripe subscription events retain payment, payer, subscription and billing
   assert.equal(active?.eventType, "subscription_active");
   assert.equal(active?.subscriptionId, "sub_1");
   assert.equal(active?.customerId, "cus_1");
-  const paid = stripeMembershipEvent({ type: "invoice.paid", created: 1_800_000_020, data: { object: { id: "in_1", object: "invoice", amount_paid: 4200, currency: "gbp", billing_reason: "subscription_create", customer: "cus_1", parent: { subscription_details: { subscription: "sub_1", metadata: { join_request_id: "join-1" } } } } } });
+  const paid = stripeMembershipEvent({ type: "invoice.paid", created: 1_800_000_020, data: { object: { id: "in_1", object: "invoice", amount_paid: 4200, currency: "gbp", billing_reason: "subscription_create", customer: "cus_1", metadata: {}, parent: { subscription_details: { subscription: "sub_1", metadata: { join_request_id: "join-1", join_generation: "2" } } } } } });
   assert.equal(paid?.eventType, "invoice_paid");
   assert.equal(paid?.amountMinor, 4200);
   assert.equal(paid?.currency, "GBP");
   assert.equal(paid?.requestId, "join-1");
+  assert.equal(paid?.generation, 2);
   const incomplete = stripeMembershipEvent({ type: "customer.subscription.updated", created: 1, data: { object: { id: "sub_1", object: "subscription", status: "incomplete" } } });
   assert.equal(incomplete?.eventType, "subscription_incomplete");
   assert.equal(incomplete?.status, "incomplete");
@@ -160,7 +163,9 @@ test("Stripe subscription state is durable, replay-safe and never activates from
   assert.match(subscriptionMigration, /values\(r\.organisation_id,m\.id,r\.user_id,r\.customer_id,'stripe','recurring_card'/);
   assert.match(subscriptionMigration, /payment_reversed/);
   assert.match(subscriptionMigration, /p_occurred_at>=o\.last_provider_event_at/);
-  assert.match(subscriptionMigration, /Stripe customer does not match this join/);
+  assert.match(subscriptionMigration, /r\.stripe_customer_id<>p_customer_id/);
+  assert.match(subscriptionMigration, /p_attempt_generation<>r\.stripe_checkout_generation/);
+  assert.match(subscriptionMigration, /superseded_or_mismatched_stripe_attempt/);
   assert.match(subscriptionMigration, /p_status='incomplete' then 'pending'/);
   assert.match(subscriptionMigration, /p_period_start is null or coverage_start_at=p_period_start or next_due_at=p_period_start/);
   assert.match(subscriptionMigration, /if a\.next_due_at<=o\.next_due_at then/);
