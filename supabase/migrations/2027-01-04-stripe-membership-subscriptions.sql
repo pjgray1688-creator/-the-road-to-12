@@ -94,7 +94,8 @@ begin
   return jsonb_build_object('id',r.id,'organisation_slug',o.slug,'product_name',p.name,'currency',p.currency,'email',c.email,
     'checkout_kind',r.checkout_kind,'joining_fee_minor',r.joining_fee_minor,'first_period_minor',r.first_period_minor,
     'upfront_amount_minor',r.upfront_amount_minor,'stripe_checkout_session_id',r.stripe_checkout_session_id,
-    'stripe_checkout_generation',r.stripe_checkout_generation);
+    'stripe_checkout_generation',r.stripe_checkout_generation,'upfront_payment_state',r.upfront_payment_state,
+    'recurring_authority_state',r.recurring_authority_state);
 end; $$;
 revoke all on function public.club_prepare_stripe_membership_attempt(uuid,text) from public,anon;
 grant execute on function public.club_prepare_stripe_membership_attempt(uuid,text) to authenticated;
@@ -175,19 +176,20 @@ begin
   if p_request_id is not null and r.id<>p_request_id then raise exception 'Stripe metadata does not match the billing resource' using errcode='22023'; end if;
   if p_session_id is not null and r.stripe_checkout_session_id is not null and r.stripe_checkout_session_id<>p_session_id then raise exception 'Stripe session does not match this join' using errcode='22023'; end if;
   if p_subscription_id is not null and r.stripe_subscription_id is not null and r.stripe_subscription_id<>p_subscription_id then raise exception 'Stripe subscription does not match this join' using errcode='22023'; end if;
+  if p_customer_id is not null and r.stripe_customer_id is not null and r.stripe_customer_id<>p_customer_id then raise exception 'Stripe customer does not match this join' using errcode='22023'; end if;
   insert into public.club_stripe_membership_events(organisation_id,join_request_id,provider_event_key,event_type,provider_occurred_at,checkout_session_id,payment_intent_id,customer_id,subscription_id,invoice_id,charge_id,amount_minor,currency,provider_status,billing_reason,period_start,period_end)
     values(r.organisation_id,r.id,p_provider_event_key,p_event_type,p_occurred_at,p_session_id,p_payment_intent_id,p_customer_id,p_subscription_id,p_invoice_id,p_charge_id,p_amount_minor,upper(p_currency),p_status,p_billing_reason,p_period_start,p_period_end) returning * into e;
   update public.club_membership_join_requests set stripe_checkout_session_id=coalesce(stripe_checkout_session_id,p_session_id),stripe_payment_intent_id=coalesce(stripe_payment_intent_id,p_payment_intent_id),
     stripe_customer_id=coalesce(stripe_customer_id,p_customer_id),stripe_subscription_id=coalesce(stripe_subscription_id,p_subscription_id),stripe_latest_invoice_id=coalesce(p_invoice_id,stripe_latest_invoice_id),updated_at=now() where id=r.id returning * into r;
-  if p_event_type in ('checkout_paid','invoice_paid') and r.membership_id is null and p_amount_minor=r.upfront_amount_minor and (p_currency is null or upper(p_currency)=(select currency from public.club_products where id=r.product_id)) and (p_event_type='checkout_paid' or p_billing_reason='subscription_create' or r.checkout_kind<>'monthly_recurring') then
+  if p_event_type in ('checkout_paid','invoice_paid') and r.membership_id is null and p_amount_minor=r.upfront_amount_minor and upper(p_currency)=(select currency from public.club_products where id=r.product_id) and (p_event_type='checkout_paid' or p_billing_reason='subscription_create' or r.checkout_kind<>'monthly_recurring') then
     if r.stripe_initial_payment_event_at is null or p_occurred_at>=r.stripe_initial_payment_event_at then update public.club_membership_join_requests set upfront_payment_state='confirmed',stripe_initial_payment_event_at=p_occurred_at,stripe_current_period_end=case when checkout_kind='monthly_recurring' then coalesce(p_period_end,stripe_current_period_end) else stripe_current_period_end end,payment_failure_reason=null where id=r.id; end if;
   elsif p_event_type='checkout_failed' and r.upfront_payment_state<>'confirmed' and (r.stripe_event_occurred_at is null or p_occurred_at>=r.stripe_event_occurred_at) then
     update public.club_membership_join_requests set upfront_payment_state='failed',payment_state='failed',status='payment_failed',stripe_event_occurred_at=p_occurred_at,payment_failure_reason='Stripe payment failed or expired' where id=r.id;
   end if;
   if p_event_type like 'subscription_%' and (r.stripe_subscription_event_at is null or p_occurred_at>=r.stripe_subscription_event_at) then
     update public.club_membership_join_requests set stripe_subscription_status=p_status,stripe_subscription_event_at=p_occurred_at,stripe_current_period_end=coalesce(p_period_end,stripe_current_period_end),
-      recurring_authority_state=case when p_event_type='subscription_active' then 'confirmed' else 'failed' end,
-      payment_failure_reason=case when p_event_type='subscription_active' then null else 'Stripe subscription requires attention' end where id=r.id;
+      recurring_authority_state=case when p_event_type='subscription_active' then 'confirmed' when p_status='incomplete' then 'pending' else 'failed' end,
+      payment_failure_reason=case when p_event_type='subscription_active' or p_status='incomplete' then null else 'Stripe subscription requires attention' end where id=r.id;
   end if;
   select * into r from public.club_membership_join_requests where id=r.id;
   if r.membership_id is null then perform public.club_activate_verified_stripe_join(r.id); end if;
@@ -200,7 +202,13 @@ begin
       update public.club_membership_billing_arrangements set state='cancelled',provider_authority_state='cancelled',collection_status='blocked',mandate_event_occurred_at=p_occurred_at,action_required_reason='subscription_cancelled',updated_at=now() where id=a.id;
       update public.club_memberships set ends_at=least(coalesce(ends_at,p_period_end,now()),coalesce(p_period_end,now())) where id=r.membership_id and organisation_id=r.organisation_id;
     elsif p_event_type in ('invoice_paid','invoice_failed','subscription_past_due') and p_billing_reason is distinct from 'subscription_create' then
-      select * into o from public.club_membership_billing_obligations where arrangement_id=a.id and state not in ('paid','recovered','cancelled','waived') order by next_due_at limit 1 for update;
+      if p_period_start is not null then
+        v_period:=to_char(p_period_start at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"');
+        insert into public.club_membership_billing_obligations(organisation_id,arrangement_id,membership_id,user_id,customer_id,provider_type,payment_method_family,provider_customer_reference,provider_subscription_reference,amount_minor,currency,frequency,next_due_at,period_key,coverage_start_at,coverage_end_at)
+          values(a.organisation_id,a.id,a.membership_id,a.user_id,a.customer_id,'stripe','recurring_card',a.provider_customer_reference,a.provider_subscription_reference,a.amount_minor,a.currency,'monthly',p_period_start,v_period,p_period_start,coalesce(p_period_end,public.club_next_membership_billing_due(p_period_start,'monthly'))) on conflict(arrangement_id,period_key) do nothing;
+      end if;
+      select * into o from public.club_membership_billing_obligations where arrangement_id=a.id and state not in ('paid','recovered','cancelled','waived')
+        and (p_period_start is null or coverage_start_at=p_period_start or next_due_at=p_period_start) order by next_due_at limit 1 for update;
       if found and (o.last_provider_event_at is null or p_occurred_at>=o.last_provider_event_at) then
         if p_event_type='invoice_paid' and p_amount_minor=o.amount_minor and upper(p_currency)=o.currency then
           insert into public.club_membership_billing_provider_events(organisation_id,provider_type,provider_event_key,event_type,obligation_id,payload,provider_occurred_at,provider_reference)
@@ -209,7 +217,11 @@ begin
             values(r.organisation_id,o.id,p_amount_minor,upper(p_currency),p_invoice_id,p_provider_event_key,p_occurred_at) on conflict do nothing;
           update public.club_membership_billing_obligations set state=case when state in ('failed','grace','overdue') then 'recovered' else 'paid' end,last_paid_at=p_occurred_at,last_payment_reference=p_invoice_id,last_provider_event_at=p_occurred_at,failure_reason=null,grace_started_at=null,updated_at=now() where id=o.id;
           v_next:=coalesce(p_period_end,public.club_next_membership_billing_due(o.next_due_at,'monthly')); v_period:=to_char(v_next at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"');
-          update public.club_membership_billing_arrangements set next_due_at=v_next,last_successful_payment_at=p_occurred_at,coverage_paid_through_at=v_next,collection_status='ready',action_required_reason=null,updated_at=now() where id=a.id;
+          if a.next_due_at<=o.next_due_at then
+            update public.club_membership_billing_arrangements set next_due_at=v_next,last_successful_payment_at=greatest(coalesce(last_successful_payment_at,p_occurred_at),p_occurred_at),coverage_paid_through_at=greatest(coalesce(coverage_paid_through_at,v_next),v_next),collection_status='ready',action_required_reason=null,updated_at=now() where id=a.id;
+          else
+            update public.club_membership_billing_arrangements set last_successful_payment_at=greatest(coalesce(last_successful_payment_at,p_occurred_at),p_occurred_at),coverage_paid_through_at=greatest(coalesce(coverage_paid_through_at,v_next),v_next),collection_status='ready',action_required_reason=null,updated_at=now() where id=a.id;
+          end if;
           insert into public.club_membership_billing_obligations(organisation_id,arrangement_id,membership_id,user_id,customer_id,provider_type,payment_method_family,provider_customer_reference,provider_subscription_reference,amount_minor,currency,frequency,next_due_at,period_key,coverage_start_at,coverage_end_at)
             values(a.organisation_id,a.id,a.membership_id,a.user_id,a.customer_id,'stripe','recurring_card',a.provider_customer_reference,a.provider_subscription_reference,a.amount_minor,a.currency,'monthly',v_next,v_period,v_next,public.club_next_membership_billing_due(v_next,'monthly')) on conflict(arrangement_id,period_key) do nothing;
           update public.club_membership_payment_access_suspensions set active=false,cleared_at=now() where obligation_id=o.id and active;
