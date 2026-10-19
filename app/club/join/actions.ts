@@ -61,6 +61,7 @@ export async function claimExistingMemberAction(organisationId: string, customer
 
 type ProviderContext = {
   id: string; organisation_slug: string; product_name: string; currency: string; upfront_amount_minor: number;
+  checkout_kind: string; joining_fee_minor: number; first_period_minor: number;
   email: string; stripe_checkout_session_id?: string | null; stripe_checkout_generation: number;
   gocardless_redirect_flow_id?: string | null; gocardless_mandate_id?: string | null; gocardless_flow_generation: number;
 };
@@ -75,17 +76,23 @@ async function prepareProvider(requestId: string, provider: "stripe" | "gocardle
   if (!user?.email_confirmed_at) throw new Error("Sign in with a verified email to continue.");
   const { data, error } = provider === "gocardless"
     ? await supabase.rpc("club_prepare_recurring_mandate_attempt", { p_request_id: requestId, p_replace_reference: replaceReference ?? null })
-    : await supabase.rpc("club_prepare_join_provider_attempt", { p_request_id: requestId, p_provider_type: provider, p_replace_reference: replaceReference ?? null });
+    : await supabase.rpc("club_prepare_stripe_membership_attempt", { p_request_id: requestId, p_replace_reference: replaceReference ?? null });
   if (error || !data) throw new Error(provider === "stripe" ? "Card checkout is not available for this joining attempt." : "Direct Debit setup is not available for this joining attempt.");
   return data as ProviderContext;
 }
 
 async function storeProviderResource(input: { requestId: string; provider: "stripe" | "gocardless"; primaryReference: string; paymentReference?: string | null; customerReference?: string | null; bankReference?: string | null; mandateReference?: string | null }) {
-  const { error } = await adminSupabase().rpc("club_store_join_provider_resource", {
-    p_request_id: input.requestId, p_provider_type: input.provider, p_primary_reference: input.primaryReference,
-    p_payment_reference: input.paymentReference ?? null, p_customer_reference: input.customerReference ?? null,
-    p_bank_account_reference: input.bankReference ?? null, p_mandate_reference: input.mandateReference ?? null,
-  });
+  const { error } = input.provider === "stripe"
+    ? await adminSupabase().rpc("club_store_stripe_join_resource", {
+      p_request_id: input.requestId, p_checkout_session_id: input.primaryReference,
+      p_payment_intent_id: input.paymentReference ?? null, p_customer_id: input.customerReference ?? null,
+      p_subscription_id: input.mandateReference ?? null,
+    })
+    : await adminSupabase().rpc("club_store_join_provider_resource", {
+      p_request_id: input.requestId, p_provider_type: input.provider, p_primary_reference: input.primaryReference,
+      p_payment_reference: input.paymentReference ?? null, p_customer_reference: input.customerReference ?? null,
+      p_bank_account_reference: input.bankReference ?? null, p_mandate_reference: input.mandateReference ?? null,
+    });
   if (error) throw new Error("The provider session could not be linked to this joining attempt.");
 }
 
@@ -102,12 +109,14 @@ export async function startJoinCardCheckoutAction(requestId: string): Promise<Pr
     const base = siteUrl();
     const session = await createStripeCheckoutSession({
       requestId, generation: context.stripe_checkout_generation, email: context.email, productName: context.product_name,
-      amountMinor: context.upfront_amount_minor, currency: context.currency,
+      checkoutKind: context.checkout_kind, joiningFeeMinor: context.joining_fee_minor,
+      recurringAmountMinor: context.checkout_kind === "monthly_recurring" ? context.first_period_minor : context.upfront_amount_minor,
+      upfrontAmountMinor: context.upfront_amount_minor, currency: context.currency,
       successUrl: `${base}/join/${encodeURIComponent(context.organisation_slug)}?billing=card-returned`,
       cancelUrl: `${base}/join/${encodeURIComponent(context.organisation_slug)}?billing=card-cancelled`,
     });
     if (!session.id || !session.url || session.amount_total !== context.upfront_amount_minor) throw new Error("Stripe returned an invalid checkout session.");
-    await storeProviderResource({ requestId, provider: "stripe", primaryReference: session.id, paymentReference: session.payment_intent });
+    await storeProviderResource({ requestId, provider: "stripe", primaryReference: session.id, paymentReference: session.payment_intent, customerReference: session.customer, mandateReference: session.subscription });
     return { ok: true, url: session.url };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : "Card checkout could not be started." };

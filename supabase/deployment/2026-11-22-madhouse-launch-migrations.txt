@@ -148,3 +148,4 @@ supabase/migrations/2027-01-07-madhouse-class-credit-iso-weeks.sql
 supabase/migrations/2027-01-08-madhouse-daily-checks-import.sql
 supabase/migrations/2027-01-09-madhouse-class-payments-and-register.sql
 supabase/migrations/2027-01-10-madhouse-pending-staff-assignments.sql
+supabase/migrations/2027-01-11-stripe-membership-subscriptions.sql
