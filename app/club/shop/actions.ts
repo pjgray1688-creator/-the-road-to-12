@@ -5,6 +5,10 @@ import { resolveClubOrganisationContext } from "@/lib/club-server-context";
 import { parseMinorUnits } from "@/lib/club-money";
 import { normalizeBarcode, OpenFoodFactsBarcodeProvider } from "@/lib/club-barcode";
 import { searchStaffMemberRecords, type StaffMemberSearchResult } from "@/lib/club-member-search";
+import { adminSupabase } from "@/lib/supabase-admin";
+import { siteUrl } from "@/lib/site-url";
+import { readStripeMerchantConfig } from "@/lib/stripe-merchant";
+import { createStripeCommerceCheckoutSession, expireStripeCommerceCheckoutSession, retrieveStripeCommerceCheckoutSession } from "@/lib/stripe-commerce-provider";
 
 type Result = { ok: true; status: string; orderId: string } | { ok: false; error: string };
 function paymentFailure(operation: "cash_sale" | "balance_sale", input: { organisationId: string; locationId?: string; customerId?: string }, error: unknown, message: string): Result {
@@ -48,12 +52,66 @@ export async function purchaseAction(input: { organisationId: string; productId?
   try { const value = await context(input.organisationId); const items = input.items ?? (input.productId && input.quantity ? [{ productId: input.productId, quantity: input.quantity }] : []); const key = input.idempotencyKey?.trim() || crypto.randomUUID(); if (!value || !items.length || input.quantity !== undefined && (!Number.isInteger(input.quantity) || input.quantity < 1) || items.some(item => !Number.isInteger(item.quantity) || item.quantity < 1) || input.payment === "cash_box" && !input.locationId) return { ok: false, error: input.payment === "cash_box" ? "Choose a location for cash-box payment." : "This purchase isn’t available." }; const order = await value.repository.createCommerceOrder({ organisationId: value.organisation.id, locationId: input.locationId, userId: value.userId, channel: "member_app", currency: "GBP", items, idempotencyKey: key }); createdOrderId = order.id; const reservationClient = await serverSupabase(); const { error: reservationError } = await reservationClient.rpc("club_reserve_order_stock", { p_order_id: order.id }); if (reservationError) return { ok: false, error: "That item is no longer available at the selected gym." }; if (input.payment === "balance") await value.repository.spendBalance(order.id, order.totalMinor, `${key}:balance`); else await value.repository.declareCash({ organisationId: value.organisation.id, locationId: input.locationId, purpose: "commerce_order", userId: value.userId, orderId: order.id, amountMinor: order.totalMinor, currency: order.currency, idempotencyKey: `${key}:cash` }); revalidatePath("/club/shop"); return { ok: true, status: input.payment === "balance" ? "paid" : "awaiting_cash_verification", orderId: order.id }; } catch (error) { if (createdOrderId) { try { const cleanup = await serverSupabase(); await cleanup.rpc("club_release_order_reservations", { p_order_id: createdOrderId, p_status: "cancelled" }); } catch {} } console.error("[club-shop] purchase failed", { operation: error instanceof Error && "operation" in error ? error.operation : "purchase" }); return { ok: false, error: "Purchase couldn’t be completed." }; }
 }
 
-export async function beginExternalPaymentAttemptAction(input: { organisationId: string; items: Array<{ productId: string; quantity: number }>; locationId?: string; balanceAmountMinor: number; externalMethod: "card" | "klarna" | "clearpay" | "paypal"; idempotencyKey: string }) : Promise<{ ok: true; orderId: string; attempt: unknown } | { ok: false; error: string }> {
+export async function beginExternalPaymentAttemptAction(input: { organisationId: string; items: Array<{ productId: string; quantity: number }>; locationId?: string; balanceAmountMinor: number; externalMethod: "card" | "klarna" | "clearpay" | "paypal"; idempotencyKey: string }) : Promise<{ ok: true; orderId: string; url: string } | { ok: false; error: string }> {
+  let attemptId: string | undefined; let sessionId: string | undefined;
   try {
     const value = await context(input.organisationId);
-    if (!value || !input.items.length || !Number.isInteger(input.balanceAmountMinor) || input.balanceAmountMinor < 0) return { ok: false, error: "This payment isn’t available." };
-    return { ok: false, error: "External payment is not configured yet. Your basket is unchanged." };
-  } catch { return { ok: false, error: "Payment couldn’t be started." }; }
+    if (!value || !input.items.length || input.items.some(line => !line.productId || !Number.isSafeInteger(line.quantity) || line.quantity < 1 || line.quantity > 50) || !input.idempotencyKey.trim() || input.idempotencyKey.length > 160 || input.externalMethod !== "card" || input.balanceAmountMinor !== 0) return { ok: false, error: "This payment method or Balance split is not available for this basket." };
+    const config = readStripeMerchantConfig("madhouse_products_services");
+    const client = await serverSupabase(); const { data: { user } } = await client.auth.getUser();
+    if (!user?.email || !user.email_confirmed_at) return { ok: false, error: "Sign in with a confirmed email to pay by card." };
+    const { data, error } = await client.rpc("club_begin_stripe_commerce_attempt", {
+      p_organisation_id: value.organisation.id, p_location_id: input.locationId ?? null,
+      p_items: input.items.map(line => ({ product_id: line.productId, quantity: line.quantity })), p_idempotency_key: input.idempotencyKey.trim(),
+    });
+    if (error || !data || typeof data !== "object") return { ok: false, error: "This basket is not configured for Products and Services card checkout." };
+    const payload = data as Record<string, unknown>; const order = payload.order as Record<string, unknown> | undefined; const attempt = payload.attempt as Record<string, unknown> | undefined;
+    attemptId = String(attempt?.id ?? ""); const orderId = String(order?.id ?? "");
+    const linesRaw = Array.isArray(payload.lines) ? payload.lines as Array<Record<string, unknown>> : [];
+    const totalMinor = Number(order?.total_minor); const currency = String(order?.currency ?? "").toUpperCase();
+    if (!attemptId || !orderId || !Number.isSafeInteger(totalMinor) || totalMinor <= 0 || !linesRaw.length) throw new Error("Stripe order details are incomplete");
+    const lines = linesRaw.map(line => ({ productId: String(line.product_id), stripeProductId: String(line.stripe_product_id), stripePriceId: String(line.stripe_price_id), quantity: Number(line.quantity), unitPriceMinor: Number(line.unit_price_minor), currency: String(line.currency).toUpperCase() }));
+    const session = await createStripeCommerceCheckoutSession({ attemptId, orderId, userId: user.id, customerEmail: user.email, totalMinor, currency,
+      successUrl: `${siteUrl()}/member-hub/shop?org=${encodeURIComponent(value.organisation.id)}&payment=processing&attempt_id=${encodeURIComponent(attemptId)}`,
+      cancelUrl: `${siteUrl()}/member-hub/shop?org=${encodeURIComponent(value.organisation.id)}&payment=cancelled&attempt_id=${encodeURIComponent(attemptId)}`, lines });
+    sessionId = session.id;
+    const admin = adminSupabase();
+    const bound = await admin.rpc("club_bind_stripe_commerce_account", { p_attempt_id: attemptId, p_account_id: config.accountId });
+    if (bound.error) throw new Error("Stripe merchant account could not be bound to the payment attempt");
+    const stored = await admin.rpc("club_store_stripe_commerce_session", { p_attempt_id: attemptId, p_account_id: config.accountId, p_session_id: session.id, p_customer_id: typeof session.customer === "string" ? session.customer : session.customer?.id ?? null });
+    if (stored.error || !session.url) throw new Error("Stripe Checkout session could not be linked to the order");
+    return { ok: true, orderId, url: session.url };
+  } catch {
+    if (sessionId) { try { await expireStripeCommerceCheckoutSession(sessionId); } catch {} }
+    if (attemptId) { try { await adminSupabase().rpc("club_abort_stripe_commerce_attempt", { p_attempt_id: attemptId, p_reason: "Checkout could not be linked" }); } catch {} }
+    return { ok: false, error: "Payment couldn’t be started. Your order was not marked paid." };
+  }
+}
+
+export async function resumeStripeCommerceCheckoutAction(attemptId: string): Promise<{ ok: true; state: "open" | "pending" | "expired"; url?: string } | { ok: false; error: string }> {
+  try {
+    const client = await serverSupabase(); const { data: { user } } = await client.auth.getUser();
+    if (!user || !/^[0-9a-f-]{36}$/i.test(attemptId)) return { ok: false, error: "This checkout cannot be resumed." };
+    const config = readStripeMerchantConfig("madhouse_products_services");
+    const { data, error } = await adminSupabase().rpc("club_get_stripe_commerce_checkout_resume", { p_attempt_id: attemptId, p_user_id: user.id });
+    if (error || !data || typeof data !== "object") return { ok: false, error: "This checkout is no longer available." };
+    const payload = data as Record<string, unknown>; const attempt = payload.attempt as Record<string, unknown>;
+    if (attempt.stripe_merchant_entity !== "madhouse_products_services" || attempt.stripe_account_id !== config.accountId || !attempt.stripe_checkout_session_id) return { ok: false, error: "This checkout is not linked to the Products and Services account." };
+    if (attempt.status !== "pending") return { ok: true, state: "pending" };
+    const session = await retrieveStripeCommerceCheckoutSession(String(attempt.stripe_checkout_session_id));
+    const customerId = typeof session.customer === "string" ? session.customer : session.customer?.id;
+    if (session.id !== attempt.stripe_checkout_session_id || session.amount_total !== Number(attempt.external_amount_minor)
+      || (attempt.stripe_customer_id && customerId !== attempt.stripe_customer_id)
+      || session.metadata?.merchant_entity !== "madhouse_products_services" || session.metadata?.payment_attempt_id !== attemptId) {
+      return { ok: false, error: "Stripe Checkout does not match this order." };
+    }
+    if (session.status === "open" && session.url) return { ok: true, state: "open", url: session.url };
+    if (session.status === "expired") {
+      await adminSupabase().rpc("club_abort_stripe_commerce_attempt", { p_attempt_id: attemptId, p_reason: "Stripe Checkout expired" });
+      return { ok: true, state: "expired" };
+    }
+    return { ok: true, state: "pending" };
+  } catch { return { ok: false, error: "Checkout status could not be verified." }; }
 }
 
 export async function cancelPaymentAttemptAction(attemptId: string, reason = "Customer cancelled") {
@@ -269,13 +327,18 @@ export async function receiveDeliveryAction(input: { organisationId: string; loc
   try { const value = await context(input.organisationId); if (!value || !(await locationAuthorized(input.organisationId, input.locationId)) || !(await value.repository.hasCapability(value.organisation.id, value.userId, "supplier.receive"))) return { ok: false, error: "You don’t have permission to receive deliveries." }; if (!input.locationId || !input.lines.length || input.lines.some(line => !Number.isInteger(line.quantityReceived) || line.quantityReceived <= 0 || line.unitCost !== undefined && parseMinorUnits(line.unitCost) === undefined)) return { ok: false, error: "Add a venue and at least one valid delivery line." }; await value.repository.receiveInventoryDelivery({ organisationId: value.organisation.id, locationId: input.locationId, supplierName: input.supplierName, supplierReference: input.supplierReference, receivedAt: input.receivedAt, notes: input.notes, lines: input.lines.map(line => ({ productId: line.productId, quantityReceived: line.quantityReceived, ...(line.unitCost?.trim() ? { unitCostMinor: parseMinorUnits(line.unitCost)! } : {}) })), idempotencyKey: crypto.randomUUID() }); revalidatePath("/club/shop"); return { ok: true }; } catch { return { ok: false, error: "Delivery couldn’t be received." }; }
 }
 
-export async function saveCatalogueProductAction(input: { organisationId: string; id?: string; name: string; brand?: string; category?: string; price: string; costPrice?: string; barcode?: string; sku?: string; stockTracked: boolean; active: boolean; mediaUrl?: string; channels: Array<"pos"|"online">; unitLabel: string; sourceProductId?: string; unitsPerSource: string; serviceProduct: boolean; serviceCredits: string; serviceValidityDays: string }): Promise<{ ok: true; productName: string } | { ok: false; error: string }> {
+export async function saveCatalogueProductAction(input: { organisationId: string; id?: string; name: string; brand?: string; category?: string; price: string; costPrice?: string; barcode?: string; sku?: string; stockTracked: boolean; active: boolean; mediaUrl?: string; channels: Array<"pos"|"online">; unitLabel: string; sourceProductId?: string; unitsPerSource: string; serviceProduct: boolean; serviceCredits: string; serviceValidityDays: string; stripeMerchantEntity?: "unconfigured" | "madhouse_products_services"; stripeProductId?: string; stripePriceId?: string }): Promise<{ ok: true; productName: string } | { ok: false; error: string }> {
   try {
     const value = await context(input.organisationId); const priceMinor = parseMinorUnits(input.price); const costPriceMinor = input.costPrice?.trim() ? parseMinorUnits(input.costPrice) : undefined;
     if (!value || !(await value.repository.hasCapability(value.organisation.id, value.userId, "commerce.pricing_manage"))) return { ok: false, error: "Catalogue editing is limited to Club administrators." };
     const credits = input.serviceCredits.trim() ? Number(input.serviceCredits) : undefined; const validity = input.serviceValidityDays.trim() ? Number(input.serviceValidityDays) : undefined; const units = input.unitsPerSource.trim() ? Number(input.unitsPerSource) : undefined;
-    if (!input.name.trim() || priceMinor === undefined || costPriceMinor === undefined && input.costPrice?.trim() || !input.channels.length || !input.unitLabel.trim() || input.unitLabel.length>40 || (input.serviceProduct && input.stockTracked) || credits !== undefined && (!Number.isInteger(credits)||credits<1) || validity !== undefined && (!Number.isInteger(validity)||validity<1) || units !== undefined && (!Number.isInteger(units)||units<1) || Boolean(input.sourceProductId)!==Boolean(units)) return { ok: false, error: "Check the price, sales channels, sellable unit and service details." };
+    const merchantEntity = input.stripeMerchantEntity === "madhouse_products_services" ? input.stripeMerchantEntity : null;
+    const stripeProductId = input.stripeProductId?.trim() || null; const stripePriceId = input.stripePriceId?.trim() || null;
+    if (!input.name.trim() || priceMinor === undefined || costPriceMinor === undefined && input.costPrice?.trim() || !input.channels.length || !input.unitLabel.trim() || input.unitLabel.length>40 || (input.serviceProduct && input.stockTracked) || credits !== undefined && (!Number.isInteger(credits)||credits<1) || validity !== undefined && (!Number.isInteger(validity)||validity<1) || units !== undefined && (!Number.isInteger(units)||units<1) || Boolean(input.sourceProductId)!==Boolean(units) || merchantEntity && (!/^prod_[A-Za-z0-9]+$/.test(stripeProductId ?? "") || !/^price_[A-Za-z0-9]+$/.test(stripePriceId ?? "")) || !merchantEntity && (stripeProductId || stripePriceId)) return { ok: false, error: "Check the price, sales channels, sellable unit, service details and confirmed Stripe product routing." };
     const product = await value.repository.saveCommerceProduct({ id: input.id, organisationId: value.organisation.id, name: input.name.trim(), brand: input.brand?.trim() || undefined, category: input.category?.trim() || undefined, sellPriceMinor: priceMinor, ...(costPriceMinor !== undefined ? { costPriceMinor } : {}), currency: "GBP", barcode: input.barcode?.trim() || undefined, sku: input.sku?.trim() || undefined, stockTracked: input.serviceProduct ? false : input.stockTracked, active: input.active, salesChannels: input.channels, unitLabel: input.unitLabel.trim(), sourceProductId: input.sourceProductId, unitsPerSource: units, isServiceProduct: input.serviceProduct, serviceCreditQuantity: credits, serviceValidityDays: validity, ...(input.mediaUrl?.trim() ? { media: { url: input.mediaUrl.trim() } } : {}) });
+    const client = await serverSupabase();
+    const { error: routeError } = await client.rpc("club_set_commerce_stripe_route", { p_organisation_id: value.organisation.id, p_product_id: product.id, p_merchant_entity: merchantEntity, p_stripe_product_id: stripeProductId, p_stripe_price_id: stripePriceId });
+    if (routeError) return { ok: false, error: "Product was saved, but its Stripe ownership route could not be updated. The previous route remains in effect." };
     await value.repository.appendAuditEvent({ organisationId: value.organisation.id, action: input.id ? "catalogue.product_updated" : "catalogue.product_created", targetType: "commerce_product", targetId: product.id });
     revalidatePath("/club/shop"); return { ok: true, productName: product.name };
   } catch (error) { console.error("[club-shop] catalogue save failed", { operation: "save_commerce_product" }); const failure=error as {operation?:unknown;code?:unknown}; return { ok: false, error: failure.operation==="save_commerce_product"&&failure.code==="FAILED"?"Product setup is temporarily unavailable. Existing products and sales are unaffected; try again later.":"Product couldn’t be saved." }; }

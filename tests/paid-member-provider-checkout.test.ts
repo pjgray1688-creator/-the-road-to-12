@@ -15,11 +15,13 @@ const stripeWebhook = readFileSync("app/api/webhooks/stripe/route.ts", "utf8");
 const goCardlessWebhook = readFileSync("app/api/webhooks/gocardless/route.ts", "utf8");
 
 test("monthly Stripe Checkout separates the joining fee from the recurring subscription price", async () => {
-  const original = process.env.STRIPE_SECRET_KEY;
-  const originalMode = process.env.STRIPE_MEMBERSHIP_MODE;
+  const original = process.env.STRIPE_FRANCHISE_SECRET_KEY;
+  const originalMode = process.env.STRIPE_FRANCHISE_MODE;
+  const originalWebhook = process.env.STRIPE_FRANCHISE_WEBHOOK_SECRET;
   const originalAccount = process.env.STRIPE_FRANCHISE_ACCOUNT_ID;
-  process.env.STRIPE_SECRET_KEY = "sk_test_not_real";
-  process.env.STRIPE_MEMBERSHIP_MODE = "test";
+  process.env.STRIPE_FRANCHISE_SECRET_KEY = "sk_test_not_real";
+  process.env.STRIPE_FRANCHISE_MODE = "test";
+  process.env.STRIPE_FRANCHISE_WEBHOOK_SECRET = "whsec_test_not_real";
   process.env.STRIPE_FRANCHISE_ACCOUNT_ID = "acct_franchise";
   let request: { url: string; init?: RequestInit } | undefined;
   const fetcher = (async (url: string | URL | Request, init?: RequestInit) => {
@@ -28,7 +30,7 @@ test("monthly Stripe Checkout separates the joining fee from the recurring subsc
     return new Response(JSON.stringify({ id: "cs_test_123", url: "https://checkout.stripe.test/session", mode: "subscription", status: "open", payment_status: "unpaid", amount_total: 4200, payment_intent: null, customer: null, subscription: null }), { status: 200 });
   }) as typeof fetch;
   try {
-    await createStripeCheckoutSession({ requestId: "join-1", generation: 2, email: "member@example.com", productName: "Monthly", checkoutKind: "monthly_recurring", joiningFeeMinor: 1500, recurringAmountMinor: 2700, upfrontAmountMinor: 4200, currency: "GBP", successUrl: "https://app.test/success", cancelUrl: "https://app.test/cancel" }, fetcher);
+    await createStripeCheckoutSession({ requestId: "join-1", generation: 2, membershipProductId: "plan-cross-site", email: "member@example.com", productName: "Monthly", checkoutKind: "monthly_recurring", joiningFeeMinor: 1500, recurringAmountMinor: 2700, upfrontAmountMinor: 4200, currency: "GBP", successUrl: "https://app.test/success", cancelUrl: "https://app.test/cancel" }, fetcher);
     assert.equal(request?.url, "https://api.stripe.com/v1/checkout/sessions");
     assert.equal(new Headers(request?.init?.headers).get("idempotency-key"), "r12-join-join-1-stripe-2");
     const body = request?.init?.body as URLSearchParams;
@@ -40,25 +42,53 @@ test("monthly Stripe Checkout separates the joining fee from the recurring subsc
     assert.equal(body.get("subscription_data[metadata][join_generation]"), "2");
     assert.equal(body.get("metadata[join_generation]"), "2");
     assert.equal(body.get("metadata[join_request_id]"), "join-1");
+    assert.equal(body.get("metadata[merchant_entity]"), "madhouse_franchise");
+    assert.equal(body.get("subscription_data[metadata][membership_product_id]"), "plan-cross-site");
     assert.equal(body.get("payment_method_types[0]"), "card");
   } finally {
-    if (original === undefined) delete process.env.STRIPE_SECRET_KEY; else process.env.STRIPE_SECRET_KEY = original;
-    if (originalMode === undefined) delete process.env.STRIPE_MEMBERSHIP_MODE; else process.env.STRIPE_MEMBERSHIP_MODE = originalMode;
+    if (original === undefined) delete process.env.STRIPE_FRANCHISE_SECRET_KEY; else process.env.STRIPE_FRANCHISE_SECRET_KEY = original;
+    if (originalMode === undefined) delete process.env.STRIPE_FRANCHISE_MODE; else process.env.STRIPE_FRANCHISE_MODE = originalMode;
+    if (originalWebhook === undefined) delete process.env.STRIPE_FRANCHISE_WEBHOOK_SECRET; else process.env.STRIPE_FRANCHISE_WEBHOOK_SECRET = originalWebhook;
     if (originalAccount === undefined) delete process.env.STRIPE_FRANCHISE_ACCOUNT_ID; else process.env.STRIPE_FRANCHISE_ACCOUNT_ID = originalAccount;
   }
 });
 
+test("annual Madhouse Checkout charges the configured joining fee and annual membership separately once", async () => {
+  const originals = ["STRIPE_FRANCHISE_SECRET_KEY", "STRIPE_FRANCHISE_WEBHOOK_SECRET", "STRIPE_FRANCHISE_MODE", "STRIPE_FRANCHISE_ACCOUNT_ID"].map(key => process.env[key]);
+  process.env.STRIPE_FRANCHISE_SECRET_KEY = "sk_test_not_real"; process.env.STRIPE_FRANCHISE_WEBHOOK_SECRET = "whsec_test_not_real";
+  process.env.STRIPE_FRANCHISE_MODE = "test"; process.env.STRIPE_FRANCHISE_ACCOUNT_ID = "acct_franchise";
+  let request: { url: string; init?: RequestInit } | undefined;
+  const fetcher = (async (url: string | URL | Request, init?: RequestInit) => {
+    if (String(url).endsWith("/account")) return new Response(JSON.stringify({ id: "acct_franchise" }));
+    request = { url: String(url), init };
+    return new Response(JSON.stringify({ id: "cs_test_annual", url: "https://checkout.stripe.test/annual", mode: "payment", status: "open", payment_status: "unpaid", amount_total: 71_500, payment_intent: "pi_annual", customer: "cus_annual", subscription: null }));
+  }) as typeof fetch;
+  try {
+    await createStripeCheckoutSession({ requestId: "annual-1", generation: 1, membershipProductId: "plan-cross-site", email: "member@example.test", productName: "Annual Madhouse Membership", checkoutKind: "annual_one_off", joiningFeeMinor: 2_500, recurringAmountMinor: 69_000, upfrontAmountMinor: 71_500, currency: "GBP", successUrl: "https://app.test/return", cancelUrl: "https://app.test/cancel" }, fetcher);
+    const body = new URLSearchParams(String(request?.init?.body));
+    assert.equal(body.get("mode"), "payment");
+    assert.equal(body.get("line_items[0][price_data][unit_amount]"), "69000");
+    assert.equal(body.get("line_items[0][price_data][recurring][interval]"), null);
+    assert.equal(body.get("line_items[1][price_data][unit_amount]"), "2500");
+    assert.equal(body.get("line_items[1][price_data][product_data][name]"), "Madhouse joining fee");
+    assert.equal(body.get("payment_intent_data[metadata][join_request_id]"), "annual-1");
+  } finally {
+    ["STRIPE_FRANCHISE_SECRET_KEY", "STRIPE_FRANCHISE_WEBHOOK_SECRET", "STRIPE_FRANCHISE_MODE", "STRIPE_FRANCHISE_ACCOUNT_ID"].forEach((key, index) => { if (originals[index] === undefined) delete process.env[key]; else process.env[key] = originals[index]; });
+  }
+});
+
 test("provider configuration fails closed before any external request", async () => {
-  const stripe = process.env.STRIPE_SECRET_KEY; const stripeMode = process.env.STRIPE_MEMBERSHIP_MODE; const stripeAccount = process.env.STRIPE_FRANCHISE_ACCOUNT_ID; const gc = process.env.GOCARDLESS_ACCESS_TOKEN;
-  delete process.env.STRIPE_SECRET_KEY; delete process.env.STRIPE_MEMBERSHIP_MODE; delete process.env.STRIPE_FRANCHISE_ACCOUNT_ID; delete process.env.GOCARDLESS_ACCESS_TOKEN;
+  const stripe = process.env.STRIPE_FRANCHISE_SECRET_KEY; const stripeMode = process.env.STRIPE_FRANCHISE_MODE; const stripeWebhook = process.env.STRIPE_FRANCHISE_WEBHOOK_SECRET; const stripeAccount = process.env.STRIPE_FRANCHISE_ACCOUNT_ID; const gc = process.env.GOCARDLESS_ACCESS_TOKEN;
+  delete process.env.STRIPE_FRANCHISE_SECRET_KEY; delete process.env.STRIPE_FRANCHISE_MODE; delete process.env.STRIPE_FRANCHISE_WEBHOOK_SECRET; delete process.env.STRIPE_FRANCHISE_ACCOUNT_ID; delete process.env.GOCARDLESS_ACCESS_TOKEN;
   let calls = 0; const fetcher = (async () => { calls++; return new Response("{}"); }) as typeof fetch;
   try {
-    await assert.rejects(createStripeCheckoutSession({ requestId: "x", generation: 1, email: "x@example.com", productName: "X", checkoutKind: "one_off", joiningFeeMinor: 0, recurringAmountMinor: 1, upfrontAmountMinor: 1, currency: "GBP", successUrl: "https://app.test", cancelUrl: "https://app.test" }, fetcher), /not configured/);
+    await assert.rejects(createStripeCheckoutSession({ requestId: "x", generation: 1, membershipProductId: "plan-cross-site", email: "x@example.com", productName: "X", checkoutKind: "one_off", joiningFeeMinor: 0, recurringAmountMinor: 1, upfrontAmountMinor: 1, currency: "GBP", successUrl: "https://app.test", cancelUrl: "https://app.test" }, fetcher), /configuration is incomplete/);
     await assert.rejects(createGoCardlessRedirectFlow({ requestId: "x", generation: 1, sessionToken: "token", description: "X", successUrl: "https://app.test" }, fetcher), /not configured/);
     assert.equal(calls, 0);
   } finally {
-    if (stripe !== undefined) process.env.STRIPE_SECRET_KEY = stripe;
-    if (stripeMode !== undefined) process.env.STRIPE_MEMBERSHIP_MODE = stripeMode;
+    if (stripe !== undefined) process.env.STRIPE_FRANCHISE_SECRET_KEY = stripe;
+    if (stripeMode !== undefined) process.env.STRIPE_FRANCHISE_MODE = stripeMode;
+    if (stripeWebhook !== undefined) process.env.STRIPE_FRANCHISE_WEBHOOK_SECRET = stripeWebhook;
     if (stripeAccount !== undefined) process.env.STRIPE_FRANCHISE_ACCOUNT_ID = stripeAccount;
     if (gc !== undefined) process.env.GOCARDLESS_ACCESS_TOKEN = gc;
   }
@@ -172,11 +202,13 @@ test("Stripe subscription state is durable, replay-safe and never activates from
   assert.doesNotMatch(subscriptionMigration, /p_currency is null or upper\(p_currency\)/);
   assert.doesNotMatch(actions, /club_activate_verified_stripe_join/);
   assert.match(actions, /existing\.status === "complete".*includes\("failed"\)/s);
-  assert.match(stripeWebhook, /club_record_stripe_membership_event/);
-  assert.match(stripeWebhook, /STRIPE_MEMBERSHIP_MODE/);
+  assert.match(stripeWebhook, /club_record_stripe_membership_event_for_account/);
+  assert.match(stripeWebhook, /madhouse_franchise/);
+  assert.match(stripeWebhook, /p_merchant_entity: config\.entity/);
 });
 
 test("paid checkout migration is in the reviewed deployment manifest", () => {
   assert.match(readFileSync("supabase/deployment/2026-11-22-madhouse-launch-migrations.txt", "utf8"), /2026-12-01-paid-member-provider-checkout\.sql/);
   assert.match(readFileSync("supabase/deployment/2026-11-22-madhouse-launch-migrations.txt", "utf8"), /2027-01-04-stripe-membership-subscriptions\.sql/);
+  assert.match(readFileSync("supabase/deployment/2026-11-22-madhouse-launch-migrations.txt", "utf8"), /2027-01-05-two-stripe-merchant-isolation\.sql/);
 });

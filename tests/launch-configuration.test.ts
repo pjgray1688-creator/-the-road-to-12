@@ -20,12 +20,12 @@ test("app URL prefers R12_APP_BASE_URL and accepts the r12.live app origin only 
 
 test("launch readiness reports missing and invalid settings without returning their values", () => {
   const checks = launchReadiness({
-    NODE_ENV: "production", R12_APP_BASE_URL: "https://the-road-to-12.vercel.app", STRIPE_SECRET_KEY: "sk_test_private",
-    STRIPE_WEBHOOK_SECRET: "whsec_private", GOCARDLESS_ENVIRONMENT: "production", GOCARDLESS_ACCESS_TOKEN: "token_private",
+    NODE_ENV: "production", R12_APP_BASE_URL: "https://the-road-to-12.vercel.app", STRIPE_FRANCHISE_SECRET_KEY: "sk_test_private",
+    STRIPE_FRANCHISE_WEBHOOK_SECRET: "whsec_private", GOCARDLESS_ENVIRONMENT: "production", GOCARDLESS_ACCESS_TOKEN: "token_private",
   } as NodeJS.ProcessEnv);
-  assert.equal(checks.find(check => check.key === "stripeSecret")?.state, "invalid");
-  assert.equal(checks.find(check => check.key === "stripeMembershipMode")?.state, "missing");
-  assert.equal(checks.find(check => check.key === "stripeFranchiseAccount")?.state, "missing");
+  assert.equal(checks.find(check => check.key === "stripeFRANCHISESecret")?.state, "invalid");
+  assert.equal(checks.find(check => check.key === "stripeFRANCHISEMode")?.state, "missing");
+  assert.equal(checks.find(check => check.key === "stripeFRANCHISEAccount")?.state, "missing");
   assert.equal(checks.find(check => check.key === "goCardlessEnvironment")?.state, "invalid");
   assert.equal(checks.find(check => check.key === "billingWorker")?.state, "missing");
   assert.equal(checks.find(check => check.key === "emailProvider")?.state, "missing");
@@ -36,15 +36,13 @@ test("launch readiness reports missing and invalid settings without returning th
   assert.doesNotMatch(JSON.stringify(checks), /private|whsec|token_private/);
 });
 
-test("Stripe membership readiness binds mode, key and Franchise account", () => {
-  const testChecks = launchReadiness({ NODE_ENV: "test", STRIPE_MEMBERSHIP_MODE: "test", STRIPE_SECRET_KEY: "sk_test_private", STRIPE_FRANCHISE_ACCOUNT_ID: "acct_franchise" } as NodeJS.ProcessEnv);
-  assert.equal(testChecks.find(check => check.key === "stripeSecret")?.state, "configured");
-  assert.equal(testChecks.find(check => check.key === "stripeMembershipMode")?.state, "configured");
-  assert.equal(testChecks.find(check => check.key === "stripeFranchiseAccount")?.state, "configured");
-  const wrongMode = launchReadiness({ NODE_ENV: "production", STRIPE_MEMBERSHIP_MODE: "test", STRIPE_SECRET_KEY: "sk_test_private", STRIPE_FRANCHISE_ACCOUNT_ID: "acct_franchise" } as NodeJS.ProcessEnv);
-  assert.equal(wrongMode.find(check => check.key === "stripeSecret")?.state, "invalid");
-  assert.equal(wrongMode.find(check => check.key === "stripeMembershipMode")?.state, "invalid");
-  assert.doesNotMatch(JSON.stringify(testChecks), /sk_test_private|acct_franchise/);
+test("Stripe readiness keeps each legal merchant mode, key, account and webhook separate", () => {
+  const testChecks = launchReadiness({ NODE_ENV: "test", STRIPE_FRANCHISE_MODE: "test", STRIPE_FRANCHISE_SECRET_KEY: "sk_test_private", STRIPE_FRANCHISE_ACCOUNT_ID: "acct_franchise", STRIPE_FRANCHISE_WEBHOOK_SECRET: "whsec_franchise", STRIPE_PRODUCTS_SERVICES_MODE: "test", STRIPE_PRODUCTS_SERVICES_SECRET_KEY: "sk_test_services", STRIPE_PRODUCTS_SERVICES_ACCOUNT_ID: "acct_services", STRIPE_PRODUCTS_SERVICES_WEBHOOK_SECRET: "whsec_services" } as NodeJS.ProcessEnv);
+  for (const prefix of ["FRANCHISE", "PRODUCTS_SERVICES"]) for (const suffix of ["Secret", "Mode", "Account", "Webhook"]) assert.equal(testChecks.find(check => check.key === `stripe${prefix}${suffix}`)?.state, "configured");
+  const wrongMode = launchReadiness({ NODE_ENV: "production", STRIPE_FRANCHISE_MODE: "test", STRIPE_FRANCHISE_SECRET_KEY: "sk_test_private", STRIPE_FRANCHISE_ACCOUNT_ID: "acct_franchise", STRIPE_FRANCHISE_WEBHOOK_SECRET: "whsec_franchise" } as NodeJS.ProcessEnv);
+  assert.equal(wrongMode.find(check => check.key === "stripeFRANCHISESecret")?.state, "invalid");
+  assert.equal(wrongMode.find(check => check.key === "stripeFRANCHISEMode")?.state, "invalid");
+  assert.doesNotMatch(JSON.stringify(testChecks), /sk_test_private|acct_franchise|whsec_services/);
 });
 
 test("production readiness requires the GoCardless live mode and validates Supabase public configuration", () => {
@@ -105,7 +103,7 @@ test("SMTP authentication credentials must be paired and sender addresses valida
 test("production launch checklist documents canonical webhook, callback, and worker URLs", async () => {
   const { readFile } = await import("node:fs/promises");
   const checklist = await readFile("docs/r12-launch-configuration.md", "utf8");
-  for (const route of ["/api/webhooks/stripe", "/api/webhooks/gocardless", "/api/club/join/gocardless/complete", "/api/internal/membership-billing-worker", "/api/internal/supplier-import-worker", "/api/internal/notification-worker", "0 6 * * *", "15 6 * * *"]) assert.ok(checklist.includes(route));
+  for (const route of ["/api/webhooks/stripe", "/api/webhooks/stripe/products-services", "/api/webhooks/gocardless", "/api/club/join/gocardless/complete", "/api/internal/membership-billing-worker", "/api/internal/supplier-import-worker", "/api/internal/notification-worker", "0 6 * * *", "15 6 * * *"]) assert.ok(checklist.includes(route));
   assert.match(checklist, /No automatic schedule/);
   assert.match(checklist, /imports synchronously/);
   assert.match(checklist, /daily.*Vercel Hobby|Vercel Hobby.*daily/i);

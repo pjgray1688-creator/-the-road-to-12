@@ -19,14 +19,21 @@ function supabaseUrlState(value: string | undefined) {
 
 export function launchReadiness(env: NodeJS.ProcessEnv = process.env): ReadinessCheck[] {
   const app = appBaseUrlStatus(env);
-  const stripeKey = env.STRIPE_SECRET_KEY?.trim();
-  const stripeMode = env.STRIPE_MEMBERSHIP_MODE?.trim().toLowerCase();
-  const stripeAccount = env.STRIPE_FRANCHISE_ACCOUNT_ID?.trim();
-  const stripeModeState: ReadinessState = !stripeMode ? "missing" : !["test", "live"].includes(stripeMode) || (env.NODE_ENV === "production" && stripeMode !== "live") ? "invalid" : "configured";
-  const stripeKeyValidFormat = Boolean(stripeKey && /^sk_(live|test)_/.test(stripeKey));
-  const stripeKeyMatchesMode = Boolean(stripeKey && stripeMode && stripeKey.startsWith(`sk_${stripeMode}_`));
-  const stripeKeyState: ReadinessState = !stripeKey ? "missing" : stripeKeyValidFormat && stripeKeyMatchesMode && !(env.NODE_ENV === "production" && stripeKey.startsWith("sk_test_")) ? "configured" : "invalid";
-  const stripeKeyDetail = !stripeKey ? "Required server setting is missing." : stripeKeyState === "invalid" ? "Use a Stripe secret key matching the explicit membership mode; production must use live mode." : "Format and mode agree; Checkout verifies the configured Franchise account with Stripe.";
+  const stripeChecks = (name: "FRANCHISE" | "PRODUCTS_SERVICES", label: string): ReadinessCheck[] => {
+    const key = env[`STRIPE_${name}_SECRET_KEY`]?.trim();
+    const mode = env[`STRIPE_${name}_MODE`]?.trim().toLowerCase();
+    const account = env[`STRIPE_${name}_ACCOUNT_ID`]?.trim();
+    const webhook = env[`STRIPE_${name}_WEBHOOK_SECRET`]?.trim();
+    const modeState: ReadinessState = !mode ? "missing" : !["test", "live"].includes(mode) || (env.NODE_ENV === "production" && mode !== "live") ? "invalid" : "configured";
+    const keyState: ReadinessState = !key ? "missing" : Boolean(mode && key.startsWith(`sk_${mode}_`) && /^sk_(live|test)_/.test(key) && !(env.NODE_ENV === "production" && key.startsWith("sk_test_"))) ? "configured" : "invalid";
+    const accountState: ReadinessState = !account ? "missing" : /^acct_[A-Za-z0-9]+$/.test(account) ? "configured" : "invalid";
+    return [
+      { key: `stripe${name}Secret`, label: `${label} Stripe secret key`, state: keyState, detail: keyState === "configured" ? "Key format and mode agree; the Stripe API account is verified before Checkout." : "Set this entity’s own test/live secret key matching its explicit mode." },
+      { key: `stripe${name}Mode`, label: `${label} Stripe mode`, state: modeState, detail: !mode ? "Set test or live explicitly; production must be live." : modeState === "invalid" ? "Use exactly test or live; production requires live." : `Selected mode: ${mode}.` },
+      { key: `stripe${name}Account`, label: `${label} Stripe account`, state: accountState, detail: accountState === "configured" ? "Account ID format is present; Checkout verifies it against the API key." : `Set this entity’s exact Stripe acct_ identifier.` },
+      { key: `stripe${name}Webhook`, label: `${label} Stripe webhook secret`, state: webhook?.startsWith("whsec_") ? "configured" : webhook ? "invalid" : "missing", detail: webhook?.startsWith("whsec_") ? "Endpoint signing secret is present; delivery is not tested here." : "Set this entity’s endpoint-specific webhook signing secret." },
+    ];
+  };
   const environment = env.GOCARDLESS_ENVIRONMENT?.trim().toLowerCase();
   const smtp = inspectSmtpConfiguration(env);
   const emailProvider = env.R12_EMAIL_PROVIDER?.trim().toLowerCase();
@@ -40,10 +47,8 @@ export function launchReadiness(env: NodeJS.ProcessEnv = process.env): Readiness
     presence("supabaseAnon", "Supabase public client key", env.NEXT_PUBLIC_SUPABASE_ANON_KEY),
     presence("supabaseServiceRole", "Worker Supabase service-role key", env.SUPABASE_SERVICE_ROLE_KEY),
     { key: "clubStationSession", label: "Shared Club station session signing key", state: env.R12_CLUB_STATION_SESSION_SECRET && Buffer.byteLength(env.R12_CLUB_STATION_SESSION_SECRET) >= 32 ? "configured" : "missing", detail: "A random server-only key of at least 32 bytes is required to bind station unlocks to the selected signed-in staff identity." },
-    { key: "stripeSecret", label: "Stripe secret key", state: stripeKeyState, detail: stripeKeyDetail },
-    { key: "stripeMembershipMode", label: "Stripe membership mode", state: stripeModeState, detail: !stripeMode ? "Set test or live explicitly; production must be live." : stripeModeState === "invalid" ? "Use exactly test or live; production requires live." : `Selected mode: ${stripeMode}.` },
-    { key: "stripeFranchiseAccount", label: "Stripe Franchise merchant account", state: stripeAccount?.startsWith("acct_") ? "configured" : stripeAccount ? "invalid" : "missing", detail: stripeAccount?.startsWith("acct_") ? "Account ID format is valid; Checkout verifies the secret key resolves to this account." : "Set the Madhouse Franchise Limited acct_ identifier." },
-    presence("stripeWebhook", "Stripe webhook signing secret", env.STRIPE_WEBHOOK_SECRET),
+    ...stripeChecks("FRANCHISE", "Madhouse Franchise Limited"),
+    ...stripeChecks("PRODUCTS_SERVICES", "Madhouse Products and Services Limited"),
     presence("goCardlessToken", "GoCardless access token", env.GOCARDLESS_ACCESS_TOKEN),
     { key: "goCardlessEnvironment", label: "GoCardless environment", state: goCardlessState, detail: !environment ? "Set sandbox or live explicitly; production must be live." : goCardlessState === "invalid" ? productionGoCardless ? "Production requires GOCARDLESS_ENVIRONMENT=live." : "Use exactly sandbox or live." : `Selected environment: ${environment}.` },
     presence("goCardlessWebhook", "GoCardless webhook signing secret", env.GOCARDLESS_WEBHOOK_SECRET),

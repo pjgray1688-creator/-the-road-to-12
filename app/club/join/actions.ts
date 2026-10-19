@@ -6,12 +6,13 @@ import { revalidatePath } from "next/cache";
 import { createGoCardlessRedirectFlow, retrieveGoCardlessRedirectFlow } from "@/lib/gocardless-join-provider";
 import { siteUrl } from "@/lib/site-url";
 import { createStripeCheckoutSession, retrieveStripeCheckoutSession } from "@/lib/stripe-join-provider";
+import { readStripeMerchantConfig } from "@/lib/stripe-merchant";
 import { adminSupabase } from "@/lib/supabase-admin";
 import { serverSupabase } from "@/lib/supabase-server";
 
 export type JoiningActionResult = { ok: true; requestId: string; status: string; paymentState: string; productName: string; amountMinor: number; upfrontAmountMinor: number; checkoutKind: string; billing: string; durationDays?: number } | { ok: false; error: string; existingMember?: boolean };
 export type JoinDetails = {
-  organisationId: string; productId: string; locationId: string; firstName: string; lastName: string;
+  organisationId: string; productId: string; locationId?: string; firstName: string; lastName: string;
   email: string; phone: string; dateOfBirth: string; addressLine1: string; addressLine2?: string;
   townCity?: string; postcode: string; emergencyName: string; emergencyPhone: string;
   termsAccepted: boolean; privacyAccepted: boolean; marketingConsent: boolean;
@@ -24,8 +25,8 @@ export async function startClubJoiningAction(input: JoinDetails): Promise<Joinin
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { ok: false, error: "Create or sign into your personal R12 account to continue." };
     if (!user.email_confirmed_at) return { ok: false, error: "Confirm your email before continuing." };
-    const { data, error } = await supabase.rpc("club_start_membership_joining", {
-      p_organisation_id: input.organisationId, p_product_id: input.productId, p_location_id: input.locationId,
+    const { data, error } = await supabase.rpc("club_start_membership_joining_optional_home_location", {
+      p_organisation_id: input.organisationId, p_product_id: input.productId, p_home_location_id: input.locationId ?? null,
       p_first_name: input.firstName, p_last_name: input.lastName, p_email: input.email, p_phone: input.phone,
       p_date_of_birth: input.dateOfBirth, p_address_line_1: input.addressLine1, p_address_line_2: input.addressLine2 ?? "",
       p_town_city: input.townCity ?? "", p_postcode: input.postcode, p_emergency_name: input.emergencyName,
@@ -60,7 +61,7 @@ export async function claimExistingMemberAction(organisationId: string, customer
 }
 
 type ProviderContext = {
-  id: string; organisation_slug: string; product_name: string; currency: string; upfront_amount_minor: number;
+  id: string; membership_product_id: string; organisation_slug: string; product_name: string; currency: string; upfront_amount_minor: number;
   checkout_kind: string; joining_fee_minor: number; first_period_minor: number;
   upfront_payment_state: string; recurring_authority_state: string;
   email: string; stripe_checkout_session_id?: string | null; stripe_checkout_generation: number;
@@ -99,7 +100,7 @@ async function storeProviderResource(input: { requestId: string; provider: "stri
 
 export async function startJoinCardCheckoutAction(requestId: string): Promise<ProviderActionResult> {
   try {
-    if (!process.env.STRIPE_SECRET_KEY) throw new Error("Stripe checkout is not configured");
+    if (!process.env.STRIPE_FRANCHISE_SECRET_KEY) throw new Error("Madhouse Franchise Stripe checkout is not configured");
     let context = await prepareProvider(requestId, "stripe");
     if (context.stripe_checkout_session_id) {
       const existing = await retrieveStripeCheckoutSession(context.stripe_checkout_session_id);
@@ -109,14 +110,17 @@ export async function startJoinCardCheckoutAction(requestId: string): Promise<Pr
     }
     const base = siteUrl();
     const session = await createStripeCheckoutSession({
-      requestId, generation: context.stripe_checkout_generation, email: context.email, productName: context.product_name,
+      requestId, generation: context.stripe_checkout_generation, membershipProductId: context.membership_product_id, email: context.email, productName: context.product_name,
       checkoutKind: context.checkout_kind, joiningFeeMinor: context.joining_fee_minor,
-      recurringAmountMinor: context.checkout_kind === "monthly_recurring" ? context.first_period_minor : context.upfront_amount_minor,
+      recurringAmountMinor: context.first_period_minor,
       upfrontAmountMinor: context.upfront_amount_minor, currency: context.currency,
       successUrl: `${base}/join/${encodeURIComponent(context.organisation_slug)}?billing=card-returned`,
       cancelUrl: `${base}/join/${encodeURIComponent(context.organisation_slug)}?billing=card-cancelled`,
     });
     if (!session.id || !session.url || session.amount_total !== context.upfront_amount_minor) throw new Error("Stripe returned an invalid checkout session.");
+    const stripeConfig = readStripeMerchantConfig("madhouse_franchise");
+    const { error: accountError } = await adminSupabase().rpc("club_bind_stripe_join_account", { p_request_id: requestId, p_account_id: stripeConfig.accountId });
+    if (accountError) throw new Error("Stripe membership account could not be bound to the joining request.");
     await storeProviderResource({ requestId, provider: "stripe", primaryReference: session.id, paymentReference: session.payment_intent, customerReference: session.customer, mandateReference: session.subscription });
     return { ok: true, url: session.url };
   } catch (error) {
