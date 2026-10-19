@@ -43,8 +43,9 @@ test("Member order history uses member-safe supplier status and refund reads", (
 
 test("GLOW member page never falls back to an unexpired-agnostic credit sum", () => {
   const page = readFileSync("app/member-hub/glow-zone/page.tsx", "utf8");
-  assert.match(page, /Only unexpired minutes are shown as available/);
-  assert.match(page, /Balance temporarily unavailable/);
+  const view = readFileSync("components/glow-zone-customer-view.tsx", "utf8");
+  assert.match(view, /Only unexpired minutes are shown as available/);
+  assert.match(view, /Balance temporarily unavailable/);
   assert.doesNotMatch(page, /profile\.serviceCredits/);
 });
 

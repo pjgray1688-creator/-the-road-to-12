@@ -1,0 +1,1 @@
+import type { Metadata } from "next";import type { ReactNode } from "react";export const metadata:Metadata={title:{default:"Glow Zone",template:"%s · Glow Zone"},description:"Glow Zone Carlton customer app.",manifest:"/glow-zone/manifest.webmanifest"};export default function GlowZoneLayout({children}:{children:ReactNode}){return children;}

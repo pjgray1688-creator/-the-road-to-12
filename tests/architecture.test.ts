@@ -65,7 +65,7 @@ test("workout launch carries the canonical dated occurrence identity", () => {
   assert.match(player, /resolveTodayOccurrence/);
 });
 test("R12 branding uses supplied PWA assets and ordered auth credentials", () => {
-  const manifest = fs.readFileSync("app/manifest.ts", "utf8");
+  const manifest = fs.readFileSync("lib/android-apps.ts", "utf8");
   const account = fs.readFileSync("app/account/page.tsx", "utf8");
   assert.match(manifest, /icon-192\.png/);
   assert.match(manifest, /icon-512\.png/);
