@@ -10,6 +10,8 @@ const productsWebhook = readFileSync("app/api/webhooks/stripe/products-services/
 const joinForm = readFileSync("components/club-joining-form.tsx", "utf8");
 const joinAction = readFileSync("app/club/join/actions.ts", "utf8");
 const commerceAction = readFileSync("app/club/shop/actions.ts", "utf8");
+const localTestScript = readFileSync("scripts/stripe-test-local.sh", "utf8");
+const localTestRunbook = readFileSync("docs/r12-stripe-local-test-runbook.md", "utf8");
 
 const productsEnv = {
   NODE_ENV: "test",
@@ -31,6 +33,21 @@ test("merchant config requires separate entity-specific credentials and never fa
   assert.equal(readStripeMerchantConfig("madhouse_products_services", productsEnv).legalEntityNumber, "17383213");
   assert.throws(() => readStripeMerchantConfig("madhouse_franchise", productsEnv), /configuration is incomplete/);
   assert.throws(() => readStripeMerchantConfig("madhouse_products_services", { ...productsEnv, STRIPE_PRODUCTS_SERVICES_SECRET_KEY: "sk_live_wrong_mode" }), /does not match its configured mode/);
+});
+
+test("local Stripe end-to-end helper is test-only, loopback-bound, and never links to hosted Supabase", () => {
+  assert.match(localTestScript, /STRIPE_FRANCHISE_MODE:-\}" != "test"/);
+  assert.match(localTestScript, /sk_test_\*/);
+  assert.match(localTestScript, /api\.stripe\.com\/v1\/account/);
+  assert.match(localTestScript, /Refusing database URL that is not the isolated local Supabase stack/);
+  assert.match(localTestScript, /Refusing Supabase API URL that is not loopback/);
+  assert.match(localTestScript, /r12-stripe-local/);
+  assert.match(localTestScript, /launch-migrations\.txt/);
+  assert.doesNotMatch(localTestScript, /supabase (?:link|db reset|db push).*--linked/);
+  assert.match(localTestRunbook, /real GoTrue Auth/);
+  assert.match(localTestRunbook, /stripe listen/);
+  assert.match(localTestRunbook, /do not run `vercel env pull`/);
+  assert.match(localTestRunbook, /home location.*both sites/i);
 });
 
 test("Products and Services Checkout validates its account, Product/Price and exact total before creating the session", async () => {
