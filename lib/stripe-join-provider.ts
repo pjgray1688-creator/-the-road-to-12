@@ -1,3 +1,5 @@
+import { readStripeMerchantConfig, stripeMerchantRequest } from "./stripe-merchant";
+
 export type StripeCheckoutSession = {
   id: string;
   url: string | null;
@@ -18,55 +20,26 @@ export type StripeInvoice = {
   parent?: { subscription_details?: { subscription?: string | null; metadata?: Record<string, string> } };
 };
 
-function stripeKey() {
-  const value = process.env.STRIPE_SECRET_KEY;
-  if (!value) throw new Error("Stripe checkout is not configured");
-  const mode = process.env.STRIPE_MEMBERSHIP_MODE;
-  if (!mode || !["test", "live"].includes(mode)) throw new Error("Stripe membership mode is not configured");
-  if (mode === "test" && !value.startsWith("sk_test_")) throw new Error("Stripe test mode requires a test secret key");
-  if (mode === "live" && !value.startsWith("sk_live_")) throw new Error("Stripe live mode requires a live secret key");
-  return value;
-}
-
-function stripeFranchiseAccountId() {
-  const value = process.env.STRIPE_FRANCHISE_ACCOUNT_ID;
-  if (!value?.startsWith("acct_")) throw new Error("Stripe Franchise account is not configured");
-  return value;
-}
-
-async function stripeRequest<T>(path: string, init: RequestInit = {}, fetcher: typeof fetch = fetch): Promise<T> {
-  const response = await fetcher(`https://api.stripe.com/v1${path}`, {
-    ...init,
-    headers: { Authorization: `Bearer ${stripeKey()}`, ...(init.headers ?? {}) },
-    cache: "no-store",
-  });
-  const value = await response.json() as T & { error?: { message?: string } };
-  if (!response.ok) throw new Error(value.error?.message || "Stripe request failed");
-  return value;
-}
-
 export function retrieveStripeCheckoutSession(id: string, fetcher?: typeof fetch) {
-  return stripeRequest<StripeCheckoutSession>(`/checkout/sessions/${encodeURIComponent(id)}`, {}, fetcher);
+  return stripeMerchantRequest<StripeCheckoutSession>("madhouse_franchise", `/checkout/sessions/${encodeURIComponent(id)}`, {}, fetcher);
 }
-
 export function retrieveStripeCharge(id: string, fetcher?: typeof fetch) {
-  return stripeRequest<StripeCharge>(`/charges/${encodeURIComponent(id)}`, {}, fetcher);
+  return stripeMerchantRequest<StripeCharge>("madhouse_franchise", `/charges/${encodeURIComponent(id)}`, {}, fetcher);
 }
 
 export function retrieveStripeInvoice(id: string, fetcher?: typeof fetch) {
-  return stripeRequest<StripeInvoice>(`/invoices/${encodeURIComponent(id)}`, {}, fetcher);
+  return stripeMerchantRequest<StripeInvoice>("madhouse_franchise", `/invoices/${encodeURIComponent(id)}`, {}, fetcher);
 }
 
 export function createStripeCheckoutSession(input: {
-  requestId: string; generation: number; email: string; productName: string; checkoutKind: string;
+  requestId: string; generation: number; membershipProductId: string; email: string; productName: string; checkoutKind: string;
   joiningFeeMinor: number; recurringAmountMinor: number; upfrontAmountMinor: number; currency: string;
   successUrl: string; cancelUrl: string;
 }, fetcher?: typeof fetch) {
   const monthly = input.checkoutKind === "monthly_recurring";
   if (!Number.isSafeInteger(input.upfrontAmountMinor) || !Number.isSafeInteger(input.recurringAmountMinor) || !Number.isSafeInteger(input.joiningFeeMinor)
     || input.upfrontAmountMinor <= 0 || input.recurringAmountMinor <= 0 || input.joiningFeeMinor < 0
-    || (monthly && input.upfrontAmountMinor !== input.recurringAmountMinor + input.joiningFeeMinor)
-    || (!monthly && input.upfrontAmountMinor !== input.recurringAmountMinor)) throw new Error("Stripe checkout totals are invalid");
+    || input.upfrontAmountMinor !== input.recurringAmountMinor + input.joiningFeeMinor) throw new Error("Stripe checkout totals are invalid");
   const body = new URLSearchParams({
     mode: monthly ? "subscription" : "payment",
     success_url: input.successUrl,
@@ -78,29 +51,39 @@ export function createStripeCheckoutSession(input: {
     "line_items[0][price_data][currency]": input.currency.toLowerCase(),
     "line_items[0][price_data][unit_amount]": String(input.recurringAmountMinor),
     "line_items[0][price_data][product_data][name]": input.productName,
+    "line_items[0][price_data][product_data][metadata][merchant_entity]": "madhouse_franchise",
+    "line_items[0][price_data][product_data][metadata][membership_product_id]": input.membershipProductId,
     "metadata[join_request_id]": input.requestId,
     "metadata[join_generation]": String(input.generation),
+    "metadata[merchant_entity]": "madhouse_franchise",
+    "metadata[membership_product_id]": input.membershipProductId,
   });
   if (monthly) {
     body.set("line_items[0][price_data][recurring][interval]", "month");
     body.set("subscription_data[metadata][join_request_id]", input.requestId);
     body.set("subscription_data[metadata][join_generation]", String(input.generation));
-    if (input.joiningFeeMinor > 0) {
-      body.set("line_items[1][quantity]", "1");
-      body.set("line_items[1][price_data][currency]", input.currency.toLowerCase());
-      body.set("line_items[1][price_data][unit_amount]", String(input.joiningFeeMinor));
-      body.set("line_items[1][price_data][product_data][name]", "Madhouse joining fee");
-    }
+    body.set("subscription_data[metadata][merchant_entity]", "madhouse_franchise");
+    body.set("subscription_data[metadata][membership_product_id]", input.membershipProductId);
   } else {
     body.set("customer_creation", "always");
     body.set("payment_intent_data[metadata][join_request_id]", input.requestId);
     body.set("payment_intent_data[metadata][join_generation]", String(input.generation));
+    body.set("payment_intent_data[metadata][merchant_entity]", "madhouse_franchise");
+    body.set("payment_intent_data[metadata][membership_product_id]", input.membershipProductId);
+  }
+  if (input.joiningFeeMinor > 0) {
+    body.set("line_items[1][quantity]", "1");
+    body.set("line_items[1][price_data][currency]", input.currency.toLowerCase());
+    body.set("line_items[1][price_data][unit_amount]", String(input.joiningFeeMinor));
+    body.set("line_items[1][price_data][product_data][name]", "Madhouse joining fee");
+    body.set("line_items[1][price_data][product_data][metadata][merchant_entity]", "madhouse_franchise");
+    body.set("line_items[1][price_data][product_data][metadata][membership_product_id]", input.membershipProductId);
   }
   return (async () => {
-    const expectedAccount = stripeFranchiseAccountId();
-    const account = await stripeRequest<{ id: string }>("/account", {}, fetcher);
-    if (account.id !== expectedAccount) throw new Error("Stripe credentials are not for the Madhouse Franchise account");
-    return stripeRequest<StripeCheckoutSession>("/checkout/sessions", {
+    const config = readStripeMerchantConfig("madhouse_franchise");
+    const account = await stripeMerchantRequest<{ id: string }>("madhouse_franchise", "/account", {}, fetcher);
+    if (account.id !== config.accountId) throw new Error("Stripe credentials are not for the Madhouse Franchise account");
+    return stripeMerchantRequest<StripeCheckoutSession>("madhouse_franchise", "/checkout/sessions", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded", "Idempotency-Key": `r12-join-${input.requestId}-stripe-${input.generation}` },
       body,

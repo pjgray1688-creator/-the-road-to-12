@@ -11,7 +11,7 @@ type StripeEvent = { id: string; type: string; created: number; data: { object: 
 
 export async function POST(request: NextRequest) {
   const body = await request.text();
-  const secret = process.env.STRIPE_PRODUCTS_SERVICES_WEBHOOK_SECRET;
+  const secret = process.env.STRIPE_PRODUCTS_SERVICES_CLASS_WEBHOOK_SECRET;
   if (!secret) return NextResponse.json({ error: "Products & Services class webhook is not configured" }, { status: 503 });
   if (!verifyStripeSignature(body, request.headers.get("stripe-signature"), secret)) return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   let event: StripeEvent;
