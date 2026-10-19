@@ -20,9 +20,13 @@ function supabaseUrlState(value: string | undefined) {
 export function launchReadiness(env: NodeJS.ProcessEnv = process.env): ReadinessCheck[] {
   const app = appBaseUrlStatus(env);
   const stripeKey = env.STRIPE_SECRET_KEY?.trim();
-  const stripeKeyValidFormat = Boolean(stripeKey && /^(sk|rk)_(live|test)_/.test(stripeKey));
-  const stripeKeyState: ReadinessState = !stripeKey ? "missing" : env.NODE_ENV === "production" && stripeKey.startsWith("sk_test_") ? "invalid" : stripeKeyValidFormat ? "configured" : "invalid";
-  const stripeKeyDetail = !stripeKey ? "Required server setting is missing." : stripeKeyState === "invalid" ? "Key format is unexpected or a test key is configured for production." : "Value is present; Stripe account validity is not checked here.";
+  const stripeMode = env.STRIPE_MEMBERSHIP_MODE?.trim().toLowerCase();
+  const stripeAccount = env.STRIPE_FRANCHISE_ACCOUNT_ID?.trim();
+  const stripeModeState: ReadinessState = !stripeMode ? "missing" : !["test", "live"].includes(stripeMode) || (env.NODE_ENV === "production" && stripeMode !== "live") ? "invalid" : "configured";
+  const stripeKeyValidFormat = Boolean(stripeKey && /^sk_(live|test)_/.test(stripeKey));
+  const stripeKeyMatchesMode = Boolean(stripeKey && stripeMode && stripeKey.startsWith(`sk_${stripeMode}_`));
+  const stripeKeyState: ReadinessState = !stripeKey ? "missing" : stripeKeyValidFormat && stripeKeyMatchesMode && !(env.NODE_ENV === "production" && stripeKey.startsWith("sk_test_")) ? "configured" : "invalid";
+  const stripeKeyDetail = !stripeKey ? "Required server setting is missing." : stripeKeyState === "invalid" ? "Use a Stripe secret key matching the explicit membership mode; production must use live mode." : "Format and mode agree; Checkout verifies the configured Franchise account with Stripe.";
   const classStripeKey = env.STRIPE_PRODUCTS_SERVICES_SECRET_KEY?.trim();
   const classStripeKeyState: ReadinessState = !classStripeKey ? "missing" : !/^sk_(test|live)_/.test(classStripeKey) ? "invalid" : classStripeKey.startsWith("sk_live_") && env.MADHOUSE_CLASS_STRIPE_LIVE_ENABLED !== "true" ? "disabled" : classStripeKey.startsWith("sk_test_") && env.NODE_ENV === "production" ? "invalid" : "configured";
   const environment = env.GOCARDLESS_ENVIRONMENT?.trim().toLowerCase();
@@ -39,6 +43,8 @@ export function launchReadiness(env: NodeJS.ProcessEnv = process.env): Readiness
     presence("supabaseServiceRole", "Worker Supabase service-role key", env.SUPABASE_SERVICE_ROLE_KEY),
     { key: "clubStationSession", label: "Shared Club station session signing key", state: env.R12_CLUB_STATION_SESSION_SECRET && Buffer.byteLength(env.R12_CLUB_STATION_SESSION_SECRET) >= 32 ? "configured" : "missing", detail: "A random server-only key of at least 32 bytes is required to bind station unlocks to the selected signed-in staff identity." },
     { key: "stripeSecret", label: "Stripe secret key", state: stripeKeyState, detail: stripeKeyDetail },
+    { key: "stripeMembershipMode", label: "Stripe membership mode", state: stripeModeState, detail: !stripeMode ? "Set test or live explicitly; production must be live." : stripeModeState === "invalid" ? "Use exactly test or live; production requires live." : `Selected mode: ${stripeMode}.` },
+    { key: "stripeFranchiseAccount", label: "Stripe Franchise merchant account", state: stripeAccount?.startsWith("acct_") ? "configured" : stripeAccount ? "invalid" : "missing", detail: stripeAccount?.startsWith("acct_") ? "Account ID format is valid; Checkout verifies the secret key resolves to this account." : "Set the Madhouse Franchise Limited acct_ identifier." },
     presence("stripeWebhook", "Stripe webhook signing secret", env.STRIPE_WEBHOOK_SECRET),
     { key: "madhouseClassStripe", label: "Madhouse class Stripe · Products & Services", state: classStripeKeyState, detail: classStripeKeyState === "missing" ? "Set the separate Products & Services Stripe test secret key; the membership Franchise key is never used for classes." : classStripeKeyState === "disabled" ? "Live class payments are disabled until explicitly approved." : classStripeKeyState === "invalid" ? "Use a valid test key outside production; live payment requires explicit enablement." : "Key is present; Stripe account ownership and webhook delivery still require external verification." },
     presence("madhouseClassStripeWebhook", "Products & Services class webhook signing secret", env.STRIPE_PRODUCTS_SERVICES_WEBHOOK_SECRET),

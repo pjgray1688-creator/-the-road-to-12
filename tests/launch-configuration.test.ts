@@ -26,6 +26,8 @@ test("launch readiness reports missing and invalid settings without returning th
   assert.equal(checks.find(check => check.key === "stripeSecret")?.state, "invalid");
   assert.equal(checks.find(check => check.key === "madhouseClassStripe")?.state, "missing");
   assert.equal(checks.find(check => check.key === "madhouseClassStripeWebhook")?.state, "missing");
+  assert.equal(checks.find(check => check.key === "stripeMembershipMode")?.state, "missing");
+  assert.equal(checks.find(check => check.key === "stripeFranchiseAccount")?.state, "missing");
   assert.equal(checks.find(check => check.key === "goCardlessEnvironment")?.state, "invalid");
   assert.equal(checks.find(check => check.key === "billingWorker")?.state, "missing");
   assert.equal(checks.find(check => check.key === "emailProvider")?.state, "missing");
@@ -43,6 +45,18 @@ test("class Stripe readiness requires its separate Products & Services test acco
   assert.match(checks.find(check => check.key === "madhouseClassStripe")?.detail ?? "", /account ownership.*external verification/i);
   const unsafeLive = launchReadiness(env({ STRIPE_PRODUCTS_SERVICES_SECRET_KEY: "sk_live_products" }));
   assert.equal(unsafeLive.find(check => check.key === "madhouseClassStripe")?.state, "disabled");
+});
+
+test("Stripe membership readiness binds mode, key and Franchise account", () => {
+  const testChecks = launchReadiness({ NODE_ENV: "test", STRIPE_MEMBERSHIP_MODE: "test", STRIPE_SECRET_KEY: "sk_test_private", STRIPE_FRANCHISE_ACCOUNT_ID: "acct_franchise" } as NodeJS.ProcessEnv);
+  assert.equal(testChecks.find(check => check.key === "stripeSecret")?.state, "configured");
+  assert.equal(testChecks.find(check => check.key === "stripeMembershipMode")?.state, "configured");
+  assert.equal(testChecks.find(check => check.key === "stripeFranchiseAccount")?.state, "configured");
+  const wrongMode = launchReadiness({ NODE_ENV: "production", STRIPE_MEMBERSHIP_MODE: "test", STRIPE_SECRET_KEY: "sk_test_private", STRIPE_FRANCHISE_ACCOUNT_ID: "acct_franchise" } as NodeJS.ProcessEnv);
+  assert.equal(wrongMode.find(check => check.key === "stripeSecret")?.state, "invalid");
+  assert.equal(wrongMode.find(check => check.key === "stripeMembershipMode")?.state, "invalid");
+  assert.doesNotMatch(JSON.stringify(testChecks), /sk_test_private|acct_franchise/);
+});
 });
 
 test("production readiness requires the GoCardless live mode and validates Supabase public configuration", () => {
