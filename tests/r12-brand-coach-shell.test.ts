@@ -5,7 +5,7 @@ import test from "node:test";
 test("R12 app metadata uses the canonical raster mark instead of the invented SVG wordmark", () => {
   const metadata = fs.readFileSync("app/layout.tsx", "utf8");
   const brand = fs.readFileSync("lib/brand.ts", "utf8");
-  const manifest = fs.readFileSync("app/manifest.ts", "utf8");
+  const manifest = fs.readFileSync("lib/android-apps.ts", "utf8");
   const clubManifest = fs.readFileSync("app/club/manifest.ts", "utf8");
 
   assert.match(brand, /markSrc: "\/r12-app-assets\/icon-192\.png"/);

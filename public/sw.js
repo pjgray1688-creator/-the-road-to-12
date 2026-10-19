@@ -1,11 +1,11 @@
-const CACHE = "r12-shell-v5";
+const CACHE = "r12-shell-v6";
 
 const STATIC_ASSET_PATHS = [
   /^\/_next\/static\/.+\.(?:css|js|map|woff2?|ttf|otf)$/,
   /^\/(?:icons|club-branding)\/[^/]+\.(?:ico|jpg|jpeg|png|svg|webp)$/,
   /^\/(?:apple-touch-icon|favicon-(?:16|32|48)|icon)\.png$/,
   /^\/r12-app-assets\/[a-z0-9-]+\.(?:ico|png)$/,
-  /^\/(?:manifest\.webmanifest|club\/manifest\.webmanifest)$/
+  /^\/(?:manifest|club\/manifest|member-hub\/manifest|coach\/manifest|glow-zone\/manifest)\.webmanifest$/
 ];
 
 const isPrivateResponse = response => {

@@ -154,7 +154,7 @@ test("station HMAC binds the exact user and station and expires after the config
 
 test("R12 favicon, Apple icon, product manifests and product titles resolve to existing assets",()=>{
   const root=readFileSync("app/layout.tsx","utf8");
-  const member=readFileSync("app/manifest.ts","utf8");
+  const member=readFileSync("lib/android-apps.ts","utf8");
   const club=readFileSync("app/club/manifest.ts","utf8");
   const coach=readFileSync("app/coach/layout.tsx","utf8");
   const iconSvg=readFileSync("public/r12-app-assets/icon.svg","utf8");
@@ -163,9 +163,9 @@ test("R12 favicon, Apple icon, product manifests and product titles resolve to e
   assert.match(member,/r12-app-assets\/icon-192\.png/);assert.match(club,/r12-app-assets\/club-icon-192\.png/);assert.match(coach,/R12 Coach/);
   assert.match(iconSvg,/<tspan fill="#f7f5ff">R<\/tspan><tspan fill="#9b62ff">12<\/tspan>/);
   assert.doesNotMatch(iconSvg,/12%|#e8ff4c/);
-  assert.match(serviceWorker,/r12-shell-v5/);
+  assert.match(serviceWorker,/r12-shell-v6/);
   const ico=readFileSync("public/favicon.ico");assert.equal(ico.readUInt16LE(2),1);assert.equal(ico.readUInt16LE(4),1);assert.equal(ico[6],48);
   const pngSize=(path:string)=>{const png=readFileSync(path);assert.equal(png.toString("hex",0,8),"89504e470d0a1a0a",`${path} must be a PNG`);return [png.readUInt32BE(16),png.readUInt32BE(20)];};
   assert.match(root,/r12-app-assets\/favicon-16\.png/);
-  for(const [path,size] of [["public/r12-app-assets/favicon-16.png",16],["public/r12-app-assets/favicon-32.png",32],["public/r12-app-assets/favicon-48.png",48],["public/r12-app-assets/apple-touch-icon.png",180],["public/r12-app-assets/icon-192.png",192],["public/r12-app-assets/icon-512.png",512],["public/r12-app-assets/club-icon-192.png",192],["public/r12-app-assets/club-icon-512.png",512]] as const)assert.deepEqual(pngSize(path),[size,size],`${path} dimensions`);
+  for(const [path,size] of [["public/r12-app-assets/favicon-16.png",16],["public/r12-app-assets/favicon-32.png",32],["public/r12-app-assets/favicon-48.png",48],["public/r12-app-assets/apple-touch-icon.png",180],["public/r12-app-assets/icon-192.png",192],["public/r12-app-assets/icon-512.png",512],["public/r12-app-assets/club-icon-192.png",192],["public/r12-app-assets/club-icon-512.png",512],["public/r12-app-assets/coach-icon-192.png",192],["public/r12-app-assets/coach-icon-512.png",512],["public/r12-app-assets/glow-zone-icon-192.png",192],["public/r12-app-assets/glow-zone-icon-512.png",512]] as const)assert.deepEqual(pngSize(path),[size,size],`${path} dimensions`);
 });

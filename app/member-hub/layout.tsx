@@ -1,0 +1,1 @@
+import type { Metadata } from "next";import type { ReactNode } from "react";export const metadata:Metadata={title:{default:"R12 Club",template:"%s · R12 Club"},description:"Membership, access, classes and club services for R12 Club members.",manifest:"/member-hub/manifest.webmanifest"};export default function MemberHubLayout({children}:{children:ReactNode}){return children;}

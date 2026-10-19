@@ -11,7 +11,9 @@
     "exercise-library:validate": "node --import tsx scripts/validate-exercise-library.ts",
     "exercise-guides:validate": "node --import tsx scripts/validate-exercise-guides.ts",
     "active-sports:dry-run": "tsx scripts/active-sports-dry-run.ts",
-    "active-sports:images": "tsx scripts/active-sports-image-enrichment.ts"
+    "active-sports:images": "tsx scripts/active-sports-image-enrichment.ts",
+    "android:validate": "node android/scripts/validate-config.mjs",
+    "android:build": "node android/scripts/build.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.5",
