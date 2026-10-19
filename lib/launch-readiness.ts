@@ -24,8 +24,9 @@ export function launchReadiness(env: NodeJS.ProcessEnv = process.env): Readiness
     const mode = env[`STRIPE_${name}_MODE`]?.trim().toLowerCase();
     const account = env[`STRIPE_${name}_ACCOUNT_ID`]?.trim();
     const webhook = env[`STRIPE_${name}_WEBHOOK_SECRET`]?.trim();
-    const modeState: ReadinessState = !mode ? "missing" : !["test", "live"].includes(mode) || (env.NODE_ENV === "production" && mode !== "live") ? "invalid" : "configured";
-    const keyState: ReadinessState = !key ? "missing" : Boolean(mode && key.startsWith(`sk_${mode}_`) && /^sk_(live|test)_/.test(key) && !(env.NODE_ENV === "production" && key.startsWith("sk_test_"))) ? "configured" : "invalid";
+    const productionRuntime = env.NODE_ENV === "production" && env.VERCEL_ENV !== "preview";
+    const modeState: ReadinessState = !mode ? "missing" : !["test", "live"].includes(mode) || (productionRuntime && mode !== "live") ? "invalid" : "configured";
+    const keyState: ReadinessState = !key ? "missing" : Boolean(mode && key.startsWith(`sk_${mode}_`) && /^sk_(live|test)_/.test(key) && !(productionRuntime && key.startsWith("sk_test_"))) ? "configured" : "invalid";
     const accountState: ReadinessState = !account ? "missing" : /^acct_[A-Za-z0-9]+$/.test(account) ? "configured" : "invalid";
     return [
       { key: `stripe${name}Secret`, label: `${label} Stripe secret key`, state: keyState, detail: keyState === "configured" ? "Key format and mode agree; the Stripe API account is verified before Checkout." : "Set this entity’s own test/live secret key matching its explicit mode." },

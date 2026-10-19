@@ -90,7 +90,8 @@ select auth.uid()=p_client_user_id or exists(
   join public.coach_permissions cp on cp.organisation_id=a.organisation_id and cp.user_id=auth.uid() and cp.active
   join public.club_members cm on cm.organisation_id=a.organisation_id and cm.user_id=auth.uid() and cm.active and cm.role in ('trainer','gym_staff','gym_admin','owner')
   join public.club_members client_member on client_member.organisation_id=a.organisation_id and client_member.user_id=p_client_user_id and client_member.active
-  where a.client_user_id=p_client_user_id and a.coach_user_id=auth.uid() and a.active;
+  where a.client_user_id=p_client_user_id and a.coach_user_id=auth.uid() and a.active
+);
 $$;
 
 create or replace function public.nutrition_can_manage_plan(p_client_user_id uuid)

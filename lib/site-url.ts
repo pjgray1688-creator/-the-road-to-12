@@ -1,9 +1,19 @@
-export type AppBaseUrlStatus = { status: "configured" | "missing" | "invalid"; source: "R12_APP_BASE_URL" | "NEXT_PUBLIC_SITE_URL" | "fallback"; effectiveUrl: string; detail?: string };
+export type AppBaseUrlStatus = { status: "configured" | "missing" | "invalid"; source: "R12_APP_BASE_URL" | "NEXT_PUBLIC_SITE_URL" | "VERCEL_URL" | "fallback"; effectiveUrl: string; detail?: string };
 
 const productionFallback = "https://the-road-to-12.vercel.app";
 const invalidAppHosts = new Set(["www.r12.live"]);
 
 export function appBaseUrlStatus(env: NodeJS.ProcessEnv = process.env): AppBaseUrlStatus {
+  // Per-deployment Vercel Preview URL is the correct origin for checkout
+  // return links. Never let inherited production site URL settings redirect a
+  // Preview customer's return to the production application.
+  const previewDeployment = env.VERCEL_ENV === "preview" ? env.VERCEL_URL?.trim() : undefined;
+  if (previewDeployment) {
+    if (!/^[A-Za-z0-9.-]+$/.test(previewDeployment)) {
+      return { status: "invalid", source: "VERCEL_URL", effectiveUrl: "https://invalid.invalid", detail: "Vercel Preview URL is invalid." };
+    }
+    return { status: "configured", source: "VERCEL_URL", effectiveUrl: `https://${previewDeployment}` };
+  }
   const first = env.R12_APP_BASE_URL?.trim();
   const second = env.NEXT_PUBLIC_SITE_URL?.trim();
   const configured = first || second;

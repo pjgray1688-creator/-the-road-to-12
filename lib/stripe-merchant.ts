@@ -47,7 +47,10 @@ export function readStripeMerchantConfig(
   if (modeValue !== "test" && modeValue !== "live") {
     throw new Error(`${contract.label} Stripe mode must be test or live`);
   }
-  if (env.NODE_ENV === "production" && modeValue !== "live") {
+  // Vercel Preview runs with NODE_ENV=production. Permit test credentials only
+  // in an explicitly identified Preview deployment; a production deployment
+  // (or any unknown production runtime) remains live-only.
+  if (env.NODE_ENV === "production" && env.VERCEL_ENV !== "preview" && modeValue !== "live") {
     throw new Error(`${contract.label} Stripe production configuration must use live mode`);
   }
   if (!secretKey.startsWith(modeValue === "test" ? "sk_test_" : "sk_live_")) {
