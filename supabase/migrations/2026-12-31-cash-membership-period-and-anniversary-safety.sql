@@ -19,11 +19,43 @@ alter table public.club_membership_billing_arrangements
 alter table public.club_membership_billing_arrangements
   add column if not exists billing_anchor_day integer check (billing_anchor_day is null or billing_anchor_day between 1 and 31);
 
--- For older arrangements without an anchor, retain the currently stored due day
--- as the prospective anchor. This does not rewrite any existing due date.
-update public.club_membership_billing_arrangements
-set billing_anchor_day = extract(day from next_due_at at time zone 'UTC')::integer
-where billing_anchor_day is null and frequency = 'monthly';
+-- A current due date cannot prove the original contractual anniversary: it may
+-- already have been clamped at a short month end. Require reviewed anchors
+-- before this migration proceeds; the read-only preflight identifies the rows.
+do $anchor_preflight$
+declare unresolved_count integer; conflicting_count integer;
+begin
+  select count(*)::integer into unresolved_count
+  from public.club_membership_billing_arrangements
+  where frequency='monthly' and billing_anchor_day is null;
+  select count(distinct a.id)::integer into conflicting_count
+  from public.club_membership_billing_arrangements a
+  where a.frequency='monthly' and a.billing_anchor_day is not null
+    and (
+      extract(day from a.next_due_at at time zone 'UTC')::integer <>
+        least(a.billing_anchor_day,
+          extract(day from (date_trunc('month', a.next_due_at at time zone 'UTC') + interval '1 month - 1 day'))::integer)
+      or exists (
+        select 1
+        from public.club_membership_billing_obligations o
+        cross join lateral (
+          select (o.next_due_at at time zone 'UTC')::date as evidence_date
+          union
+          select (o.coverage_start_at at time zone 'UTC')::date
+          where o.coverage_start_at is not null
+        ) evidence
+        where o.arrangement_id=a.id and o.organisation_id=a.organisation_id
+          and extract(day from evidence.evidence_date)::integer <>
+            least(a.billing_anchor_day,
+              extract(day from (date_trunc('month', evidence.evidence_date::timestamp) + interval '1 month - 1 day'))::integer)
+      )
+    );
+  if unresolved_count>0 or conflicting_count>0 then
+    raise exception 'Cash-period migration stopped: % monthly arrangements have missing anchors and % have conflicting schedule evidence; run the read-only anchor preflight and resolve each row from source records before retrying', unresolved_count, conflicting_count
+      using errcode='55000';
+  end if;
+end;
+$anchor_preflight$;
 
 alter table public.club_membership_billing_payments
   add column if not exists billing_period_start date,

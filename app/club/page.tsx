@@ -49,14 +49,16 @@ export default async function ClubPage({ searchParams }: { searchParams?: Promis
           context.repository.listClassBookings(context.organisation.id),
           context.repository.listServiceTransactions(context.organisation.id),
           supabase.rpc("club_get_member_billing", { p_organisation_id: context.organisation.id, p_user_id: user.id }),
+          context.repository.listProducts(context.organisation.id, true),
         ]);
         const value = <T,>(index: number, fallback: T): T => results[index]?.status === "fulfilled" ? results[index].value as T : fallback;
         const billingResult = value(6, { data: [] as unknown[] });
+        const products = value(7, [] as Awaited<ReturnType<typeof context.repository.listProducts>>);
         const customerId = profile.customer?.id;
         const bookings = customerId ? value<ClubClassBooking[]>(4, []).filter(item => item.customerId === customerId) : [];
         const serviceTransactions = customerId ? value<ClubServiceTransaction[]>(5, []).filter(item => item.customerId === customerId) : [];
         const sessions = value<ClubClassSession[]>(2, []).filter(item => item.status === "scheduled" && new Date(item.startsAt).getTime() >= Date.now()).sort((a, b) => a.startsAt.localeCompare(b.startsAt));
-        return <ClubMemberHome organisation={context.organisation} role={role} contexts={navContexts} profile={profile} balance={value(0, undefined)} locations={value(1, [])} sessions={sessions} orders={value(3, [])} bookings={bookings} serviceTransactions={serviceTransactions} billing={Array.isArray(billingResult.data) ? billingResult.data as Array<{ state?: string; amount_minor?: number; currency?: string; next_due_at?: string }> : []} />;
+        return <ClubMemberHome organisation={context.organisation} role={role} contexts={navContexts} profile={profile} balance={value(0, undefined)} locations={value(1, [])} sessions={sessions} orders={value(3, [])} bookings={bookings} serviceTransactions={serviceTransactions} billing={Array.isArray(billingResult.data) ? billingResult.data as Array<{ state?: string; amount_minor?: number; currency?: string; next_due_at?: string }> : []} lifetimeProductIds={products.filter(product => product.isLifetime).map(product => product.id)} />;
       } catch {
         return <MemberClubUnavailable />;
       }

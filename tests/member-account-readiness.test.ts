@@ -132,10 +132,12 @@ test("readiness migration is in the deployment manifest and disposable PostgreSQ
   assert.match(householdFixture, /club_access_safety_facts/);
   assert.match(householdFixture, /rollback;/);
   assert.ok(manifest.indexOf("2026-12-30-member-account-readiness-and-cash-evidence.sql") < manifest.indexOf("2026-12-31-cash-membership-period-and-anniversary-safety.sql"));
-  assert.ok(harness.indexOf("2026-12-30-member-account-readiness-and-cash-evidence.sql") < harness.indexOf("2026-12-31-cash-membership-period-and-anniversary-safety.sql"));
-  assert.ok(harness.indexOf("2026-12-31-cash-membership-period-and-anniversary-safety.sql") < harness.indexOf("tests/sql/member-household-billing-lifecycle.sql"));
+  const readinessApplication = harness.indexOf("psql_db \"$state_c\" --file=supabase/migrations/2026-12-30-member-account-readiness-and-cash-evidence.sql");
+  const anniversaryApplication = harness.indexOf("psql_db \"$state_c\" --single-transaction --file=supabase/migrations/2026-12-31-cash-membership-period-and-anniversary-safety.sql");
+  assert.ok(readinessApplication >= 0 && readinessApplication < anniversaryApplication);
+  assert.ok(anniversaryApplication < harness.indexOf("tests/sql/member-household-billing-lifecycle.sql"));
   assert.ok(manifest.indexOf("2026-12-31-cash-membership-period-and-anniversary-safety.sql") < manifest.indexOf("2027-01-01-club-access-safety-empty-booking-fix.sql"));
-  assert.ok(harness.indexOf("2026-12-31-cash-membership-period-and-anniversary-safety.sql") < harness.indexOf("2027-01-01-club-access-safety-empty-booking-fix.sql"));
+  assert.ok(anniversaryApplication < harness.indexOf("2027-01-01-club-access-safety-empty-booking-fix.sql"));
   assert.ok(harness.indexOf("2027-01-01-club-access-safety-empty-booking-fix.sql") < harness.indexOf("tests/sql/member-household-billing-lifecycle.sql"));
   assert.match(cashMigration, /billing_period_start date/);
   assert.match(cashMigration, /billing_period_end date/);

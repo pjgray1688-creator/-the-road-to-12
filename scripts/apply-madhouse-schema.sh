@@ -61,7 +61,13 @@ while IFS= read -r migration; do
     continue
   fi
   echo "apply $migration"
-  psql "${psql_args[@]}" -f "$repo_root/$migration"
+  if [[ "$migration" == "supabase/migrations/2026-12-31-cash-membership-period-and-anniversary-safety.sql" || "$migration" == "supabase/migrations/2027-01-02-golden-ticket-lifetime-memberships.sql" ]]; then
+    # Keep this schema/data migration atomic. If any statement fails, PostgreSQL
+    # rolls back the whole file and the checksum ledger remains untouched.
+    psql "${psql_args[@]}" --single-transaction -f "$repo_root/$migration"
+  else
+    psql "${psql_args[@]}" -f "$repo_root/$migration"
+  fi
   psql "${psql_args[@]}" -v migration_name="$migration" -v migration_checksum="$checksum" -c \
     "insert into public.r12_schema_migrations(migration_name,checksum,source) values (:'migration_name',:'migration_checksum','r12-runner');"
 done < "$manifest"

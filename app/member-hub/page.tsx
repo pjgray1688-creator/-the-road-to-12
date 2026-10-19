@@ -22,7 +22,7 @@ export default async function MemberHubPage() {
       const accessEligibilityPromise = organisation.slug.toLowerCase().includes("madhouse")
         ? supabase.rpc("club_get_my_access_eligibility", { p_organisation_id: organisation.id })
         : Promise.resolve({ data: null, error: null });
-      const [balance, sessions, allBookings, orders, accessPassResult, scheduleResult, accessEligibilityResult] = await Promise.all([
+      const [balance, sessions, allBookings, orders, accessPassResult, scheduleResult, accessEligibilityResult, products] = await Promise.all([
         profile.customer ? repository.getBalanceAccountForCustomer(organisation.id, profile.customer.id) : undefined,
         repository.listClassSessions(organisation.id),
         profile.customer ? repository.listClassBookings(organisation.id) : [],
@@ -30,6 +30,7 @@ export default async function MemberHubPage() {
         accessPassPromise,
         schedulePromise,
         accessEligibilityPromise,
+        repository.listProducts(organisation.id, true),
       ]);
       const balanceHistoryResult = balance ? await supabase.from("club_balance_entries")
         .select("id,entry_type,amount_delta_minor,created_at").eq("organisation_id", organisation.id)
@@ -44,7 +45,7 @@ export default async function MemberHubPage() {
       const accessEligibility = !accessEligibilityResult.error && Array.isArray(accessEligibilityResult.data)
         ? accessEligibilityResult.data as MemberHubData["accessEligibility"]
         : undefined;
-      loaded.push({ organisation, profile, balance, balanceHistory, accessEligibility, sessions, bookings, orders, accessPass, schedule });
+      loaded.push({ organisation, profile, balance, balanceHistory, accessEligibility, sessions, bookings, orders, accessPass, schedule, lifetimeProductIds: products.filter(product => product.isLifetime).map(product => product.id) });
     } catch { /* An invalid/inactive relationship is not exposed. */ }
   }
   return <MemberHub data={loaded}/>;

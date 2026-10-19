@@ -35,7 +35,7 @@ test("membership, transformation and PT catalogue benefits retain exact semantic
 });
 
 test("Golden Ticket and Couples definitions remain assignment-ready without assigning holders", () => {
-  const golden = byName("Golden Ticket Founding Membership"); assert.equal(golden.sellable, false); assert.equal(golden.durationDays, undefined); assert.equal(entitlement(golden, "gym_access")?.scope, "future_locations"); assert.deepEqual(entitlement(golden, "discount")?.discount, { percent: 20, period: "month", maxUses: 1 });
+  const golden = byName("Golden Ticket Founding Membership"); assert.equal(golden.isLifetime, true); assert.equal(golden.billing, "one_off"); assert.equal(golden.sellable, false); assert.equal(golden.durationDays, undefined); assert.equal(entitlement(golden, "gym_access")?.scope, "future_locations"); assert.deepEqual(entitlement(golden, "discount")?.discount, { percent: 20, period: "month", maxUses: 1 });
   assert.equal(madhouseCatalogue.filter(product => product !== golden).every(product => product.sellable), true);
   const couples = byName("Couples Membership"); assert.equal(couples.kind, "membership"); assert.equal(couples.billing, "recurring"); assert.equal(entitlement(couples, "gym_access")?.scope, "future_locations");
 });

@@ -29,7 +29,7 @@ export const madhouseCatalogue: readonly CatalogueProduct[] = [
   { name: "Transformation Gold", kind: "transformation", priceMinor: 52500, currency: "GBP", billing: "one_off", durationDays: 70, sellable: true, entitlements: transformation(3) },
   { name: "Single PT Session", kind: "pt", priceMinor: 3000, currency: "GBP", billing: "one_off", sellable: true, entitlements: [{ entitlementKey: "pt_session_credit", scope: "organisation", allowance: { quantity: 1, period: "block" } }] },
   { name: "10 PT Session Block", kind: "pt", priceMinor: 20000, currency: "GBP", billing: "one_off", sellable: true, entitlements: [{ entitlementKey: "pt_session_credit", scope: "organisation", allowance: { quantity: 10, period: "block" } }] },
-  { name: "Golden Ticket Founding Membership", kind: "membership", priceMinor: 50000, currency: "GBP", billing: "one_off", sellable: false, entitlements: [gymAccess, { entitlementKey: "discount", scope: "organisation", discount: { percent: 20, period: "month", maxUses: 1 } }] },
+  { name: "Golden Ticket Founding Membership", kind: "membership", priceMinor: 50000, currency: "GBP", billing: "one_off", isLifetime: true, sellable: false, entitlements: [gymAccess, { entitlementKey: "discount", scope: "organisation", discount: { percent: 20, period: "month", maxUses: 1 } }] },
 ] as const;
 
 // £3 member and £5 non-member class purchases are deliberately excluded: they
@@ -50,7 +50,7 @@ const canonicalEntitlement = (entitlement: Omit<ProductEntitlement, "productId">
 export function catalogueProductMatches(existing: ClubProduct, expected: CatalogueProduct): boolean {
   const existingEntitlements = (existing.entitlements ?? []).map(canonicalEntitlement).sort();
   const expectedEntitlements = expected.entitlements.map(canonicalEntitlement).sort();
-  return existing.name === expected.name && existing.kind === expected.kind && existing.priceMinor === expected.priceMinor && existing.currency === expected.currency && existing.billing === expected.billing && existing.durationDays === expected.durationDays && existing.sellable === expected.sellable && existing.archivedAt === expected.archivedAt && JSON.stringify(existingEntitlements) === JSON.stringify(expectedEntitlements);
+  return existing.name === expected.name && existing.kind === expected.kind && existing.priceMinor === expected.priceMinor && existing.currency === expected.currency && existing.billing === expected.billing && existing.durationDays === expected.durationDays && existing.isLifetime === expected.isLifetime && existing.sellable === expected.sellable && existing.archivedAt === expected.archivedAt && JSON.stringify(existingEntitlements) === JSON.stringify(expectedEntitlements);
 }
 
 /** Exact organisation + product name is the only installed stable reconciliation key.

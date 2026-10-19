@@ -139,3 +139,4 @@ supabase/migrations/2026-12-30-club-station-password-reauth.sql
 supabase/migrations/2026-12-30-member-account-readiness-and-cash-evidence.sql
 supabase/migrations/2026-12-31-cash-membership-period-and-anniversary-safety.sql
 supabase/migrations/2027-01-01-club-access-safety-empty-booking-fix.sql
+supabase/migrations/2027-01-02-golden-ticket-lifetime-memberships.sql

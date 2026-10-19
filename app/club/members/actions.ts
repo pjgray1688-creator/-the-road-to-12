@@ -20,6 +20,7 @@ export async function assignMembershipAction(input: { organisationId: string; pr
     const products = await context.repository.listProducts(context.organisation.id, true);
     const product = products.find(item => item.id === input.productId && item.organisationId === context.organisation.id && item.kind === "membership" && !item.archivedAt);
     if (!product) return { ok: false, error: "Choose an available membership or pass." };
+    if (product.isLifetime && input.endsAt) return { ok: false, error: "Golden Ticket — Lifetime Membership cannot have an end date. Remove the end date and try again." };
     if (requiresMadhouseProviderCheckout(context.organisation.slug, product)) return { ok: false, error: "Paid Madhouse memberships must use the joining checkout so card payment and Direct Debit setup are confirmed before activation." };
     const members = await context.repository.listMembers(context.organisation.id);
     if (holders.some(holder => !members.some(member => member.userId === holder && member.active))) return { ok: false, error: "Every holder must be an active organisation member." };

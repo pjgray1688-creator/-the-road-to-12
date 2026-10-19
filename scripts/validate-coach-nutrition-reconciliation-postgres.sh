@@ -9,7 +9,8 @@ suffix="${GITHUB_RUN_ID:-ci}_${GITHUB_RUN_ATTEMPT:-1}_$$"
 state_a="r12_nutrition_${suffix}_a"
 state_b="r12_nutrition_${suffix}_b"
 state_c="r12_nutrition_${suffix}_c"
-databases=("$state_a" "$state_b" "$state_c")
+state_anchor="r12_nutrition_${suffix}_anchor"
+databases=("$state_a" "$state_b" "$state_c" "$state_anchor")
 tmp_root="${RUNNER_TEMP:-${TMPDIR:-/tmp}}"
 tmp_dir="$(mktemp -d "${tmp_root%/}/r12-nutrition-ci.XXXXXX")"
 
@@ -17,6 +18,75 @@ psql_db() {
   local database="$1"
   shift
   psql --no-psqlrc --set ON_ERROR_STOP=1 --dbname="$database" "$@"
+}
+
+anchor_migration_snapshot() {
+  local database="$1"
+  psql_db "$database" --tuples-only --no-align --command="
+    select md5(concat_ws(E'\\n',
+      (select string_agg(attrelid::regclass::text || '.' || attname || ':' || format_type(atttypid, atttypmod), E'\\n' order by attrelid::regclass::text, attnum)
+       from pg_attribute where attrelid in ('public.club_membership_billing_arrangements'::regclass, 'public.club_membership_billing_payments'::regclass) and attnum > 0 and not attisdropped),
+      (select string_agg(conrelid::regclass::text || '.' || conname || ':' || pg_get_constraintdef(oid), E'\\n' order by conrelid::regclass::text, conname)
+       from pg_constraint where conrelid in ('public.club_membership_billing_arrangements'::regclass, 'public.club_membership_billing_payments'::regclass)),
+      (select string_agg(tgrelid::regclass::text || '.' || tgname || ':' || pg_get_triggerdef(oid), E'\\n' order by tgrelid::regclass::text, tgname)
+       from pg_trigger where not tgisinternal and tgrelid in ('public.club_membership_billing_arrangements'::regclass, 'public.club_membership_billing_obligations'::regclass)),
+      (select string_agg(p.oid::regprocedure::text || ':' || pg_get_functiondef(p.oid) || ':acl=' || coalesce(p.proacl::text, 'NULL'), E'\\n' order by p.oid::regprocedure::text)
+       from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+       where n.nspname='public' and p.proname in (
+         'club_guard_recurring_membership_arrangement',
+         'club_record_membership_cash_payment',
+         'club_list_customer_billing')),
+      (select string_agg(c.oid::regclass::text || ':acl=' || coalesce(c.relacl::text, 'NULL'), E'\\n' order by c.oid::regclass::text)
+       from pg_class c where c.oid in ('public.club_membership_billing_arrangements'::regclass, 'public.club_membership_billing_obligations'::regclass, 'public.club_membership_billing_payments'::regclass)),
+      (select string_agg(concat_ws(':', id, organisation_id, membership_id, coalesce(billing_anchor_day::text, 'NULL'), next_due_at::text), E'\\n' order by id)
+       from public.club_membership_billing_arrangements),
+      (select string_agg(concat_ws(':', id, organisation_id, arrangement_id, membership_id, next_due_at::text,
+         coalesce(coverage_start_at::text, 'NULL'), coalesce(coverage_end_at::text, 'NULL'), period_key, state), E'\\n' order by id)
+       from public.club_membership_billing_obligations)
+    ));"
+}
+
+expect_anchor_migration_rejection() {
+  local label="$1"
+  local database="$2"
+  local expected_detail="$3"
+  local before after log_file status
+  log_file="$tmp_dir/anchor-${label}.log"
+  before="$(anchor_migration_snapshot "$database")"
+  if psql_db "$database" --set=VERBOSITY=verbose --single-transaction --file=supabase/migrations/2026-12-31-cash-membership-period-and-anniversary-safety.sql >"$log_file" 2>&1; then
+    cat "$log_file"
+    echo "Expected the 12-31 migration to reject ${label} anchor evidence" >&2
+    exit 1
+  else
+    status=$?
+  fi
+  if ! grep -Eq '(^|[[:space:]])55000([[:space:]:]|$)' "$log_file"; then
+    cat "$log_file"
+    echo "Expected SQLSTATE 55000 for ${label}; psql exited ${status}" >&2
+    exit 1
+  fi
+  if ! grep -Fq "$expected_detail" "$log_file"; then
+    cat "$log_file"
+    echo "Migration rejected ${label} for an unexpected reason; expected diagnostic: ${expected_detail}" >&2
+    exit 1
+  fi
+  after="$(anchor_migration_snapshot "$database")"
+  if [[ -z "$before" || "$before" != "$after" ]]; then
+    echo "12-31 rejection for ${label} left partial schema, constraint, trigger, function or synthetic-row changes (before=${before:-empty}, after=${after:-empty})" >&2
+    exit 1
+  fi
+  psql_db "$database" <<'SQL'
+do $rollback_guard$ begin
+    if exists (select 1 from information_schema.columns where table_schema='public' and table_name='club_membership_billing_payments' and column_name in ('billing_period_start','billing_period_end')) then
+      raise exception 'Rejected migration partially added billing-period columns';
+    end if;
+    if exists (select 1 from pg_constraint where conrelid='public.club_membership_billing_payments'::regclass and conname='club_membership_billing_payment_period_pair_check') then
+      raise exception 'Rejected migration partially added the period-pair constraint';
+    end if;
+  end;
+$rollback_guard$;
+SQL
+  echo "ANCHOR GUARD PASSED — ${label} rejected with SQLSTATE 55000 and full transaction rollback (${after})"
 }
 
 # Each SQL fixture is a separate transaction-scoped test unit. If one fails,
@@ -86,7 +156,7 @@ if source.count(broken) != 1:
 corrected_path.write_text(source.replace(broken, fixed, 1))
 PY
 
-for database in "${databases[@]}"; do
+for database in "$state_a" "$state_b" "$state_c"; do
   echo "Creating fresh disposable database ${database} from prerequisite baseline ${base_db}"
   createdb --maintenance-db=postgres --template="$base_db" "$database"
 done
@@ -149,7 +219,22 @@ psql_db "$state_c" --file=supabase/migrations/2026-12-28-club-shared-station-pin
 psql_db "$state_c" --file=supabase/migrations/2026-12-29-pgcrypto-schema-qualified-functions.sql
 psql_db "$state_c" --file=supabase/migrations/2026-12-30-club-station-password-reauth.sql
 psql_db "$state_c" --file=supabase/migrations/2026-12-30-member-account-readiness-and-cash-evidence.sql
-psql_db "$state_c" --file=supabase/migrations/2026-12-31-cash-membership-period-and-anniversary-safety.sql
+
+echo "ANNIVERSARY MIGRATION GUARD — clone the post-12-30 state for negative and corrected-anchor paths"
+createdb --maintenance-db=postgres --template="$state_c" "$state_anchor"
+psql_db "$state_anchor" --file=tests/sql/member-billing-anchor-migration-guard.sql
+psql_db "$state_anchor" --command="update public.club_membership_billing_arrangements set billing_anchor_day=null where id='4a000000-0000-4000-8000-000000000001';"
+expect_anchor_migration_rejection "missing-anchor" "$state_anchor" "1 monthly arrangements have missing anchors"
+
+psql_db "$state_anchor" --command="update public.club_membership_billing_arrangements set billing_anchor_day=30 where id='4a000000-0000-4000-8000-000000000001'; update public.club_membership_billing_obligations set coverage_start_at='2024-03-31 10:00:00+00' where id='4a000000-0000-4000-8000-000000000002';"
+expect_anchor_migration_rejection "conflicting-obligation-evidence" "$state_anchor" "1 have conflicting schedule evidence"
+
+psql_db "$state_anchor" --command="update public.club_membership_billing_arrangements set billing_anchor_day=30 where id='4a000000-0000-4000-8000-000000000001'; update public.club_membership_billing_obligations set coverage_start_at='2024-03-30 10:00:00+00' where id='4a000000-0000-4000-8000-000000000002';"
+psql_db "$state_anchor" --single-transaction --file=supabase/migrations/2026-12-31-cash-membership-period-and-anniversary-safety.sql
+psql_db "$state_anchor" --file=tests/sql/member-billing-anchor-migration-guard-success.sql
+echo "ANNIVERSARY MIGRATION GUARD PASSED — corrected synthetic anchor/evidence permits the migration"
+
+psql_db "$state_c" --single-transaction --file=supabase/migrations/2026-12-31-cash-membership-period-and-anniversary-safety.sql
 psql_db "$state_c" --file=supabase/migrations/2027-01-01-club-access-safety-empty-booking-fix.sql
 
 # These fixtures have separate synthetic identities and each owns a BEGIN /
