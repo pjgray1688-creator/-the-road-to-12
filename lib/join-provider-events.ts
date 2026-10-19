@@ -18,6 +18,7 @@ type StripeObject = {
 
 export type StripeMembershipEvent = {
   requestId: string | null;
+  generation: number | null;
   eventType: "checkout_paid" | "checkout_failed" | "subscription_active" | "subscription_incomplete" | "subscription_past_due" | "subscription_cancelled" | "invoice_paid" | "invoice_failed" | "charge_refunded" | "dispute_opened" | "dispute_closed";
   occurredAt: string; sessionId: string | null; paymentIntentId: string | null; customerId: string | null;
   subscriptionId: string | null; invoiceId: string | null; chargeId: string | null; amountMinor: number | null;
@@ -29,9 +30,12 @@ function stripeIso(value?: number) { return value == null ? null : new Date(valu
 
 export function stripeMembershipEvent(event: { type: string; created: number; data: { object: StripeObject } }): StripeMembershipEvent | null {
   const object = event.data.object;
-  const metadata = object.metadata ?? object.subscription_details?.metadata ?? object.parent?.subscription_details?.metadata;
+  const metadata = [object.metadata, object.subscription_details?.metadata, object.parent?.subscription_details?.metadata]
+    .find(value => value?.join_request_id || value?.join_generation);
+  const parsedGeneration = Number(metadata?.join_generation);
   const base = {
     requestId: metadata?.join_request_id ?? null,
+    generation: Number.isSafeInteger(parsedGeneration) && parsedGeneration > 0 ? parsedGeneration : null,
     occurredAt: new Date(event.created * 1000).toISOString(),
     sessionId: object.object === "checkout.session" || object.id.startsWith("cs_") ? object.id : null,
     paymentIntentId: stripeId(object.payment_intent) ?? (object.id.startsWith("pi_") ? object.id : null),

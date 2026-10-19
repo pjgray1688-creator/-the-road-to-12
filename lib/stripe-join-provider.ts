@@ -79,10 +79,12 @@ export function createStripeCheckoutSession(input: {
     "line_items[0][price_data][unit_amount]": String(input.recurringAmountMinor),
     "line_items[0][price_data][product_data][name]": input.productName,
     "metadata[join_request_id]": input.requestId,
+    "metadata[join_generation]": String(input.generation),
   });
   if (monthly) {
     body.set("line_items[0][price_data][recurring][interval]", "month");
     body.set("subscription_data[metadata][join_request_id]", input.requestId);
+    body.set("subscription_data[metadata][join_generation]", String(input.generation));
     if (input.joiningFeeMinor > 0) {
       body.set("line_items[1][quantity]", "1");
       body.set("line_items[1][price_data][currency]", input.currency.toLowerCase());
@@ -92,6 +94,7 @@ export function createStripeCheckoutSession(input: {
   } else {
     body.set("customer_creation", "always");
     body.set("payment_intent_data[metadata][join_request_id]", input.requestId);
+    body.set("payment_intent_data[metadata][join_generation]", String(input.generation));
   }
   return (async () => {
     const expectedAccount = stripeFranchiseAccountId();

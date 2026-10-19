@@ -34,11 +34,15 @@ export async function POST(request: NextRequest) {
     if (!parsed.requestId && parsed.invoiceId && !parsed.subscriptionId) {
       const invoice = await retrieveStripeInvoice(parsed.invoiceId);
       const details = invoice.parent?.subscription_details;
-      parsed = { ...parsed, requestId: invoice.metadata?.join_request_id ?? invoice.subscription_details?.metadata?.join_request_id ?? details?.metadata?.join_request_id ?? null,
+      const metadata = [invoice.metadata, invoice.subscription_details?.metadata, details?.metadata]
+        .find(value => value?.join_request_id || value?.join_generation);
+      const generation = Number(metadata?.join_generation);
+      parsed = { ...parsed, requestId: metadata?.join_request_id ?? null,
+        generation: Number.isSafeInteger(generation) && generation > 0 ? generation : null,
         subscriptionId: invoice.subscription ?? details?.subscription ?? null, customerId: parsed.customerId ?? invoice.customer };
     }
     const { error } = await adminSupabase().rpc("club_record_stripe_membership_event", {
-      p_request_id: parsed.requestId, p_provider_event_key: event.id, p_event_type: parsed.eventType,
+      p_request_id: parsed.requestId, p_attempt_generation: parsed.generation, p_provider_event_key: event.id, p_event_type: parsed.eventType,
       p_occurred_at: parsed.occurredAt, p_session_id: parsed.sessionId, p_payment_intent_id: parsed.paymentIntentId,
       p_customer_id: parsed.customerId, p_subscription_id: parsed.subscriptionId, p_invoice_id: parsed.invoiceId,
       p_charge_id: parsed.chargeId, p_amount_minor: parsed.amountMinor, p_currency: parsed.currency,

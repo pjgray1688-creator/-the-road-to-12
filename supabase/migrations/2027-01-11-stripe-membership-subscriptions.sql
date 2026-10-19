@@ -24,6 +24,7 @@ create table if not exists public.club_stripe_membership_events (
   organisation_id uuid not null references public.club_organisations(id) on delete cascade,
   join_request_id uuid not null,
   provider_event_key text not null,
+  attempt_generation integer,
   event_type text not null,
   provider_occurred_at timestamptz not null,
   checkout_session_id text,
@@ -156,7 +157,7 @@ revoke all on function public.club_activate_verified_stripe_join(uuid) from publ
 grant execute on function public.club_activate_verified_stripe_join(uuid) to service_role;
 
 create or replace function public.club_record_stripe_membership_event(
-  p_request_id uuid,p_provider_event_key text,p_event_type text,p_occurred_at timestamptz,
+  p_request_id uuid,p_attempt_generation integer,p_provider_event_key text,p_event_type text,p_occurred_at timestamptz,
   p_session_id text default null,p_payment_intent_id text default null,p_customer_id text default null,p_subscription_id text default null,
   p_invoice_id text default null,p_charge_id text default null,p_amount_minor integer default null,p_currency text default null,
   p_status text default null,p_billing_reason text default null,p_period_start timestamptz default null,p_period_end timestamptz default null
@@ -174,11 +175,15 @@ begin
     order by (j.id=p_request_id) desc limit 1 for update;
   if not found then raise exception 'Stripe event cannot be matched to a join request' using errcode='P0002'; end if;
   if p_request_id is not null and r.id<>p_request_id then raise exception 'Stripe metadata does not match the billing resource' using errcode='22023'; end if;
-  if p_session_id is not null and r.stripe_checkout_session_id is not null and r.stripe_checkout_session_id<>p_session_id then raise exception 'Stripe session does not match this join' using errcode='22023'; end if;
-  if p_subscription_id is not null and r.stripe_subscription_id is not null and r.stripe_subscription_id<>p_subscription_id then raise exception 'Stripe subscription does not match this join' using errcode='22023'; end if;
-  if p_customer_id is not null and r.stripe_customer_id is not null and r.stripe_customer_id<>p_customer_id then raise exception 'Stripe customer does not match this join' using errcode='22023'; end if;
-  insert into public.club_stripe_membership_events(organisation_id,join_request_id,provider_event_key,event_type,provider_occurred_at,checkout_session_id,payment_intent_id,customer_id,subscription_id,invoice_id,charge_id,amount_minor,currency,provider_status,billing_reason,period_start,period_end)
-    values(r.organisation_id,r.id,p_provider_event_key,p_event_type,p_occurred_at,p_session_id,p_payment_intent_id,p_customer_id,p_subscription_id,p_invoice_id,p_charge_id,p_amount_minor,upper(p_currency),p_status,p_billing_reason,p_period_start,p_period_end) returning * into e;
+  if (p_attempt_generation is not null and p_attempt_generation<>r.stripe_checkout_generation) or
+    (p_attempt_generation is null and p_session_id is distinct from r.stripe_checkout_session_id) or
+    (p_session_id is not null and r.stripe_checkout_session_id is not null and r.stripe_checkout_session_id<>p_session_id) or
+    (p_subscription_id is not null and r.stripe_subscription_id is not null and r.stripe_subscription_id<>p_subscription_id) or
+    (p_customer_id is not null and r.stripe_customer_id is not null and r.stripe_customer_id<>p_customer_id) then
+    return jsonb_build_object('ignored',true,'reason','superseded_or_mismatched_stripe_attempt','join_request_id',r.id);
+  end if;
+  insert into public.club_stripe_membership_events(organisation_id,join_request_id,provider_event_key,attempt_generation,event_type,provider_occurred_at,checkout_session_id,payment_intent_id,customer_id,subscription_id,invoice_id,charge_id,amount_minor,currency,provider_status,billing_reason,period_start,period_end)
+    values(r.organisation_id,r.id,p_provider_event_key,p_attempt_generation,p_event_type,p_occurred_at,p_session_id,p_payment_intent_id,p_customer_id,p_subscription_id,p_invoice_id,p_charge_id,p_amount_minor,upper(p_currency),p_status,p_billing_reason,p_period_start,p_period_end) returning * into e;
   update public.club_membership_join_requests set stripe_checkout_session_id=coalesce(stripe_checkout_session_id,p_session_id),stripe_payment_intent_id=coalesce(stripe_payment_intent_id,p_payment_intent_id),
     stripe_customer_id=coalesce(stripe_customer_id,p_customer_id),stripe_subscription_id=coalesce(stripe_subscription_id,p_subscription_id),stripe_latest_invoice_id=coalesce(p_invoice_id,stripe_latest_invoice_id),updated_at=now() where id=r.id returning * into r;
   if p_event_type in ('checkout_paid','invoice_paid') and r.membership_id is null and p_amount_minor=r.upfront_amount_minor and upper(p_currency)=(select currency from public.club_products where id=r.product_id) and (p_event_type='checkout_paid' or p_billing_reason='subscription_create' or r.checkout_kind<>'monthly_recurring') then
@@ -255,5 +260,5 @@ begin
   end if;
   return jsonb_build_object('recorded',true,'join_request_id',r.id,'event_type',p_event_type);
 end; $$;
-revoke all on function public.club_record_stripe_membership_event(uuid,text,text,timestamptz,text,text,text,text,text,text,integer,text,text,text,timestamptz,timestamptz) from public,anon,authenticated;
-grant execute on function public.club_record_stripe_membership_event(uuid,text,text,timestamptz,text,text,text,text,text,text,integer,text,text,text,timestamptz,timestamptz) to service_role;
+revoke all on function public.club_record_stripe_membership_event(uuid,integer,text,text,timestamptz,text,text,text,text,text,text,integer,text,text,text,timestamptz,timestamptz) from public,anon,authenticated;
+grant execute on function public.club_record_stripe_membership_event(uuid,integer,text,text,timestamptz,text,text,text,text,text,text,integer,text,text,text,timestamptz,timestamptz) to service_role;
