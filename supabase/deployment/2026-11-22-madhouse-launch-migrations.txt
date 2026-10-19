@@ -141,3 +141,4 @@ supabase/migrations/2026-12-31-cash-membership-period-and-anniversary-safety.sql
 supabase/migrations/2027-01-01-club-access-safety-empty-booking-fix.sql
 supabase/migrations/2027-01-02-golden-ticket-lifetime-memberships.sql
 supabase/migrations/2027-01-03-paypal-pay-in-3-checkout-foundation.sql
+supabase/migrations/2027-01-04-stripe-membership-subscriptions.sql

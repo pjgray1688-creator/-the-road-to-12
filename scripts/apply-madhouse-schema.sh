@@ -61,7 +61,7 @@ while IFS= read -r migration; do
     continue
   fi
   echo "apply $migration"
-  if [[ "$migration" == "supabase/migrations/2026-12-31-cash-membership-period-and-anniversary-safety.sql" || "$migration" == "supabase/migrations/2027-01-02-golden-ticket-lifetime-memberships.sql" || "$migration" == "supabase/migrations/2027-01-03-paypal-pay-in-3-checkout-foundation.sql" ]]; then
+  if [[ "$migration" == "supabase/migrations/2026-12-31-cash-membership-period-and-anniversary-safety.sql" || "$migration" == "supabase/migrations/2027-01-02-golden-ticket-lifetime-memberships.sql" || "$migration" == "supabase/migrations/2027-01-03-paypal-pay-in-3-checkout-foundation.sql" || "$migration" == "supabase/migrations/2027-01-04-stripe-membership-subscriptions.sql" ]]; then
     # Keep this schema/data migration atomic. If any statement fails, PostgreSQL
     # rolls back the whole file and the checksum ledger remains untouched.
     psql "${psql_args[@]}" --single-transaction -f "$repo_root/$migration"
