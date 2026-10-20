@@ -16,6 +16,7 @@ test("account deletion records a private request and does not delete identity or
   assert.match(migration, /account_deletion_request_events/);
   assert.match(migration, /retention_reviewed boolean not null default false/);
   assert.match(migration, /eligible_data_processed boolean not null default false/);
+  assert.match(migration, /to_jsonb\(old\)-'actor_user_id'\)=\(to_jsonb\(new\)-'actor_user_id'\)/);
   assert.doesNotMatch(migration, /delete from auth\.users|delete from public\.(club_memberships|club_membership_billing_obligations)/i);
   assert.doesNotMatch(route, /deleteUser\(|delete from/i);
 });
