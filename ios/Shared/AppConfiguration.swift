@@ -31,14 +31,15 @@ struct NativeAppConfiguration {
 
     static let club = NativeAppConfiguration(
         name: "R12 Club",
-        descriptor: "Staff reception and club operations.",
+        descriptor: "Daily checks and member inductions on the gym floor.",
         tint: Color(red: 0.62, green: 0.38, blue: 0.96),
         scheme: "r12-club",
-        scope: { $0 == "/club" || $0.hasPrefix("/club/") },
+        scope: { $0 == "/club" || $0.hasPrefix("/club/") || $0 == "/account" },
         destinations: [
+            AppDestination(title: "Daily checks", path: "/club/checks", symbol: "checklist"),
+            AppDestination(title: "Members", path: "/club", symbol: "person.3"),
+            AppDestination(title: "Inductions", path: "/club/induction", symbol: "figure.walk"),
             AppDestination(title: "Reception", path: "/club/reception", symbol: "person.2.badge.key"),
-            AppDestination(title: "Members", path: "/club/members", symbol: "person.3"),
-            AppDestination(title: "Schedule", path: "/club/schedule", symbol: "calendar"),
             AppDestination(title: "More", path: "/club/more", symbol: "ellipsis.circle")
         ]
     )
@@ -48,12 +49,13 @@ struct NativeAppConfiguration {
         descriptor: "Your clients, sessions and programmes.",
         tint: Color(red: 0.72, green: 0.49, blue: 0.98),
         scheme: "r12-coach",
-        scope: { $0 == "/coach" || $0.hasPrefix("/coach/") },
+        scope: { $0 == "/coach" || $0.hasPrefix("/coach/") || $0 == "/account" },
         destinations: [
             AppDestination(title: "Workspace", path: "/coach", symbol: "rectangle.grid.2x2"),
             AppDestination(title: "Diary", path: "/coach/diary", symbol: "calendar"),
             AppDestination(title: "Programmes", path: "/coach/programmes", symbol: "list.clipboard"),
-            AppDestination(title: "Account", path: "/coach/account", symbol: "person.crop.circle")
+            AppDestination(title: "Coach account", path: "/coach/account", symbol: "person.crop.circle"),
+            AppDestination(title: "R12 account", path: "/account", symbol: "person.text.rectangle")
         ]
     )
 
@@ -62,10 +64,10 @@ struct NativeAppConfiguration {
         descriptor: "Your Glow Zone balance and activity.",
         tint: Color(red: 0.23, green: 0.82, blue: 0.54),
         scheme: "r12-glowzone",
-        scope: { $0 == "/glow-zone" || $0.hasPrefix("/glow-zone/") },
+        scope: { $0 == "/glow-zone" || $0.hasPrefix("/glow-zone/") || $0 == "/account" },
         destinations: [
             AppDestination(title: "Glow Zone", path: "/glow-zone", symbol: "sparkles"),
-            AppDestination(title: "R12 Account", path: "/account?next=%2Fglow-zone", symbol: "person.crop.circle")
+            AppDestination(title: "R12 Account", path: "/account", symbol: "person.crop.circle")
         ]
     )
 

@@ -7,6 +7,7 @@ const migration = readFileSync("supabase/migrations/2026-11-20-club-venue-checks
 const page = readFileSync("app/club/checks/page.tsx", "utf8");
 const component = readFileSync("components/club-checks.tsx", "utf8");
 const actions = readFileSync("app/club/checks/actions.ts", "utf8");
+const toggle = readFileSync("components/club-checklist-item-toggle.tsx", "utf8");
 const bootstrap = readFileSync("supabase/bootstrap/2026-11-20-madhouse-daily-check-template.sql", "utf8");
 
 test("operational staff can complete venue and equipment checks through the work-submit capability", () => {
@@ -16,6 +17,15 @@ test("operational staff can complete venue and equipment checks through the work
   assert.match(migration, /club_submit_daily_check/);
   assert.match(component, /Save/);
   assert.match(component, /Submit daily checklist/);
+});
+
+test("one-tap daily item completion saves immediately through the existing audited RPC", () => {
+  assert.match(toggle, /type="checkbox"/);
+  assert.match(toggle, /markChecklistItemCompleteAction/);
+  assert.match(actions, /p_status: "complete"/);
+  assert.match(actions, /club_record_checklist_item/);
+  assert.match(actions, /refresh\(context\.organisation\.id\)/);
+  assert.match(toggle, /router\.refresh\(\)/);
 });
 
 test("fault reporting and out-of-service checks create durable maintenance state", () => {

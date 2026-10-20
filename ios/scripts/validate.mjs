@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const appSpecs = [
   { folder: "R12", project: "R12", bundle: "live.r12.training", route: "/training", scheme: "r12-training", icon: "icon-512.png" },
-  { folder: "R12Club", project: "R12Club", bundle: "live.r12.club", route: "/club/reception", scheme: "r12-club", icon: "club-icon-512.png" },
+  { folder: "R12Club", project: "R12Club", bundle: "live.r12.club", route: "/club/checks", scheme: "r12-club", icon: "club-icon-512.png" },
   { folder: "R12Coach", project: "R12Coach", bundle: "live.r12.coach", route: "/coach", scheme: "r12-coach", icon: "coach-icon-512.png" },
   { folder: "GlowZone", project: "GlowZone", bundle: "live.r12.glowzone", route: "/glow-zone", scheme: "r12-glowzone", icon: "glow-zone-icon-512.png" },
 ];
@@ -43,11 +43,25 @@ for (const app of appSpecs) {
 }
 
 const club = configuration.match(/static let club = NativeAppConfiguration\(([\s\S]*?)\n    \)/)?.[1] ?? "";
-check(club.includes("/club/reception") && !club.includes("/member-hub"), "R12 Club opens the staff reception flow, not Member Hub");
-check(club.includes("scope: { $0 == \"/club\" || $0.hasPrefix(\"/club/\") }"), "R12 Club deep links are restricted to club routes");
+check(club.includes("/club/checks") && club.includes("/club/induction") && !club.includes("/member-hub"), "R12 Club foregrounds daily checks and inductions, not Member Hub");
+check(club.includes("scope: { $0 == \"/club\" || $0.hasPrefix(\"/club/\") || $0 == \"/account\" }"), "R12 Club allows only Club and shared account routes");
+const coach = configuration.match(/static let coach = NativeAppConfiguration\(([\s\S]*?)\n    \)/)?.[1] ?? "";
+check(coach.includes("/account") && !coach.includes("/member-hub"), "R12 Coach keeps shared account access and no Club member route");
+const clubAccount = readFileSync(resolve(root, "../app/club/account/page.tsx"), "utf8");
+const coachAccount = readFileSync(resolve(root, "../app/coach/account/page.tsx"), "utf8");
+check(clubAccount.includes("/account/delete") && coachAccount.includes("/account/delete"), "Club and Coach expose account deletion navigation");
 check(!/DEVELOPMENT_TEAM\s*=/.test(appSpecs.map(app => readFileSync(resolve(root, app.folder, `${app.project}.xcodeproj/project.pbxproj`), "utf8")).join("\n")), "no Team ID or signing identity is embedded in project settings");
 
 const store = JSON.parse(readFileSync(resolve(root, "AppStoreConnect/apps.json"), "utf8"));
 check(store.apps.length === 4 && store.apps.every((app, index) => app.bundleId === appSpecs[index].bundle), "App Store Connect draft lists all four distinct apps");
 check(store.apps.every(app => app.sku === null), "App Store Connect SKUs are left for the owner to choose");
+check(store.apps.every(app => app.subtitle && app.description && app.keywords && app.reviewWalkthrough), "all app listings have draft copy and a distinct review walkthrough");
+const clubListing = store.apps.find(app => app.bundleId === "live.r12.club");
+check(clubListing.description.includes("daily venue and equipment checks") && clubListing.description.includes("induction"), "Club listing accurately foregrounds mobile floor operations");
+const checksAction = readFileSync(resolve(root, "../app/club/checks/actions.ts"), "utf8");
+check(checksAction.includes("club_record_checklist_item") && checksAction.includes("p_status: \"complete\""), "one-tap Club checks save through the existing audited server RPC");
+const checksPage = readFileSync(resolve(root, "../app/club/checks/page.tsx"), "utf8");
+check(checksPage.includes("next=%2Fclub%2Fchecks"), "Club sign-in returns reviewers and staff to Daily checks");
+const clubShell = readFileSync(resolve(root, "../components/club-shell.tsx"), "utf8");
+check(clubShell.includes("[\"Inductions\", `/club/induction") && clubShell.includes("[\"Daily checks\", `/club/checks"), "mobile Club navigation surfaces checks and inductions first");
 console.log("iOS source configuration validation passed.");

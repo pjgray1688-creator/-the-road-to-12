@@ -14,6 +14,22 @@ async function contextFor(formData: FormData) {
 }
 function refresh(organisationId: string) { revalidatePath(`/club/checks?org=${encodeURIComponent(organisationId)}`); revalidatePath("/club"); }
 
+export async function markChecklistItemCompleteAction(input: { organisationId: string; locationId: string; itemId: string; note?: string }) {
+  try {
+    const client = await serverSupabase();
+    const { data: { user } } = await client.auth.getUser();
+    if (!user) return { ok: false as const, error: "Sign in to save this check." };
+    const context = await resolveClubOperationalContext(client, user.id, input.organisationId);
+    if (!context || !(await context.repository.hasCapability(context.organisation.id, user.id, "staff.work_submit"))) return { ok: false as const, error: "You do not have permission to save this check." };
+    const { error } = await client.rpc("club_record_checklist_item", { p_organisation_id: context.organisation.id, p_location_id: input.locationId, p_item_id: input.itemId, p_status: "complete", p_note: input.note?.trim() || null });
+    if (error) return { ok: false as const, error: "This check could not be saved. Try again." };
+    refresh(context.organisation.id);
+    return { ok: true as const };
+  } catch {
+    return { ok: false as const, error: "This check could not be saved. Try again." };
+  }
+}
+
 export async function recordChecklistItemAction(formData: FormData) {
   const { client, organisationId, context } = await contextFor(formData); if (!context) return;
   await client.rpc("club_record_checklist_item", { p_organisation_id: organisationId, p_location_id: text(formData, "locationId"), p_item_id: text(formData, "itemId"), p_status: text(formData, "status"), p_note: optional(formData, "note") }); refresh(organisationId);
