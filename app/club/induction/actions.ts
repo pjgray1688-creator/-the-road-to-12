@@ -4,6 +4,35 @@ import { revalidatePath } from "next/cache";
 import { serverSupabase } from "@/lib/supabase-server";
 import { resolveClubOperationalContext } from "@/lib/club-server-context";
 
+export type InductionStagesSnapshot = { policy_id: string; version_id: string; version: number; location_id: string; sections: Array<{ id: string; title: string; content: string; position: number; required: boolean; complete: boolean; checked_at?: string; checked_by_name?: string }> };
+
+export async function getCustomerInductionStagesAction(input: { organisationId: string; customerId: string; locationId: string; bookingId?: string }) {
+  try {
+    const supabase = await serverSupabase();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { ok: false as const, error: "Sign in to open this induction." };
+    const context = await resolveClubOperationalContext(supabase, user.id, input.organisationId);
+    if (!context || !(await context.repository.hasCapability(context.organisation.id, user.id, "induction.perform"))) return { ok: false as const, error: "You do not have permission to perform inductions." };
+    const { data, error } = await supabase.rpc("club_get_customer_induction_stages", { p_organisation_id: context.organisation.id, p_customer_id: input.customerId, p_location_id: input.locationId, p_booking_id: input.bookingId ?? null });
+    if (error || !data || typeof data !== "object") return { ok: false as const, error: "The current induction stages could not be loaded." };
+    return { ok: true as const, data: data as InductionStagesSnapshot };
+  } catch { return { ok: false as const, error: "The current induction stages could not be loaded." }; }
+}
+
+export async function recordCustomerInductionStageAction(input: { organisationId: string; customerId: string; locationId: string; sectionId: string; bookingId?: string }) {
+  try {
+    const supabase = await serverSupabase();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { ok: false as const, error: "Sign in to save this induction stage." };
+    const context = await resolveClubOperationalContext(supabase, user.id, input.organisationId);
+    if (!context || !(await context.repository.hasCapability(context.organisation.id, user.id, "induction.perform"))) return { ok: false as const, error: "You do not have permission to perform inductions." };
+    const { data, error } = await supabase.rpc("club_record_customer_induction_stage", { p_organisation_id: context.organisation.id, p_customer_id: input.customerId, p_location_id: input.locationId, p_section_id: input.sectionId, p_booking_id: input.bookingId ?? null });
+    if (error || !data) return { ok: false as const, error: "This induction stage could not be saved. Try again." };
+    revalidatePath(`/club/members?org=${encodeURIComponent(context.organisation.id)}`);
+    return { ok: true as const };
+  } catch { return { ok: false as const, error: "This induction stage could not be saved. Try again." }; }
+}
+
 export async function saveInductionPolicyAction(input: { organisationId: string; requirement: "none" | "online_or_in_person" | "in_person"; graceDays: number; overdueAccess: "allow" | "hold"; appointmentExtensionEnabled: boolean; maxAppointmentExtensionDays?: number; requiresReacknowledgement: boolean }) {
   try {
     const supabase = await serverSupabase(); const { data: { user } } = await supabase.auth.getUser(); if (!user) return { ok: false as const, error: "Sign in to manage induction." };

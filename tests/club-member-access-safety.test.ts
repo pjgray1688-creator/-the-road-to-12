@@ -102,7 +102,7 @@ test("staff can record an in-person induction for an unlinked imported customer 
   assert.match(migration, /case when c\.user_id is null then c\.id end/);
   assert.match(migration, /verified_by,completed_at/);
   assert.match(inductionAction, /club_record_customer_induction_completion/);
-  assert.match(inductionCompletion, /Record completion/);
+  assert.match(inductionCompletion, /Record induction complete/);
 });
 
 test("forward migration follows the applied membership lifecycle migration", () => {
