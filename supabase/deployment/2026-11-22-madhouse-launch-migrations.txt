@@ -143,3 +143,4 @@ supabase/migrations/2027-01-02-golden-ticket-lifetime-memberships.sql
 supabase/migrations/2027-01-03-paypal-pay-in-3-checkout-foundation.sql
 supabase/migrations/2027-01-04-stripe-membership-subscriptions.sql
 supabase/migrations/2027-01-05-two-stripe-merchant-isolation.sql
+supabase/migrations/2027-01-05-account-deletion-and-induction-stage-progress.sql

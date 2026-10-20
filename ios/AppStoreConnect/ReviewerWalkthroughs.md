@@ -15,8 +15,8 @@ The reviewer account must have a valid R12 login and representative assigned tra
 
 1. Sign in with the supplied staff account; select the Madhouse organisation and the assigned Rotherham or Carlton venue when prompted.
 2. Open **Daily checks**. Mark one synthetic venue checklist item complete, switch screens, return and confirm its persisted checked state and staff attribution. Show equipment checks, open fault reporting and the manager issue overview where the account permits it.
-3. Search for the synthetic member **R12 Review Member**. Open the existing induction booking and record completion through the in-person workflow. Show the member's resulting induction/access state.
-4. Open **Account** to show account and privacy controls.
+3. Search for the synthetic member **R12 Review Member**. Open the existing induction booking, read each required published stage with the member, save stages individually, switch away and return to confirm progress persists, then record final completion only after all required stages are saved. Show the member's resulting induction/access state. Optional information sections do not gate completion.
+4. Open **Account** to show account and privacy controls. Open **Delete your account**, show the reauthentication and typed confirmation requirement without submitting a real deletion request; explain that membership/payment cancellation is separate and pending requests require the organisation’s retention review.
 
 Use an account with `staff.work_submit`, venue access and `induction.perform`; use a separate manager account only if demonstrating review, checklist reopening or issue escalation. Keep all member details synthetic. Never use the live member import or real customer records for review.
 
