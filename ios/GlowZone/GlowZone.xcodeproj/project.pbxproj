@@ -1,0 +1,38 @@
+// !$*UTF8*$!
+{
+  archiveVersion = 1;
+  classes = {};
+  objectVersion = 56;
+  objects = {
+    7DA2650190DB802CC1EBD6BC = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "App/App.swift"; sourceTree = SOURCE_ROOT; };
+    8C5D3BBC3A4D8DAF1720B0D6 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "../Shared/AppConfiguration.swift"; sourceTree = SOURCE_ROOT; };
+    61B72AD4AE1732A0FA6D7841 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "../Shared/NativeAppShell.swift"; sourceTree = SOURCE_ROOT; };
+    FE43E56C262465C1CE7919A2 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "../Shared/RouteWebScreen.swift"; sourceTree = SOURCE_ROOT; };
+    8F1861816E1361BFDA58C553 = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "App/Info.plist"; sourceTree = SOURCE_ROOT; };
+    A6FFE2EDBA642D0D421F615A = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = "App/LaunchScreen.storyboard"; sourceTree = SOURCE_ROOT; };
+    3E32FAC38F19D2BF8AA25EE9 = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "App/Assets.xcassets"; sourceTree = SOURCE_ROOT; };
+    27BFE1306051CFA37B0D4F0C = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "GlowZone.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+    CD740F77FBD57D2480D1FD21 = {isa = PBXBuildFile; fileRef = 7DA2650190DB802CC1EBD6BC; };
+    95C4EC8331126DE64735123D = {isa = PBXBuildFile; fileRef = 8C5D3BBC3A4D8DAF1720B0D6; };
+    F9127E9A20F9F1AB455A30E8 = {isa = PBXBuildFile; fileRef = 61B72AD4AE1732A0FA6D7841; };
+    64A40AD7AB12ED9F6E769387 = {isa = PBXBuildFile; fileRef = FE43E56C262465C1CE7919A2; };
+    93219CA8CB3797A8CA478F9E = {isa = PBXBuildFile; fileRef = A6FFE2EDBA642D0D421F615A; };
+    1C0BC62E826791342DF6ABD2 = {isa = PBXBuildFile; fileRef = 3E32FAC38F19D2BF8AA25EE9; };
+    5AC1B5EE915655B98E39616C = {isa = PBXGroup; children = (27BFE1306051CFA37B0D4F0C,); name = Products; sourceTree = "<group>"; };
+    893C877768B6B2244427A9B1 = {isa = PBXGroup; children = (7DA2650190DB802CC1EBD6BC, 8F1861816E1361BFDA58C553, A6FFE2EDBA642D0D421F615A, 3E32FAC38F19D2BF8AA25EE9,); path = App; sourceTree = "<group>"; };
+    AB597BE121C9FC9D970823D2 = {isa = PBXGroup; children = (8C5D3BBC3A4D8DAF1720B0D6, 61B72AD4AE1732A0FA6D7841, FE43E56C262465C1CE7919A2,); name = Shared; path = ../Shared; sourceTree = "<group>"; };
+    CDC4D582575FAAB97654E576 = {isa = PBXGroup; children = (893C877768B6B2244427A9B1, AB597BE121C9FC9D970823D2, 5AC1B5EE915655B98E39616C,); sourceTree = "<group>"; };
+    53652CC35FD77ED394DC54C5 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (CD740F77FBD57D2480D1FD21, 95C4EC8331126DE64735123D, F9127E9A20F9F1AB455A30E8, 64A40AD7AB12ED9F6E769387,); runOnlyForDeploymentPostprocessing = 0; };
+    A71AE876018B562605F93F90 = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (1C0BC62E826791342DF6ABD2, 93219CA8CB3797A8CA478F9E,); runOnlyForDeploymentPostprocessing = 0; };
+    E1E44DE34BDFC7C7D06844A2 = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+    0F1C0DB2CE3A150431E86485 = {isa = PBXNativeTarget; buildConfigurationList = AB589AB57E310E9C95941129; buildPhases = (53652CC35FD77ED394DC54C5, E1E44DE34BDFC7C7D06844A2, A71AE876018B562605F93F90,); buildRules = (); dependencies = (); name = "GlowZone"; productName = "GlowZone"; productReference = 27BFE1306051CFA37B0D4F0C; productType = "com.apple.product-type.application"; };
+    EC5B49BA8C5C424E7AED818D = {isa = PBXProject; attributes = {BuildIndependentTargetsInParallel = YES; LastUpgradeCheck = 1600; TargetAttributes = {0F1C0DB2CE3A150431E86485 = {CreatedOnToolsVersion = 16.0; }; }; }; buildConfigurationList = 6FF9587D8D4571953FC02991; compatibilityVersion = "Xcode 14.0"; developmentRegion = en; hasScannedForEncodings = 0; knownRegions = (en, Base,); mainGroup = CDC4D582575FAAB97654E576; productRefGroup = 5AC1B5EE915655B98E39616C; projectDirPath = ""; projectRoot = ""; targets = (0F1C0DB2CE3A150431E86485,); };
+    67D0A784217C524E2E14DDB5 = {isa = XCBuildConfiguration; buildSettings = {ALWAYS_SEARCH_USER_PATHS = NO; CLANG_ENABLE_MODULES = YES; COPY_PHASE_STRIP = NO; DEBUG_INFORMATION_FORMAT = dwarf; ENABLE_TESTABILITY = YES; GCC_C_LANGUAGE_STANDARD = gnu17; GCC_OPTIMIZATION_LEVEL = 0; IPHONEOS_DEPLOYMENT_TARGET = 17.0; SDKROOT = iphoneos; SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)"; SWIFT_OPTIMIZATION_LEVEL = "-Onone"; }; name = Debug; };
+    FDB4B08AB469178DE5CD5CBB = {isa = XCBuildConfiguration; buildSettings = {ALWAYS_SEARCH_USER_PATHS = NO; CLANG_ENABLE_MODULES = YES; COPY_PHASE_STRIP = YES; DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym"; IPHONEOS_DEPLOYMENT_TARGET = 17.0; SDKROOT = iphoneos; SWIFT_COMPILATION_MODE = wholemodule; SWIFT_OPTIMIZATION_LEVEL = "-O"; }; name = Release; };
+    89F922FA5426450DBE4D4950 = {isa = XCBuildConfiguration; buildSettings = {ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon; CODE_SIGN_STYLE = Automatic; CURRENT_PROJECT_VERSION = 1; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = App/Info.plist; IPHONEOS_DEPLOYMENT_TARGET = 17.0; LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks"; MARKETING_VERSION = 1.0.0; PRODUCT_BUNDLE_IDENTIFIER = live.r12.glowzone; PRODUCT_NAME = "$(TARGET_NAME)"; SUPPORTED_PLATFORMS = "iphoneos iphonesimulator"; SUPPORTS_MACCATALYST = NO; SWIFT_VERSION = 5.0; TARGETED_DEVICE_FAMILY = "1,2"; }; name = Debug; };
+    9241DC66A8810566EE981186 = {isa = XCBuildConfiguration; buildSettings = {ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon; CODE_SIGN_STYLE = Automatic; CURRENT_PROJECT_VERSION = 1; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = App/Info.plist; IPHONEOS_DEPLOYMENT_TARGET = 17.0; LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks"; MARKETING_VERSION = 1.0.0; PRODUCT_BUNDLE_IDENTIFIER = live.r12.glowzone; PRODUCT_NAME = "$(TARGET_NAME)"; SKIP_INSTALL = NO; SUPPORTED_PLATFORMS = "iphoneos iphonesimulator"; SUPPORTS_MACCATALYST = NO; SWIFT_VERSION = 5.0; TARGETED_DEVICE_FAMILY = "1,2"; }; name = Release; };
+    6FF9587D8D4571953FC02991 = {isa = XCConfigurationList; buildConfigurations = (67D0A784217C524E2E14DDB5, FDB4B08AB469178DE5CD5CBB,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+    AB589AB57E310E9C95941129 = {isa = XCConfigurationList; buildConfigurations = (89F922FA5426450DBE4D4950, 9241DC66A8810566EE981186,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+  };
+  rootObject = EC5B49BA8C5C424E7AED818D;
+}

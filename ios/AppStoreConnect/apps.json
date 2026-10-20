@@ -1,0 +1,40 @@
+{
+  "storefront": "https://app.r12.live",
+  "privacyPolicyUrl": "https://app.r12.live/privacy",
+  "termsOfUseUrl": "https://app.r12.live/terms",
+  "supportUrl": "https://app.r12.live",
+  "apps": [
+    {
+      "name": "R12",
+      "bundleId": "live.r12.training",
+      "sku": null,
+      "primaryCategory": "Health & Fitness",
+      "entryRoute": "/training",
+      "audience": "Members using personal training, programmes and progress features."
+    },
+    {
+      "name": "R12 Club",
+      "bundleId": "live.r12.club",
+      "sku": null,
+      "primaryCategory": "Business",
+      "entryRoute": "/club/reception",
+      "audience": "Authenticated club staff using reception and club operations."
+    },
+    {
+      "name": "R12 Coach",
+      "bundleId": "live.r12.coach",
+      "sku": null,
+      "primaryCategory": "Health & Fitness",
+      "entryRoute": "/coach",
+      "audience": "Coaches with an R12 account and Coach workspace access."
+    },
+    {
+      "name": "Glow Zone",
+      "bundleId": "live.r12.glowzone",
+      "sku": null,
+      "primaryCategory": "Lifestyle",
+      "entryRoute": "/glow-zone",
+      "audience": "Existing Glow Zone Carlton customers with an R12 login."
+    }
+  ]
+}
