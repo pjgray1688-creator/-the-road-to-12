@@ -150,5 +150,4 @@ supabase/migrations/2027-01-09-madhouse-class-payments-and-register.sql
 supabase/migrations/2027-01-10-madhouse-pending-staff-assignments.sql
 supabase/migrations/2027-01-11-stripe-membership-subscriptions.sql
 supabase/migrations/2027-01-12-two-stripe-merchant-isolation.sql
-supabase/migrations/2027-01-13-account-deletion-and-induction-stage-progress.sql
 
