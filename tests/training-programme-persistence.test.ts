@@ -4,6 +4,7 @@ import fs from "node:fs";
 import { defaultTrainingProfile } from "../lib/training-profile";
 import { generateTrainingProgramme } from "../lib/programme-generator";
 import { activeWorkoutsFromPayload } from "../lib/programme-activation";
+import { homeEntryView } from "../lib/home-entry-state";
 
 test("account programme persistence is user-scoped and stores the accepted snapshot", () => {
   const route = fs.readFileSync("app/api/training-profile/route.ts", "utf8");
@@ -31,7 +32,8 @@ test("legacy users retain fixed programme fallback when no generated programme i
 test("new users receive a visible build-programme entry point", () => {
   const source = fs.readFileSync("components/home-shell.tsx", "utf8");
   assert.match(source, /Create programme/);
-  assert.match(source, /if \(!hasProgramme\)/);
+  assert.match(source, /homeEntryView\(hasProgramme/);
+  assert.equal(homeEntryView(false, false), "programme_invitation");
   assert.match(source, /\/onboarding/);
 });
 

@@ -6,6 +6,7 @@ import { trainingProfileForBuilder } from "../lib/onboarding-preferences";
 import { generateTrainingProgramme, programmeTrainingDays } from "../lib/programme-generator";
 import { defaultTrainingProfile } from "../lib/training-profile";
 import { loadData, saveData, setStorageUserId } from "../lib/storage";
+import { homeEntryView } from "../lib/home-entry-state";
 
 const read = (path: string) => fs.readFileSync(path, "utf8");
 
@@ -15,10 +16,24 @@ test("fresh and gym-only accounts stay on Home and get a non-blocking training i
   const training = read("app/training/page.tsx");
   assert.equal(hasAssignedTrainingProgramme({}), false);
   assert.doesNotMatch(root, /onboarding/);
-  assert.match(home, /if \(!hasProgramme\)/);
+  assert.match(home, /homeEntryView\(hasProgramme/);
   assert.match(home, /Create programme/);
   assert.match(training, /Create my programme/);
   assert.doesNotMatch(training, /legacyProgrammeSnapshot\(data\.trainingProfile\); const week/);
+});
+
+test("fresh authenticated Home exits the splash even when workout hydration stalls", () => {
+  assert.equal(homeEntryView(false, false), "programme_invitation");
+  assert.equal(homeEntryView(false, false, true), "programme_invitation");
+  assert.equal(homeEntryView(true, false), "loading");
+  assert.equal(homeEntryView(true, false, true), "workouts_unavailable");
+  assert.equal(homeEntryView(true, true), "dashboard");
+  const home = read("components/home-shell.tsx");
+  assert.match(home, /homeEntryView\(hasProgramme, resolved && serverResolved, workoutHydrationFailed\)/);
+  assert.match(home, /withTimeout\(fetchServerWorkouts\(\), 12_000\)/);
+  assert.match(home, /Try loading your workouts again/);
+  const auth = read("components/authenticated-home.tsx");
+  assert.match(auth, /setTimeout\(\(\) => \{ if \(alive && !settled\) setState\("error"\); \}, 12_000\)/);
 });
 
 test("existing generated and explicitly assigned legacy programmes remain available", () => {

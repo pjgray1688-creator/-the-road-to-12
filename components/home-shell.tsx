@@ -15,6 +15,7 @@ import { brand } from "@/lib/brand";
 import { TutorialExperience } from "./tutorial-experience";
 import { NutritionTodayCard } from "@/components/nutrition-member";
 import { TrainingStorageBoundary, useHasAssignedTrainingProgramme } from "@/components/training-storage-boundary";
+import { homeEntryView } from "@/lib/home-entry-state";
 
 function completedToday(workouts: Workout[], timezone: string, week: ReturnType<typeof activeWeek>): Workout | undefined {
   return selectCompletedWorkout(workouts, new Date(), timezone, resolveToday(week, timezone).session?.id);
@@ -71,28 +72,43 @@ function HomeShellContent() {
   const [resumeRequested, setResumeRequested] = useState(false);
   const [serverWorkouts, setServerWorkouts] = useState<Workout[]>([]);
   const [serverResolved, setServerResolved] = useState(false);
+  const [workoutHydrationFailed, setWorkoutHydrationFailed] = useState(false);
   const [coachOpen, setCoachOpen] = useState(false);
   const [recoveryOpen, setRecoveryOpen] = useState(false);
   const hydrateServer = useCallback(async () => {
     try {
-      let workouts = await fetchServerWorkouts();
+      let workouts = await withTimeout(fetchServerWorkouts(), 12_000);
       if (!serverResolved) {
         await importLocalWorkouts().catch(() => undefined);
-        workouts = await fetchServerWorkouts();
+        workouts = await withTimeout(fetchServerWorkouts(), 12_000);
       }
       cacheServerWorkouts(workouts); setServerWorkouts(workouts); setServerResolved(true);
       const plan = resolveToday(activeWeek(), timezone); setCompleted(completedToday(workouts, timezone, activeWeek()));
       setActive(workouts.find(item => item.status === "active" && item.plannedSessionId === plan.session?.id && item.scheduledDate === new Intl.DateTimeFormat("en-CA", { timeZone: timezone }).format(new Date())));
-      setResolved(true);
-    } catch { setServerResolved(false); }
+      setResolved(true); setWorkoutHydrationFailed(false);
+    } catch { setWorkoutHydrationFailed(true); }
   }, [serverResolved, timezone]);
   useEffect(() => { const frame = window.requestAnimationFrame(() => void hydrateServer()); const onFocus = () => void hydrateServer(); const onWorkoutsUpdated = () => void hydrateServer(); window.addEventListener("focus", onFocus); window.addEventListener("workouts-updated", onWorkoutsUpdated); return () => { window.cancelAnimationFrame(frame); window.removeEventListener("focus", onFocus); window.removeEventListener("workouts-updated", onWorkoutsUpdated); }; }, [hydrateServer]);
   const summary = useMemo(() => { if (!completed) return undefined; const working = completed.sets.filter(set => set.kind === "working"); return { sets: working.length, cardio: completed.cardio?.duration }; }, [completed]);
   const tutorial = <TutorialExperience area="member" />;
-  if (!resolved || !serverResolved) return <main className="shell home-screen" aria-busy="true"><section className="card dashboard loading-surface"><BrandLockup compact /><p>Loading {brand.name}&apos;s plan…</p></section></main>;
-  if (!hasProgramme) return <><main className="shell home-screen"><BrandLockup compact /><section className="card dashboard"><span className="eyebrow">R12 TRAINING</span><h1>Your training starts when you&apos;re ready.</h1><p>Create a programme whenever you want to begin. Your account and gym membership remain available without one.</p><a className="primary big" href="/onboarding">Create programme <span>→</span></a></section><AppNav /></main>{tutorial}</>;
+  const entryView = homeEntryView(hasProgramme, resolved && serverResolved, workoutHydrationFailed);
+  if (entryView === "programme_invitation") return <><main className="shell home-screen"><BrandLockup compact /><section className="card dashboard"><span className="eyebrow">R12 TRAINING</span><h1>Your training starts when you&apos;re ready.</h1><p>Create a programme whenever you want to begin. Your account and gym membership remain available without one.</p><a className="primary big" href="/onboarding">Create programme <span>→</span></a></section><AppNav /></main>{tutorial}</>;
+  if (entryView === "workouts_unavailable") return <><main className="shell home-screen"><BrandLockup compact /><section className="card dashboard"><span className="eyebrow">R12 TRAINING</span><h1>Your training data hasn&apos;t loaded yet.</h1><p>Your account is available. Try loading your workouts again, or continue to another section.</p><button className="primary" onClick={() => { setWorkoutHydrationFailed(false); setResolved(false); setServerResolved(false); void hydrateServer(); }}>Try again</button></section><AppNav /></main>{tutorial}</>;
+  if (entryView === "loading") return <main className="shell home-screen" aria-busy="true"><section className="card dashboard loading-surface"><BrandLockup compact /><p>Loading {brand.name}&apos;s plan…</p></section></main>;
   if (resumeRequested && active) return <WorkoutErrorBoundary workout={active} phase="active" onHome={(current) => { setResumeRequested(false); if (current) setActive(current); }}><TrainingApp resumeWorkout={active} workoutHistory={serverWorkouts} onMinimize={() => setResumeRequested(false)} onDiscard={() => { setResumeRequested(false); setActive(undefined); void hydrateServer(); }} /></WorkoutErrorBoundary>;
   if (!completed && active) return <><main className="shell home-screen"><DashboardFoundation workoutHistory={serverWorkouts} /><NutritionTodayCard /><section className="card dashboard post-workout active-workout-card"><span className="eyebrow">WORKOUT IN PROGRESS</span><h2>{active.name}</h2><p>Your logged sets are saved. Resume when you&apos;re ready.</p><button className="primary big" onClick={() => setResumeRequested(true)}>Resume workout →</button></section><AppNav /></main>{tutorial}</>;
   if (!completed) return <><WorkoutErrorBoundary phase="preview" onHome={(current) => { if (current) setActive(current); setResumeRequested(false); }}><TrainingApp workoutHistory={serverWorkouts} onMinimize={(current) => { if (current) setActive(current); setResumeRequested(false); }} /></WorkoutErrorBoundary>{tutorial}</>;
   return <><main className="shell home-screen"><DashboardFoundation workoutHistory={serverWorkouts} /><NutritionTodayCard /><section className="card dashboard post-workout" aria-label="Post-workout"><span className="eyebrow">TODAY COMPLETE</span><h2>Nice work.</h2><p>{completed.name} is complete.</p><small>{summary?.sets ?? 0} working sets logged{summary?.cardio ? ` · ${summary.cardio} min cardio` : ""}.</small><p className="coach-note">Training is done for today. Easy mobility or a relaxed walk is plenty if you want to move.</p><div className="post-workout-actions"><button className="secondary" onClick={() => setCoachOpen(true)}>Ask Coach</button><button className="secondary" onClick={() => setRecoveryOpen(true)}>Recovery work</button></div></section>{coachOpen && <CoachSheet workout={completed} onClose={() => setCoachOpen(false)} />}{recoveryOpen && <RecoverySheet onClose={() => setRecoveryOpen(false)} />}<AppNav /></main>{tutorial}</>;
+}
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error("Workout loading timed out")), timeoutMs); }),
+    ]);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
 }

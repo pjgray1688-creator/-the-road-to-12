@@ -62,7 +62,8 @@ test("Home hydrates server workout state before rendering workout controls", () 
   const shell = fs.readFileSync("components/home-shell.tsx", "utf8");
   assert.match(shell, /fetchServerWorkouts/);
   assert.match(shell, /importLocalWorkouts/);
-  assert.match(shell, /!resolved \|\| !serverResolved/);
+  assert.match(shell, /homeEntryView\(hasProgramme, resolved && serverResolved, workoutHydrationFailed\)/);
+  assert.match(shell, /entryView === "loading"/);
   assert.match(shell, /workoutHistory=\{serverWorkouts\}/);
 });
 
