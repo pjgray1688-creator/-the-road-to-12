@@ -9,11 +9,11 @@ The native tab bar, route-level navigation, back/reload/share controls, loading/
 | App | Bundle ID | First route | Native destinations |
 | --- | --- | --- | --- |
 | R12 | `live.r12.training` | `/training` | Training, Progress, Account |
-| R12 Club | `live.r12.club` | `/club/reception` (server redirect to `/club/access`) | Reception, Members, Schedule, More |
+| R12 Club | `live.r12.club` | `/club/checks` | Daily checks, Members, Inductions, Reception, More |
 | R12 Coach | `live.r12.coach` | `/coach` | Workspace, Diary, Programmes, Account |
 | Glow Zone | `live.r12.glowzone` | `/glow-zone` | Glow Zone, R12 Account |
 
-R12 Club intentionally has no Member Hub destination. Reception still selects an organisation/location and checks staff permissions on the server. Coach, Glow Zone and account routes preserve their existing sign-in/redirect rules. Custom URL schemes are `r12-training:`, `r12-club:`, `r12-coach:` and `r12-glowzone:`; each rejects paths outside its route scope. Universal Links are not claimed or configured here because they require an Apple App Site Association response and an Associated Domains entitlement on the verified app host.
+R12 Club is a mobile-first staff operations app. It opens Daily checks, offers first-class Inductions and member operations, and retains the existing reception route. Checklist updates use the existing server RPC, staff identity, timestamps, location and audit event; faults remain in the maintenance workflow. Club intentionally has no Member Hub destination. Each route continues to enforce staff permissions on the server. Coach, Glow Zone and account routes preserve their existing sign-in/redirect rules. Custom URL schemes are `r12-training:`, `r12-club:`, `r12-coach:` and `r12-glowzone:`; each rejects paths outside its route scope. Universal Links are not claimed or configured here because they require an Apple App Site Association response and an Associated Domains entitlement on the verified app host.
 
 ## Build on the owner's Mac
 

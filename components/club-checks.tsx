@@ -1,6 +1,7 @@
 import Link from "next/link";
 import styles from "./club-checks.module.css";
 import { Surface } from "@/components/ui";
+import { ClubChecklistItemToggle } from "@/components/club-checklist-item-toggle";
 import { checkProgress, maintenanceStatusLabel } from "@/lib/club-checks";
 import { assignChecklistTemplateAction, createChecklistTemplateAction, recordChecklistItemAction, recordEquipmentCheckAction, reopenDailyCheckAction, reportMaintenanceIssueAction, saveChecklistItemAction, saveEquipmentAssetAction, setMaintenanceStatusAction, submitDailyCheckAction } from "@/app/club/checks/actions";
 
@@ -10,7 +11,7 @@ type Location = { id: string; name: string; active: boolean };
 const value = (row: Record<string, unknown>, key: string) => row[key] === null || row[key] === undefined ? "" : String(row[key]);
 const checked = (row: Record<string, unknown>, key: string) => row[key] === true;
 
-export function ClubChecks({ organisationId, locationId, locationName, data, locations, canReview }: { organisationId: string; locationId: string; locationName: string; data: DailyChecks; locations: Location[]; canReview: boolean }) {
+export function ClubChecks({ organisationId, locationId, locationName, data, locations, canReview, canSubmit }: { organisationId: string; locationId: string; locationName: string; data: DailyChecks; locations: Location[]; canReview: boolean; canSubmit: boolean }) {
   const progress = checkProgress(Number(data.completed ?? 0), Number(data.total ?? 0));
   const cycleStatus = value(data.cycle ?? {}, "status") || "open";
   const hidden = <><input type="hidden" name="organisationId" value={organisationId} /><input type="hidden" name="locationId" value={locationId} /></>;
@@ -25,7 +26,7 @@ export function ClubChecks({ organisationId, locationId, locationName, data, loc
       <div className="section-header"><div><span className="eyebrow">{locationName.toUpperCase()}</span><h2>Daily venue checks</h2><p className="muted">Operational date follows the venue’s UK local day. Status: {maintenanceStatusLabel(cycleStatus)}.</p></div><div>{cycleStatus === "submitted" ? <span className={`${styles.status} ${styles.statusGood}`}>Submitted</span> : <span className={styles.status}>In progress</span>}</div></div>
       <div className={styles.checkList}>
         {(data.items ?? []).length ? (data.items ?? []).map(item => <form action={recordChecklistItemAction} className={styles.checkRow} key={value(item, "id")}>
-          {hidden}<input type="hidden" name="itemId" value={value(item, "id")} /><div><strong>{value(item, "label")}</strong><small>{value(item, "section")}{checked(item, "required") ? " · Required" : " · Optional"}{value(item, "checked_by_name") ? ` · Checked by ${value(item, "checked_by_name")}` : ""}</small></div><label>Status<select name="status" defaultValue={value(item, "status") || "complete"}><option value="complete">Checked OK</option><option value="issue">Issue found</option><option value="not_applicable">Not applicable</option></select></label><label>Note<input name="note" defaultValue={value(item, "note")} maxLength={500} placeholder="Optional note" /></label><button className="secondary" type="submit">Save</button>
+          {hidden}<input type="hidden" name="itemId" value={value(item, "id")} /><div><strong>{value(item, "label")}</strong><small>{value(item, "section")}{checked(item, "required") ? " · Required" : " · Optional"}{value(item, "checked_by_name") ? ` · Checked by ${value(item, "checked_by_name")}` : ""}</small><ClubChecklistItemToggle organisationId={organisationId} locationId={locationId} itemId={value(item, "id")} note={value(item, "note")} initialComplete={value(item, "status") === "complete"} canMark={canSubmit && (cycleStatus !== "submitted" || canReview)} /></div><label>Result<select name="status" defaultValue={value(item, "status") || "complete"}><option value="complete">Checked OK</option><option value="issue">Issue found</option><option value="not_applicable">Not applicable</option></select></label><label>Note<input name="note" defaultValue={value(item, "note")} maxLength={500} placeholder="Optional note" /></label><button className="secondary" type="submit">Save result or note</button>
         </form>) : <p className="muted">No daily checklist is assigned to this venue yet. A manager can configure one below.</p>}
       </div>
     </Surface>

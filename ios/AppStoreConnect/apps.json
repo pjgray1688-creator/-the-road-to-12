@@ -3,38 +3,55 @@
   "privacyPolicyUrl": "https://app.r12.live/privacy",
   "termsOfUseUrl": "https://app.r12.live/terms",
   "supportUrl": "https://app.r12.live",
+  "locale": "en-GB",
   "apps": [
     {
       "name": "R12",
       "bundleId": "live.r12.training",
       "sku": null,
       "primaryCategory": "Health & Fitness",
+      "subtitle": "Training and progress",
       "entryRoute": "/training",
-      "audience": "Members using personal training, programmes and progress features."
+      "audience": "Members using personal training, programmes and progress features.",
+      "description": "Plan and record training in the R12 workspace. Open your training plan, review sessions and record progress including weight, measurements and personal bests. Sign in with your R12 account. Access to features depends on your account and current membership.",
+      "keywords": "gym,workout,training,fitness,progress,personal trainer,exercise",
+      "reviewWalkthrough": "R12 \u2014 member training walkthrough"
     },
     {
       "name": "R12 Club",
       "bundleId": "live.r12.club",
       "sku": null,
       "primaryCategory": "Business",
-      "entryRoute": "/club/reception",
-      "audience": "Authenticated club staff using reception and club operations."
+      "subtitle": "Staff gym operations",
+      "entryRoute": "/club/checks",
+      "audience": "Authorised staff performing venue checks, member inductions and club operations at Madhouse Rotherham and Carlton.",
+      "description": "A mobile workspace for authorised Madhouse staff on the gym floor. Complete daily venue and equipment checks, report faults, open member records and record in-person induction outcomes. Choose your organisation and venue. Staff permissions and audit records are enforced by R12.",
+      "keywords": "gym staff,venue checks,maintenance,induction,reception,operations,madhouse",
+      "reviewWalkthrough": "R12 Club \u2014 staff floor operations walkthrough"
     },
     {
       "name": "R12 Coach",
       "bundleId": "live.r12.coach",
       "sku": null,
       "primaryCategory": "Health & Fitness",
+      "subtitle": "Coach client workspace",
       "entryRoute": "/coach",
-      "audience": "Coaches with an R12 account and Coach workspace access."
+      "audience": "Coaches with an R12 account and Coach workspace access.",
+      "description": "The R12 Coach workspace for authorised coaches. Review your client relationships, diary, programmes and coaching records. Sign in with your R12 account; client information is limited to relationships and permissions assigned to that coach.",
+      "keywords": "coach,personal training,clients,programme,diary,fitness,gym",
+      "reviewWalkthrough": "R12 Coach \u2014 coach and client walkthrough"
     },
     {
       "name": "Glow Zone",
       "bundleId": "live.r12.glowzone",
       "sku": null,
       "primaryCategory": "Lifestyle",
+      "subtitle": "Glow Zone balance and visits",
       "entryRoute": "/glow-zone",
-      "audience": "Existing Glow Zone Carlton customers with an R12 login."
+      "audience": "Existing Glow Zone Carlton customers with an R12 login.",
+      "description": "View your Glow Zone Carlton minute balance, expiry information and activity. Read service safety information and see the available minute packages. Account linking, eligibility and any purchase or service access follow the existing Carlton process.",
+      "keywords": "sunbed,tanning,minutes,balance,activity,glow zone,carlton",
+      "reviewWalkthrough": "Glow Zone \u2014 customer balance and visit walkthrough"
     }
   ]
 }

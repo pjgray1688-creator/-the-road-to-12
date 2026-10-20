@@ -4,7 +4,7 @@ These apps use the first-party R12 application at `https://app.r12.live`; existi
 
 ## R12 Club
 
-This is a staff operations app. It opens the existing reception flow, asks the reviewer to select an organisation/location, and enforces staff permissions on the server. It is not the member app. Provide an owner-created test account with the minimum staff access needed to review reception, members and schedule. Do not provide customer data.
+This is a mobile-first staff operations app. It opens Daily checks, then provides Inductions, member operations and the existing reception flow. The reviewer selects an organisation/location where needed; server permissions remain authoritative. It is not the member app. Provide an owner-created test account with venue access, daily-check submission and induction permissions. Do not provide customer data. See `ReviewerWalkthroughs.md` for the synthetic gym-floor walkthrough.
 
 ## R12 Coach
 
@@ -14,4 +14,4 @@ This workspace requires Coach access on the reviewer account. Provide an owner-c
 
 Provide owner-created test accounts that demonstrate the product routes without accessing real member or customer records. For Glow Zone, state that account linking/age verification and service eligibility are handled by the existing Carlton workflow.
 
-Complete all credentials and workflow details in App Store Connect itself. This template contains no credentials.
+Complete all credentials and workflow details in App Store Connect itself. This template contains no credentials. Make sure the review environment is available without one-time codes or access to a personal device.

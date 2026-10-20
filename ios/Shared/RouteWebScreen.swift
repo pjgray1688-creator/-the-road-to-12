@@ -43,7 +43,10 @@ struct RouteWebScreen: View {
                 .accessibilityLabel("\(configuration.name) \(destination.title)")
                 .overlay(alignment: .top) {
                     if state.isLoading {
-                        ProgressView().tint(configuration.tint).padding(.top, 8)
+                        ProgressView()
+                            .tint(configuration.tint)
+                            .padding(.top, 8)
+                            .accessibilityLabel("Loading \(destination.title)")
                     }
                 }
             }
@@ -135,16 +138,17 @@ private struct R12WebView: UIViewRepresentable {
         func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction,
                      decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
             guard let url = action.request.url else { decisionHandler(.cancel); return }
-            if url.scheme == "https", url.host == "app.r12.live" {
+            if url.scheme == "https", url.host == "app.r12.live",
+               url.user == nil, url.password == nil, url.port == nil || url.port == 443 {
                 decisionHandler(.allow)
                 return
             }
-            if action.targetFrame == nil, url.scheme == "https" || url.scheme == "http" {
+            if action.targetFrame == nil, url.scheme == "https" {
                 decisionHandler(.cancel)
                 openExternal(url)
                 return
             }
-            if url.scheme == "https" || url.scheme == "http" {
+            if url.scheme == "https" {
                 decisionHandler(.cancel)
                 openExternal(url)
                 return
@@ -165,7 +169,7 @@ private struct R12WebView: UIViewRepresentable {
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
             state.isLoading = false
             state.canGoBack = webView.canGoBack
-            if let url = webView.url, url.host == "app.r12.live" { state.shareURL = url }
+            if let url = webView.url { state.shareURL = Self.safeShareURL(from: url) }
         }
 
         func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
@@ -181,6 +185,18 @@ private struct R12WebView: UIViewRepresentable {
             guard nsError.code != NSURLErrorCancelled else { return }
             state.isLoading = false
             state.errorMessage = "Check your connection and try again."
+        }
+
+        private static func safeShareURL(from url: URL) -> URL? {
+            let shareablePaths: Set<String> = ["/training", "/progress", "/coach", "/glow-zone", "/privacy", "/terms"]
+            guard url.scheme == "https", url.host == "app.r12.live", url.user == nil,
+                  url.password == nil, url.query == nil, url.fragment == nil,
+                  shareablePaths.contains(url.path) else { return nil }
+            var components = URLComponents()
+            components.scheme = "https"
+            components.host = "app.r12.live"
+            components.path = url.path
+            return components.url
         }
     }
 }

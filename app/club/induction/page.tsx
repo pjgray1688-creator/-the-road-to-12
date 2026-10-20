@@ -6,7 +6,7 @@ import { resolveClubOperationalContext } from "@/lib/club-server-context";
 import { InductionPolicyForm } from "@/components/club-induction-policy-form";
 import { ClubSectionNav } from "@/components/club-shell";
 export default async function ClubInductionPage({ searchParams }: { searchParams?: Promise<{ org?: string }> }) {
-  const supabase = await serverSupabase(); const { data: { user } } = await supabase.auth.getUser(); if (!user) redirect("/account?mode=signIn");
+  const supabase = await serverSupabase(); const { data: { user } } = await supabase.auth.getUser(); if (!user) redirect("/account?mode=signIn&next=%2Fclub%2Finduction");
   const context = await resolveClubOperationalContext(supabase, user.id, (await searchParams)?.org);
   const canManagePolicy = Boolean(context && await context.repository.hasCapability(context.organisation.id, user.id, "induction.manage_policy"));
   const canPerform = Boolean(context && ["gym_staff", "trainer", "gym_admin", "owner"].includes(context.role) && await context.repository.hasCapability(context.organisation.id, user.id, "induction.perform"));
