@@ -17,7 +17,10 @@ for (const args of [["update", "--skipVersionUpgrade"], ["build", ...(signed ? [
   if (result.status !== 0) process.exit(result.status ?? 1);
   if (args[0] === "update") {
     const gradlePath = resolve(cwd, "app/build.gradle");
-    if (!existsSync(gradlePath) || !/targetSdkVersion\s+36\b/.test(readFileSync(gradlePath, "utf8"))) throw new Error(`${app}: generated Gradle project must target API 36 before an AAB can be built. Update Bubblewrap and try again.`);
+    const gradle = existsSync(gradlePath) ? readFileSync(gradlePath, "utf8") : "";
+    if (!/minSdkVersion\s+24\b/.test(gradle) || !/targetSdkVersion\s+36\b/.test(gradle)) {
+      throw new Error(`${app}: generated Gradle project must use minimum SDK 24 and target SDK 36 before an AAB can be built. Check twa-manifest.json and update Bubblewrap.`);
+    }
   } else {
     const bundle = resolve(cwd, "app-release-bundle.aab");
     const gradleBundle = resolve(cwd, "app/build/outputs/bundle/release/app-release.aab");

@@ -12,6 +12,7 @@ const packageIds = new Set();
 for (const [key, [packageId, startUrl, manifestPath, deepLinkPath, routePath, iconPath]] of Object.entries(expected)) {
   const configPath = resolve(root, `android/apps/${key}/twa-manifest.json`);
   const config = JSON.parse(readFileSync(configPath, "utf8"));
+  if (config.minSdkVersion !== 24 || config.targetSdkVersion !== 36) throw new Error(`${key}: Bubblewrap descriptor must set minimum SDK 24 and target SDK 36`);
   if (config.packageId !== packageId || config.host !== "app.r12.live" || config.startUrl !== startUrl) throw new Error(`${key}: package, app host or launch URL mismatch`);
   if (config.webManifestUrl !== `https://app.r12.live${manifestPath}` || config.fullScopeUrl !== `https://app.r12.live${deepLinkPath}`) throw new Error(`${key}: manifest or deep-link scope mismatch`);
   if (config.iconUrl !== `https://app.r12.live/${iconPath}` || config.maskableIconUrl !== config.iconUrl || !existsSync(resolve(root, `public/${iconPath}`))) throw new Error(`${key}: app icon URL or asset mismatch`);
@@ -22,12 +23,15 @@ for (const [key, [packageId, startUrl, manifestPath, deepLinkPath, routePath, ic
   if (packageIds.has(config.packageId)) throw new Error(`${key}: duplicate package ID`);
   packageIds.add(config.packageId);
   const gradle = resolve(root, `android/apps/${key}/app/build.gradle`);
-  if (existsSync(gradle) && !/targetSdkVersion\s+36\b/.test(readFileSync(gradle, "utf8"))) throw new Error(`${key}: generated project must target API 36`);
+  if (existsSync(gradle)) {
+    const gradleConfig = readFileSync(gradle, "utf8");
+    if (!/minSdkVersion\s+24\b/.test(gradleConfig) || !/targetSdkVersion\s+36\b/.test(gradleConfig)) throw new Error(`${key}: generated project must use minimum SDK 24 and target SDK 36`);
+  }
 }
 const standardAssetLinksRoute = resolve(root, "app/.well-known/assetlinks.json/route.ts");
 const assetLinksHandler = resolve(root, "app/api/android/assetlinks/route.ts");
 if (!existsSync(standardAssetLinksRoute) || !readFileSync(standardAssetLinksRoute, "utf8").includes('export { GET } from "@/app/api/android/assetlinks/route"')) throw new Error("Standard Digital Asset Links route must reuse the validated API handler");
 if (!readFileSync(assetLinksHandler, "utf8").includes("androidAssetLinks(process.env.R12_ANDROID_APP_LINKS_JSON)")) throw new Error("Digital Asset Links route must use the validated Play signing fingerprint configuration");
 const buildScript = readFileSync(resolve(root, "android/scripts/build.mjs"), "utf8");
-if (!buildScript.includes("targetSdkVersion\\s+36") || !buildScript.includes("BUBBLEWRAP_KEYSTORE_PASSWORD") || !buildScript.includes("BUBBLEWRAP_KEY_PASSWORD")) throw new Error("Build script must guard API 36 and support Bubblewrap's documented signing environment variables");
-console.log(`Validated ${packageIds.size} Android release descriptors, PWA routes, icons and Digital Asset Links routing. Generated projects are required to target API 36.`);
+if (!buildScript.includes("minSdkVersion\\s+24") || !buildScript.includes("targetSdkVersion\\s+36") || !buildScript.includes("BUBBLEWRAP_KEYSTORE_PASSWORD") || !buildScript.includes("BUBBLEWRAP_KEY_PASSWORD")) throw new Error("Build script must guard minimum SDK 24 and target SDK 36 and support Bubblewrap's documented signing environment variables");
+console.log(`Validated ${packageIds.size} Android release descriptors, SDK levels, PWA routes, icons and Digital Asset Links routing. Generated projects are required to use minimum SDK 24 and target SDK 36.`);
