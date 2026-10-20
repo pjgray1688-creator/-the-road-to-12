@@ -88,7 +88,9 @@ test("local import is non-destructive and server cache cannot erase richer local
   const sync = fs.readFileSync("lib/workout-sync.ts", "utf8");
   assert.match(sync, /cacheServerWorkouts/);
   assert.match(sync, /existing\.sets\.length > server\.sets\.length/);
-  assert.match(sync, /road-to-12-data-v1/);
+  assert.match(sync, /saveData\(next\)/);
+  assert.match(fs.readFileSync("lib/storage.ts", "utf8"), /scopedKey\(KEY\)/);
+  assert.match(fs.readFileSync("lib/storage.ts", "utf8"), /encodeURIComponent\(storageUserId\)/);
   assert.doesNotMatch(sync, /removeItem\("road-to-12-data-v1"/);
 });
 

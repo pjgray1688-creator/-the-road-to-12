@@ -30,7 +30,8 @@ test("legacy users retain fixed programme fallback when no generated programme i
 
 test("new users receive a visible build-programme entry point", () => {
   const source = fs.readFileSync("components/home-shell.tsx", "utf8");
-  assert.match(source, /Build my programme/);
+  assert.match(source, /Create programme/);
+  assert.match(source, /if \(!hasProgramme\)/);
   assert.match(source, /\/onboarding/);
 });
 

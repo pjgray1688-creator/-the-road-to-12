@@ -1,12 +1,11 @@
 "use client";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import { DashboardFoundation } from "./dashboard-foundation";
 import { TrainingApp } from "./training-app";
 import { activeWeek } from "@/lib/active-programme";
 import { resolveToday, selectCompletedWorkout } from "@/lib/schedule";
 import { fetchServerWorkouts, importLocalWorkouts, cacheServerWorkouts } from "@/lib/workout-sync";
-import { loadData, saveData, saveRecoveryActivity } from "@/lib/storage";
+import { loadData, saveRecoveryActivity } from "@/lib/storage";
 import { mondayExercises } from "@/lib/workout";
 import type { Workout } from "@/lib/types";
 import { AppNav } from "./app-nav";
@@ -15,6 +14,7 @@ import { BrandLockup } from "./brand-lockup";
 import { brand } from "@/lib/brand";
 import { TutorialExperience } from "./tutorial-experience";
 import { NutritionTodayCard } from "@/components/nutrition-member";
+import { TrainingStorageBoundary, useHasAssignedTrainingProgramme } from "@/components/training-storage-boundary";
 
 function completedToday(workouts: Workout[], timezone: string, week: ReturnType<typeof activeWeek>): Workout | undefined {
   return selectCompletedWorkout(workouts, new Date(), timezone, resolveToday(week, timezone).session?.id);
@@ -58,8 +58,12 @@ function RecoverySheet({ onClose }: { onClose: () => void }) {
   return <div className="modal" role="dialog" aria-modal="true" aria-label="Log recovery activity"><section><div className="sheet-heading"><div><span className="eyebrow">RECOVERY ACTIVITY</span><h2>Log recovery work</h2></div><button className="text-button" onClick={onClose}>Close</button></div><p>Keep it easy and supportive of today&apos;s completed training.</p>{saveError && <p role="alert">{saveError}</p>}<label className="sheet-input">Activity<select value={activity} onChange={event => setActivity(event.target.value)}>{["Walk", "Mobility", "Stretching", "Yoga", "Easy cycling", "Other"].map(item => <option key={item}>{item}</option>)}</select></label><label className="sheet-input">Duration<input inputMode="numeric" value={duration} onChange={event => setDuration(event.target.value)} placeholder="Minutes" /></label><label className="sheet-input">Perceived effort <input inputMode="numeric" value={effort} onChange={event => setEffort(event.target.value)} placeholder="Optional 1–5" /></label><label className="sheet-input">Notes <input value={notes} onChange={event => setNotes(event.target.value)} placeholder="Optional" /></label><button className="primary" onClick={logActivity}>Log activity</button></section></div>;
 }
 
-export function HomeShell() {
-  const router = useRouter();
+export function HomeShell({ userId }: { userId: string }) {
+  return <TrainingStorageBoundary userId={userId}><HomeShellContent /></TrainingStorageBoundary>;
+}
+
+function HomeShellContent() {
+  const hasProgramme = useHasAssignedTrainingProgramme();
   const [timezone] = useState(() => typeof window === "undefined" ? "Europe/London" : (Intl.DateTimeFormat().resolvedOptions().timeZone || "Europe/London"));
   const [completed, setCompleted] = useState<Workout | undefined>();
   const [active, setActive] = useState<Workout | undefined>();
@@ -69,8 +73,6 @@ export function HomeShell() {
   const [serverResolved, setServerResolved] = useState(false);
   const [coachOpen, setCoachOpen] = useState(false);
   const [recoveryOpen, setRecoveryOpen] = useState(false);
-  const [, setProgrammeHydrated] = useState(0);
-  const [onboardingChecked, setOnboardingChecked] = useState(false);
   const hydrateServer = useCallback(async () => {
     try {
       let workouts = await fetchServerWorkouts();
@@ -84,14 +86,13 @@ export function HomeShell() {
       setResolved(true);
     } catch { setServerResolved(false); }
   }, [serverResolved, timezone]);
-  useEffect(() => { void fetch("/api/training-profile").then(response => response.ok ? response.json() : undefined).then(result => { const legacy = result?.active_programme_id === "legacy-personal-programme"; if (!result?.training_profile || (!result?.generated_programme && !legacy) || (typeof result.active_programme_id !== "string" && !legacy)) { router.replace("/onboarding"); return; } const data = loadData(); saveData({ ...data, trainingProfile: result.training_profile, ...(result.generated_programme ? { generatedProgramme: result.generated_programme } : {}), activeProgrammeId: result.active_programme_id ?? "legacy-personal-programme" }); setProgrammeHydrated(value => value + 1); setOnboardingChecked(true); }).catch(() => setOnboardingChecked(true)); void fetch("/api/training-state", { credentials: "same-origin" }).then(response => response.ok ? response.json() : undefined).then(result => { if (!result) return; const data = loadData(); saveData({ ...data, sessionStatusOverrides: result.sessionStatusOverrides ?? data.sessionStatusOverrides, salvageAdjustments: result.salvageAdjustments ?? data.salvageAdjustments }); setProgrammeHydrated(value => value + 1); }).catch(() => undefined); }, [router]);
   useEffect(() => { const frame = window.requestAnimationFrame(() => void hydrateServer()); const onFocus = () => void hydrateServer(); const onWorkoutsUpdated = () => void hydrateServer(); window.addEventListener("focus", onFocus); window.addEventListener("workouts-updated", onWorkoutsUpdated); return () => { window.cancelAnimationFrame(frame); window.removeEventListener("focus", onFocus); window.removeEventListener("workouts-updated", onWorkoutsUpdated); }; }, [hydrateServer]);
   const summary = useMemo(() => { if (!completed) return undefined; const working = completed.sets.filter(set => set.kind === "working"); return { sets: working.length, cardio: completed.cardio?.duration }; }, [completed]);
   const tutorial = <TutorialExperience area="member" />;
-  if (!onboardingChecked || !resolved || !serverResolved) return <main className="shell home-screen" aria-busy="true"><section className="card dashboard loading-surface"><BrandLockup compact /><p>Loading {brand.name}&apos;s plan…</p></section></main>;
+  if (!resolved || !serverResolved) return <main className="shell home-screen" aria-busy="true"><section className="card dashboard loading-surface"><BrandLockup compact /><p>Loading {brand.name}&apos;s plan…</p></section></main>;
+  if (!hasProgramme) return <><main className="shell home-screen"><BrandLockup compact /><section className="card dashboard"><span className="eyebrow">R12 TRAINING</span><h1>Your training starts when you&apos;re ready.</h1><p>Create a programme whenever you want to begin. Your account and gym membership remain available without one.</p><a className="primary big" href="/onboarding">Create programme <span>→</span></a></section><AppNav /></main>{tutorial}</>;
   if (resumeRequested && active) return <WorkoutErrorBoundary workout={active} phase="active" onHome={(current) => { setResumeRequested(false); if (current) setActive(current); }}><TrainingApp resumeWorkout={active} workoutHistory={serverWorkouts} onMinimize={() => setResumeRequested(false)} onDiscard={() => { setResumeRequested(false); setActive(undefined); void hydrateServer(); }} /></WorkoutErrorBoundary>;
   if (!completed && active) return <><main className="shell home-screen"><DashboardFoundation workoutHistory={serverWorkouts} /><NutritionTodayCard /><section className="card dashboard post-workout active-workout-card"><span className="eyebrow">WORKOUT IN PROGRESS</span><h2>{active.name}</h2><p>Your logged sets are saved. Resume when you&apos;re ready.</p><button className="primary big" onClick={() => setResumeRequested(true)}>Resume workout →</button></section><AppNav /></main>{tutorial}</>;
-  if (!completed && !active && serverWorkouts.length === 0 && loadData().workouts.length === 0 && !loadData().generatedProgramme) return <><main className="shell home-screen"><DashboardFoundation workoutHistory={serverWorkouts} /><NutritionTodayCard /><section className="card dashboard"><span className="eyebrow">YOUR STARTING POINT</span><h2>Build your programme</h2><p>Answer a few quick questions and we&apos;ll shape your first training block.</p><a className="primary big" href="/onboarding">Build my programme <span>→</span></a></section><AppNav /></main>{tutorial}</>;
   if (!completed) return <><WorkoutErrorBoundary phase="preview" onHome={(current) => { if (current) setActive(current); setResumeRequested(false); }}><TrainingApp workoutHistory={serverWorkouts} onMinimize={(current) => { if (current) setActive(current); setResumeRequested(false); }} /></WorkoutErrorBoundary>{tutorial}</>;
   return <><main className="shell home-screen"><DashboardFoundation workoutHistory={serverWorkouts} /><NutritionTodayCard /><section className="card dashboard post-workout" aria-label="Post-workout"><span className="eyebrow">TODAY COMPLETE</span><h2>Nice work.</h2><p>{completed.name} is complete.</p><small>{summary?.sets ?? 0} working sets logged{summary?.cardio ? ` · ${summary.cardio} min cardio` : ""}.</small><p className="coach-note">Training is done for today. Easy mobility or a relaxed walk is plenty if you want to move.</p><div className="post-workout-actions"><button className="secondary" onClick={() => setCoachOpen(true)}>Ask Coach</button><button className="secondary" onClick={() => setRecoveryOpen(true)}>Recovery work</button></div></section>{coachOpen && <CoachSheet workout={completed} onClose={() => setCoachOpen(false)} />}{recoveryOpen && <RecoverySheet onClose={() => setRecoveryOpen(false)} />}<AppNav /></main>{tutorial}</>;
 }

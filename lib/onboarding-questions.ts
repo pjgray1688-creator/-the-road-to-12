@@ -4,7 +4,7 @@ export type BuilderQuestion = readonly [keyof TrainingProfile, string, readonly 
 
 /** Immutable answer domains. A selected answer is state, never an option source. */
 export const builderQuestions = [
-  ["availabilityMode", "How does your training availability usually work?", [["fixed_days", "Same days every week"], ["flexible_week", "Any days are fine"], ["variable_week", "My available days change"], ["rotating_pattern", "I work rotating shifts"], ["work_away", "I travel/work away regularly"], ["flexible_week", "I’ll decide later"]]],
+  ["availabilityMode", "How does your training availability usually work?", [["fixed_days", "Same days every week"], ["flexible_week", "Any days are fine"], ["variable_week", "My available days change"], ["rotating_pattern", "I work rotating shifts"], ["work_away", "I travel/work away regularly"]]],
   ["goal", "What are you training for?", [["fat_loss", "Fat loss / body composition"], ["muscle_gain", "Build muscle"], ["strength", "Build strength"], ["general_fitness", "General fitness"]]],
   ["experience", "How much training experience do you have?", [["beginner", "I’m new to structured training"], ["intermediate", "I’ve trained before"], ["experienced", "I’m experienced"]]],
   ["daysPerWeek", "How many days can you train?", [[2, "2 days"], [3, "3 days"], [4, "4 days"], [5, "5 days"], [6, "6 days"]]],
