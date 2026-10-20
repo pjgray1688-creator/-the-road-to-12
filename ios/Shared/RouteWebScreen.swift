@@ -12,6 +12,7 @@ private final class RouteWebState: ObservableObject {
 
     func reload() {
         errorMessage = nil
+        isLoading = true
         webView?.reload()
     }
 
@@ -25,7 +26,19 @@ struct RouteWebScreen: View {
     @State private var safariURL: URL?
 
     var body: some View {
-        VStack(spacing: 0) {
+        ZStack {
+            R12WebView(url: configuration.url(for: destination.path), state: state) { url in
+                safariURL = url
+            }
+            .overlay(alignment: .top) {
+                if state.isLoading && state.errorMessage == nil {
+                    ProgressView()
+                        .tint(configuration.tint)
+                        .padding(.top, 8)
+                        .accessibilityLabel("Loading \(destination.title)")
+                }
+            }
+
             if let error = state.errorMessage {
                 ContentUnavailableView {
                     Label("Can’t load this page", systemImage: "wifi.exclamationmark")
@@ -36,19 +49,9 @@ struct RouteWebScreen: View {
                         .buttonStyle(.borderedProminent)
                         .tint(configuration.tint)
                 }
-            } else {
-                R12WebView(url: configuration.url(for: destination.path), state: state) { url in
-                    safariURL = url
-                }
-                .accessibilityLabel("\(configuration.name) \(destination.title)")
-                .overlay(alignment: .top) {
-                    if state.isLoading {
-                        ProgressView()
-                            .tint(configuration.tint)
-                            .padding(.top, 8)
-                            .accessibilityLabel("Loading \(destination.title)")
-                    }
-                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color(red: 0.035, green: 0.04, blue: 0.055))
+                .transition(.opacity)
             }
         }
         .background(Color(red: 0.035, green: 0.04, blue: 0.055))
@@ -63,7 +66,15 @@ struct RouteWebScreen: View {
                 Button(action: state.reload) {
                     Image(systemName: "arrow.clockwise")
                 }
+                .disabled(state.isLoading || state.errorMessage != nil)
                 .accessibilityLabel("Reload page")
+
+                Button {
+                    safariURL = configuration.url(for: configuration.privacyPath)
+                } label: {
+                    Image(systemName: "hand.raised")
+                }
+                .accessibilityLabel("Privacy policy")
 
                 if let shareURL = state.shareURL {
                     ShareLink(item: shareURL) {
@@ -108,6 +119,11 @@ private struct R12WebView: UIViewRepresentable {
         webView.isOpaque = false
         webView.backgroundColor = UIColor(red: 0.035, green: 0.04, blue: 0.055, alpha: 1)
         webView.scrollView.contentInsetAdjustmentBehavior = .automatic
+        webView.scrollView.keyboardDismissMode = .interactive
+        let refreshControl = UIRefreshControl()
+        refreshControl.accessibilityLabel = "Refresh page"
+        refreshControl.addTarget(context.coordinator, action: #selector(Coordinator.refresh), for: .valueChanged)
+        webView.scrollView.refreshControl = refreshControl
         state.webView = webView
         context.coordinator.load(url, into: webView)
         return webView
@@ -132,7 +148,12 @@ private struct R12WebView: UIViewRepresentable {
             lastURL = url
             state.errorMessage = nil
             state.isLoading = true
+            state.shareURL = nil
             webView.load(URLRequest(url: url, cachePolicy: .useProtocolCachePolicy, timeoutInterval: 30))
+        }
+
+        @objc func refresh() {
+            state.reload()
         }
 
         func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction,
@@ -164,27 +185,38 @@ private struct R12WebView: UIViewRepresentable {
         func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
             state.isLoading = true
             state.errorMessage = nil
+            state.shareURL = nil
         }
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
             state.isLoading = false
             state.canGoBack = webView.canGoBack
+            webView.scrollView.refreshControl?.endRefreshing()
             if let url = webView.url { state.shareURL = Self.safeShareURL(from: url) }
         }
 
         func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
-            fail(error)
+            fail(error, in: webView)
         }
 
         func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
-            fail(error)
+            fail(error, in: webView)
         }
 
-        private func fail(_ error: Error) {
+        func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+            state.isLoading = false
+            state.errorMessage = "The page stopped responding. Try again to reload it."
+            webView.scrollView.refreshControl?.endRefreshing()
+        }
+
+        private func fail(_ error: Error, in webView: WKWebView) {
             let nsError = error as NSError
             guard nsError.code != NSURLErrorCancelled else { return }
             state.isLoading = false
             state.errorMessage = "Check your connection and try again."
+            state.canGoBack = webView.canGoBack
+            state.shareURL = nil
+            webView.scrollView.refreshControl?.endRefreshing()
         }
 
         private static func safeShareURL(from url: URL) -> URL? {

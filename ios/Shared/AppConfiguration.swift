@@ -6,6 +6,9 @@ struct AppDestination: Identifiable, Hashable {
     let symbol: String
 
     var id: String { path }
+    var route: String {
+        path.split(separator: "?", maxSplits: 1).first.map { "/" + $0 } ?? "/"
+    }
 }
 
 struct NativeAppConfiguration {
@@ -13,6 +16,7 @@ struct NativeAppConfiguration {
     let descriptor: String
     let tint: Color
     let scheme: String
+    let privacyPath: String
     let scope: (String) -> Bool
     let destinations: [AppDestination]
 
@@ -21,11 +25,12 @@ struct NativeAppConfiguration {
         descriptor: "Training that moves with you.",
         tint: Color(red: 0.62, green: 0.38, blue: 0.96),
         scheme: "r12-training",
+        privacyPath: "/privacy",
         scope: { _ in true },
         destinations: [
             AppDestination(title: "Training", path: "/training", symbol: "figure.strengthtraining.traditional"),
             AppDestination(title: "Progress", path: "/progress", symbol: "chart.xyaxis.line"),
-            AppDestination(title: "Account", path: "/account", symbol: "person.crop.circle")
+            AppDestination(title: "Account", path: "/account?privacyApp=training", symbol: "person.crop.circle")
         ]
     )
 
@@ -34,12 +39,13 @@ struct NativeAppConfiguration {
         descriptor: "Daily checks and member inductions on the gym floor.",
         tint: Color(red: 0.62, green: 0.38, blue: 0.96),
         scheme: "r12-club",
+        privacyPath: "/club/privacy",
         scope: { $0 == "/club" || $0.hasPrefix("/club/") || $0 == "/account" },
         destinations: [
-            AppDestination(title: "Daily checks", path: "/club/checks", symbol: "checklist"),
-            AppDestination(title: "Members", path: "/club", symbol: "person.3"),
-            AppDestination(title: "Inductions", path: "/club/induction", symbol: "figure.walk"),
             AppDestination(title: "Reception", path: "/club/reception", symbol: "person.2.badge.key"),
+            AppDestination(title: "Daily checks", path: "/club/checks", symbol: "checklist"),
+            AppDestination(title: "Inductions", path: "/club/induction", symbol: "figure.walk"),
+            AppDestination(title: "Overview", path: "/club", symbol: "chart.bar.xaxis"),
             AppDestination(title: "More", path: "/club/more", symbol: "ellipsis.circle")
         ]
     )
@@ -49,13 +55,14 @@ struct NativeAppConfiguration {
         descriptor: "Your clients, sessions and programmes.",
         tint: Color(red: 0.72, green: 0.49, blue: 0.98),
         scheme: "r12-coach",
+        privacyPath: "/coach/privacy",
         scope: { $0 == "/coach" || $0.hasPrefix("/coach/") || $0 == "/account" },
         destinations: [
             AppDestination(title: "Workspace", path: "/coach", symbol: "rectangle.grid.2x2"),
             AppDestination(title: "Diary", path: "/coach/diary", symbol: "calendar"),
             AppDestination(title: "Programmes", path: "/coach/programmes", symbol: "list.clipboard"),
             AppDestination(title: "Coach account", path: "/coach/account", symbol: "person.crop.circle"),
-            AppDestination(title: "R12 account", path: "/account", symbol: "person.text.rectangle")
+            AppDestination(title: "R12 account", path: "/account?privacyApp=coach", symbol: "person.text.rectangle")
         ]
     )
 
@@ -64,10 +71,11 @@ struct NativeAppConfiguration {
         descriptor: "Your Glow Zone balance and activity.",
         tint: Color(red: 0.23, green: 0.82, blue: 0.54),
         scheme: "r12-glowzone",
+        privacyPath: "/glow-zone/privacy",
         scope: { $0 == "/glow-zone" || $0.hasPrefix("/glow-zone/") || $0 == "/account" },
         destinations: [
             AppDestination(title: "Glow Zone", path: "/glow-zone", symbol: "sparkles"),
-            AppDestination(title: "R12 Account", path: "/account", symbol: "person.crop.circle")
+            AppDestination(title: "R12 Account", path: "/account?privacyApp=glow", symbol: "person.crop.circle")
         ]
     )
 

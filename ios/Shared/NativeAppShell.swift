@@ -49,7 +49,7 @@ struct NativeAppShell: View {
         guard url.scheme == configuration.scheme else { return }
         let path = url.path.isEmpty ? configuration.destinations[0].path : url.path
         guard configuration.scope(path),
-              let destination = configuration.destinations.first(where: { $0.path == path }) else {
+              let destination = configuration.destinations.first(where: { $0.route == path }) else {
             openedDeepLink = "invalid"
             return
         }
