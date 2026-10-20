@@ -72,6 +72,7 @@ supabase/migrations/2026-10-17-active-sports-complete.sql
 supabase/migrations/2026-10-18-active-sports-duplicate-diagnostics.sql
 supabase/migrations/2026-10-19-active-sports-identity-uniqueness.sql
 supabase/migrations/2026-10-20-active-sports-publish-performance.sql
+supabase/migrations/2026-10-20-account-deletion-requests.sql
 supabase/migrations/2026-10-21-active-sports-reconcile-profiling.sql
 supabase/migrations/2026-10-22-supplier-import-jobs.sql
 supabase/migrations/2026-10-23-supplier-import-worker.sql
@@ -119,6 +120,7 @@ supabase/migrations/2026-12-10-club-till-close-and-service-refunds.sql
 supabase/migrations/2026-12-11-club-pos-line-refunds.sql
 supabase/migrations/2026-12-12-membership-access-lifecycle.sql
 supabase/migrations/2026-12-13-member-age-induction-access-eligibility.sql
+supabase/migrations/2026-12-14-club-induction-stage-progress.sql
 supabase/migrations/2026-12-14-member-purchase-history.sql
 supabase/migrations/2026-12-15-coach-nutrition-reconciliation.sql
 supabase/migrations/2026-12-16-active-sports-import-update-scope-fix.sql
@@ -143,4 +145,3 @@ supabase/migrations/2027-01-02-golden-ticket-lifetime-memberships.sql
 supabase/migrations/2027-01-03-paypal-pay-in-3-checkout-foundation.sql
 supabase/migrations/2027-01-04-stripe-membership-subscriptions.sql
 supabase/migrations/2027-01-05-two-stripe-merchant-isolation.sql
-supabase/migrations/2027-01-05-account-deletion-and-induction-stage-progress.sql
