@@ -20,7 +20,7 @@ export default async function CoachPage({ searchParams }: { searchParams?: Promi
     if (!firstError) throw new Error("Coach workspace failed without an error");
     console.error("[coach] workspace load failed", { code: firstError.code });
     const denied = firstError.code === "42501";
-    return <main className="shell"><section className="card"><h1>{denied ? "Coach access not enabled" : "Coach service unavailable"}</h1><p>{denied ? "This R12 account does not currently have Coach access. Ask your Club administrator if you believe this is a mistake." : "Coach is temporarily unavailable. Please try again shortly."}</p>{denied ? <Link className="secondary" href="/member-hub">Open R12</Link> : null}</section></main>;
+    return <main className="shell"><section className="card"><h1>{denied ? "Coach access not enabled" : "Coach service unavailable"}</h1><p>{denied ? "This R12 account does not currently have Coach access. Ask your Club administrator if you believe this is a mistake." : "Coach is temporarily unavailable. Please try again shortly."}</p>{denied ? <Link className="secondary" href="/">Open R12</Link> : null}</section></main>;
   }
   const diaryContext = clubContexts.find(context => context.role === "trainer") ?? clubContexts.find(context => ["gym_staff", "gym_admin", "owner"].includes(context.role));
   let scheduleSummary: { organisationId: string; organisationName: string; asOf: string; events: ScheduleEvent[] } | undefined;

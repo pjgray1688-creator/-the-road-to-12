@@ -9,11 +9,19 @@ import { conditioningFor, frameworkFor, frameworkTemplates, priorityMatches, val
 
 export type GeneratedProgramme = { id: string; name: string; profile: TrainingProfile; discipline?: import("./training-profile").TrainingDiscipline; block: TrainingBlock; week: PlannedSession[]; rationale: string; previousProgrammes?: GeneratedProgramme[]; isLegacy?: boolean; framework?: string; conditioning?: import("./domain").ConditioningPrescription[]; generationVersion?: string };
 const daySets: Record<number, number[]> = { 2: [1, 4], 3: [1, 3, 5], 4: [1, 2, 4, 5], 5: [1, 2, 3, 5, 6], 6: [1, 2, 3, 4, 5, 6] };
+export function programmeTrainingDays(profile: TrainingProfile): number[] {
+  const defaults = daySets[profile.daysPerWeek] ?? daySets[3];
+  if (profile.availabilityMode !== "fixed_days") return defaults;
+  const explicit = [...new Set([...(profile.availableDays ?? []), ...(profile.preferredDays ?? [])])]
+    .filter((day) => Number.isInteger(day) && day >= 1 && day <= 7)
+    .sort((a, b) => a - b);
+  return (explicit.length ? explicit : defaults).slice(0, profile.daysPerWeek);
+}
 function compatible(exercise: Exercise, profile: TrainingProfile) { if (profile.environment === "full_gym") return true; if (profile.environment === "limited_gym") return (exercise.equipment !== "machine" && exercise.equipment !== "cable") || exercise.id === "lat-pulldown"; if (profile.environment === "home_basic") return exercise.equipment === "dumbbell" || exercise.equipment === "barbell"; return exercise.equipment === "machine" && exercise.loadingProfile === "bodyweight_assisted"; }
 function avoided(exercise: Exercise, profile: TrainingProfile) { const text = profile.limitations.concat(profile.dislikedExercises ?? [], profile.avoidedExercises ?? []).join(" ").toLowerCase(); const knowledge = exerciseKnowledge(exercise.id); const pattern = `${exercise.name} ${knowledge?.movementPattern ?? ""} ${(knowledge?.primaryMuscles ?? []).join(" ")}`.toLowerCase(); return (text.includes("knee") && (pattern.includes("quad") || pattern.includes("leg") || /squat|lunge|knee/.test(pattern))) || (text.includes("shoulder") && pattern.includes("shoulder")) || [...(profile.dislikedExercises ?? []), ...(profile.avoidedExercises ?? [])].some(item => item.toLowerCase() === exercise.id || item.toLowerCase() === exercise.name.toLowerCase()); }
 function prescribe(id: string, profile: TrainingProfile, catalogue: Exercise[], position: number) { const exercise = catalogue.find(item => item.id === id) ?? allExercises().find(item => item.id === id); if (!exercise || !compatible(exercise, profile) || avoided(exercise, profile)) return undefined; const p = prescriptionForExercise(exercise, profile, position); return { ...exercise, sets: p.sets, target: p.target }; }
 export function generateTrainingProgramme(profile: TrainingProfile, catalogue: Exercise[] = allExercises(), generationId = "default"): GeneratedProgramme {
-  const availableDays = profile.availableDays ?? []; const days = profile.availabilityMode === "fixed_days" && availableDays.length >= profile.daysPerWeek ? availableDays.slice(0, profile.daysPerWeek) : daySets[profile.daysPerWeek] ?? daySets[3]; const framework = frameworkFor(profile); const source = frameworkTemplates(framework); const id = `generated-${profile.goal}-${profile.daysPerWeek}-${generationId}`;
+  const days = programmeTrainingDays(profile); const framework = frameworkFor(profile); const source = frameworkTemplates(framework); const id = `generated-${profile.goal}-${profile.daysPerWeek}-${generationId}`;
   const week: PlannedSession[] = days.map((day, index) => {
     let ids = source[index % source.length];
     const wanted = (profile.wantedExercises ?? []).map(x => catalogue.find(e => e.id === x || e.name.toLowerCase() === x.toLowerCase())?.id).filter(Boolean) as string[];

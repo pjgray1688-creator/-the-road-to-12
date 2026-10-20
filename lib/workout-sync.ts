@@ -1,5 +1,5 @@
 import type { AppData, Cardio, LoggedSet, Workout } from "./types";
-import { loadData } from "./storage";
+import { loadData, saveData } from "./storage";
 
 async function responseJson(response: Response) {
   const payload = await response.json().catch(() => ({}));
@@ -24,7 +24,7 @@ export function cacheServerWorkouts(serverWorkouts: Workout[]) {
   const next: AppData = { ...local, workouts: [...byId.values()] };
   const current = local.workouts;
   if (JSON.stringify(current) !== JSON.stringify(next.workouts)) {
-    localStorage.setItem("road-to-12-data-v1", JSON.stringify(next));
+    saveData(next);
   }
 }
 

@@ -14,7 +14,7 @@ export function CoachProductShell({ children }: { children: ReactNode }) {
         <Image className={styles.brandMark} src={brand.markSrc} alt="" width={44} height={44} priority />
         <span className={styles.productLabel}>Coach</span>
       </Link>
-      <Link href="/member-hub" className={styles.switcher}>Open R12 <span aria-hidden="true">↗</span></Link>
+      <Link href="/" className={styles.switcher}>Open R12 <span aria-hidden="true">↗</span></Link>
     </header>
     <CoachNavigation />
     <div className={styles.content}>{children}</div>

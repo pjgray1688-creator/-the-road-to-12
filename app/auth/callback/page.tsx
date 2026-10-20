@@ -12,7 +12,7 @@ export default function AuthCallbackPage() {
   const [message, setMessage] = useState("Verifying your email securely…");
 
   useEffect(() => {
-    const next = safeInternalReturnTo(new URLSearchParams(window.location.search).get("next")) ?? "/member-hub";
+    const next = safeInternalReturnTo(new URLSearchParams(window.location.search).get("next")) ?? "/";
     const supabase = browserSupabase();
     let finished = false;
     const finish = () => {

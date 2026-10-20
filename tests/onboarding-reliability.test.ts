@@ -19,11 +19,15 @@ test("onboarding owns immutable, question-specific choices and safe navigation",
   assert.doesNotMatch(source, /question\[2\]\.push\(|question\[2\]\.unshift\(|question\[2\]\.splice\(/);
 });
 
-test("authenticated entry gates incomplete users into onboarding before workout rendering", () => {
+test("incomplete users see an invitation and can enter onboarding only explicitly", () => {
   const source = fs.readFileSync("components/home-shell.tsx", "utf8");
+  const trainingLayout = fs.readFileSync("app/training/layout.tsx", "utf8");
+  const account = fs.readFileSync("app/account/page.tsx", "utf8");
   const workout = fs.readFileSync("components/training-app.tsx", "utf8");
-  assert.match(source, /!result\?\.training_profile/);
-  assert.match(source, /router\.replace\("\/onboarding"\)/);
+  assert.match(source, /Create programme/);
+  assert.doesNotMatch(source, /router\.replace\("\/onboarding"\)/);
+  assert.doesNotMatch(trainingLayout, /onboarding/);
+  assert.doesNotMatch(account, /router\.replace\("\/onboarding"\)/);
   assert.match(workout, /!hasValidPlan && !resumeWorkout/);
 });
 
