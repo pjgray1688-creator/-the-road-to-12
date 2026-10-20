@@ -81,6 +81,12 @@ grant execute on function public.r12_get_own_account_deletion_request() to authe
 create or replace function public.r12_prevent_deletion_event_mutation()
 returns trigger language plpgsql security definer set search_path=pg_catalog,public as $$
 begin
+  -- Preserve immutable event content while allowing the FK to anonymise an
+  -- actor reference if that Auth identity is legitimately removed later.
+  if tg_op='UPDATE' and old.actor_user_id is not null and new.actor_user_id is null
+     and (to_jsonb(old)-'actor_user_id')=(to_jsonb(new)-'actor_user_id') then
+    return new;
+  end if;
   raise exception 'Account deletion audit events are immutable' using errcode='42501';
 end; $$;
 revoke all on function public.r12_prevent_deletion_event_mutation() from public,anon,authenticated,service_role;
