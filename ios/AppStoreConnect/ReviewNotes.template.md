@@ -4,7 +4,7 @@ These apps use the first-party R12 application at `https://app.r12.live`; existi
 
 ## R12 Club
 
-This is a mobile-first staff operations app. It opens Daily checks, then provides Inductions, member operations and the existing reception flow. The reviewer selects an organisation/location where needed; server permissions remain authoritative. It is not the member app. Provide an owner-created test account with venue access, daily-check submission and induction permissions. Do not provide customer data. See `ReviewerWalkthroughs.md` for the synthetic gym-floor walkthrough.
+This is a mobile-first staff operations app. It opens the existing Reception entry, which redirects to authenticated Club access for staff sign-in and organisation/location selection. Native tabs provide Daily checks, Inductions and the operations overview. Server permissions remain authoritative. It is not the member app. Provide an owner-created test account with venue access, daily-check submission and induction permissions. Do not provide customer data. See `ReviewerWalkthroughs.md` for the synthetic gym-floor walkthrough.
 
 ## R12 Coach
 

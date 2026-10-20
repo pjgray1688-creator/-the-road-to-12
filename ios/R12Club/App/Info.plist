@@ -60,7 +60,7 @@
 	<key>R12AppDisplayName</key>
 	<string>R12 Club</string>
 	<key>R12PrivacyURL</key>
-	<string>https://app.r12.live/privacy</string>
+	<string>https://app.r12.live/club/privacy</string>
 	<key>R12TermsURL</key>
 	<string>https://app.r12.live/terms</string>
 	<key>CFBundleDisplayName</key>
