@@ -155,12 +155,13 @@ test("station HMAC binds the exact user and station and expires after the config
 test("R12 favicon, Apple icon, product manifests and product titles resolve to existing assets",()=>{
   const root=readFileSync("app/layout.tsx","utf8");
   const member=readFileSync("app/manifest.ts","utf8");
-  const club=readFileSync("app/club/manifest.ts","utf8");
+  const club=readFileSync("app/club/manifest.webmanifest/route.ts","utf8");
+  const androidApps=readFileSync("lib/android-apps.ts","utf8");
   const coach=readFileSync("app/coach/layout.tsx","utf8");
   const iconSvg=readFileSync("public/r12-app-assets/icon.svg","utf8");
   const serviceWorker=readFileSync("public/sw.js","utf8");
   assert.match(root,/r12-app-assets\/favicon\.ico/);assert.match(root,/r12-app-assets\/apple-touch-icon\.png/);
-  assert.match(member,/r12-app-assets\/icon-192\.png/);assert.match(club,/r12-app-assets\/club-icon-192\.png/);assert.match(coach,/R12 Coach/);
+  assert.match(member,/r12-app-assets\/icon-192\.png/);assert.match(club,/manifestResponse\("club"\)/);assert.match(androidApps,/r12-app-assets\/club-icon-192\.png/);assert.match(coach,/R12 Coach/);
   assert.match(iconSvg,/<tspan fill="#f7f5ff">R<\/tspan><tspan fill="#9b62ff">12<\/tspan>/);
   assert.doesNotMatch(iconSvg,/12%|#e8ff4c/);
   assert.match(serviceWorker,/r12-shell-v5/);

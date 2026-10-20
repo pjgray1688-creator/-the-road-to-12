@@ -76,7 +76,7 @@ test("protected Club writes remain server/repository actions", () => {
 test("member navigation is not rendered inside Club while remaining app-scoped", () => {
   const nav = read("components/app-nav.tsx");
   assert.match(nav, /pathname\.startsWith\("\/club"\)/);
-  assert.match(nav, /Today/);
+  assert.match(nav, /label: "Home"/);
   assert.doesNotMatch(nav, /href: "\/club", label: "Club"/);
 });
 

@@ -15,18 +15,18 @@ test("all Coach routes receive a standalone Coach shell and Coach-specific navig
   assert.match(layout, /CoachProductShell/);
   for (const route of ["/coach", "/coach/diary", "/coach/programmes", "/coach/nutrition", "/coach/account"]) assert.ok(navigation.includes(`"${route}"`));
   assert.match(shell, /Open R12/);
-  assert.match(shell, /href="\/member-hub"/);
+  assert.match(shell, /href="\/" className=\{styles\.switcher\}/);
   assert.doesNotMatch(workspace, /AppNav|CoachNavigation/);
   assert.doesNotMatch(diary, /AppNav|CoachNavigation/);
   assert.doesNotMatch(source("app/coach/page.tsx"), /AppNav/);
 });
 
-test("member app can enter Coach, while Coach keeps a deliberate return to member R12", () => {
+test("member app can enter Coach, while Coach keeps a deliberate return to Training Home", () => {
   const memberNav = source("components/app-nav.tsx");
   const coachShell = source("components/coach-product-shell.tsx");
   assert.match(memberNav, /href: "\/coach", label: "Coach"/);
   assert.match(memberNav, /api\/coach\/access/);
-  assert.match(coachShell, /href="\/member-hub" className=\{styles\.switcher\}/);
+  assert.match(coachShell, /href="\/" className=\{styles\.switcher\}/);
 });
 
 test("unauthenticated Coach home offers the required sign-in CTA and authorised users get a distinct denial", () => {
@@ -78,7 +78,7 @@ test("account login preserves the safe Coach return and clears only known-invali
 test("the member shell and Club context remain separate from Coach routes", () => {
   const nav = source("components/app-nav.tsx");
   const clubLayout = source("app/club/layout.tsx");
-  assert.match(nav, /Today/);
+  assert.match(nav, /label: "Home"/);
   assert.match(nav, /if \(pathname\.startsWith\("\/club"\)\) return null/);
   assert.match(clubLayout, /Club/);
   assert.match(source("app/coach/layout.tsx"), /CoachProductShell/);
