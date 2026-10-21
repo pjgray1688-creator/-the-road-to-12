@@ -9,7 +9,7 @@ const configure = () => Object.assign(process.env, {
   STRIPE_PRODUCTS_SERVICES_SECRET_KEY: "sk_test_products_services_fixture",
   STRIPE_PRODUCTS_SERVICES_WEBHOOK_SECRET: "whsec_products_fixture",
   STRIPE_PRODUCTS_SERVICES_CLASS_WEBHOOK_SECRET: "whsec_class_fixture",
-  STRIPE_PRODUCTS_SERVICES_ACCOUNT_ID: "acct_products_fixture",
+  STRIPE_PRODUCTS_SERVICES_ACCOUNT_ID: "acct_productsfixture",
   STRIPE_PRODUCTS_SERVICES_MODE: "test",
 });
 
@@ -19,7 +19,7 @@ test("class checkout verifies and uses the configured Products & Services accoun
     const requests: Request[] = [];
     const result = await createStripeClassCheckoutSession({ bookingId: "booking-fixture", sessionId: "session-fixture", amountMinor: 1000, currency: "GBP", successUrl: "https://r12.test/club/classes", cancelUrl: "https://r12.test/club/classes?cancelled=1" }, async (input, init) => {
       const request = new Request(String(input), init); requests.push(request);
-      if (request.url.endsWith("/account")) return new Response(JSON.stringify({ id: "acct_products_fixture" }));
+      if (request.url.endsWith("/account")) return new Response(JSON.stringify({ id: "acct_productsfixture" }));
       return new Response(JSON.stringify({ id: "cs_test_fixture", url: "https://checkout.stripe.test/session", mode: "payment", status: "open", payment_status: "unpaid", amount_total: 1000, payment_intent: "pi_test_fixture", customer: null, subscription: null }));
     });
     assert.equal(result.amount_total, 1000);

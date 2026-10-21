@@ -8,7 +8,7 @@ type StripeClassObject = {
   id: string; amount_total?: number; amount?: number; currency?: string; payment_status?: string;
   payment_intent?: string | { id: string } | null; metadata?: Record<string, string>; client_reference_id?: string;
 };
-type StripeEvent = { id: string; type: string; created: number; data: { object: StripeClassObject } };
+type StripeEvent = { id: string; type: string; created: number; livemode?: boolean; account?: string; data: { object: StripeClassObject } };
 
 export async function POST(request: NextRequest) {
   const body = await request.text();

@@ -68,6 +68,8 @@ test("eligibility rejects drift in the existing package entitlement model", () =
   const bronze = product("Transformation Bronze");
   const changed = { ...bronze, entitlements: bronze.entitlements?.map(item => item.entitlementKey === "pt_session_credit" ? { ...item, allowance: { quantity: 9, period: "week" as const } } : item) };
   assert.equal(evaluatePayPalPayIn3Eligibility({ product: changed, productCode: PAYPAL_PAY_IN_3_PRODUCT_CODES.transformationBronze, readiness: validReadiness }).eligible, false);
+  const missingIncludedClass = { ...bronze, entitlements: bronze.entitlements?.filter(item => item.entitlementKey !== "included_class_credit") };
+  assert.equal(evaluatePayPalPayIn3Eligibility({ product: missingIncludedClass, productCode: PAYPAL_PAY_IN_3_PRODUCT_CODES.transformationBronze, readiness: validReadiness }).eligible, false);
   const yearly = product("Yearly Membership");
   assert.equal(evaluatePayPalPayIn3Eligibility({ product: { ...yearly, isLifetime: true }, productCode: PAYPAL_PAY_IN_3_PRODUCT_CODES.yearlyMembership, readiness: validReadiness }).eligible, false);
 });

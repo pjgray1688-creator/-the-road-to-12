@@ -19,19 +19,21 @@ export function ClubMemberInductionCompletion({ organisationId, customerId, book
   const [pending, startTransition] = useTransition();
 
   useEffect(() => {
-    if (!canPerform || !required || !customerId || !locationId) { setSnapshot(null); setLoading(false); return; }
     let active = true;
-    setLoading(true); setLoadError(""); setSnapshot(null);
-    void getCustomerInductionStagesAction({ organisationId, customerId, locationId, bookingId }).then(result => {
-      if (!active) return;
-      if (result.ok) setSnapshot(result.data);
-      else setLoadError(result.error);
-    }).catch(() => {
-      if (active) setLoadError("The current induction stages could not be loaded. Try again.");
-    }).finally(() => {
-      if (active) setLoading(false);
-    });
-    return () => { active = false; };
+    const timer = window.setTimeout(() => {
+      if (!canPerform || !required || !customerId || !locationId) { setSnapshot(null); setLoading(false); return; }
+      setLoading(true); setLoadError(""); setSnapshot(null);
+      void getCustomerInductionStagesAction({ organisationId, customerId, locationId, bookingId }).then(result => {
+        if (!active) return;
+        if (result.ok) setSnapshot(result.data);
+        else setLoadError(result.error);
+      }).catch(() => {
+        if (active) setLoadError("The current induction stages could not be loaded. Try again.");
+      }).finally(() => {
+        if (active) setLoading(false);
+      });
+    }, 0);
+    return () => { active = false; window.clearTimeout(timer); };
   }, [organisationId, customerId, locationId, bookingId, canPerform, required, loadAttempt]);
 
   if (!bookingId && (!canPerform || !required || !locations.length)) return null;

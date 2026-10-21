@@ -42,7 +42,7 @@ export function MemberHub({ data }: { data: MemberHubData[] }) {
               <strong>{memberMembershipStateLabel(membership.status)}</strong>
             </div>
           );
-        }) : <p className="muted">No current membership is linked.</p>}
+        }) : <p className="muted">No active membership. Your linked gym record has not been assigned a membership yet.</p>}
         <div className="club-detail-row"><span>Gym access</span><strong>{item.accessPass?.accessAllowed || item.profile.access?.state === "active" ? "Available" : "Needs attention"}</strong></div>
         {item.profile.access?.state !== "active" && item.profile.access?.reason ? <p className="muted">{memberAccessReason(item.profile.access.reason)}</p> : null}
         <div className="club-detail-row"><span>Induction</span><strong>{inductionState?.required ? inductionLabel(inductionState.state) : "Not required"}</strong></div>

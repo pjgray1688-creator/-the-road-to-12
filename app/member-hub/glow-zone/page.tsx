@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
-import { AppShell, PageHeader } from "@/components/ui";
+import { AppNav } from "@/components/app-nav";
+import { AppShell, PageHeader, Surface } from "@/components/ui";
 import { serverSupabase } from "@/lib/supabase-server";
 import { resolveClubOrganisationContext } from "@/lib/club-server-context";
 import { GLOW_ZONE_LOCATION, glowZonePackages, glowZoneSafety } from "@/lib/glow-zone";

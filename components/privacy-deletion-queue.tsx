@@ -31,7 +31,7 @@ export function PrivacyDeletionQueue() {
     }
   }, []);
 
-  useEffect(() => { void load(); }, [load, loadAttempt]);
+  useEffect(() => { const timer = window.setTimeout(() => { void load(); }, 0); return () => window.clearTimeout(timer); }, [load, loadAttempt]);
 
   const updateRequest = async () => {
     if (!selected) return;

@@ -29,10 +29,10 @@ export type PayPalPayIn3RuntimeReadiness = {
 export type PayPalPayIn3Eligibility = { eligible: true; productCode: PayPalPayIn3ProductCode; receivingEntity: "Madhouse Franchise Limited" } | { eligible: false; reason: string };
 
 const productContract: Record<PayPalPayIn3ProductCode, { kind: ClubProduct["kind"]; billing: ClubProduct["billing"]; durationDays?: number; lifetime: boolean; sellable: boolean; entitlements: string[] }> = {
-  [PAYPAL_PAY_IN_3_PRODUCT_CODES.transformationBronze]: { kind: "transformation", billing: "one_off", durationDays: 70, lifetime: false, sellable: true, entitlements: ["gym_access", "enhanced_training", "nutrition", "trainer_managed", "pt_session_credit"] },
-  [PAYPAL_PAY_IN_3_PRODUCT_CODES.transformationSilver]: { kind: "transformation", billing: "one_off", durationDays: 70, lifetime: false, sellable: true, entitlements: ["gym_access", "enhanced_training", "nutrition", "trainer_managed", "pt_session_credit"] },
-  [PAYPAL_PAY_IN_3_PRODUCT_CODES.transformationGold]: { kind: "transformation", billing: "one_off", durationDays: 70, lifetime: false, sellable: true, entitlements: ["gym_access", "enhanced_training", "nutrition", "trainer_managed", "pt_session_credit"] },
-  [PAYPAL_PAY_IN_3_PRODUCT_CODES.yearlyMembership]: { kind: "membership", billing: "one_off", durationDays: 365, lifetime: false, sellable: true, entitlements: ["gym_access", "class_access"] },
+  [PAYPAL_PAY_IN_3_PRODUCT_CODES.transformationBronze]: { kind: "transformation", billing: "one_off", durationDays: 70, lifetime: false, sellable: true, entitlements: ["gym_access", "enhanced_training", "nutrition", "trainer_managed", "pt_session_credit", "included_class_credit"] },
+  [PAYPAL_PAY_IN_3_PRODUCT_CODES.transformationSilver]: { kind: "transformation", billing: "one_off", durationDays: 70, lifetime: false, sellable: true, entitlements: ["gym_access", "enhanced_training", "nutrition", "trainer_managed", "pt_session_credit", "included_class_credit"] },
+  [PAYPAL_PAY_IN_3_PRODUCT_CODES.transformationGold]: { kind: "transformation", billing: "one_off", durationDays: 70, lifetime: false, sellable: true, entitlements: ["gym_access", "enhanced_training", "nutrition", "trainer_managed", "pt_session_credit", "included_class_credit"] },
+  [PAYPAL_PAY_IN_3_PRODUCT_CODES.yearlyMembership]: { kind: "membership", billing: "one_off", durationDays: 365, lifetime: false, sellable: true, entitlements: ["gym_access"] },
   [PAYPAL_PAY_IN_3_PRODUCT_CODES.goldenTicketLifetime]: { kind: "membership", billing: "one_off", lifetime: true, sellable: false, entitlements: ["gym_access", "discount"] },
 };
 
@@ -65,11 +65,9 @@ export function evaluatePayPalPayIn3Eligibility(input: {
     const expectedPtCredits = productCode.endsWith("bronze.v1") ? 1 : productCode.endsWith("silver.v1") ? 2 : 3;
     const credit = actualEntitlements.find(item => item.entitlementKey === "pt_session_credit");
     if (credit?.scope !== "organisation" || credit.allowance?.quantity !== expectedPtCredits || credit.allowance.period !== "week") return { eligible: false, reason: "The approved transformation package entitlements do not match." };
+    const includedClass = actualEntitlements.find(item => item.entitlementKey === "included_class_credit");
+    if (includedClass?.scope !== "organisation" || includedClass.allowance?.quantity !== 1 || includedClass.allowance.period !== "week") return { eligible: false, reason: "The approved transformation package entitlements do not match." };
     if (["enhanced_training", "nutrition", "trainer_managed"].some(key => actualEntitlements.find(item => item.entitlementKey === key)?.scope !== "organisation")) return { eligible: false, reason: "The approved transformation package entitlements do not match." };
-  }
-  if (productCode === PAYPAL_PAY_IN_3_PRODUCT_CODES.yearlyMembership) {
-    const classes = actualEntitlements.find(item => item.entitlementKey === "class_access");
-    if (classes?.scope !== "organisation" || classes.allowance?.quantity !== 1 || classes.allowance.period !== "week") return { eligible: false, reason: "The annual membership entitlements do not match." };
   }
   if (productCode === PAYPAL_PAY_IN_3_PRODUCT_CODES.goldenTicketLifetime) {
     const discount = actualEntitlements.find(item => item.entitlementKey === "discount");
