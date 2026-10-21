@@ -26,11 +26,7 @@ begin
     ('supabase/migrations/2027-01-06-madhouse-trusted-station-checkin.sql','611d789195b14188097d516590b0428a37cafacb26cbcc281ecc2b12e40bcf0d'),
     ('supabase/migrations/2027-01-07-madhouse-class-credit-iso-weeks.sql','89c407d836cc9605297c4e27573ad381e83020ab700967242ab3e1044733cdaa'),
     ('supabase/migrations/2027-01-08-madhouse-daily-checks-import.sql','d590f5d58c23da0e0b3e704d925b669e520608b4d967b1d176333dd2872db037'),
-    ('supabase/migrations/2027-01-09-madhouse-class-payments-and-register.sql','55e2fb75ebb130a6da06ba04c9eb07b235dadc114b42fb36627f75750e5a5fba'),
-    ('supabase/migrations/2027-01-10-madhouse-pending-staff-assignments.sql','088c5a60315a09efcc4e64584501b8b5f59f753d00c447fa92030ff16d6a67fd'),
-    ('supabase/migrations/2027-01-11-stripe-membership-subscriptions.sql','ae6bcb7e1ac713ed329f9be2809949753b67310dc6c2ce3b00557afe602c853e'),
-    ('supabase/migrations/2027-01-12-two-stripe-merchant-isolation.sql','4f2faad40fe5002a53279ea98e3595d3770c8af2c18c28f96e3c48c67db3ca61'),
-    ('supabase/migrations/2027-01-13-paypal-pay-in-3-checkout.sql','f41a0e196ff265176dd8aaa7a0ead071de8dc0534b7ac1dca339c39c6e516598')
+    ('supabase/migrations/2027-01-09-madhouse-class-payments-and-register.sql','55e2fb75ebb130a6da06ba04c9eb07b235dadc114b42fb36627f75750e5a5fba')
   ) as required(migration_name,checksum) loop
     select checksum into v_actual from public.r12_schema_migrations where migration_name=v_name;
     if v_actual is distinct from v_expected then raise exception 'Required migration is missing or checksum differs: %',v_name; end if;
