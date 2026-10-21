@@ -6,6 +6,8 @@ const runbook = readFileSync("docs/madhouse-schema-deployment.md", "utf8");
 const bootstrap = readFileSync("docs/manual-sql/madhouse-first-organisation-bootstrap.sql", "utf8");
 const runner = readFileSync("scripts/apply-madhouse-schema.sh", "utf8");
 const followUpRelease = readFileSync("supabase/deployment/2026-11-22-r12-launch-follow-up.sql", "utf8");
+const stripeSubscriptions = readFileSync("supabase/migrations/2027-01-11-stripe-membership-subscriptions.sql", "utf8");
+const stripeMerchantIsolation = readFileSync("supabase/migrations/2027-01-12-two-stripe-merchant-isolation.sql", "utf8");
 
 test("Madhouse runbook gives one controlled deployment and read-only verification path", () => {
   assert.match(runbook, /apply-madhouse-schema\.sh/);
@@ -78,4 +80,42 @@ test("follow-up SQL includes missing 01-02/01-03 prerequisites and accepts all-p
   for (const alreadyApplied of names(0)) {
     assert.equal(migrationOrder.includes(alreadyApplied.split("/").at(-1)!), false, `${alreadyApplied} must not be replayed`);
   }
+});
+
+test("Stripe migrations add all join-request columns before old-schema indexes and functions", () => {
+  const requiredColumns = [
+    "stripe_checkout_session_id", "stripe_payment_intent_id", "stripe_checkout_generation",
+    "stripe_event_occurred_at", "stripe_customer_id", "stripe_subscription_id",
+    "stripe_subscription_status", "stripe_subscription_event_at", "stripe_current_period_end",
+    "stripe_latest_invoice_id", "stripe_initial_payment_event_at", "stripe_initial_charge_reversed",
+    "stripe_charge_refunded", "stripe_dispute_open", "stripe_refund_event_at",
+    "stripe_dispute_event_at", "stripe_merchant_entity", "stripe_account_id",
+  ];
+  const declarations = (sql: string) => new Set(
+    [...sql.matchAll(/add column if not exists\s+(stripe_[a-z_]+)/gi)].map(match => match[1].toLowerCase()),
+  );
+  const olderProductionSchema = new Set<string>();
+
+  // Model the deployed join-request table with none of these optional Stripe
+  // columns, then apply each migration's early additive declarations.
+  const migration11Declarations = stripeSubscriptions.slice(0, stripeSubscriptions.search(/create unique index/i));
+  for (const column of declarations(migration11Declarations)) olderProductionSchema.add(column);
+  assert.ok(requiredColumns.filter(column => !olderProductionSchema.has(column)).length > 0,
+    "the old-schema fixture should be missing fields added by 01-12");
+
+  const migration12Early = stripeMerchantIsolation.slice(0, stripeMerchantIsolation.search(/alter table public\.club_commerce_products/i));
+  for (const column of declarations(migration12Early)) olderProductionSchema.add(column);
+  assert.deepEqual(requiredColumns.filter(column => !olderProductionSchema.has(column)), []);
+
+  for (const [name, sql] of [["01-11", stripeSubscriptions], ["01-12", stripeMerchantIsolation]] as const) {
+    const firstUse = sql.search(/create (?:unique )?index|create or replace function/i);
+    assert.notEqual(firstUse, -1, `${name} has a relevant index/function`);
+    const earlyDeclarations = declarations(sql.slice(0, firstUse));
+    const expectedEarlyColumns = name === "01-11"
+      ? requiredColumns.filter(column => column !== "stripe_merchant_entity" && column !== "stripe_account_id")
+      : requiredColumns;
+    assert.ok(expectedEarlyColumns.every(column => earlyDeclarations.has(column)), `${name} declares join-request Stripe fields before any index/function`);
+  }
+  assert.match(stripeMerchantIsolation, /on public\.club_membership_join_requests\(stripe_account_id,stripe_checkout_session_id\)/);
+  assert.match(stripeMerchantIsolation, /add column if not exists stripe_checkout_session_id text/i);
 });

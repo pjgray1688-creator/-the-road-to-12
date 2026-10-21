@@ -2,6 +2,33 @@
 -- product cross-site. This migration only adds reviewed application state; it
 -- creates no Stripe resources and changes no existing payments or members.
 
+-- Keep this migration safe on installations that predate the optional Stripe
+-- checkout columns on join requests. Declare every column used by later
+-- indexes and membership RPCs before creating any of those objects.
+alter table public.club_membership_join_requests
+  add column if not exists stripe_checkout_session_id text,
+  add column if not exists stripe_payment_intent_id text,
+  add column if not exists stripe_checkout_generation integer not null default 0,
+  add column if not exists stripe_event_occurred_at timestamptz,
+  add column if not exists stripe_customer_id text,
+  add column if not exists stripe_subscription_id text,
+  add column if not exists stripe_subscription_status text,
+  add column if not exists stripe_subscription_event_at timestamptz,
+  add column if not exists stripe_current_period_end timestamptz,
+  add column if not exists stripe_latest_invoice_id text,
+  add column if not exists stripe_initial_payment_event_at timestamptz,
+  add column if not exists stripe_initial_charge_reversed boolean not null default false,
+  add column if not exists stripe_charge_refunded boolean not null default false,
+  add column if not exists stripe_dispute_open boolean not null default false,
+  add column if not exists stripe_refund_event_at timestamptz,
+  add column if not exists stripe_dispute_event_at timestamptz,
+  add column if not exists stripe_merchant_entity text,
+  add column if not exists stripe_account_id text;
+
+alter table public.club_stripe_membership_events
+  add column if not exists stripe_merchant_entity text,
+  add column if not exists stripe_account_id text;
+
 alter table public.club_commerce_products
   add column if not exists stripe_merchant_entity text,
   add column if not exists stripe_product_id text,
@@ -387,12 +414,6 @@ for each row execute function public.club_normalize_join_gym_entitlement_scope()
 -- Bind new organic membership sessions and their durable events to the exact
 -- Franchise Stripe account. Products & Services webhook credentials cannot
 -- fulfil a membership obligation, even if an event carries matching metadata.
-alter table public.club_membership_join_requests
-  add column if not exists stripe_merchant_entity text,
-  add column if not exists stripe_account_id text;
-alter table public.club_stripe_membership_events
-  add column if not exists stripe_merchant_entity text,
-  add column if not exists stripe_account_id text;
 create unique index if not exists club_join_stripe_account_session_uq
   on public.club_membership_join_requests(stripe_account_id,stripe_checkout_session_id)
   where stripe_checkout_session_id is not null;

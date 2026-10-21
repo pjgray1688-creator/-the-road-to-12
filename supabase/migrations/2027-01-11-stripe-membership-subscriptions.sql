@@ -3,6 +3,10 @@
 -- imported membership, and leaves existing GoCardless/cash arrangements intact.
 
 alter table public.club_membership_join_requests
+  add column if not exists stripe_checkout_session_id text,
+  add column if not exists stripe_payment_intent_id text,
+  add column if not exists stripe_checkout_generation integer not null default 0,
+  add column if not exists stripe_event_occurred_at timestamptz,
   add column if not exists stripe_customer_id text,
   add column if not exists stripe_subscription_id text,
   add column if not exists stripe_subscription_status text,

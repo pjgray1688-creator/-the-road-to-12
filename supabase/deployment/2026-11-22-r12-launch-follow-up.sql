@@ -36,8 +36,8 @@ begin
     ('supabase/migrations/2027-01-02-golden-ticket-lifetime-memberships.sql','e229e2676ad2a0f6fff1d37fa612b08126e0c136121fe8c62b6a5b18f2f52a35'),
     ('supabase/migrations/2027-01-03-paypal-pay-in-3-checkout-foundation.sql','efa7d602235d74fedeeefd2ce26ca3ab5bf6ba000c28b2a2def12c79c4b229ef'),
     ('supabase/migrations/2027-01-10-madhouse-pending-staff-assignments.sql','088c5a60315a09efcc4e64584501b8b5f59f753d00c447fa92030ff16d6a67fd'),
-    ('supabase/migrations/2027-01-11-stripe-membership-subscriptions.sql','ae6bcb7e1ac713ed329f9be2809949753b67310dc6c2ce3b00557afe602c853e'),
-    ('supabase/migrations/2027-01-12-two-stripe-merchant-isolation.sql','4f2faad40fe5002a53279ea98e3595d3770c8af2c18c28f96e3c48c67db3ca61'),
+    ('supabase/migrations/2027-01-11-stripe-membership-subscriptions.sql','e09936d8991e337d65aa1ac4cbbaa56fbe25c088f9d9be0b1b706a8da8602f9e'),
+    ('supabase/migrations/2027-01-12-two-stripe-merchant-isolation.sql','f89a058a73cb627720aca3246bae91c3be8a0e33fa08abc1a369b349fcc37c31'),
     ('supabase/migrations/2027-01-13-paypal-pay-in-3-checkout.sql','f41a0e196ff265176dd8aaa7a0ead071de8dc0534b7ac1dca339c39c6e516598')
   ) as included(migration_name,checksum) loop
     select checksum into v_actual from public.r12_schema_migrations where migration_name=v_name;
@@ -704,6 +704,10 @@ end $record$;
 -- imported membership, and leaves existing GoCardless/cash arrangements intact.
 
 alter table public.club_membership_join_requests
+  add column if not exists stripe_checkout_session_id text,
+  add column if not exists stripe_payment_intent_id text,
+  add column if not exists stripe_checkout_generation integer not null default 0,
+  add column if not exists stripe_event_occurred_at timestamptz,
   add column if not exists stripe_customer_id text,
   add column if not exists stripe_subscription_id text,
   add column if not exists stripe_subscription_status text,
@@ -967,14 +971,41 @@ grant execute on function public.club_record_stripe_membership_event(uuid,intege
 
 do $record$ declare recorded text; begin
   select checksum into recorded from public.r12_schema_migrations where migration_name='supabase/migrations/2027-01-11-stripe-membership-subscriptions.sql';
-  if recorded is not null and recorded<>'ae6bcb7e1ac713ed329f9be2809949753b67310dc6c2ce3b00557afe602c853e' then raise exception 'Migration checksum mismatch for supabase/migrations/2027-01-11-stripe-membership-subscriptions.sql'; end if;
-  insert into public.r12_schema_migrations(migration_name,checksum,source,note) values ('supabase/migrations/2027-01-11-stripe-membership-subscriptions.sql','ae6bcb7e1ac713ed329f9be2809949753b67310dc6c2ce3b00557afe602c853e','manual-release-bundle','R12 launch follow-up release') on conflict (migration_name) do nothing;
+  if recorded is not null and recorded<>'e09936d8991e337d65aa1ac4cbbaa56fbe25c088f9d9be0b1b706a8da8602f9e' then raise exception 'Migration checksum mismatch for supabase/migrations/2027-01-11-stripe-membership-subscriptions.sql'; end if;
+  insert into public.r12_schema_migrations(migration_name,checksum,source,note) values ('supabase/migrations/2027-01-11-stripe-membership-subscriptions.sql','e09936d8991e337d65aa1ac4cbbaa56fbe25c088f9d9be0b1b706a8da8602f9e','manual-release-bundle','R12 launch follow-up release') on conflict (migration_name) do nothing;
 end $record$;
 
 -- BEGIN 2027-01-12-two-stripe-merchant-isolation.sql
 -- Split Madhouse Stripe processing by legal merchant and keep the gym join
 -- product cross-site. This migration only adds reviewed application state; it
 -- creates no Stripe resources and changes no existing payments or members.
+
+-- Keep this migration safe on installations that predate the optional Stripe
+-- checkout columns on join requests. Declare every column used by later
+-- indexes and membership RPCs before creating any of those objects.
+alter table public.club_membership_join_requests
+  add column if not exists stripe_checkout_session_id text,
+  add column if not exists stripe_payment_intent_id text,
+  add column if not exists stripe_checkout_generation integer not null default 0,
+  add column if not exists stripe_event_occurred_at timestamptz,
+  add column if not exists stripe_customer_id text,
+  add column if not exists stripe_subscription_id text,
+  add column if not exists stripe_subscription_status text,
+  add column if not exists stripe_subscription_event_at timestamptz,
+  add column if not exists stripe_current_period_end timestamptz,
+  add column if not exists stripe_latest_invoice_id text,
+  add column if not exists stripe_initial_payment_event_at timestamptz,
+  add column if not exists stripe_initial_charge_reversed boolean not null default false,
+  add column if not exists stripe_charge_refunded boolean not null default false,
+  add column if not exists stripe_dispute_open boolean not null default false,
+  add column if not exists stripe_refund_event_at timestamptz,
+  add column if not exists stripe_dispute_event_at timestamptz,
+  add column if not exists stripe_merchant_entity text,
+  add column if not exists stripe_account_id text;
+
+alter table public.club_stripe_membership_events
+  add column if not exists stripe_merchant_entity text,
+  add column if not exists stripe_account_id text;
 
 alter table public.club_commerce_products
   add column if not exists stripe_merchant_entity text,
@@ -1361,12 +1392,6 @@ for each row execute function public.club_normalize_join_gym_entitlement_scope()
 -- Bind new organic membership sessions and their durable events to the exact
 -- Franchise Stripe account. Products & Services webhook credentials cannot
 -- fulfil a membership obligation, even if an event carries matching metadata.
-alter table public.club_membership_join_requests
-  add column if not exists stripe_merchant_entity text,
-  add column if not exists stripe_account_id text;
-alter table public.club_stripe_membership_events
-  add column if not exists stripe_merchant_entity text,
-  add column if not exists stripe_account_id text;
 create unique index if not exists club_join_stripe_account_session_uq
   on public.club_membership_join_requests(stripe_account_id,stripe_checkout_session_id)
   where stripe_checkout_session_id is not null;
@@ -1456,8 +1481,8 @@ grant execute on function public.club_record_stripe_membership_event_for_account
 
 do $record$ declare recorded text; begin
   select checksum into recorded from public.r12_schema_migrations where migration_name='supabase/migrations/2027-01-12-two-stripe-merchant-isolation.sql';
-  if recorded is not null and recorded<>'4f2faad40fe5002a53279ea98e3595d3770c8af2c18c28f96e3c48c67db3ca61' then raise exception 'Migration checksum mismatch for supabase/migrations/2027-01-12-two-stripe-merchant-isolation.sql'; end if;
-  insert into public.r12_schema_migrations(migration_name,checksum,source,note) values ('supabase/migrations/2027-01-12-two-stripe-merchant-isolation.sql','4f2faad40fe5002a53279ea98e3595d3770c8af2c18c28f96e3c48c67db3ca61','manual-release-bundle','R12 launch follow-up release') on conflict (migration_name) do nothing;
+  if recorded is not null and recorded<>'f89a058a73cb627720aca3246bae91c3be8a0e33fa08abc1a369b349fcc37c31' then raise exception 'Migration checksum mismatch for supabase/migrations/2027-01-12-two-stripe-merchant-isolation.sql'; end if;
+  insert into public.r12_schema_migrations(migration_name,checksum,source,note) values ('supabase/migrations/2027-01-12-two-stripe-merchant-isolation.sql','f89a058a73cb627720aca3246bae91c3be8a0e33fa08abc1a369b349fcc37c31','manual-release-bundle','R12 launch follow-up release') on conflict (migration_name) do nothing;
 end $record$;
 
 -- BEGIN 2027-01-13-paypal-pay-in-3-checkout.sql
