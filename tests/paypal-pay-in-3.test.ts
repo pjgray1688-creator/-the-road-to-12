@@ -2,12 +2,13 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { madhouseCatalogue, materialiseCatalogueProduct } from "../lib/madhouse-catalogue";
-import { evaluatePayPalPayIn3Eligibility, PAYPAL_PAY_IN_3_PRODUCT_CODES, paypalPayIn3EnvironmentReadiness, paypalPayIn3FeatureEnabled } from "../lib/paypal-pay-in-3";
+import { evaluatePayPalPayIn3CheckoutReadiness, PAYPAL_PAY_IN_3_PRODUCT_CODES, paypalPayIn3EnvironmentReadiness, paypalPayIn3FeatureEnabled } from "../lib/paypal-pay-in-3";
 
 const migration = readFileSync("supabase/migrations/2027-01-03-paypal-pay-in-3-checkout-foundation.sql", "utf8");
+const checkoutMigration = readFileSync("supabase/migrations/2027-01-13-paypal-pay-in-3-checkout.sql", "utf8");
 const action = readFileSync("app/club/join/paypal-actions.ts", "utf8");
 const validReadiness = {
-  featureEnabled: true, clientIdConfigured: true, secretConfigured: true, buyerEligible: true,
+  featureEnabled: true, clientIdConfigured: true, secretConfigured: true,
   merchant: { legalEntityNumber: "17383077", merchantAccountId: "merchant-franchise", paypalApproved: true, accountantApproved: true, enabled: true },
 };
 const product = (name: string) => {
@@ -24,14 +25,15 @@ test("only canonical transformation tiers and annual membership can pass product
     ["Yearly Membership", PAYPAL_PAY_IN_3_PRODUCT_CODES.yearlyMembership],
   ] as const;
   for (const [name, code] of cases) {
-    const result = evaluatePayPalPayIn3Eligibility({ product: product(name), productCode: code, readiness: validReadiness });
-    assert.equal(result.eligible, true, name);
+    const result = evaluatePayPalPayIn3CheckoutReadiness({ product: product(name), productCode: code, readiness: validReadiness });
+    assert.equal(result.checkoutReady, true, name);
+    if (result.checkoutReady) assert.equal(result.financingDecision, "paypal_decides_at_checkout");
   }
   for (const name of ["Gym Day Pass", "Week Pass", "Standard Monthly", "Single PT Session"]) {
-    const result = evaluatePayPalPayIn3Eligibility({ product: product(name), productCode: null, readiness: validReadiness });
-    assert.equal(result.eligible, false, name);
+    const result = evaluatePayPalPayIn3CheckoutReadiness({ product: product(name), productCode: null, readiness: validReadiness });
+    assert.equal(result.checkoutReady, false, name);
   }
-  assert.equal(evaluatePayPalPayIn3Eligibility({ product: product("Transformation Bronze"), productCode: "Transformation Bronze", readiness: validReadiness }).eligible, false);
+  assert.equal(evaluatePayPalPayIn3CheckoutReadiness({ product: product("Transformation Bronze"), productCode: "Transformation Bronze", readiness: validReadiness }).checkoutReady, false);
 });
 
 test("feature is disabled by default and fails closed without complete merchant/provider readiness", () => {
@@ -47,8 +49,11 @@ test("feature is disabled by default and fails closed without complete merchant/
     { ...validReadiness, merchant: { ...validReadiness.merchant, legalEntityNumber: "17383213" } },
     { ...validReadiness, merchant: { ...validReadiness.merchant, paypalApproved: false } },
     { ...validReadiness, merchant: { ...validReadiness.merchant, accountantApproved: false } },
-    { ...validReadiness, buyerEligible: false },
-  ]) assert.equal(evaluatePayPalPayIn3Eligibility({ product: bronze, productCode: PAYPAL_PAY_IN_3_PRODUCT_CODES.transformationBronze, readiness }).eligible, false);
+  ]) assert.equal(evaluatePayPalPayIn3CheckoutReadiness({ product: bronze, productCode: PAYPAL_PAY_IN_3_PRODUCT_CODES.transformationBronze, readiness }).checkoutReady, false);
+  assert.equal(evaluatePayPalPayIn3CheckoutReadiness({
+    product: bronze, productCode: PAYPAL_PAY_IN_3_PRODUCT_CODES.transformationBronze,
+    readiness: { ...validReadiness, buyerEligible: false },
+  } as never).checkoutReady, true, "R12 does not claim PayPal buyer financing eligibility");
 });
 
 test("Golden Ticket stays lifetime/non-public and requires individual staff-authorised customer sale", () => {
@@ -57,24 +62,24 @@ test("Golden Ticket stays lifetime/non-public and requires individual staff-auth
   assert.equal(golden.durationDays, undefined);
   assert.equal(golden.sellable, false);
   const base = { product: golden, productCode: PAYPAL_PAY_IN_3_PRODUCT_CODES.goldenTicketLifetime, readiness: validReadiness };
-  assert.equal(evaluatePayPalPayIn3Eligibility(base).eligible, false);
-  assert.equal(evaluatePayPalPayIn3Eligibility({ ...base, goldenTicketSale: { individuallyAuthorised: false, customerInOrganisation: true } }).eligible, false);
-  assert.equal(evaluatePayPalPayIn3Eligibility({ ...base, goldenTicketSale: { individuallyAuthorised: true, customerInOrganisation: false } }).eligible, false);
-  const allowed = evaluatePayPalPayIn3Eligibility({ ...base, goldenTicketSale: { individuallyAuthorised: true, customerInOrganisation: true } });
-  assert.deepEqual(allowed, { eligible: true, productCode: PAYPAL_PAY_IN_3_PRODUCT_CODES.goldenTicketLifetime, receivingEntity: "Madhouse Franchise Limited" });
+  assert.equal(evaluatePayPalPayIn3CheckoutReadiness(base).checkoutReady, false);
+  assert.equal(evaluatePayPalPayIn3CheckoutReadiness({ ...base, goldenTicketSale: { individuallyAuthorised: false, customerInOrganisation: true } }).checkoutReady, false);
+  assert.equal(evaluatePayPalPayIn3CheckoutReadiness({ ...base, goldenTicketSale: { individuallyAuthorised: true, customerInOrganisation: false } }).checkoutReady, false);
+  const allowed = evaluatePayPalPayIn3CheckoutReadiness({ ...base, goldenTicketSale: { individuallyAuthorised: true, customerInOrganisation: true } });
+  assert.deepEqual(allowed, { checkoutReady: true, productCode: PAYPAL_PAY_IN_3_PRODUCT_CODES.goldenTicketLifetime, receivingEntity: "Madhouse Franchise Limited", financingDecision: "paypal_decides_at_checkout" });
 });
 
 test("eligibility rejects drift in the existing package entitlement model", () => {
   const bronze = product("Transformation Bronze");
   const changed = { ...bronze, entitlements: bronze.entitlements?.map(item => item.entitlementKey === "pt_session_credit" ? { ...item, allowance: { quantity: 9, period: "week" as const } } : item) };
-  assert.equal(evaluatePayPalPayIn3Eligibility({ product: changed, productCode: PAYPAL_PAY_IN_3_PRODUCT_CODES.transformationBronze, readiness: validReadiness }).eligible, false);
+  assert.equal(evaluatePayPalPayIn3CheckoutReadiness({ product: changed, productCode: PAYPAL_PAY_IN_3_PRODUCT_CODES.transformationBronze, readiness: validReadiness }).checkoutReady, false);
   const missingIncludedClass = { ...bronze, entitlements: bronze.entitlements?.filter(item => item.entitlementKey !== "included_class_credit") };
-  assert.equal(evaluatePayPalPayIn3Eligibility({ product: missingIncludedClass, productCode: PAYPAL_PAY_IN_3_PRODUCT_CODES.transformationBronze, readiness: validReadiness }).eligible, false);
+  assert.equal(evaluatePayPalPayIn3CheckoutReadiness({ product: missingIncludedClass, productCode: PAYPAL_PAY_IN_3_PRODUCT_CODES.transformationBronze, readiness: validReadiness }).checkoutReady, false);
   const yearly = product("Yearly Membership");
-  assert.equal(evaluatePayPalPayIn3Eligibility({ product: { ...yearly, isLifetime: true }, productCode: PAYPAL_PAY_IN_3_PRODUCT_CODES.yearlyMembership, readiness: validReadiness }).eligible, false);
+  assert.equal(evaluatePayPalPayIn3CheckoutReadiness({ product: { ...yearly, isLifetime: true }, productCode: PAYPAL_PAY_IN_3_PRODUCT_CODES.yearlyMembership, readiness: validReadiness }).checkoutReady, false);
 });
 
-test("merchant always routes to Franchise and schema/action retain fail-closed non-payment boundaries", () => {
+test("merchant always routes to Franchise and the operational checkout stays gated", () => {
   assert.match(migration, /legal_entity_number text not null check \(legal_entity_number = '17383077'\)/);
   assert.match(migration, /enabled boolean not null default false/);
   assert.match(migration, /canonical_product_code text not null check/);
@@ -85,11 +90,19 @@ test("merchant always routes to Franchise and schema/action retain fail-closed n
   assert.match(migration, /enable row level security/i);
   assert.match(migration, /from public,anon,authenticated/);
   assert.match(action, /memberships\.assign/);
-  assert.match(action, /buyerEligible: false/);
-  assert.doesNotMatch(action, /\.insert\(|\.update\(|fetch\s*\(/);
-  assert.doesNotMatch(action, /createPayPal|capturePayPal|club_assign_product/);
+  assert.match(action, /financingDecision: result\.financingDecision/);
+  assert.match(action, /createPayPalOrder/);
+  assert.match(action, /club_prepare_paypal_pay_in_3_order/);
+  assert.match(action, /club_store_paypal_pay_in_3_order/);
+  assert.match(checkoutMigration, /create unique index if not exists club_paypal_one_open_order_per_join_uq/);
+  assert.match(checkoutMigration, /jsonb_to_recordset\(o\.entitlement_snapshot\)/);
+  assert.match(checkoutMigration, /for update/);
+  assert.match(migration, /unique \(provider_capture_id\)/);
+  assert.match(checkoutMigration, /grant execute on function public\.club_reconcile_paypal_pay_in_3_event[\s\S]*to service_role/);
+  assert.match(readFileSync("app/api/webhooks/paypal/pay-in-3/route.ts", "utf8"), /verifyPayPalWebhook/);
+  assert.match(readFileSync("lib/paypal-provider.ts", "utf8"), /verify-webhook-signature/);
   const manifest = readFileSync("supabase/deployment/2026-11-22-madhouse-launch-migrations.txt", "utf8");
-  assert.ok(manifest.indexOf("2027-01-02-golden-ticket-lifetime-memberships.sql") < manifest.indexOf("2027-01-03-paypal-pay-in-3-checkout-foundation.sql"));
+  assert.ok(manifest.indexOf("2027-01-03-paypal-pay-in-3-checkout-foundation.sql") < manifest.indexOf("2027-01-13-paypal-pay-in-3-checkout.sql"));
   const runner = readFileSync("scripts/apply-madhouse-schema.sh", "utf8");
-  assert.match(runner, /2027-01-03-paypal-pay-in-3-checkout-foundation\.sql/);
+  assert.match(runner, /2027-01-13-paypal-pay-in-3-checkout\.sql/);
 });

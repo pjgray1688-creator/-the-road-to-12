@@ -6,7 +6,7 @@ test("R12 app metadata uses the canonical raster mark instead of the invented SV
   const metadata = fs.readFileSync("app/layout.tsx", "utf8");
   const brand = fs.readFileSync("lib/brand.ts", "utf8");
   const manifest = fs.readFileSync("lib/android-apps.ts", "utf8");
-  const clubManifest = fs.readFileSync("app/club/manifest.ts", "utf8");
+  const clubManifest = fs.readFileSync("app/club/manifest.webmanifest/route.ts", "utf8");
 
   assert.match(brand, /markSrc: "\/r12-app-assets\/icon-192\.png"/);
   assert.match(metadata, /r12-app-assets\/favicon\.ico/);
@@ -17,8 +17,9 @@ test("R12 app metadata uses the canonical raster mark instead of the invented SV
   assert.doesNotMatch(metadata, /icon\.svg/);
   assert.match(manifest, /r12-app-assets\/icon-192\.png/);
   assert.match(manifest, /r12-app-assets\/icon-512\.png/);
-  assert.match(clubManifest, /r12-app-assets\/club-icon-192\.png/);
-  assert.match(clubManifest, /r12-app-assets\/club-icon-512\.png/);
+  assert.match(clubManifest, /manifestResponse\("club"\)/);
+  assert.match(manifest, /club-icon-192\.png/);
+  assert.match(manifest, /club-icon-512\.png/);
 });
 
 test("Coach shell uses the shared R12 mark and current typography tokens without member navigation", () => {
@@ -36,7 +37,7 @@ test("Coach shell uses the shared R12 mark and current typography tokens without
   assert.match(navStyles, /var\(--text-secondary/);
   assert.match(nav, /href: "\/coach\/account", label: "Account"/);
   assert.doesNotMatch(shell, /AppNav|app-nav/);
-  assert.match(memberNav, /href: "\/member-hub", label: "Today"/);
+  assert.match(memberNav, /href: "\/", label: "Home"/);
 });
 
 test("service worker no longer caches stale SVG icons", () => {

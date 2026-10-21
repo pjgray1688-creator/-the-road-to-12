@@ -36,11 +36,9 @@ test("new-account verification is explicit, resend keeps the original safe desti
   assert.match(verifyPage, /safeInternalReturnTo\(params\.next\)/);
 });
 
-test("account return path is handled before member programme onboarding", () => {
-  const nextCheck = account.indexOf("if (next) { router.replace(next); return; }");
-  const programmeCheck = account.indexOf('router.replace("/onboarding")');
-  assert.notEqual(nextCheck, -1);
-  assert.ok(programmeCheck > nextCheck);
+test("sign-in returns to its requested destination without forcing optional programme onboarding", () => {
+  assert.match(account, /else router\.push\(next \?\? \(window\.location\.hostname === "r12\.live" \? "\/member-hub" : "\/"\)\)/);
+  assert.doesNotMatch(account, /authMode === "signIn"[^;]*router\.replace\("\/onboarding"\)/);
 });
 
 test("staff claim shows verified-email activation and a role-aware success state without member onboarding", () => {

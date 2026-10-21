@@ -30,7 +30,7 @@ test("legacy users retain fixed programme fallback when no generated programme i
 
 test("new users receive a visible build-programme entry point", () => {
   const source = fs.readFileSync("components/home-shell.tsx", "utf8");
-  assert.match(source, /Build my programme/);
+  assert.match(source, /Create programme/);
   assert.match(source, /\/onboarding/);
 });
 
@@ -58,7 +58,7 @@ test("programme replacement archives the prior generated snapshot without changi
 
 test("programme creation can be cancelled without activation", () => {
   const source = fs.readFileSync("app/onboarding/page.tsx", "utf8");
-  assert.match(source, /href="\/training"/);
+  assert.match(source, /href="\/member-hub"/);
   assert.match(source, /Change answers/);
 });
 

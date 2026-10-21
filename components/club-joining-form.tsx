@@ -4,23 +4,37 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
 import { retryJoinPaymentAction, startClubJoiningAction, type JoiningActionResult } from "@/app/club/join/actions";
+import { startPayPalPayIn3CheckoutAction } from "@/app/club/join/paypal-actions";
 import styles from "@/components/club-members-directory.module.css";
 
-type Product = { id: string; name: string; priceMinor: number; joiningFeeMinor: number; joiningFeeConfigured: boolean; checkoutKind: string; billing: string; durationDays?: number };
+type Product = { id: string; name: string; priceMinor: number; joiningFeeMinor: number; joiningFeeConfigured: boolean; checkoutKind: string; billing: string; durationDays?: number; paypalCheckoutAvailable?: boolean };
 type Location = { id: string; name: string };
 type JoinState = { id: string; status: string; payment_state: string; product_name: string; location_name?: string | null; checkout_kind?: string; joining_fee_minor?: number; first_period_minor?: number; upfront_amount_minor?: number; upfront_payment_state?: string; recurring_authority_state?: string; paid_through_at?: string; activation_blocked_by?: string; gocardless_flow_ready?: boolean } | null;
 
 function paymentLabel(value: string) { return ({ confirmed: "Confirmed", pending: "Waiting for confirmation", failed: "Needs attention", required: "Not started", not_required: "Not required" } as Record<string, string>)[value] ?? value.replaceAll("_", " "); }
 
-export function ClubJoiningForm({ organisationId, products, locations = [], accountEmail = "", initialState = null }: { organisationId: string; products: Product[]; locations?: Location[]; accountEmail?: string; initialState?: JoinState }) {
+export function ClubJoiningForm({ organisationId, products, locations = [], accountEmail = "", initialState = null, paymentNotice }: { organisationId: string; products: Product[]; locations?: Location[]; accountEmail?: string; initialState?: JoinState; paymentNotice?: string }) {
   const router = useRouter();
   const [message, setMessage] = useState<JoiningActionResult>();
   const [retryMessage, setRetryMessage] = useState<string>();
-  const [productId, setProductId] = useState(products[0]?.id ?? "");
+  const [productId, setProductId] = useState(() => products.find(product => product.name === initialState?.product_name)?.id ?? products[0]?.id ?? "");
+  const [paypalPending, setPaypalPending] = useState(false);
+  const [paypalError, setPaypalError] = useState<string>();
+  const [paypalIdempotencyKey, setPaypalIdempotencyKey] = useState(() => crypto.randomUUID());
   const [pending, startTransition] = useTransition();
   const submitting = useRef(false);
   const [key] = useState(() => crypto.randomUUID());
   const selectedProduct = products.find(product => product.id === productId);
+  const beginPayPalCheckout = () => startTransition(async () => {
+    setPaypalPending(true); setPaypalError(undefined);
+    try {
+      const requestId = message?.ok ? message.requestId : initialState?.id;
+      if (!requestId) { setPaypalError("Save your membership details before starting checkout."); return; }
+      const result = await startPayPalPayIn3CheckoutAction({ requestId, idempotencyKey: paypalIdempotencyKey });
+      if (result.ok) { window.location.assign(result.url); return; }
+      setPaypalError(result.error); setPaypalIdempotencyKey(crypto.randomUUID());
+    } finally { setPaypalPending(false); }
+  });
   const active = (message?.ok && message.status === "active") || initialState?.status === "active";
   if (active) return <section className={`${styles.onboarding} madhouse-state`} aria-labelledby="join-active-title"><span className="eyebrow">WELCOME TO MADHOUSE</span><h2 id="join-active-title">You’re in. Welcome to the Madhouse.</h2><p className="madhouse-plan">{message?.ok ? message.productName : initialState?.product_name}</p><p className={styles.hint}>Your membership is active. Your gym access remains subject to your membership and Madhouse access policy.</p><div className="madhouse-next"><strong>Your next steps</strong><ol><li>Open the Member Area and check your membership and access status.</li><li>For your entry QR pass, open <b>Member Area → Madhouse → Access pass</b> and show it at the reader.</li><li>Check the induction section there. If Madhouse requires an induction for you, it will show whether it is due and how to book or complete it.</li></ol></div><Link className="primary" href="/member-hub">Open Madhouse Member Area</Link><details><summary>Add R12 to your home screen</summary><p className="muted">Use your browser menu and choose “Add to Home Screen” or “Install app”. You can also keep using this browser.</p></details></section>;
   if (message?.ok || initialState) {
@@ -40,12 +54,14 @@ export function ClubJoiningForm({ organisationId, products, locations = [], acco
       router.refresh();
     });
     return <section className={styles.onboarding}>
+      {paymentNotice ? <p role="status" className={styles.hint}>{paymentNotice}</p> : null}
       <span className="eyebrow">APPLICATION SAVED</span><h2 id="join-saved-title">Continue your Madhouse membership</h2>
       <p>{state.product_name} · Madhouse Membership{state.location_name ? ` · Home gym: ${state.location_name}` : ""}</p>
       <div className={`${styles.hint} madhouse-price-summary`}><strong>Due today <span>£{(amount / 100).toFixed(2)}</span></strong><p>{monthly ? <>This covers the joining fee plus first month. Ongoing: <b>£{(recurringAmount / 100).toFixed(2)} monthly through Stripe</b> until cancelled.</> : "This is the full one-off card payment."}</p>{monthly ? <><div className="madhouse-price-line"><span>Joining fee</span><b>£{((amount - recurringAmount) / 100).toFixed(2)}</b></div><div className="madhouse-price-line"><span>First month</span><b>£{(recurringAmount / 100).toFixed(2)}</b></div></> : null}</div>
       <div className="madhouse-payment-status"><p><strong>Card payment</strong><span>{paymentLabel(state.upfront_payment_state ?? state.payment_state)}</span></p>{monthly ? <p><strong>Monthly subscription</strong><span>{paymentLabel(state.recurring_authority_state ?? "required")}</span></p> : null}</div>
       <p className="muted">Your membership becomes active after Stripe’s secure confirmation reaches Madhouse. Returning from Stripe does not activate access by itself.</p>
       {!cardConfirmed || !subscriptionConfirmed ? <button className="primary" type="button" disabled={pending} onClick={begin}>{pending ? "Connecting to Stripe…" : state.upfront_payment_state === "failed" || state.recurring_authority_state === "failed" ? "Retry secure payment" : "Pay securely with Stripe"}</button> : null}
+      {selectedProduct?.paypalCheckoutAvailable && !monthly && ["one_off", "annual_one_off"].includes(message?.ok ? message.checkoutKind : state.checkout_kind ?? "") && !cardConfirmed ? <div className="madhouse-paypal-checkout"><p className="muted">PayPal decides whether Pay in 3 is available for your account and this purchase. R12 does not guarantee financing eligibility.</p><button className="secondary" type="button" disabled={pending || paypalPending} onClick={beginPayPalCheckout}>{paypalPending ? "Connecting to PayPal…" : "Continue with PayPal"}</button>{paypalError ? <p role="alert" className="error-text">{paypalError}</p> : null}</div> : null}
       {cardConfirmed && subscriptionConfirmed ? <p role="status" aria-live="polite">Payment confirmed. We’re waiting for Madhouse to finish activating your membership. Refresh this page shortly.</p> : null}
       {retryMessage ? <p role="alert" className="error-text">{retryMessage} If the page has expired, sign in again and return to this page to continue.</p> : null}
       <Link className="secondary" href="/member-hub">Go to Member Area</Link>

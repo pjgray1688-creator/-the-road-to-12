@@ -74,9 +74,12 @@ test("payment handoff states never activate a paid membership", () => {
   assert.match(migration, /v_product\.price_minor=0 then 'ready_to_activate'/);
   assert.match(migration, /club_activate_no_payment_join/);
   assert.match(migration, /price_minor=0 and sellable/);
-  assert.match(form, /Opening this step has not activated membership or gym access/);
-  assert.match(form, /Fix payment/);
-  assert.match(actions, /Online payment setup is not available yet/);
+  assert.match(form, /Returning from Stripe does not activate access by itself/);
+  assert.match(form, /Pay securely with Stripe/);
+  assert.match(actions, /createStripeCheckoutSession/);
+  assert.match(read("app/api/webhooks/stripe/route.ts"), /stripeMembershipEvent/);
+  assert.match(read("app/api/webhooks/stripe/route.ts"), /club_record_stripe_membership_event_for_account/);
+  assert.match(read("supabase/migrations/2027-01-12-two-stripe-merchant-isolation.sql"), /club_record_stripe_membership_event_for_account/);
 });
 
 test("abandoned joins resume server-side and retries remain idempotent", () => {
@@ -90,7 +93,7 @@ test("abandoned joins resume server-side and retries remain idempotent", () => {
 test("induction and access remain authoritative after join", () => {
   assert.match(memberHub, /Induction/);
   assert.match(memberHub, /inductionState\?\.required/);
-  assert.match(form, /membership and access eligibility now follow Madhouse membership and induction policy/);
+  assert.match(form, /membership and Madhouse access policy/);
   assert.doesNotMatch(migration, /door|credential/i);
 });
 
@@ -99,8 +102,8 @@ test("password recovery stays personal and browser completion does not require a
   assert.match(account, /resetPasswordForEmail/);
   assert.match(reset, /auth\.updateUser\(\{ password \}\)/);
   assert.doesNotMatch(staffAction, /password/i);
-  assert.match(form, /You can continue in this browser/);
-  assert.match(form, /Open R12/);
+  assert.match(form, /keep using this browser/);
+  assert.match(form, /Open Madhouse Member Area/);
   assert.match(form, /Home Screen/);
 });
 
