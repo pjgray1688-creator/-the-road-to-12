@@ -32,14 +32,13 @@ test("runner cannot silently continue after a migration checksum or SQL failure"
   assert.match(runner, /psql .* -f/);
 });
 
-test("follow-up SQL requires only the existing 01-03 through 01-09 chain and accepts all-pending release migrations", () => {
+test("follow-up SQL includes missing 01-02/01-03 prerequisites and accepts all-pending migrations", () => {
   const preflight = followUpRelease.match(/do \$preflight\$([\s\S]*?)end \$preflight\$;/)?.[1];
   assert.ok(preflight, "release preflight exists");
   const loops = [...preflight.matchAll(/for v_name, v_expected in select \* from \(values([\s\S]*?)\) as (required|included)\(migration_name,checksum\) loop([\s\S]*?)end loop;/g)];
   assert.equal(loops.length, 2);
   const names = (index: number) => [...loops[index][1].matchAll(/\('(supabase\/migrations\/[^']+\.sql)'/g)].map(match => match[1]);
   assert.deepEqual(names(0), [
-    "supabase/migrations/2027-01-03-paypal-pay-in-3-checkout-foundation.sql",
     "supabase/migrations/2027-01-04-madhouse-class-booking-fail-closed.sql",
     "supabase/migrations/2027-01-05-madhouse-weekly-operations-import.sql",
     "supabase/migrations/2027-01-06-madhouse-trusted-station-checkin.sql",
@@ -48,6 +47,8 @@ test("follow-up SQL requires only the existing 01-03 through 01-09 chain and acc
     "supabase/migrations/2027-01-09-madhouse-class-payments-and-register.sql",
   ]);
   assert.deepEqual(names(1), [
+    "supabase/migrations/2027-01-02-golden-ticket-lifetime-memberships.sql",
+    "supabase/migrations/2027-01-03-paypal-pay-in-3-checkout-foundation.sql",
     "supabase/migrations/2027-01-10-madhouse-pending-staff-assignments.sql",
     "supabase/migrations/2027-01-11-stripe-membership-subscriptions.sql",
     "supabase/migrations/2027-01-12-two-stripe-merchant-isolation.sql",
@@ -62,4 +63,19 @@ test("follow-up SQL requires only the existing 01-03 through 01-09 chain and acc
   assert.equal(names(1).every(() => !rejectsIncludedChecksum(null, "source-checksum")), true);
   assert.equal(rejectsIncludedChecksum("wrong-checksum", "source-checksum"), true);
   assert.equal(rejectsIncludedChecksum("source-checksum", "source-checksum"), false);
+
+  const migrationOrder = [...followUpRelease.matchAll(/-- BEGIN (2027-01-[^\n]+\.sql)/g)].map(match => match[1]);
+  assert.deepEqual(migrationOrder, [
+    "2027-01-02-golden-ticket-lifetime-memberships.sql",
+    "2027-01-03-paypal-pay-in-3-checkout-foundation.sql",
+    "2027-01-10-madhouse-pending-staff-assignments.sql",
+    "2027-01-11-stripe-membership-subscriptions.sql",
+    "2027-01-12-two-stripe-merchant-isolation.sql",
+    "2027-01-13-paypal-pay-in-3-checkout.sql",
+  ]);
+  assert.match(followUpRelease, /begin;[\s\S]*?commit;/i);
+  assert.match(followUpRelease, /on conflict \(migration_name\) do nothing/i);
+  for (const alreadyApplied of names(0)) {
+    assert.equal(migrationOrder.includes(alreadyApplied.split("/").at(-1)!), false, `${alreadyApplied} must not be replayed`);
+  }
 });

@@ -1,26 +1,27 @@
--- R12 launch follow-up SQL release: outstanding migrations only.
+-- R12 launch follow-up SQL release: missing PayPal prerequisite plus outstanding migrations.
 -- Production has reported 2027-01-04 through 2027-01-09 as applied; this file
--- verifies those checksums and does not include/replay those migrations.
--- Apply once to the reviewed production Supabase project, using the SQL editor
--- or psql with stop-on-error. The complete release is one PostgreSQL transaction.
--- Take/verify a restorable backup first. No operational/member/payment rows are seeded.
+-- verifies their existing checksums and does not replay or rewrite those entries.
+-- Apply to the reviewed production Supabase project with stop-on-error. The complete
+-- release is one PostgreSQL transaction. Take/verify a restorable backup first.
+-- No PayPal payments are enabled, and no provider orders or charges are created.
+-- 01-02 performs its reviewed Golden Ticket lifetime normalization of existing
+-- rows while retaining expiry evidence; its billing preflight aborts if unsafe.
 --
--- Required order: 2027-01-10 -> 2027-01-11 -> 2027-01-12 -> 2027-01-13.
--- 2027-01-13 depends on the PayPal foundation from 2027-01-03. The preflight
--- requires its exact ledger checksum and core tables; if absent, this file aborts
--- before making changes. Do not apply 2027-01-03 blindly as part of this release.
+-- Required order: 2027-01-02 -> 2027-01-03 -> 2027-01-10 -> 2027-01-11 ->
+-- 2027-01-12 -> 2027-01-13. 01-02 adds is_lifetime and protects the existing
+-- Golden Ticket product/import/billing semantics required by the 01-03 foundation.
+-- The 01-02 migration is replay-safe and includes a billing preflight; any unresolved
+-- lifetime billing arrangements/obligations abort the complete transaction.
 
 begin;
 set local lock_timeout = '10s';
 
--- Read-only preflight: schema ledger, already-applied Madhouse chain,
--- PayPal foundation dependency, and checksums for this outstanding bundle.
+-- Read-only preflight: migration ledger and already-applied Madhouse chain.
 do $preflight$
 declare v_name text; v_expected text; v_actual text;
 begin
   if to_regclass('public.r12_schema_migrations') is null then raise exception 'R12 migration ledger is missing'; end if;
   for v_name, v_expected in select * from (values
-    ('supabase/migrations/2027-01-03-paypal-pay-in-3-checkout-foundation.sql','efa7d602235d74fedeeefd2ce26ca3ab5bf6ba000c28b2a2def12c79c4b229ef'),
     ('supabase/migrations/2027-01-04-madhouse-class-booking-fail-closed.sql','3ecd2a330e4ccdb3a3db16e3f68fa4869dd95de16b7ecdba8cc7c73271df09a7'),
     ('supabase/migrations/2027-01-05-madhouse-weekly-operations-import.sql','d2b7323eb157bae8906a39b9dc26c3ff41ad3dad6e129d38c65be5056b49ab6c'),
     ('supabase/migrations/2027-01-06-madhouse-trusted-station-checkin.sql','611d789195b14188097d516590b0428a37cafacb26cbcc281ecc2b12e40bcf0d'),
@@ -29,10 +30,11 @@ begin
     ('supabase/migrations/2027-01-09-madhouse-class-payments-and-register.sql','55e2fb75ebb130a6da06ba04c9eb07b235dadc114b42fb36627f75750e5a5fba')
   ) as required(migration_name,checksum) loop
     select checksum into v_actual from public.r12_schema_migrations where migration_name=v_name;
-    if v_actual is distinct from v_expected then raise exception 'Required migration is missing or checksum differs: %',v_name; end if;
+    if v_actual is distinct from v_expected then raise exception 'Required already-applied migration is missing or checksum differs: %',v_name; end if;
   end loop;
-  if to_regclass('public.club_paypal_pay_in_3_settings') is null or to_regclass('public.club_paypal_pay_in_3_product_codes') is null or to_regclass('public.club_paypal_pay_in_3_orders') is null then raise exception 'PayPal foundation schema missing; verify/apply 2027-01-03 before this release'; end if;
   for v_name, v_expected in select * from (values
+    ('supabase/migrations/2027-01-02-golden-ticket-lifetime-memberships.sql','e229e2676ad2a0f6fff1d37fa612b08126e0c136121fe8c62b6a5b18f2f52a35'),
+    ('supabase/migrations/2027-01-03-paypal-pay-in-3-checkout-foundation.sql','efa7d602235d74fedeeefd2ce26ca3ab5bf6ba000c28b2a2def12c79c4b229ef'),
     ('supabase/migrations/2027-01-10-madhouse-pending-staff-assignments.sql','088c5a60315a09efcc4e64584501b8b5f59f753d00c447fa92030ff16d6a67fd'),
     ('supabase/migrations/2027-01-11-stripe-membership-subscriptions.sql','ae6bcb7e1ac713ed329f9be2809949753b67310dc6c2ce3b00557afe602c853e'),
     ('supabase/migrations/2027-01-12-two-stripe-merchant-isolation.sql','4f2faad40fe5002a53279ea98e3595d3770c8af2c18c28f96e3c48c67db3ca61'),
@@ -42,6 +44,435 @@ begin
     if v_actual is not null and v_actual<>v_expected then raise exception 'Included migration checksum differs from ledger: %',v_name; end if;
   end loop;
 end $preflight$;
+
+-- BEGIN 2027-01-02-golden-ticket-lifetime-memberships.sql
+-- Madhouse Golden Ticket memberships are lifetime, non-billing memberships.
+-- Keep legacy source expiry evidence, but never use it as the effective end.
+
+alter table public.club_products
+  add column if not exists is_lifetime boolean not null default false;
+
+alter table public.club_products
+  drop constraint if exists club_products_lifetime_billing_check;
+alter table public.club_products
+  add constraint club_products_lifetime_billing_check
+  check (not is_lifetime or (billing='one_off' and duration_days is null));
+
+create or replace function public.club_enforce_golden_ticket_lifetime_product()
+returns trigger language plpgsql security definer set search_path=pg_catalog,public as $$
+begin
+  if exists(select 1 from public.club_organisations o where o.id=new.organisation_id and o.slug='madhouse-gym')
+     and new.name='Golden Ticket Founding Membership' then
+    new.is_lifetime:=true;
+    new.billing:='one_off';
+    new.duration_days:=null;
+    new.sellable:=false;
+  end if;
+  if new.is_lifetime and (new.billing<>'one_off' or new.duration_days is not null) then
+    raise exception 'Lifetime Club products must be one-off and have no fixed duration' using errcode='22023';
+  end if;
+  return new;
+end; $$;
+revoke all on function public.club_enforce_golden_ticket_lifetime_product() from public,anon,authenticated;
+drop trigger if exists club_golden_ticket_lifetime_product on public.club_products;
+create trigger club_golden_ticket_lifetime_product
+before insert or update of organisation_id,name,billing,duration_days,is_lifetime,sellable
+on public.club_products for each row
+execute function public.club_enforce_golden_ticket_lifetime_product();
+
+-- Correct only the canonical Madhouse product. Its existing entitlement rows,
+-- including the founding discount and future_locations gym access, are retained.
+update public.club_products p
+set is_lifetime=true,billing='one_off',duration_days=null,sellable=false
+from public.club_organisations o
+where o.id=p.organisation_id and o.slug='madhouse-gym'
+  and p.name='Golden Ticket Founding Membership';
+
+-- Club Manager exports may contain artificial or locale-formatted expiry
+-- strings. Once staff explicitly map that exact source package to a database
+-- lifetime product, expiry validation is evidence-only and cannot block the
+-- row or become an effective entitlement date.
+create or replace function public.club_allow_lifetime_import_expiry_evidence()
+returns trigger language plpgsql security definer set search_path=pg_catalog,public as $$
+begin
+  if new.normalized_values->>'endDate' is not null and exists(
+    select 1
+    from public.club_member_import_package_mappings pm
+    join public.club_products p on p.id=pm.club_product_id and p.organisation_id=pm.organisation_id
+    where pm.batch_id=new.batch_id and pm.organisation_id=new.organisation_id and pm.status='mapped'
+      and lower(pm.source_package)=lower(new.normalized_values->>'membershipName') and p.is_lifetime
+  ) then
+    new.blockers:=coalesce(new.blockers,'[]'::jsonb)
+      - 'End date must be YYYY-MM-DD' - 'End date is invalid' - 'End date cannot be before start date';
+  end if;
+  return new;
+end; $$;
+revoke all on function public.club_allow_lifetime_import_expiry_evidence() from public,anon,authenticated;
+drop trigger if exists club_lifetime_import_expiry_evidence on public.club_member_import_rows;
+create trigger club_lifetime_import_expiry_evidence
+before update of normalized_values,blockers on public.club_member_import_rows
+for each row execute function public.club_allow_lifetime_import_expiry_evidence();
+
+-- Revalidate immediately after staff explicitly map a source package. This
+-- lets a Golden Ticket row with a locale-formatted artificial expiry become
+-- reviewable before the UI's valid-row authorization step, without importing
+-- or authorizing it automatically.
+create or replace function public.club_revalidate_import_after_package_mapping()
+returns trigger language plpgsql security definer set search_path=pg_catalog,public as $$
+begin
+  if new.status='mapped' then
+    perform public.club_revalidate_member_import_batch(new.organisation_id,new.batch_id);
+  end if;
+  return new;
+end; $$;
+revoke all on function public.club_revalidate_import_after_package_mapping() from public,anon,authenticated;
+drop trigger if exists club_revalidate_after_package_mapping on public.club_member_import_package_mappings;
+create trigger club_revalidate_after_package_mapping
+after insert or update of club_product_id,status on public.club_member_import_package_mappings
+for each row execute function public.club_revalidate_import_after_package_mapping();
+
+-- Do not proceed if a live R12 billing schedule or unresolved obligation is
+-- attached to Golden Ticket. Preserve evidence and require a reviewed resolution.
+do $golden_billing_preflight$
+declare active_arrangements integer; open_obligations integer;
+begin
+  select count(*)::integer into active_arrangements
+  from public.club_membership_billing_arrangements a
+  join public.club_memberships m on m.id=a.membership_id and m.organisation_id=a.organisation_id
+  join public.club_products p on p.id=m.product_id and p.organisation_id=m.organisation_id
+  where p.is_lifetime and a.state='active';
+  select count(*)::integer into open_obligations
+  from public.club_membership_billing_obligations b
+  join public.club_memberships m on m.id=b.membership_id and m.organisation_id=b.organisation_id
+  join public.club_products p on p.id=m.product_id and p.organisation_id=m.organisation_id
+  where p.is_lifetime and b.state not in ('paid','recovered','cancelled','waived');
+  if active_arrangements>0 or open_obligations>0 then
+    raise exception 'Golden Ticket lifetime migration stopped: % active billing arrangements and % open obligations require reviewed resolution',active_arrangements,open_obligations
+      using errcode='55000';
+  end if;
+end;
+$golden_billing_preflight$;
+
+create or replace function public.club_enforce_lifetime_membership_expiry()
+returns trigger language plpgsql security definer set search_path=pg_catalog,public as $$
+declare lifetime_product boolean;
+begin
+  select p.is_lifetime into lifetime_product
+  from public.club_products p
+  where p.id=new.product_id and p.organisation_id=new.organisation_id;
+  if coalesce(lifetime_product,false) then
+    if new.ends_at is not null then
+      new.migration_metadata:=coalesce(new.migration_metadata,'{}'::jsonb)||jsonb_build_object(
+        'lifetime_expiry_input_at',new.ends_at,
+        'lifetime_expiry_normalized_at',now()
+      );
+    end if;
+    new.ends_at:=null;
+  end if;
+  return new;
+end; $$;
+revoke all on function public.club_enforce_lifetime_membership_expiry() from public,anon,authenticated;
+drop trigger if exists club_lifetime_membership_expiry on public.club_memberships;
+create trigger club_lifetime_membership_expiry
+before insert or update of product_id,ends_at on public.club_memberships
+for each row execute function public.club_enforce_lifetime_membership_expiry();
+
+-- Preserve artificial legacy expiry in immutable import provenance while making
+-- membership and matching materialised entitlement validity truly open-ended.
+with legacy_expiries as (
+  select m.id,m.ends_at
+  from public.club_memberships m
+  join public.club_products p on p.id=m.product_id and p.organisation_id=m.organisation_id
+  where p.is_lifetime and m.ends_at is not null
+)
+update public.club_entitlement_grants g
+set ends_at=null
+from legacy_expiries e
+where g.membership_id=e.id and g.ends_at=e.ends_at;
+
+update public.club_memberships m
+set ends_at=null,
+    migration_metadata=coalesce(m.migration_metadata,'{}'::jsonb)||jsonb_build_object(
+      'legacy_expiry_at',m.ends_at,
+      'lifetime_expiry_normalized_at',now()
+    )
+from public.club_products p
+where p.id=m.product_id and p.organisation_id=m.organisation_id
+  and p.is_lifetime and m.ends_at is not null;
+
+create or replace function public.club_reject_lifetime_billing_arrangement()
+returns trigger language plpgsql security definer set search_path=pg_catalog,public as $$
+begin
+  if exists(select 1 from public.club_memberships m join public.club_products p
+      on p.id=m.product_id and p.organisation_id=m.organisation_id
+      where m.id=new.membership_id and m.organisation_id=new.organisation_id and p.is_lifetime) then
+    raise exception 'Golden Ticket lifetime memberships cannot have billing arrangements' using errcode='22023';
+  end if;
+  return new;
+end; $$;
+revoke all on function public.club_reject_lifetime_billing_arrangement() from public,anon,authenticated;
+drop trigger if exists club_reject_lifetime_billing_arrangement on public.club_membership_billing_arrangements;
+create trigger club_reject_lifetime_billing_arrangement
+before insert or update of membership_id,organisation_id,frequency,provider_type,payment_method_family,state
+on public.club_membership_billing_arrangements for each row
+execute function public.club_reject_lifetime_billing_arrangement();
+
+create or replace function public.club_reject_lifetime_billing_obligation()
+returns trigger language plpgsql security definer set search_path=pg_catalog,public as $$
+begin
+  if exists(select 1 from public.club_memberships m join public.club_products p
+      on p.id=m.product_id and p.organisation_id=m.organisation_id
+      where m.id=new.membership_id and m.organisation_id=new.organisation_id and p.is_lifetime) then
+    raise exception 'Golden Ticket lifetime memberships cannot have billing obligations' using errcode='22023';
+  end if;
+  return new;
+end; $$;
+revoke all on function public.club_reject_lifetime_billing_obligation() from public,anon,authenticated;
+drop trigger if exists club_reject_lifetime_billing_obligation on public.club_membership_billing_obligations;
+create trigger club_reject_lifetime_billing_obligation
+before insert or update of membership_id,organisation_id,arrangement_id,frequency
+on public.club_membership_billing_obligations for each row
+execute function public.club_reject_lifetime_billing_obligation();
+
+-- Retain the established import identity/reconciliation flow. Only an explicit
+-- package mapping to a database-marked lifetime product activates this rule.
+create or replace function public.club_execute_member_import_batch(p_organisation_id uuid,p_batch_id uuid)
+returns jsonb language plpgsql security definer set search_path=pg_catalog,public as $$
+declare b public.club_member_import_batches%rowtype; r record; c public.club_customers%rowtype; u uuid; ref text; product uuid;
+  product_is_lifetime boolean; ms public.club_memberships%rowtype; ms_status text; start_at timestamptz; end_at timestamptz;
+  legacy_expiry_date text; made integer:=0; linked integer:=0; skipped integer:=0; failed integer:=0; was_linked boolean;
+begin
+ if auth.uid() is null or not public.club_capability_allowed(p_organisation_id,auth.uid(),'members.import') then raise exception 'Member import is not permitted' using errcode='42501'; end if;
+ select * into b from public.club_member_import_batches where id=p_batch_id and organisation_id=p_organisation_id for update;
+ if not found or b.status not in ('ready','importing') then raise exception 'Batch is not ready to import' using errcode='22023'; end if;
+ update public.club_member_import_batches set status='importing',import_started_at=coalesce(import_started_at,now()) where id=b.id;
+ for r in select * from public.club_member_import_rows where batch_id=b.id and jsonb_array_length(blockers)=0 order by source_row_number for update loop
+  begin
+   if r.outcome in ('imported','linked','skipped_existing') then skipped:=skipped+1; continue; end if;
+   c:=null; u:=r.matched_user_id; ref:=r.normalized_values->>'legacyReference'; was_linked:=false;
+   if r.imported_customer_id is not null then select * into c from public.club_customers where id=r.imported_customer_id and organisation_id=p_organisation_id for update; end if;
+   if c.id is null then insert into public.club_customers(organisation_id,user_id,display_name,email,phone,status) values(p_organisation_id,u,coalesce(nullif(r.normalized_values->>'fullName',''),nullif(concat_ws(' ',r.normalized_values->>'firstName',r.normalized_values->>'lastName'),''),'Imported member'),r.normalized_values->>'email',r.normalized_values->>'phone','member') returning * into c; made:=made+1;
+   else linked:=linked+1; was_linked:=true; if c.user_id is null and u is not null then update public.club_customers set user_id=u,updated_at=now() where id=c.id and user_id is null returning * into c; end if; end if;
+   if u is not null then insert into public.club_members(organisation_id,user_id,role,active) values(p_organisation_id,u,'member',true) on conflict(organisation_id,user_id) do nothing; end if;
+   if ref is not null then
+    insert into public.club_member_import_identities(organisation_id,source_system,source_member_reference,customer_id,first_seen_batch_id)
+    values(p_organisation_id,'clubmanager',ref,c.id,b.id)
+    on conflict(organisation_id,source_system,source_member_reference) do update set customer_id=excluded.customer_id where club_member_import_identities.customer_id=excluded.customer_id;
+    if exists(select 1 from public.club_access_credentials where organisation_id=p_organisation_id and credential_hash=extensions.digest(lower(btrim(ref)),'sha256') and customer_id<>c.id) then raise exception 'Credential is already assigned to another member' using errcode='23505'; end if;
+    insert into public.club_access_credentials(organisation_id,customer_id,credential_type,credential_hash,display_suffix)
+    values(p_organisation_id,c.id,'legacy_member_reference',extensions.digest(lower(btrim(ref)),'sha256'),right(ref,4)) on conflict(organisation_id,credential_hash) do nothing;
+   end if;
+   if r.normalized_values->>'membershipName' is not null then
+    select club_product_id into product from public.club_member_import_package_mappings where batch_id=b.id and lower(source_package)=lower(r.normalized_values->>'membershipName') and status='mapped';
+    select p.is_lifetime into product_is_lifetime from public.club_products p where p.id=product and p.organisation_id=p_organisation_id;
+    ms_status:=coalesce(r.normalized_values->>'membershipStatus','expired');
+    start_at:=coalesce((r.normalized_values->>'startDate')::date::timestamptz,b.created_at);
+    legacy_expiry_date:=r.normalized_values->>'endDate';
+    end_at:=case when coalesce(product_is_lifetime,false) or legacy_expiry_date is null then null else legacy_expiry_date::date::timestamptz+interval '1 day' end;
+    if not coalesce(product_is_lifetime,false) and end_at is not null and end_at<=now() then ms_status:='expired'; end if;
+    insert into public.club_memberships(organisation_id,product_id,status,starts_at,ends_at,source,assignment_idempotency_key,import_batch_id,import_row_id,migration_metadata)
+    values(p_organisation_id,product,ms_status,start_at,end_at,'legacy_import','member-import:'||r.id,b.id,r.id,
+      jsonb_build_object('source_system','clubmanager','billing_evidence','not_imported','source_status',r.normalized_values->>'membershipStatus',
+        'billing_method_label',r.normalized_values->>'billingMethod',
+        'legacy_expiry_date',case when coalesce(product_is_lifetime,false) then legacy_expiry_date else null end,
+        'expiry_policy',case when coalesce(product_is_lifetime,false) then 'lifetime_no_effective_expiry' else null end))
+    on conflict(organisation_id,assignment_idempotency_key) do nothing returning * into ms;
+    if ms.id is null then select * into ms from public.club_memberships where organisation_id=p_organisation_id and assignment_idempotency_key='member-import:'||r.id; end if;
+    if u is null then insert into public.club_membership_holders(membership_id,organisation_id,customer_id) values(ms.id,p_organisation_id,c.id) on conflict do nothing;
+    else
+     insert into public.club_membership_holders(membership_id,organisation_id,user_id) values(ms.id,p_organisation_id,u) on conflict do nothing;
+     insert into public.club_entitlement_grants(user_id,organisation_id,membership_id,entitlement_key,scope,location_ids,allowance_quantity,allowance_period,discount_percent,discount_period,discount_max_uses,starts_at,ends_at,source)
+     select u,p_organisation_id,ms.id,e.entitlement_key,e.scope,coalesce(e.location_ids,'{}'),e.allowance_quantity,e.allowance_period,e.discount_percent,e.discount_period,e.discount_max_uses,start_at,end_at,'legacy_import'
+     from public.club_product_entitlements e where e.product_id=product and ms_status='active' on conflict do nothing;
+    end if;
+   end if;
+   update public.club_member_import_rows set imported_customer_id=c.id,imported_membership_id=ms.id,outcome=case when was_linked then 'linked' else 'imported' end,updated_at=now() where id=r.id;
+  exception when others then failed:=failed+1; update public.club_member_import_rows set outcome='rejected',blockers=blockers||jsonb_build_array('Import failed safely; review this row'),updated_at=now() where id=r.id; end;
+ end loop;
+ update public.club_member_import_rows set outcome='rejected' where batch_id=b.id and jsonb_array_length(blockers)>0 and outcome is null;
+ update public.club_member_import_batches set status='completed',completed_at=now(),imported_count=made,linked_count=linked,skipped_count=skipped,rejected_count=(select count(*) from public.club_member_import_rows where batch_id=b.id and outcome='rejected'),failed_count=failed,updated_at=now() where id=b.id returning * into b;
+ insert into public.club_audit_events(organisation_id,actor_user_id,action,target_type,target_id,metadata) values(p_organisation_id,auth.uid(),'member_import.completed','member_import_batch',b.id,jsonb_build_object('imported',made,'linked',linked,'skipped',skipped,'rejected',b.rejected_count));
+ return public.club_list_member_import_batch(p_organisation_id,b.id);
+end; $$;
+
+comment on column public.club_products.is_lifetime is 'When true, membership validity has no end date; billing arrangements and obligations are forbidden.';
+comment on function public.club_execute_member_import_batch(uuid,uuid) is 'Imports an explicitly mapped Golden Ticket as lifetime, preserving the ClubManager expiry only in migration provenance.';
+-- END 2027-01-02-golden-ticket-lifetime-memberships.sql
+
+do $record$ declare recorded text; begin
+  select checksum into recorded from public.r12_schema_migrations where migration_name='supabase/migrations/2027-01-02-golden-ticket-lifetime-memberships.sql';
+  if recorded is not null and recorded<>'e229e2676ad2a0f6fff1d37fa612b08126e0c136121fe8c62b6a5b18f2f52a35' then raise exception 'Migration checksum mismatch for supabase/migrations/2027-01-02-golden-ticket-lifetime-memberships.sql'; end if;
+  insert into public.r12_schema_migrations(migration_name,checksum,source,note) values ('supabase/migrations/2027-01-02-golden-ticket-lifetime-memberships.sql','e229e2676ad2a0f6fff1d37fa612b08126e0c136121fe8c62b6a5b18f2f52a35','manual-release-bundle','R12 launch follow-up release') on conflict (migration_name) do nothing;
+end $record$;
+
+-- BEGIN 2027-01-03-paypal-pay-in-3-checkout-foundation.sql
+-- Disabled, no-payment foundation for the specifically approved Madhouse
+-- PayPal Pay in 3 products. This migration creates no customer/order/payment
+-- rows and contains no provider calls or entitlement-grant path.
+
+create table if not exists public.club_paypal_pay_in_3_settings (
+  organisation_id uuid primary key references public.club_organisations(id) on delete cascade,
+  legal_entity_number text not null check (legal_entity_number = '17383077'),
+  merchant_account_id text,
+  paypal_approved boolean not null default false,
+  accountant_approved boolean not null default false,
+  enabled boolean not null default false,
+  updated_at timestamptz not null default now()
+);
+
+insert into public.club_paypal_pay_in_3_settings(organisation_id,legal_entity_number)
+select id,'17383077' from public.club_organisations where slug='madhouse-gym'
+on conflict (organisation_id) do nothing;
+
+create table if not exists public.club_paypal_pay_in_3_product_codes (
+  organisation_id uuid not null references public.club_organisations(id) on delete cascade,
+  product_id uuid not null,
+  canonical_product_code text not null check (canonical_product_code in (
+    'madhouse.transformation.bronze.v1',
+    'madhouse.transformation.silver.v1',
+    'madhouse.transformation.gold.v1',
+    'madhouse.membership.yearly.v1',
+    'madhouse.membership.golden-ticket-lifetime.v1'
+  )),
+  created_at timestamptz not null default now(),
+  primary key (organisation_id,product_id),
+  unique (organisation_id,canonical_product_code),
+  foreign key (product_id,organisation_id) references public.club_products(id,organisation_id) on delete restrict
+);
+
+-- Product names are used only once here to bind the existing canonical
+-- catalogue rows to immutable codes. Runtime checkout uses product_id/code,
+-- never a name or amount. Ambiguous or structurally mismatched rows stay
+-- unmapped and therefore fail closed.
+with expected(name,code,kind,billing,duration_days,is_lifetime,sellable) as (values
+  ('Transformation Bronze','madhouse.transformation.bronze.v1','transformation','one_off',70,false,true),
+  ('Transformation Silver','madhouse.transformation.silver.v1','transformation','one_off',70,false,true),
+  ('Transformation Gold','madhouse.transformation.gold.v1','transformation','one_off',70,false,true),
+  ('Yearly Membership','madhouse.membership.yearly.v1','membership','one_off',365,false,true),
+  ('Golden Ticket Founding Membership','madhouse.membership.golden-ticket-lifetime.v1','membership','one_off',null,true,false)
+), matches as (
+  select p.organisation_id,p.id product_id,e.code
+  from public.club_organisations o
+  join public.club_products p on p.organisation_id=o.id
+  join expected e on e.name=p.name and e.kind=p.kind and e.billing=p.billing
+    and e.duration_days is not distinct from p.duration_days
+    and e.is_lifetime is not distinct from coalesce(p.is_lifetime,false)
+    and e.sellable=p.sellable and p.archived_at is null
+  where o.slug='madhouse-gym'
+  group by p.organisation_id,p.id,e.code
+), unique_matches as (
+  select organisation_id,product_id,code
+  from (select matches.*,count(*) over(partition by organisation_id,code) as code_matches from matches) candidates
+  where code_matches=1
+)
+insert into public.club_paypal_pay_in_3_product_codes(organisation_id,product_id,canonical_product_code)
+select organisation_id,product_id,code from unique_matches
+on conflict do nothing;
+
+create or replace function public.club_bind_paypal_pay_in_3_product_code()
+returns trigger language plpgsql security definer set search_path=pg_catalog,public as $$
+declare v_code text;
+begin
+  if not exists(select 1 from public.club_organisations where id=new.organisation_id and slug='madhouse-gym') or new.archived_at is not null then return new; end if;
+  v_code:=case
+    when new.name='Transformation Bronze' and new.kind='transformation' and new.billing='one_off' and new.duration_days=70 and not coalesce(new.is_lifetime,false) and new.sellable then 'madhouse.transformation.bronze.v1'
+    when new.name='Transformation Silver' and new.kind='transformation' and new.billing='one_off' and new.duration_days=70 and not coalesce(new.is_lifetime,false) and new.sellable then 'madhouse.transformation.silver.v1'
+    when new.name='Transformation Gold' and new.kind='transformation' and new.billing='one_off' and new.duration_days=70 and not coalesce(new.is_lifetime,false) and new.sellable then 'madhouse.transformation.gold.v1'
+    when new.name='Yearly Membership' and new.kind='membership' and new.billing='one_off' and new.duration_days=365 and not coalesce(new.is_lifetime,false) and new.sellable then 'madhouse.membership.yearly.v1'
+    when new.name='Golden Ticket Founding Membership' and new.kind='membership' and new.billing='one_off' and new.duration_days is null and coalesce(new.is_lifetime,false) and not new.sellable then 'madhouse.membership.golden-ticket-lifetime.v1'
+    else null end;
+  if v_code is not null then
+    insert into public.club_paypal_pay_in_3_product_codes(organisation_id,product_id,canonical_product_code)
+    values(new.organisation_id,new.id,v_code) on conflict (organisation_id,product_id) do nothing;
+  end if;
+  return new;
+end; $$;
+revoke all on function public.club_bind_paypal_pay_in_3_product_code() from public,anon,authenticated;
+drop trigger if exists club_bind_paypal_pay_in_3_product_code on public.club_products;
+create trigger club_bind_paypal_pay_in_3_product_code
+after insert or update of name,kind,billing,duration_days,is_lifetime,sellable,archived_at
+on public.club_products for each row execute function public.club_bind_paypal_pay_in_3_product_code();
+
+-- Prepared-order storage contract only. Rows are not created by this release;
+-- provider order/capture IDs are unique and idempotency is scoped to the buyer.
+create table if not exists public.club_paypal_pay_in_3_orders (
+  id uuid primary key default gen_random_uuid(),
+  organisation_id uuid not null references public.club_organisations(id) on delete restrict,
+  requesting_user_id uuid not null references auth.users(id) on delete restrict,
+  buyer_user_id uuid references auth.users(id) on delete restrict,
+  golden_ticket_customer_id uuid,
+  golden_ticket_authorised_by uuid references auth.users(id) on delete restrict,
+  golden_ticket_authorisation_reason text,
+  product_id uuid not null,
+  canonical_product_code text not null check (canonical_product_code in (
+    'madhouse.transformation.bronze.v1','madhouse.transformation.silver.v1','madhouse.transformation.gold.v1',
+    'madhouse.membership.yearly.v1','madhouse.membership.golden-ticket-lifetime.v1'
+  )),
+  amount_minor integer not null check (amount_minor > 0),
+  currency text not null check (currency='GBP'),
+  receiving_entity_number text not null default '17383077' check (receiving_entity_number='17383077'),
+  merchant_account_id text not null,
+  idempotency_key text not null check (length(btrim(idempotency_key)) between 16 and 200),
+  provider_order_id text,
+  provider_capture_id text,
+  provider_webhook_event_id text,
+  provider_refund_id text,
+  refund_idempotency_key text,
+  refunded_minor integer not null default 0 check (refunded_minor >= 0 and refunded_minor <= amount_minor),
+  audit_event_id uuid references public.club_audit_events(id) on delete restrict,
+  status text not null default 'prepared' check (status in ('prepared','created','approved','captured','partially_refunded','refunded','failed','cancelled')),
+  created_at timestamptz not null default now(),
+  captured_at timestamptz,
+  refunded_at timestamptz,
+  entitlement_finalized_at timestamptz,
+  unique (organisation_id,idempotency_key),
+  unique (provider_order_id),
+  unique (provider_capture_id),
+  unique (provider_webhook_event_id),
+  unique (provider_refund_id),
+  foreign key (product_id,organisation_id) references public.club_products(id,organisation_id) on delete restrict,
+  foreign key (golden_ticket_customer_id,organisation_id) references public.club_customers(id,organisation_id) on delete restrict,
+  check (
+    (canonical_product_code='madhouse.membership.golden-ticket-lifetime.v1'
+      and golden_ticket_customer_id is not null and golden_ticket_authorised_by is not null
+      and golden_ticket_authorised_by=requesting_user_id
+      and nullif(btrim(golden_ticket_authorisation_reason),'') is not null)
+    or
+    (canonical_product_code<>'madhouse.membership.golden-ticket-lifetime.v1'
+      and buyer_user_id is not null and buyer_user_id=requesting_user_id and golden_ticket_customer_id is null
+      and golden_ticket_authorised_by is null and golden_ticket_authorisation_reason is null)
+  )
+);
+
+create table if not exists public.club_paypal_pay_in_3_webhook_events (
+  provider_event_id text primary key,
+  event_type text not null,
+  received_at timestamptz not null default now(),
+  processed_at timestamptz,
+  processing_error_code text
+);
+
+alter table public.club_paypal_pay_in_3_settings enable row level security;
+alter table public.club_paypal_pay_in_3_product_codes enable row level security;
+alter table public.club_paypal_pay_in_3_orders enable row level security;
+alter table public.club_paypal_pay_in_3_webhook_events enable row level security;
+revoke all on public.club_paypal_pay_in_3_settings,public.club_paypal_pay_in_3_product_codes,
+  public.club_paypal_pay_in_3_orders,public.club_paypal_pay_in_3_webhook_events from public,anon,authenticated;
+
+comment on table public.club_paypal_pay_in_3_orders is 'Disabled PayPal Pay in 3 order/capture idempotency contract. No capture or entitlement finalizer is installed by this migration.';
+comment on table public.club_paypal_pay_in_3_settings is 'Merchant readiness gate; all approval/enabled values default false and require separate review.';
+-- END 2027-01-03-paypal-pay-in-3-checkout-foundation.sql
+
+do $record$ declare recorded text; begin
+  select checksum into recorded from public.r12_schema_migrations where migration_name='supabase/migrations/2027-01-03-paypal-pay-in-3-checkout-foundation.sql';
+  if recorded is not null and recorded<>'efa7d602235d74fedeeefd2ce26ca3ab5bf6ba000c28b2a2def12c79c4b229ef' then raise exception 'Migration checksum mismatch for supabase/migrations/2027-01-03-paypal-pay-in-3-checkout-foundation.sql'; end if;
+  insert into public.r12_schema_migrations(migration_name,checksum,source,note) values ('supabase/migrations/2027-01-03-paypal-pay-in-3-checkout-foundation.sql','efa7d602235d74fedeeefd2ce26ca3ab5bf6ba000c28b2a2def12c79c4b229ef','manual-release-bundle','R12 launch follow-up release') on conflict (migration_name) do nothing;
+end $record$;
+
+-- Assert foundation objects now exist before dependent migrations continue.
+do $paypal_foundation_check$ begin
+  if to_regclass('public.club_paypal_pay_in_3_settings') is null or to_regclass('public.club_paypal_pay_in_3_product_codes') is null or to_regclass('public.club_paypal_pay_in_3_orders') is null or to_regclass('public.club_paypal_pay_in_3_webhook_events') is null then raise exception 'PayPal foundation migration did not produce its required schema'; end if;
+end $paypal_foundation_check$;
 
 -- BEGIN 2027-01-10-madhouse-pending-staff-assignments.sql
 -- Preserve operational staff identity before a person accepts their existing
@@ -1272,5 +1703,5 @@ select
 
 select migration_name, checksum, applied_at, source
 from public.r12_schema_migrations
-where migration_name in ('supabase/migrations/2027-01-10-madhouse-pending-staff-assignments.sql','supabase/migrations/2027-01-11-stripe-membership-subscriptions.sql','supabase/migrations/2027-01-12-two-stripe-merchant-isolation.sql','supabase/migrations/2027-01-13-paypal-pay-in-3-checkout.sql')
+where migration_name in ('supabase/migrations/2027-01-02-golden-ticket-lifetime-memberships.sql','supabase/migrations/2027-01-03-paypal-pay-in-3-checkout-foundation.sql','supabase/migrations/2027-01-10-madhouse-pending-staff-assignments.sql','supabase/migrations/2027-01-11-stripe-membership-subscriptions.sql','supabase/migrations/2027-01-12-two-stripe-merchant-isolation.sql','supabase/migrations/2027-01-13-paypal-pay-in-3-checkout.sql','supabase/migrations/2027-01-04-madhouse-class-booking-fail-closed.sql','supabase/migrations/2027-01-05-madhouse-weekly-operations-import.sql','supabase/migrations/2027-01-06-madhouse-trusted-station-checkin.sql','supabase/migrations/2027-01-07-madhouse-class-credit-iso-weeks.sql','supabase/migrations/2027-01-08-madhouse-daily-checks-import.sql','supabase/migrations/2027-01-09-madhouse-class-payments-and-register.sql')
 order by migration_name;
