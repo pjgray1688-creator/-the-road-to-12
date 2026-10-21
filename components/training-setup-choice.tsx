@@ -3,7 +3,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AppNav } from "@/components/app-nav";
-import { AppShell, PageHeader, Surface } from "@/components/ui";
+import { AppShell, BackButton, PageHeader, Surface } from "@/components/ui";
 
 type Choice = "r12" | "manual" | "coach" | "skip";
 type CoachState = { state?: "none" | "awaiting" | "assigned"; coachName?: string; title?: string; programme?: { week?: unknown[] } };
@@ -27,10 +27,10 @@ export function TrainingSetupChoice() {
       else { const result = await fetch("/api/training-coach-plan", { cache: "no-store" }); setCoach(result.ok ? await result.json() : { state: "none" }); }
     } catch { setError("Your choice could not be saved. Please try again."); } finally { setBusy(false); }
   }
-  return <AppShell className="module-page training-setup-page"><PageHeader eyebrow="TRAINING · SETUP" title="How would you like to train?" description="Choose what works for you. You can change this later; your programme and workout history stay saved." />
-    <div className="training-choice-list">{options.map(item => <button type="button" key={item.id} className={`training-choice${choice === item.id ? " selected" : ""}`} disabled={busy} onClick={() => void choose(item.id)}><span><strong>{item.title}</strong><small>{item.description}</small></span><b aria-hidden="true">→</b></button>)}</div>
+  return <AppShell className="module-page training-setup-page"><BackButton href="/training">Training</BackButton><PageHeader eyebrow="YOUR TRAINING" title="How would you like to train?" description="Choose the approach that suits you. You can change it later, and your workout history stays saved." />
+    <Surface className="training-choice-surface"><div className="training-choice-list">{options.map((item, index) => <button type="button" key={item.id} className={`training-choice${choice === item.id ? " selected" : ""}`} disabled={busy} onClick={() => void choose(item.id)}><span className="training-choice-number" aria-hidden="true">0{index + 1}</span><span className="training-choice-copy"><strong>{item.title}</strong><small>{item.description}</small></span><b aria-hidden="true">→</b></button>)}</div></Surface>
     {error ? <p role="alert" className="error-text">{error}</p> : null}
     {choice === "coach" && <Surface className="coach-plan-state" aria-live="polite"><span className="eyebrow">COACH-ASSIGNED PROGRAMME</span>{!coach ? <p>Checking your Coach connection…</p> : coach.state === "assigned" ? <><h2>{coach.title ?? "Your assigned programme"}</h2><p>{coach.coachName ? `Assigned by ${coach.coachName}.` : "Your coach has assigned this plan."} Open Training to view sessions and log workouts.</p><Link className="primary" href="/training">Open Training →</Link></> : coach.state === "awaiting" ? <><h2>Waiting for your coach</h2><p>{coach.coachName ? `${coach.coachName} is connected.` : "Your Coach connection is being confirmed."} Your plan will appear here when your primary coach activates it.</p></> : <><h2>No coach connected</h2><p>There is no active Coach connection on this R12 account. Connect with a coach through the existing Coach invitation flow, or choose another training option.</p><Link className="member-hub-link" href="/account">Account and connections</Link></>}</Surface>}
-    <nav className="training-setup-nav" aria-label="Training setup destinations"><Link className="back-button" href="/"><span aria-hidden="true">‹</span>R12 Home</Link><Link className="secondary" href="/training">Open Training</Link></nav><AppNav />
+    <AppNav />
   </AppShell>;
 }

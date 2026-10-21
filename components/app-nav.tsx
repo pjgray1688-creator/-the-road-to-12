@@ -12,10 +12,10 @@ const items = [
 
 export function AppNav({ confirmBeforeNavigate = false }: { confirmBeforeNavigate?: boolean }) {
   const pathname = usePathname();
-  const [coachAllowed, setCoachAllowed] = useState(false);
-  useEffect(() => { if (!pathname.startsWith("/club")) void fetch("/api/coach/access").then(response => response.ok ? response.json() : null).then(result => setCoachAllowed(Boolean(result?.allowed))).catch(() => setCoachAllowed(false)); }, [pathname]);
-  if (pathname.startsWith("/club")) return null;
   const memberHub = pathname.startsWith("/member-hub");
+  const [coachAllowed, setCoachAllowed] = useState(false);
+  useEffect(() => { if (!pathname.startsWith("/club") && !memberHub) void fetch("/api/coach/access", { credentials: "same-origin" }).then(response => response.ok ? response.json() : null).then(result => setCoachAllowed(Boolean(result?.allowed))).catch(() => setCoachAllowed(false)); }, [memberHub, pathname]);
+  if (pathname.startsWith("/club")) return null;
   const memberItems = [
     { href: "/", label: "Home", icon: "⌂" },
     { href: "/training", label: "Training", icon: "◒" },

@@ -14,7 +14,7 @@ test("all four setup choices remain explicit, persistent, and changeable later",
   const api = read("app/api/training-setup/route.ts");
   for (const label of ["Create my programme with R12", "I’ll build my own programme", "My coach will set my programme", "Skip training setup"]) assert.ok(choices.includes(label));
   for (const value of ['"r12"', '"manual"', '"coach"', '"skip"']) assert.ok(api.includes(value));
-  assert.match(choices, /You can change this later/);
+  assert.match(choices, /You can change it later/);
   assert.match(read("app/account/page.tsx"), /href="\/onboarding" label="Training setup"/);
   assert.match(api, /\.eq\("id", user\.id\)/);
   assert.doesNotMatch(api, /club_members|membership_status|gym_access|payment/);

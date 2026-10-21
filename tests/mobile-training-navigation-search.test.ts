@@ -40,9 +40,11 @@ test("manual builder uses ranked shared search and protects edited work during n
 test("training setup has safe mobile heading and truthful navigation destinations", () => {
   const setup = read("components/training-setup-choice.tsx");
   const css = read("app/globals.css");
-  assert.match(setup, /href="\/"[^>]*>.*R12 Home/);
-  assert.match(setup, /href="\/training">Open Training/);
+  assert.match(setup, /<BackButton href="\/training">Training<\/BackButton>/);
+  assert.match(setup, /title="How would you like to train\?"/);
+  assert.equal((setup.match(/id: "(r12|manual|coach|skip)"/g) ?? []).length, 4);
   assert.doesNotMatch(setup, /Back to Training Home/);
+  assert.doesNotMatch(setup, /training-setup-nav/);
   assert.match(css, /\.training-setup-page \.page-header h1\{[^}]*line-height:1\.12/);
   assert.match(css, /padding-top:calc\(24px \+ env\(safe-area-inset-top\)\)/);
 });
@@ -57,4 +59,34 @@ test("Member Hub layout reuses the shared persistent five-destination app naviga
   assert.match(nav, /const memberHub = pathname\.startsWith\("\/member-hub"\)/);
   assert.match(nav, /memberHub \? memberItems/);
   assert.match(nav, /aria-current=\{selected \? "page" : undefined\}/);
+});
+
+test("Training consolidates management actions and keeps direct edit/build/setup routes", () => {
+  const page = read("app/training/page.tsx");
+  assert.match(page, /<details className="manage-programme-card">/);
+  assert.match(page, /label="Edit my programme"/);
+  assert.match(page, /href="\/training\/build" label="Build my own programme"/);
+  assert.match(page, /href="\/onboarding" label="Change training setup"/);
+  assert.match(page, /active\.isLegacy \? "\/onboarding" : "\/training\/edit"/);
+  assert.doesNotMatch(page, /href="\/onboarding" label="Choose a different training setup"/);
+});
+
+test("direct programme editing hydrates and updates the current programme identity", () => {
+  const editor = read("components/manual-programme-editor.tsx");
+  assert.match(editor, /mode\?: "build" \| "edit-active" \| "new"/);
+  assert.match(editor, /fetch\("\/api\/training-profile", \{ cache: "no-store", credentials: "same-origin" \}\)/);
+  assert.match(editor, /createManualProgramme\(name, days, programmeBeingEdited\?\.profile \?\? profile, programmeBeingEdited\?\.id\)/);
+  assert.match(editor, /\{ \.\.\.programmeBeingEdited, name: normalized\.name/);
+  assert.match(editor, /programmeBeingEdited\?\.framework === "manual"/);
+  assert.match(editor, /loadActiveWorkout\(\) \|\| activeWorkoutsFromPayload\(workoutData\)\.length/);
+  assert.match(read("app/training/edit/page.tsx"), /mode="edit-active"/);
+  assert.match(read("app/training/build/page.tsx"), /mode="new"/);
+});
+
+test("Member Hub tab changes do not issue unrelated Coach-permission requests", () => {
+  const nav = read("components/app-nav.tsx");
+  assert.match(nav, /if \(!pathname\.startsWith\("\/club"\) && !memberHub\) void fetch\("\/api\/coach\/access"/);
+  assert.match(nav, /memberHub \? memberItems/);
+  assert.match(nav, /href: "\/member-hub\/classes", label: "Classes"/);
+  assert.match(nav, /href: "\/member-hub\/shop", label: "Shop"/);
 });
