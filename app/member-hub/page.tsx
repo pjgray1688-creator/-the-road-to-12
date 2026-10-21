@@ -4,11 +4,11 @@ import { clubRepository } from "@/lib/club-repository";
 import { MemberHub, type MemberHubData } from "@/components/member-hub";
 import type { MemberAccessPassData } from "@/components/member-access-pass";
 import { hasPlayReviewerEntitlement } from "@/lib/play-reviewer";
-import { PlayReviewerMemberHub } from "@/components/play-reviewer-member-hub";
+import { reviewerMemberHubData } from "@/lib/play-reviewer-member-data";
 
 export default async function MemberHubPage() {
   const supabase = await serverSupabase(); const { data: { user } } = await supabase.auth.getUser(); if (!user) redirect("/account?mode=signIn&next=%2Fmember-hub");
-  if (hasPlayReviewerEntitlement(user)) return <PlayReviewerMemberHub />;
+  if (hasPlayReviewerEntitlement(user)) return <MemberHub data={reviewerMemberHubData()} demoMode />;
   const { data, error } = await supabase.rpc("club_list_my_memberships");
   if (error) return <MemberHub data={[]} />;
   const memberships = Array.isArray(data) ? data as Array<Record<string, unknown>> : [];

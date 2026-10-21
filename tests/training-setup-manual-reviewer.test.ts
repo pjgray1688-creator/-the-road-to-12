@@ -83,15 +83,18 @@ test("Coach choice uses the authenticated member plan reader and offers assigned
   assert.match(read("app/api/training-profile/route.ts"), /_programmeSource === "coach"/);
 });
 
-test("reviewer member demo navigates synthetic classes, browse-only shop, membership, and Glow without live queries", () => {
-  const route = read("app/member-hub/page.tsx"); const demo = read("components/play-reviewer-member-hub.tsx");
+test("reviewer navigates the production Member Hub and feature routes with isolated fixtures", () => {
+  const route = read("app/member-hub/page.tsx"); const hub = read("components/member-hub.tsx"); const fixture = read("lib/play-reviewer-member-data.ts");
   assert.ok(route.indexOf("hasPlayReviewerEntitlement(user)") < route.indexOf('rpc("club_list_my_memberships")'));
-  for (const item of ["Membership", "Classes", "Member shop", "Glow Zone"]) assert.ok(demo.includes(item));
-  assert.match(demo, /setView\(id\)/);
-  assert.match(demo, /DEMO ACCOUNT/);
-  assert.match(demo, /Checkout is disabled/);
-  assert.match(demo, /booking is disabled/i);
-  assert.doesNotMatch(demo, /club_list_my_memberships|club_get_my_access_pass|stripe|checkoutSession/i);
+  assert.match(route, /<MemberHub data=\{reviewerMemberHubData\(\)\} demoMode \/>/);
+  for (const path of ["/member-hub/classes", "/member-hub/shop", "/member-hub/glow-zone", "/member-hub/schedule", "/member-hub/attendance", "/member-hub/orders"]) assert.ok(hub.includes(path));
+  assert.match(hub, /MemberDemoNotice/);
+  assert.match(fixture, /active.*true/);
+  assert.match(fixture, /reviewerSessions/);
+  assert.match(fixture, /reviewerProducts/);
+  assert.match(read("app/member-hub/classes/page.tsx"), /<ClubMemberClasses[\s\S]*demoMode\/>/);
+  assert.match(read("app/member-hub/shop/page.tsx"), /<ClubShop[\s\S]*demoMode\/>/);
+  assert.match(read("app/member-hub/glow-zone/page.tsx"), /GlowZoneOpeningHours hours=\{reviewerGlowHours\}/);
 });
 
 test("setup preference and Coach plan migration remain after required schema and do not grant coach writes", () => {

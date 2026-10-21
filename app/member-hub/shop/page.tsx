@@ -7,10 +7,14 @@ import { resolveOrganisationTheme } from "@/lib/club";
 import type { PromotionRule } from "@/lib/club-promotions";
 import { buildClubShopProductUniverse, type DurableSupplierParentRow } from "@/lib/club-supplier-catalogue";
 import { isProductOnChannel } from "@/lib/club-commerce";
+import { hasPlayReviewerEntitlement } from "@/lib/play-reviewer";
+import { REVIEWER_ORG_ID, REVIEWER_LOCATION_ID, reviewerProducts, reviewerStockBalances } from "@/lib/play-reviewer-member-data";
+import { MemberDemoNotice } from "@/components/member-demo-notice";
 
 export default async function MemberHubShop({ searchParams }: { searchParams?: Promise<{ org?: string; payment?: string; attempt_id?: string }> }) {
   const client = await serverSupabase(); const { data: { user } } = await client.auth.getUser();
   if (!user) redirect("/account?mode=signIn&next=%2Fmember-hub%2Fshop");
+  if (hasPlayReviewerEntitlement(user)) return <AppShell className="module-page club-page member-area-page member-shop-page"><PageHeader title="Shop" description="Browse the member shop catalogue."/><MemberDemoNotice/><ClubShop organisationId={REVIEWER_ORG_ID} userId="synthetic-reviewer" products={reviewerProducts} locations={[{id:REVIEWER_LOCATION_ID,name:"Carlton · demo",active:true}]} balance={{id:"demo-balance",organisationId:REVIEWER_ORG_ID,customerId:"demo-customer",currency:"GBP",status:"active",balanceMinor:1250}} orders={[]} declarations={[]} staff={false} canReconcile={false} accent="#e8417a" currentLocationId={REVIEWER_LOCATION_ID} stockBalances={reviewerStockBalances} promotions={[]} demoMode/><a className="back-button" href="/member-hub">Back to Member Area</a></AppShell>;
   const params = await searchParams; const { data } = await client.rpc("club_list_my_memberships");
   const rows = Array.isArray(data) ? data as Array<Record<string, unknown>> : [];
   const row = rows.find(value => String((value.organisation as Record<string, unknown> | undefined)?.id) === params?.org) ?? rows[0];

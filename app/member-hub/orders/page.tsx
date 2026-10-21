@@ -3,6 +3,8 @@ import { serverSupabase } from "@/lib/supabase-server";
 import { clubRepository } from "@/lib/club-repository";
 import { memberOrderStateLabel } from "@/lib/club-operational";
 import { AppShell, EmptyState, PageHeader, Surface, BackButton } from "@/components/ui";
+import { hasPlayReviewerEntitlement } from "@/lib/play-reviewer";
+import { MemberDemoNotice } from "@/components/member-demo-notice";
 
 const money=(minor:number,currency:string)=>new Intl.NumberFormat("en-GB",{style:"currency",currency}).format(minor/100);
 const date=(value:string)=>new Intl.DateTimeFormat("en-GB",{timeZone:"Europe/London",dateStyle:"medium",timeStyle:"short"}).format(new Date(value));
@@ -11,6 +13,7 @@ type Refund={id:string;amountMinor:number;createdAt:string;lines:RefundLine[]};
 
 export default async function MemberOrders({searchParams}:{searchParams?:Promise<{org?:string;order?:string}>}) {
  const client=await serverSupabase(); const {data:{user}}=await client.auth.getUser(); if(!user)redirect("/account?mode=signIn&next=%2Fmember-hub%2Forders");
+ if(hasPlayReviewerEntitlement(user))return <AppShell className="module-page club-page member-area-page"><PageHeader title="Order history" description="Member shop purchases."/><MemberDemoNotice/><Surface className="member-order-history"><EmptyState title="No purchases in this demo">The catalogue can be browsed, but this reviewer account has no orders. No purchase has been created.</EmptyState></Surface><BackButton href="/member-hub">Back to Member Area</BackButton></AppShell>;
  const params=await searchParams; const {data}=await client.rpc("club_list_my_memberships"); const rows=Array.isArray(data)?data as Array<Record<string,unknown>>:[]; const row=rows.find(value=>String((value.organisation as Record<string,unknown>|undefined)?.id)===params?.org)??rows[0];
  if(!row)return <AppShell className="module-page member-area-page"><PageHeader title="Order history"/><EmptyState title="Connect your gym first">Your orders will appear once a membership is linked.</EmptyState><BackButton href="/member-hub">Back to Member Area</BackButton></AppShell>;
  const org=row.organisation as Record<string,unknown>; const organisationId=String(org.id); const repository=clubRepository(client);

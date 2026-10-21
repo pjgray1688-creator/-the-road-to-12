@@ -3,10 +3,13 @@ import { redirect } from "next/navigation";
 import { AppShell, EmptyState, PageHeader, Surface } from "@/components/ui";
 import { ClubMemberClaim } from "@/components/club-member-claim";
 import { serverSupabase } from "@/lib/supabase-server";
+import { hasPlayReviewerEntitlement } from "@/lib/play-reviewer";
+import { MemberDemoNotice } from "@/components/member-demo-notice";
 
 export default async function LinkMembershipPage() {
   const supabase = await serverSupabase(); const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/account?mode=signIn&next=%2Fmember-hub%2Flink");
+  if (hasPlayReviewerEntitlement(user)) return <AppShell className="module-page member-area-page"><PageHeader eyebrow="MEMBER AREA" title="Membership linking" description="This account is limited to the Google Play review demonstration."/><MemberDemoNotice/><Surface><EmptyState title="Membership changes are disabled">The review account cannot link, change, or activate a real gym membership.</EmptyState><Link className="secondary" href="/member-hub">Back to Member Area</Link></Surface></AppShell>;
   const { data } = await supabase.rpc("club_list_joinable_organisations");
   const organisations = Array.isArray(data) ? data as Array<{ id: string; name: string }> : [];
   const claims = await Promise.all(organisations.map(async organisation => ({ organisation, claim: (await supabase.rpc("club_preview_existing_member_claim", { p_organisation_id: organisation.id })).data as { state: string; customer_id?: string; display_name?: string; email?: string; memberships?: Array<{ id: string; name: string; status: string }> } | null })));
