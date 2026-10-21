@@ -6,7 +6,7 @@ import { coachTutorialSteps, madhouseTutorialSteps, memberTutorialSteps, MEMBER_
 import { madhouseCatalogue } from "../lib/madhouse-catalogue";
 
 const migration = readFileSync("supabase/migrations/2026-11-19-madhouse-billing-and-tutorials.sql", "utf8");
-const stripeSubscriptions = readFileSync("supabase/migrations/2027-01-04-stripe-membership-subscriptions.sql", "utf8");
+const stripeSubscriptions = readFileSync("supabase/migrations/2027-01-11-stripe-membership-subscriptions.sql", "utf8");
 const joinForm = readFileSync("components/club-joining-form.tsx", "utf8");
 const tutorial = readFileSync("components/tutorial-experience.tsx", "utf8");
 

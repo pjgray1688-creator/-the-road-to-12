@@ -19,7 +19,7 @@ test("Madhouse public join actions are explicit and keep their safe R12 return r
 });
 
 test("a verified Auth user can discover Madhouse plans and start joining without prior staff or club membership",()=>{
-  const catalogue=readFileSync("supabase/migrations/2027-01-05-two-stripe-merchant-isolation.sql","utf8");
+  const catalogue=readFileSync("supabase/migrations/2027-01-12-two-stripe-merchant-isolation.sql","utf8");
   const start=catalogue.slice(catalogue.indexOf("create or replace function public.club_start_membership_joining_optional_home_location"),catalogue.indexOf("revoke all on function public.club_start_membership_joining_optional_home_location"));
   assert.match(joinPage,/club_list_joinable_organisations/);
   assert.match(joinPage,/club_list_joinable_memberships/);

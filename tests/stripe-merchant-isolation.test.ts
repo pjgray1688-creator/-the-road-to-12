@@ -5,7 +5,7 @@ import { readStripeMerchantConfig } from "../lib/stripe-merchant";
 import { createStripeCommerceCheckoutSession } from "../lib/stripe-commerce-provider";
 import { appBaseUrlStatus } from "../lib/site-url";
 
-const migration = readFileSync("supabase/migrations/2027-01-05-two-stripe-merchant-isolation.sql", "utf8");
+const migration = readFileSync("supabase/migrations/2027-01-12-two-stripe-merchant-isolation.sql", "utf8");
 const franchiseWebhook = readFileSync("app/api/webhooks/stripe/route.ts", "utf8");
 const productsWebhook = readFileSync("app/api/webhooks/stripe/products-services/route.ts", "utf8");
 const joinForm = readFileSync("components/club-joining-form.tsx", "utf8");

@@ -8,7 +8,7 @@ import { verifyGoCardlessSignature, verifyStripeSignature } from "../lib/join-pr
 import { createStripeCheckoutSession } from "../lib/stripe-join-provider";
 
 const migration = readFileSync("supabase/migrations/2026-12-01-paid-member-provider-checkout.sql", "utf8");
-const subscriptionMigration = readFileSync("supabase/migrations/2027-01-04-stripe-membership-subscriptions.sql", "utf8");
+const subscriptionMigration = readFileSync("supabase/migrations/2027-01-11-stripe-membership-subscriptions.sql", "utf8");
 const actions = readFileSync("app/club/join/actions.ts", "utf8");
 const joinForm = readFileSync("components/club-joining-form.tsx", "utf8");
 const stripeWebhook = readFileSync("app/api/webhooks/stripe/route.ts", "utf8");
@@ -209,6 +209,6 @@ test("Stripe subscription state is durable, replay-safe and never activates from
 
 test("paid checkout migration is in the reviewed deployment manifest", () => {
   assert.match(readFileSync("supabase/deployment/2026-11-22-madhouse-launch-migrations.txt", "utf8"), /2026-12-01-paid-member-provider-checkout\.sql/);
-  assert.match(readFileSync("supabase/deployment/2026-11-22-madhouse-launch-migrations.txt", "utf8"), /2027-01-04-stripe-membership-subscriptions\.sql/);
-  assert.match(readFileSync("supabase/deployment/2026-11-22-madhouse-launch-migrations.txt", "utf8"), /2027-01-05-two-stripe-merchant-isolation\.sql/);
+  assert.match(readFileSync("supabase/deployment/2026-11-22-madhouse-launch-migrations.txt", "utf8"), /2027-01-11-stripe-membership-subscriptions\.sql/);
+  assert.match(readFileSync("supabase/deployment/2026-11-22-madhouse-launch-migrations.txt", "utf8"), /2027-01-12-two-stripe-merchant-isolation\.sql/);
 });

@@ -146,7 +146,7 @@ test("Stripe, cash, register, and capacity-pending paths are server authoritativ
   assert.match(paymentMigration, /club_staff_collect_class_cash/);
   assert.match(paymentMigration, /club_get_host_class_register/);
   assert.match(paymentMigration, /club_staff_list_class_members/);
-  assert.match(readFileSync("app/api/webhooks/stripe/classes/route.ts", "utf8"), /STRIPE_PRODUCTS_SERVICES_WEBHOOK_SECRET/);
+  assert.match(readFileSync("app/api/webhooks/stripe/classes/route.ts", "utf8"), /STRIPE_PRODUCTS_SERVICES_CLASS_WEBHOOK_SECRET/);
   assert.match(readFileSync("components/club-class-register.tsx", "utf8"), /Verify drop-box cash/);
   assert.match(readFileSync("components/club-class-register.tsx", "utf8"), /No-show/);
   assert.match(readFileSync("app/club/classes/setup/page.tsx", "utf8"), /ClubClassSetup/);

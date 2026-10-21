@@ -91,22 +91,17 @@ export function createStripeCheckoutSession(input: {
   })();
 }
 
-function classStripeKey() {
-  const value = process.env.STRIPE_PRODUCTS_SERVICES_SECRET_KEY;
-  if (!value) throw new Error("Products & Services class payments are not configured");
-  if (!value.startsWith("sk_test_") && process.env.MADHOUSE_CLASS_STRIPE_LIVE_ENABLED !== "true") {
+function classStripeConfig() {
+  const config = readStripeMerchantConfig("madhouse_products_services");
+  if (config.mode === "live" && process.env.MADHOUSE_CLASS_STRIPE_LIVE_ENABLED !== "true") {
     throw new Error("Class checkout is restricted to Stripe test mode until live payments are explicitly enabled");
   }
-  return value;
+  return config;
 }
 
 async function classStripeRequest<T>(path: string, init: RequestInit = {}, fetcher: typeof fetch = fetch): Promise<T> {
-  const response = await fetcher(`https://api.stripe.com/v1${path}`, {
-    ...init, headers: { Authorization: `Bearer ${classStripeKey()}`, ...(init.headers ?? {}) }, cache: "no-store",
-  });
-  const value = await response.json() as T & { error?: { message?: string } };
-  if (!response.ok) throw new Error(value.error?.message || "Stripe class checkout failed");
-  return value;
+  classStripeConfig();
+  return stripeMerchantRequest<T>("madhouse_products_services", path, init, fetcher);
 }
 
 export function createStripeClassCheckoutSession(input: {
@@ -122,9 +117,14 @@ export function createStripeClassCheckoutSession(input: {
     "payment_intent_data[metadata][booking_id]": input.bookingId,
     "payment_intent_data[metadata][session_id]": input.sessionId,
   });
-  return classStripeRequest<StripeCheckoutSession>("/checkout/sessions", {
-    method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded", "Idempotency-Key": `r12-madhouse-class-${input.bookingId}` }, body,
-  }, fetcher);
+  return (async () => {
+    const config = classStripeConfig();
+    const account = await stripeMerchantRequest<{ id: string }>("madhouse_products_services", "/account", {}, fetcher);
+    if (account.id !== config.accountId) throw new Error("Stripe credentials are not for Madhouse Products and Services");
+    return stripeMerchantRequest<StripeCheckoutSession>("madhouse_products_services", "/checkout/sessions", {
+      method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded", "Idempotency-Key": `r12-madhouse-class-${input.bookingId}` }, body,
+    }, fetcher);
+  })();
 }
 
 export function retrieveStripeClassCheckoutSession(id: string, fetcher?: typeof fetch) {

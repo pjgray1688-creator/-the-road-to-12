@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyStripeSignature } from "@/lib/join-provider-crypto";
 import { adminSupabase } from "@/lib/supabase-admin";
+import { readStripeMerchantConfig } from "@/lib/stripe-merchant";
 
 export const runtime = "nodejs";
 type StripeClassObject = {
@@ -11,11 +12,15 @@ type StripeEvent = { id: string; type: string; created: number; data: { object: 
 
 export async function POST(request: NextRequest) {
   const body = await request.text();
+  let config;
+  try { config = readStripeMerchantConfig("madhouse_products_services"); }
+  catch { return NextResponse.json({ error: "Products & Services class webhook is not configured" }, { status: 503 }); }
   const secret = process.env.STRIPE_PRODUCTS_SERVICES_CLASS_WEBHOOK_SECRET;
-  if (!secret) return NextResponse.json({ error: "Products & Services class webhook is not configured" }, { status: 503 });
+  if (!secret?.startsWith("whsec_")) return NextResponse.json({ error: "Products & Services class webhook is not configured" }, { status: 503 });
   if (!verifyStripeSignature(body, request.headers.get("stripe-signature"), secret)) return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   let event: StripeEvent;
   try { event = JSON.parse(body) as StripeEvent; } catch { return NextResponse.json({ error: "Invalid payload" }, { status: 400 }); }
+  if (event.livemode !== (config.mode === "live") || (event.account && event.account !== config.accountId)) return NextResponse.json({ error: "Stripe event does not match the Products & Services account and mode" }, { status: 400 });
   const accepted = new Set(["checkout.session.completed", "checkout.session.async_payment_succeeded", "checkout.session.async_payment_failed", "checkout.session.expired", "payment_intent.payment_failed"]);
   if (!accepted.has(event.type)) return new NextResponse(null, { status: 204 });
   const session = event.data?.object;
