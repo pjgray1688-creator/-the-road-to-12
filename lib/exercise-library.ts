@@ -72,11 +72,24 @@ export type ExerciseFilters = { equipment?: string | string[]; muscle?: string |
 function values(value?: string | string[]) { return (Array.isArray(value) ? value : value ? [value] : []).map(normalize); }
 function includesFilter(valuesToCheck: string[], filter?: string | string[]) { const wanted = values(filter); return !wanted.length || wanted.some(item => valuesToCheck.map(normalize).includes(item)); }
 export function filterExercises(filters: ExerciseFilters = {}) { return exerciseLibrary.filter(item => includesFilter(item.equipmentRequired, filters.equipment) && includesFilter([...item.primaryMuscles, ...item.secondaryMuscles], filters.muscle) && includesFilter([item.movementPattern], filters.movementPattern) && includesFilter(item.trainingStyles, filters.trainingStyle) && includesFilter([item.programmeRole, item.researchProgrammeRole], filters.programmeRole) && (!filters.compoundOrIsolation || item.compoundOrIsolation === filters.compoundOrIsolation) && (!filters.laterality || item.laterality === filters.laterality) && (!filters.reviewStatus || item.reviewStatus === filters.reviewStatus)); }
+const commonSearchTargets: Record<string, string> = {
+  "bench press": "flat-bench-press", "flat barbell bench": "flat-bench-press", "flat barbell bench press": "flat-bench-press",
+  "flat bench": "flat-bench-press", "squat": "back-squat", "barbell squat": "back-squat",
+  "deadlift": "conventional-deadlift", "barbell deadlift": "conventional-deadlift",
+  "rdl": "romanian-deadlift", "romanian deadlift": "romanian-deadlift",
+  "ohp": "barbell-overhead-press", "overhead press": "barbell-overhead-press", "barbell ohp": "barbell-overhead-press",
+};
+const popularExerciseIds = ["flat-bench-press", "back-squat", "conventional-deadlift", "barbell-overhead-press", "romanian-deadlift", "lat-pulldown", "barbell-row", "dumbbell-bench-press", "leg-press", "seated-db-shoulder-press", "cable-row", "hip-thrust"];
+const popularity = new Map(popularExerciseIds.map((id, index) => [id, popularExerciseIds.length - index]));
 export function searchExercises(query: string, filters: ExerciseFilters = {}) {
   const search = normalize(query); const tokens = search.split(" ").filter(Boolean);
+  const commonTarget = commonSearchTargets[search];
   return filterExercises(filters).map((item, index) => { const name = normalize(item.name); const aliases = item.aliases.map(normalize); const metadata = normalize([...item.primaryMuscles, ...item.secondaryMuscles, item.movementPattern, ...item.equipmentRequired, ...item.trainingStyles, item.programmeRole].join(" ")); let score = 0;
-    if (!search) score = 1; else if (name === search) score = 1000; else if (aliases.includes(search)) score = 900; else if (name.startsWith(search)) score = 800; else if (aliases.some(alias => alias.startsWith(search))) score = 700; else if (tokens.length && tokens.every(token => name.split(" ").includes(token))) score = 600; else if (tokens.length && tokens.every(token => metadata.includes(token))) score = 300;
-    return { item, score, index }; }).filter(result => result.score > 0).sort((a, b) => b.score - a.score || a.item.name.localeCompare(b.item.name) || a.index - b.index).map(result => result.item);
+    // Exact specialist names/aliases always win over broad, popular search intents.
+    if (search && name === search) score = 10_000; else if (search && aliases.includes(search)) score = 9_500; else if (!search) score = 1;
+    else if (item.id === commonTarget) score = 9_000;
+    else if (name.startsWith(search)) score = 800; else if (aliases.some(alias => alias.startsWith(search))) score = 700; else if (tokens.length && tokens.every(token => name.split(" ").includes(token))) score = 600; else if (tokens.length && tokens.every(token => metadata.includes(token))) score = 300;
+    return { item, score, popular: popularity.get(item.id) ?? 0, index }; }).filter(result => result.score > 0).sort((a, b) => b.score - a.score || b.popular - a.popular || a.item.name.localeCompare(b.item.name) || a.index - b.index).map(result => result.item);
 }
 
 export function validateExerciseCatalogue() {

@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type MouseEvent } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -10,11 +10,26 @@ const items = [
   { href: "/account", label: "Account", icon: "○" },
 ];
 
-export function AppNav() {
+export function AppNav({ confirmBeforeNavigate = false }: { confirmBeforeNavigate?: boolean }) {
   const pathname = usePathname();
   const [coachAllowed, setCoachAllowed] = useState(false);
   useEffect(() => { if (!pathname.startsWith("/club")) void fetch("/api/coach/access").then(response => response.ok ? response.json() : null).then(result => setCoachAllowed(Boolean(result?.allowed))).catch(() => setCoachAllowed(false)); }, [pathname]);
   if (pathname.startsWith("/club")) return null;
-  const visibleItems = coachAllowed ? [...items.slice(0, 2), { href: "/coach", label: "Coach", icon: "✦" }, ...items.slice(2)] : items;
-  return <nav className={coachAllowed ? "app-nav has-coach" : "app-nav"} aria-label="Primary navigation">{visibleItems.map(item => { const selected = pathname === item.href || (item.href === "/coach" && pathname.startsWith("/coach/")); return <Link className={selected ? "selected" : ""} href={item.href} key={item.href} aria-current={selected ? "page" : undefined}><span aria-hidden="true">{item.icon}</span><small>{item.label}</small></Link>; })}</nav>;
+  const memberHub = pathname.startsWith("/member-hub");
+  const memberItems = [
+    { href: "/", label: "Home", icon: "⌂" },
+    { href: "/training", label: "Training", icon: "◒" },
+    { href: "/member-hub/shop", label: "Shop", icon: "▣" },
+    { href: "/member-hub/classes", label: "Classes", icon: "▦" },
+    { href: "/account", label: "Account", icon: "○" },
+  ];
+  const visibleItems = memberHub ? memberItems : coachAllowed ? [...items.slice(0, 2), { href: "/coach", label: "Coach", icon: "✦" }, ...items.slice(2)] : items;
+  function guardNavigation(event: MouseEvent<HTMLAnchorElement>) {
+    if (!confirmBeforeNavigate || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    if (!window.confirm("Leave without saving your programme edits?")) event.preventDefault();
+  }
+  const selectedFor = (href: string) => memberHub
+    ? href === "/" ? pathname === "/" || pathname === "/member-hub" : href === "/training" ? pathname === href : href === "/account" ? pathname === href : href === "/member-hub/shop" ? pathname.startsWith("/member-hub/shop") || pathname.startsWith("/member-hub/orders") : pathname.startsWith(href)
+    : pathname === href || (href === "/coach" && pathname.startsWith("/coach/"));
+  return <nav className={`${coachAllowed && !memberHub ? "app-nav has-coach" : "app-nav"}${memberHub ? " member-hub-nav" : ""}`} aria-label={memberHub ? "Member Area navigation" : "Primary navigation"}>{visibleItems.map(item => { const selected = selectedFor(item.href); return <Link className={selected ? "selected" : ""} href={item.href} key={item.href} aria-current={selected ? "page" : undefined} onClick={guardNavigation}><span aria-hidden="true">{item.icon}</span><small>{item.label}</small></Link>; })}</nav>;
 }
