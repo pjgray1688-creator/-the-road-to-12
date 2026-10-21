@@ -8,6 +8,7 @@ export type Profile = { id: string; displayName: string; goals: string[]; startW
 export type TrainingBlock = { id: string; name: string; startDate: string; endDate: string; weekNumber: number; goals: string[]; progressionFocus: string; status: "active" | "complete" | "proposed"; reviewDate: string; proposedNextBlock?: string; totalWeeks?: number; framework?: string };
 export type PlannedExerciseOverride = {
   name?: string;
+  equipment?: "dumbbell" | "barbell" | "machine" | "cable";
   target?: string;
   sets?: number;
   reps?: string;

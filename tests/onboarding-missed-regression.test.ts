@@ -15,7 +15,7 @@ test("every onboarding question owns an independent immutable answer domain", ()
 });
 
 test("onboarding stores answers by field and renders canonical options on revisit", () => {
-  const source = fs.readFileSync("app/onboarding/page.tsx", "utf8");
+  const source = fs.readFileSync("app/onboarding/create/page.tsx", "utf8");
   assert.match(source, /const key = question\[0\]/);
   assert.match(source, /questionOptions\(question\)/);
   assert.match(source, /setStep\(step - 1\)/);

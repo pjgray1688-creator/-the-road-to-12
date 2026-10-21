@@ -95,7 +95,7 @@ test("Account and onboarding preserve mobile-safe, non-destructive programme nav
   const accountCss = fs.readFileSync("app/training-polish.css", "utf8");
   const onboarding = fs.readFileSync("app/onboarding/page.tsx", "utf8");
   assert.match(accountCss, /\.account-page \{[^}]*env\(safe-area-inset-top\)/);
-  assert.match(onboarding, /href="\/member-hub"/);
+  assert.match(fs.readFileSync("components/training-setup-choice.tsx", "utf8"), /member-hub/);
 });
 test("workout summary exercise count uses the resolved prescribed list", () => {
   const source = fs.readFileSync("components/training-app.tsx", "utf8");

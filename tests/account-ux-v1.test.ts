@@ -11,8 +11,8 @@ test("account presents consumer sections without backend or recovery jargon", ()
   assert.doesNotMatch(source, /account\.id/);
 });
 
-test("account keeps profile and support entry points while training remains in Training", () => {
-  assert.doesNotMatch(source, /href="\/training"|href="\/onboarding"/); assert.doesNotMatch(source, /label="Progress"/); assert.match(source, /auth\.signOut/);
+test("account exposes reversible training setup without exposing programme administration", () => {
+  assert.match(source, /href="\/onboarding"/); assert.doesNotMatch(source, /href="\/training"/); assert.doesNotMatch(source, /label="Progress"/); assert.match(source, /auth\.signOut/);
 });
 
 test("WHOOP status remains a concise consumer state", () => {

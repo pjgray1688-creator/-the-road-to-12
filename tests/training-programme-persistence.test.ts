@@ -41,7 +41,7 @@ test("activation normalizes the workouts API envelope for active-workout protect
 });
 
 test("onboarding activation is server-first, confirmed, guarded and retryable", () => {
-  const source = fs.readFileSync("app/onboarding/page.tsx", "utf8");
+  const source = fs.readFileSync("app/onboarding/create/page.tsx", "utf8");
   assert.match(source, /disabled=\{activating\}/);
   assert.match(source, /activeWorkoutsFromPayload/);
   assert.match(source, /persisted\.active_programme_id !== programme\.id/);
@@ -57,7 +57,7 @@ test("programme replacement archives the prior generated snapshot without changi
 });
 
 test("programme creation can be cancelled without activation", () => {
-  const source = fs.readFileSync("app/onboarding/page.tsx", "utf8");
+  const source = fs.readFileSync("app/onboarding/create/page.tsx", "utf8");
   assert.match(source, /href="\/member-hub"/);
   assert.match(source, /Change answers/);
 });

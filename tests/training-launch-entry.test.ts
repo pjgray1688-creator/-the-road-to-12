@@ -36,8 +36,8 @@ test("account and Member Area are direct destinations while programme setup is e
   assert.match(account, /setAccount\(\{ id: user\.id/);
   assert.match(member, /getUser\(\)/);
   assert.match(home, /href="\/onboarding"/);
-  assert.match(onboarding, /Start programme/);
-  assert.match(onboarding, /href="\/member-hub"/);
+  assert.match(onboarding, /TrainingSetupChoice/);
+  assert.match(read("components/training-setup-choice.tsx"), /router\.push\("\/member-hub"\)/);
 });
 
 test("Home and Back to R12 return to Training, never the Gym Member Area", () => {

@@ -18,8 +18,10 @@ test("reviewer member hub uses an isolated synthetic view before any real member
   assert.ok(route.indexOf("hasPlayReviewerEntitlement(user)") < route.indexOf('rpc("club_list_my_memberships")'));
   assert.match(demo, /DEMO MEMBERSHIP · NO GYM ACCESS/);
   assert.match(demo, /No charges or subscription/);
-  assert.match(demo, /No real customer records/);
-  assert.doesNotMatch(demo, /MemberAccessPass|checkout|payment_intent|club_get_my_access_pass|href=/);
+  assert.match(demo, /no real member/);
+  assert.doesNotMatch(demo, /MemberAccessPass|payment_intent|club_get_my_access_pass|stripe/i);
+  assert.match(demo, /href="\/history"/);
+  assert.match(demo, /href="\/progress"/);
 });
 
 test("reviewer access does not create privileged Club roles or weaken training data ownership", () => {
