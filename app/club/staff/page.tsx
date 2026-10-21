@@ -7,7 +7,7 @@ import { serverSupabase } from "@/lib/supabase-server";
 import { resolveClubOperationalContext } from "@/lib/club-server-context";
 import { resolveClubCapabilities } from "@/lib/club-capabilities";
 import { ClubStaffAccessForm } from "@/components/club-staff-access-form";
-import { resendStaffInvitation, revokeStaffAccessGrant } from "@/app/club/staff/actions";
+import { linkOperationalStaffInvitation, resendStaffInvitation, revokeStaffAccessGrant } from "@/app/club/staff/actions";
 import { ClubStaffManageAccess } from "@/components/club-staff-manage-access";
 import { ClubOwnerTransfer } from "@/components/club-owner-transfer";
 
@@ -43,7 +43,7 @@ export default async function ClubStaffPage({ searchParams }: { searchParams?: P
   const canManageStaff = context ? await context.repository.hasCapability(context.organisation.id, user.id, "staff.permissions_manage") : false;
   if (!context || !canManageStaff) return <AppShell className="module-page club-page"><PageHeader title="Staff" description="Staff management is restricted to organisation managers." /><EmptyState title="Management access required">Ask an owner or manager to review your Club permissions.</EmptyState><AppNav /></AppShell>;
 
-  const [locations, staffResult, pendingResult, locationResult, overrideResult, coachResult, invitationResult] = await Promise.all([
+  const [locations, staffResult, pendingResult, locationResult, overrideResult, coachResult, invitationResult, operationalAssignmentsResult] = await Promise.all([
     context.repository.listLocations(context.organisation.id),
     supabase.rpc("club_list_staff_accounts", { p_organisation_id: context.organisation.id }),
     supabase.from("club_staff_access_grants").select("id,email_normalized,display_name,intended_role,status,location_ids,coach_requested,member_intent,created_at,expires_at").eq("organisation_id", context.organisation.id).eq("status", "pending").order("created_at", { ascending: false }),
@@ -51,6 +51,7 @@ export default async function ClubStaffPage({ searchParams }: { searchParams?: P
     supabase.from("club_staff_permission_overrides").select("user_id,capability,decision").eq("organisation_id", context.organisation.id),
     supabase.rpc("coach_list_permissions", { p_organisation_id: context.organisation.id }),
     supabase.rpc("club_list_staff_invitation_notifications", { p_organisation_id: context.organisation.id }),
+    supabase.rpc("club_madhouse_list_staff_assignments", { p_organisation_id: context.organisation.id }),
   ]);
   const staff = (Array.isArray(staffResult.data) ? staffResult.data : []) as StaffAccountRow[];
   const pendingRows = Array.isArray(pendingResult.data) ? pendingResult.data : [];
@@ -58,6 +59,7 @@ export default async function ClubStaffPage({ searchParams }: { searchParams?: P
   const overrideRows = Array.isArray(overrideResult.data) ? overrideResult.data : [];
   const coachRows = Array.isArray(coachResult.data) ? coachResult.data : [];
   const invitationRows = Array.isArray(invitationResult.data) ? invitationResult.data : [];
+  const operationalAssignments = Array.isArray(operationalAssignmentsResult.data) ? operationalAssignmentsResult.data : [];
   const invitationStatus = new Map(invitationRows.map(row => [String(row.grant_id), row]));
   const locationNames = new Map(locations.map(location => [location.id, location.name]));
   const staffLocations = new Map<string, string[]>();
@@ -97,6 +99,17 @@ export default async function ClubStaffPage({ searchParams }: { searchParams?: P
       })}</div> : <EmptyState title="No staff accounts yet">Send an invitation to give a team member Club access.</EmptyState>}
       {suspendedStaff.length ? <details className="staff-suspended-list"><summary>Suspended access <small>{suspendedStaff.length}</small></summary><div className="staff-list">{suspendedStaff.map(member => <article className="staff-person" key={member.member_id}><div className="staff-person-avatar" aria-hidden="true">{initials(member.display_name)}</div><div className="staff-person-main"><strong>{member.display_name}</strong><span>{member.email ?? "No profile email"}</span></div><div className="staff-person-access"><strong>{roleLabel(member.role)}</strong><small>{(staffLocations.get(member.user_id) ?? []).map(id => locationNames.get(id)).filter(Boolean).join(" + ") || "No venues assigned"}</small></div><span className="staff-status is-suspended">Suspended</span><ClubStaffManageAccess organisationId={context.organisation.id} userId={member.user_id} name={member.display_name} email={member.email} role={member.role} active={member.active} locationIds={staffLocations.get(member.user_id) ?? []} locations={locations} overrides={staffOverrides.get(member.user_id) ?? []} coachEnabled={coachAccess.get(member.user_id) === true} gymMembership={member.is_gym_member ? member.membership_name ?? "Active" : "None"} /></article>)}</div></details> : null}
     </Surface>
+
+    {operationalAssignments.length ? <Surface>
+      <div className="staff-section-heading"><div><span className="eyebrow">MADHOUSE ROTA & CLASSES</span><h2>Prepared staff identities</h2><p className="muted">These operational assignments do not grant system access. Link the verified invitation to reconcile future classes and shifts after acceptance.</p></div></div>
+      <div className="staff-list">{operationalAssignments.map(row => {
+        const assignmentId = String(row.assignment_id);
+        const name = String(row.canonical_name);
+        const locationsForAssignment = Array.isArray(row.location_ids) ? row.location_ids.map((id: unknown) => locationNames.get(String(id))).filter(Boolean).join(" + ") : "";
+        const candidates = pendingRows.filter(grant => String(grant.display_name ?? "").trim().split(/\s+/)[0]?.toLowerCase() === name.toLowerCase());
+        return <article className="staff-invite" key={assignmentId}><div className="staff-invite-main"><strong>{name}</strong><span>{locationsForAssignment || "No locations"}</span><small>{row.grant_status ? `Invitation ${String(row.grant_status)}` : "No invitation linked"}</small></div>{candidates.length ? <form className="staff-invite-actions" action={async (formData: FormData) => { "use server"; const grantId = String(formData.get("grantId") ?? ""); if (grantId) await linkOperationalStaffInvitation({ organisationId: context.organisation.id, assignmentId, grantId }); }}><select name="grantId" aria-label={`Invitation for ${name}`} defaultValue=""><option value="" disabled>Choose matching invite</option>{candidates.map(grant => <option key={String(grant.id)} value={String(grant.id)}>{String(grant.email_normalized)}</option>)}</select><button className="secondary" type="submit">Link invitation</button></form> : null}</article>;
+      })}</div>
+    </Surface> : null}
 
     <Surface>
       <div className="staff-section-heading"><div><span className="eyebrow">INVITATIONS</span><h2>Pending invitations</h2><p className="muted">Invites are separate from active staff access.</p></div><span className="staff-count">{pendingRows.length} waiting</span></div>

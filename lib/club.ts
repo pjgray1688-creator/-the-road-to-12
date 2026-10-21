@@ -22,7 +22,7 @@ export function resolveOrganisationTheme(organisation: Organisation | undefined)
 
 const timestamp = (value: string | Date) => new Date(value).getTime();
 export function isValidAt(validity: Validity, at: string | Date): boolean { const point = timestamp(at); return point >= timestamp(validity.startsAt) && (validity.endsAt === undefined || point < timestamp(validity.endsAt)); }
-export function periodKey(period: "week" | "month" | "block", at: string | Date): string { const date = new Date(at); if (period === "month") return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`; if (period === "week") { const anchor = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())); const day = anchor.getUTCDay() || 7; anchor.setUTCDate(anchor.getUTCDate() - day + 1); return anchor.toISOString().slice(0, 10); } return "block"; }
+export function periodKey(period: "week" | "month" | "block", at: string | Date): string { const date = new Date(at); if (period === "month") return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`; if (period === "week") { const parts = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(date); const value = (type: string) => Number(parts.find(part => part.type === type)?.value); const localDate = new Date(Date.UTC(value("year"), value("month") - 1, value("day"))); const weekday = localDate.getUTCDay() || 7; localDate.setUTCDate(localDate.getUTCDate() + 4 - weekday); const isoYear = localDate.getUTCFullYear(); const jan4 = new Date(Date.UTC(isoYear, 0, 4)); const week1Monday = new Date(Date.UTC(isoYear, 0, 4 - (jan4.getUTCDay() || 7) + 1)); const week = Math.floor((localDate.getTime() - week1Monday.getTime()) / 604800000) + 1; return `${isoYear}-W${String(week).padStart(2, "0")}`; } return "block"; }
 export function grantAppliesToLocation(grant: EntitlementGrant, organisationId: string, locationId?: string): boolean { if (grant.organisationId !== organisationId) return false; if (grant.scope === "future_locations") return true; if (grant.scope === "organisation" && !grant.locationIds?.length) return true; return Boolean(locationId && grant.locationIds?.includes(locationId)); }
 export function resolveEntitlements(userId: string, grants: EntitlementGrant[], at: string | Date = new Date()): EntitlementGrant[] { return grants.filter(grant => grant.userId === userId && isValidAt(grant.validity, at)); }
 export function canAccess(userId: string, key: string, grants: EntitlementGrant[], at: string | Date = new Date()): boolean { return resolveEntitlements(userId, grants, at).some(grant => grant.entitlementKey === key); }
@@ -34,11 +34,9 @@ export function consumeAllowance(grant: EntitlementGrant, quantity: number, usag
 /** Safe acceptance fixtures for deterministic tests/manual review; not production seed data. */
 export const clubAcceptanceFixtures = {
   dayPass: { kind: "membership", billing: "one_off", durationDays: 1, priceMinor: 500 },
-  monthlyClasses: { kind: "membership", billing: "recurring", priceMinor: 2700, classCredits: 4, period: "month" },
-  yearlyClasses: { kind: "membership", billing: "one_off", durationDays: 365, priceMinor: 25000, classCredits: 1, period: "week" },
-  bronze: { kind: "transformation", billing: "one_off", durationDays: 70, ptPerWeek: 1 },
-  silver: { kind: "transformation", billing: "one_off", durationDays: 70, ptPerWeek: 2 },
-  gold: { kind: "transformation", billing: "one_off", durationDays: 70, ptPerWeek: 3 },
+  bronze: { kind: "transformation", billing: "one_off", durationDays: 70, ptPerWeek: 1, classPerWeek: 1 },
+  silver: { kind: "transformation", billing: "one_off", durationDays: 70, ptPerWeek: 2, classPerWeek: 1 },
+  gold: { kind: "transformation", billing: "one_off", durationDays: 70, ptPerWeek: 3, classPerWeek: 1 },
   ptBlock: { kind: "pt", billing: "one_off", credits: 10 },
   goldenTicket: { kind: "membership", billing: "one_off", lifetime: true, futureLocations: true, monthlyDiscountPercent: 20, monthlyDiscountUses: 1 },
 } as const;

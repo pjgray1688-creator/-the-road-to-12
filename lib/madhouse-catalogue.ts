@@ -15,15 +15,16 @@ const transformation = (weeklyPtCredits: number): CatalogueEntitlement[] => [
   { entitlementKey: "nutrition", scope: "organisation" },
   { entitlementKey: "trainer_managed", scope: "organisation" },
   { entitlementKey: "pt_session_credit", scope: "organisation", allowance: { quantity: weeklyPtCredits, period: "week" } },
+  { entitlementKey: "included_class_credit", scope: "organisation", allowance: { quantity: 1, period: "week" } },
 ];
 
 export const madhouseCatalogue: readonly CatalogueProduct[] = [
   { name: "Gym Day Pass", kind: "membership", priceMinor: 500, currency: "GBP", billing: "one_off", durationDays: 1, sellable: true, entitlements: [gymAccess] },
   { name: "Week Pass", kind: "membership", priceMinor: 1200, currency: "GBP", billing: "one_off", durationDays: 7, sellable: true, entitlements: [gymAccess] },
   { name: "Concession Monthly", kind: "membership", priceMinor: 2200, currency: "GBP", billing: "recurring", sellable: true, entitlements: [gymAccess] },
-  { name: "Standard Monthly", kind: "membership", priceMinor: 2700, currency: "GBP", billing: "recurring", sellable: true, entitlements: [gymAccess, { entitlementKey: "class_access", scope: "organisation", allowance: { quantity: 4, period: "month" } }] },
+  { name: "Standard Monthly", kind: "membership", priceMinor: 2700, currency: "GBP", billing: "recurring", sellable: true, entitlements: [gymAccess] },
   { name: "Couples Membership", kind: "membership", priceMinor: 4500, currency: "GBP", billing: "recurring", sellable: true, entitlements: [gymAccess] },
-  { name: "Yearly Membership", kind: "membership", priceMinor: 25000, currency: "GBP", billing: "one_off", durationDays: 365, sellable: true, entitlements: [gymAccess, { entitlementKey: "class_access", scope: "organisation", allowance: { quantity: 1, period: "week" } }] },
+  { name: "Yearly Membership", kind: "membership", priceMinor: 25000, currency: "GBP", billing: "one_off", durationDays: 365, sellable: true, entitlements: [gymAccess] },
   { name: "Transformation Bronze", kind: "transformation", priceMinor: 25000, currency: "GBP", billing: "one_off", durationDays: 70, sellable: true, entitlements: transformation(1) },
   { name: "Transformation Silver", kind: "transformation", priceMinor: 40000, currency: "GBP", billing: "one_off", durationDays: 70, sellable: true, entitlements: transformation(2) },
   { name: "Transformation Gold", kind: "transformation", priceMinor: 52500, currency: "GBP", billing: "one_off", durationDays: 70, sellable: true, entitlements: transformation(3) },
@@ -32,8 +33,9 @@ export const madhouseCatalogue: readonly CatalogueProduct[] = [
   { name: "Golden Ticket Founding Membership", kind: "membership", priceMinor: 50000, currency: "GBP", billing: "one_off", isLifetime: true, sellable: false, entitlements: [gymAccess, { entitlementKey: "discount", scope: "organisation", discount: { percent: 20, period: "month", maxUses: 1 } }] },
 ] as const;
 
-// £3 member and £5 non-member class purchases are deliberately excluded: they
-// are booking/commerce prices, not durable entitlement definitions in this model.
+// Class bookings are PAYG. No membership or transformation class entitlement
+// is inferred from catalogue data; package-specific class credits require an
+// explicit configured entitlement and transactional consumption flow.
 
 export function materialiseCatalogueProduct(definition: CatalogueProduct, organisationId: string, productId = `catalogue:${definition.name}`): ClubProduct {
   return { ...definition, id: productId, organisationId, entitlements: definition.entitlements.map(entitlement => ({ ...entitlement, productId })) };

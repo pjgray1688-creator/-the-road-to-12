@@ -1,0 +1,14 @@
+"use client";
+
+type Cancellation = { bookingId: string; memberName: string | null; className: string | null; venue: string | null; fundingType: string; cancellationActor: string; originalBookingDate: string | null; cancelledAt: string; creditIssued: boolean; entitlementRestored: boolean; lateCancellation: boolean; reason: string | null };
+type Repeat = { memberId: string; memberName: string | null; cancellationCount: number };
+type Credit = { creditId: string; memberName: string; className: string; venue: string; bookingId: string; fundingMethod: string; sourceReference: string | null; issuer: string; issuedAt: string; expiresAt: string; status: string; redeemedAt: string | null; redeemedBookingId: string | null };
+const date = (value: string | null) => value ? new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London", dateStyle: "medium", timeStyle: "short" }).format(new Date(value)) : "Unavailable";
+
+export function ClubClassReports({ cancellations, repeats, credits }: { cancellations: Cancellation[]; repeats: Repeat[]; credits: Credit[] }) {
+  return <div className="club-detail-list">
+    <section><h2>Repeated cancellations</h2>{repeats.length ? repeats.map(item => <p key={item.memberId}>{item.memberName ?? "Member"} · {item.cancellationCount} cancellations in the report window</p>) : <p className="muted">No member has cancelled more than once in this period. No automatic penalties apply.</p>}</section>
+    <section><h2>Class cancellations</h2>{cancellations.length ? cancellations.map(item => <article className="club-detail-row" key={item.bookingId}><div><strong>{item.memberName ?? "Member"} · {item.className ?? "Class"}</strong><small>{item.venue ?? "Venue unavailable"} · {item.cancellationActor} cancellation · {item.fundingType}</small><small>Booked {date(item.originalBookingDate)} · cancelled {date(item.cancelledAt)}</small><small>{item.creditIssued ? "Reusable class credit issued" : item.entitlementRestored ? "Original weekly entitlement restored" : "No credit issued"}{item.lateCancellation ? " · late cancellation" : ""}{item.reason ? ` · ${item.reason}` : ""}</small></div></article>) : <p className="muted">No cancellations in the report window.</p>}</section>
+    <section><h2>Reusable class credit ledger</h2>{credits.length ? credits.map(item => <article className="club-detail-row" key={item.creditId}><div><strong>{item.memberName} · {item.className}</strong><small>{item.venue} · issued after {item.issuer.replace("_", " ")} · source {item.fundingMethod}{item.sourceReference ? ` · ${item.sourceReference}` : ""}</small><small>{item.status} · issued {date(item.issuedAt)} · expires {date(item.expiresAt)}</small><small>{item.redeemedAt ? `Redeemed ${date(item.redeemedAt)} · booking ${item.redeemedBookingId ?? "recorded"}` : `Original booking ${item.bookingId}`}</small></div></article>) : <p className="muted">No reusable credits issued in this period.</p>}</section>
+  </div>;
+}

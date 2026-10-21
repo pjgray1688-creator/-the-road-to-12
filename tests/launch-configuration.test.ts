@@ -24,6 +24,8 @@ test("launch readiness reports missing and invalid settings without returning th
     STRIPE_WEBHOOK_SECRET: "whsec_private", GOCARDLESS_ENVIRONMENT: "production", GOCARDLESS_ACCESS_TOKEN: "token_private",
   } as NodeJS.ProcessEnv);
   assert.equal(checks.find(check => check.key === "stripeSecret")?.state, "invalid");
+  assert.equal(checks.find(check => check.key === "madhouseClassStripe")?.state, "missing");
+  assert.equal(checks.find(check => check.key === "madhouseClassStripeWebhook")?.state, "missing");
   assert.equal(checks.find(check => check.key === "goCardlessEnvironment")?.state, "invalid");
   assert.equal(checks.find(check => check.key === "billingWorker")?.state, "missing");
   assert.equal(checks.find(check => check.key === "emailProvider")?.state, "missing");
@@ -32,6 +34,15 @@ test("launch readiness reports missing and invalid settings without returning th
   assert.match(checks.find(check => check.key === "workerSchedules")?.detail ?? "", /daily at 06:00 UTC/);
   assert.equal(checks.find(check => check.key === "supabaseAnon")?.state, "missing");
   assert.doesNotMatch(JSON.stringify(checks), /private|whsec|token_private/);
+});
+
+test("class Stripe readiness requires its separate Products & Services test account", () => {
+  const checks = launchReadiness(env({ STRIPE_SECRET_KEY: "sk_test_franchise", STRIPE_PRODUCTS_SERVICES_SECRET_KEY: "sk_test_products", STRIPE_PRODUCTS_SERVICES_WEBHOOK_SECRET: "whsec_products" }));
+  assert.equal(checks.find(check => check.key === "madhouseClassStripe")?.state, "configured");
+  assert.equal(checks.find(check => check.key === "madhouseClassStripeWebhook")?.state, "configured");
+  assert.match(checks.find(check => check.key === "madhouseClassStripe")?.detail ?? "", /account ownership.*external verification/i);
+  const unsafeLive = launchReadiness(env({ STRIPE_PRODUCTS_SERVICES_SECRET_KEY: "sk_live_products" }));
+  assert.equal(unsafeLive.find(check => check.key === "madhouseClassStripe")?.state, "disabled");
 });
 
 test("production readiness requires the GoCardless live mode and validates Supabase public configuration", () => {

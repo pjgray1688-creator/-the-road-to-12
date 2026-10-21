@@ -63,6 +63,7 @@ Workers are safe to invoke repeatedly: billing uses durable claims and stable pr
 ## Provider endpoints
 
 - Stripe webhook: `https://r12.live/api/webhooks/stripe` (after `/api/*` is proxied)
+- Madhouse class Stripe webhook: `https://r12.live/api/webhooks/stripe/classes` (Products & Services account only)
 - GoCardless webhook: `https://r12.live/api/webhooks/gocardless` (after `/api/*` is proxied)
 - GoCardless redirect callback: `https://r12.live/api/club/join/gocardless/complete` (after `/api/*` is proxied)
 - Membership billing worker: `GET https://r12.live/api/internal/membership-billing-worker`
@@ -71,7 +72,7 @@ Workers are safe to invoke repeatedly: billing uses durable claims and stable pr
 
 Vercel Cron supplies the bearer header from `CRON_SECRET`. Trusted manual calls may use the corresponding dedicated worker secret or `CRON_SECRET`; never put a secret in a URL or log.
 
-Stripe Checkout uses the server secret key and does not require a publishable key. Subscribe the Stripe endpoint to `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`, `checkout.session.expired`, and `payment_intent.payment_failed`. Copy the endpoint-specific signing secret into `STRIPE_WEBHOOK_SECRET`.
+Membership Stripe Checkout uses the Franchise account configured by `STRIPE_SECRET_KEY`; its endpoint-specific signing secret goes in `STRIPE_WEBHOOK_SECRET`. Madhouse class Checkout uses the separate Products & Services account configured by `STRIPE_PRODUCTS_SERVICES_SECRET_KEY`; its endpoint-specific signing secret goes in `STRIPE_PRODUCTS_SERVICES_WEBHOOK_SECRET`. For class testing, use a test-mode secret beginning `sk_test_`, configure the endpoint at `/api/webhooks/stripe/classes` in that same Stripe account's test mode, and subscribe it to `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`, `checkout.session.expired`, and `payment_intent.payment_failed`. Do not copy the Franchise webhook secret into the class setting. Leave `MADHOUSE_CLASS_STRIPE_LIVE_ENABLED` unset or `false`; the class provider rejects live keys unless that flag is explicitly enabled.
 
 Configure GoCardless webhook events for mandate and payment lifecycle changes used by the integration. Copy the webhook secret for the selected environment into `GOCARDLESS_WEBHOOK_SECRET`; sandbox and live have separate credentials and webhook endpoints/configuration.
 

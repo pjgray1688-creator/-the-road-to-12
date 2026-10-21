@@ -23,6 +23,8 @@ export function launchReadiness(env: NodeJS.ProcessEnv = process.env): Readiness
   const stripeKeyValidFormat = Boolean(stripeKey && /^(sk|rk)_(live|test)_/.test(stripeKey));
   const stripeKeyState: ReadinessState = !stripeKey ? "missing" : env.NODE_ENV === "production" && stripeKey.startsWith("sk_test_") ? "invalid" : stripeKeyValidFormat ? "configured" : "invalid";
   const stripeKeyDetail = !stripeKey ? "Required server setting is missing." : stripeKeyState === "invalid" ? "Key format is unexpected or a test key is configured for production." : "Value is present; Stripe account validity is not checked here.";
+  const classStripeKey = env.STRIPE_PRODUCTS_SERVICES_SECRET_KEY?.trim();
+  const classStripeKeyState: ReadinessState = !classStripeKey ? "missing" : !/^sk_(test|live)_/.test(classStripeKey) ? "invalid" : classStripeKey.startsWith("sk_live_") && env.MADHOUSE_CLASS_STRIPE_LIVE_ENABLED !== "true" ? "disabled" : classStripeKey.startsWith("sk_test_") && env.NODE_ENV === "production" ? "invalid" : "configured";
   const environment = env.GOCARDLESS_ENVIRONMENT?.trim().toLowerCase();
   const smtp = inspectSmtpConfiguration(env);
   const emailProvider = env.R12_EMAIL_PROVIDER?.trim().toLowerCase();
@@ -38,6 +40,8 @@ export function launchReadiness(env: NodeJS.ProcessEnv = process.env): Readiness
     { key: "clubStationSession", label: "Shared Club station session signing key", state: env.R12_CLUB_STATION_SESSION_SECRET && Buffer.byteLength(env.R12_CLUB_STATION_SESSION_SECRET) >= 32 ? "configured" : "missing", detail: "A random server-only key of at least 32 bytes is required to bind station unlocks to the selected signed-in staff identity." },
     { key: "stripeSecret", label: "Stripe secret key", state: stripeKeyState, detail: stripeKeyDetail },
     presence("stripeWebhook", "Stripe webhook signing secret", env.STRIPE_WEBHOOK_SECRET),
+    { key: "madhouseClassStripe", label: "Madhouse class Stripe · Products & Services", state: classStripeKeyState, detail: classStripeKeyState === "missing" ? "Set the separate Products & Services Stripe test secret key; the membership Franchise key is never used for classes." : classStripeKeyState === "disabled" ? "Live class payments are disabled until explicitly approved." : classStripeKeyState === "invalid" ? "Use a valid test key outside production; live payment requires explicit enablement." : "Key is present; Stripe account ownership and webhook delivery still require external verification." },
+    presence("madhouseClassStripeWebhook", "Products & Services class webhook signing secret", env.STRIPE_PRODUCTS_SERVICES_WEBHOOK_SECRET),
     presence("goCardlessToken", "GoCardless access token", env.GOCARDLESS_ACCESS_TOKEN),
     { key: "goCardlessEnvironment", label: "GoCardless environment", state: goCardlessState, detail: !environment ? "Set sandbox or live explicitly; production must be live." : goCardlessState === "invalid" ? productionGoCardless ? "Production requires GOCARDLESS_ENVIRONMENT=live." : "Use exactly sandbox or live." : `Selected environment: ${environment}.` },
     presence("goCardlessWebhook", "GoCardless webhook signing secret", env.GOCARDLESS_WEBHOOK_SECRET),

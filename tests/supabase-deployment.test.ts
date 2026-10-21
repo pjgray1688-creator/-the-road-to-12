@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { existsSync } from "node:fs";
 import test from "node:test";
@@ -12,6 +13,8 @@ const manualBundlePath = "supabase/deployment/2026-11-22-madhouse-manual-reconci
 const manualBundle = readFileSync(manualBundlePath, "utf8");
 const finalBundlePath = "supabase/deployment/2026-11-22-madhouse-final-state-reconciliation.sql";
 const finalBundle = readFileSync(finalBundlePath, "utf8");
+const madhouseClassForwardPath = "supabase/deployment/2027-01-04-madhouse-class-booking-forward.sql";
+const madhouseClassForward = readFileSync(madhouseClassForwardPath, "utf8");
 const commerceFoundation = readFileSync("supabase/migrations/2026-09-08-club-commerce-payments-inventory.sql", "utf8");
 const commerceBrand = readFileSync("supabase/migrations/2026-09-20-club-commerce-product-brand.sql", "utf8");
 
@@ -139,9 +142,28 @@ test("supplier RPCs use the final commerce and supplier column contracts", () =>
   assert.match(manualBundle, /do \$constraint\$[\s\S]*club_commerce_products_brand_length/);
 });
 
-test("final-state reconciliation is the smaller canonical deployment package", () => {
+test("November reconciliation remains date-bounded and class changes have a separate forward artifact", () => {
   assert.ok(existsSync(finalBundlePath));
-  assert.ok(finalBundle.split(/\r?\n/).length < manualBundle.split(/\r?\n/).length);
+  assert.doesNotMatch(finalBundle, /2027-01-0[4-9]-madhouse/);
+  assert.ok(existsSync(madhouseClassForwardPath));
+  const classMigrationNames = [
+    "2027-01-04-madhouse-class-booking-fail-closed.sql",
+    "2027-01-05-madhouse-weekly-operations-import.sql",
+    "2027-01-06-madhouse-trusted-station-checkin.sql",
+    "2027-01-07-madhouse-class-credit-iso-weeks.sql",
+    "2027-01-08-madhouse-daily-checks-import.sql",
+    "2027-01-09-madhouse-class-payments-and-register.sql",
+  ];
+  let previousIndex = -1;
+  for (const name of classMigrationNames) {
+    const index = madhouseClassForward.indexOf(`-- BEGIN ${name}`);
+    assert.ok(index > previousIndex, `${name} is present in forward dependency order`);
+    const source = `supabase/migrations/${name}`;
+    assert.match(madhouseClassForward, new RegExp(`migration_name='${source}'`));
+    const checksum = createHash("sha256").update(readFileSync(source)).digest("hex");
+    assert.ok(madhouseClassForward.includes(`'${source}','${checksum}'`), `${name} ledger checksum matches its migration file`);
+    previousIndex = index;
+  }
   assert.match(finalBundle, /R12 MADHOUSE FINAL-STATE RECONCILIATION/);
   assert.match(finalBundle, /Copy this entire file into Supabase SQL Editor and run once/);
   assert.match(finalBundle, /FINAL RECONCILIATION MARKER/);

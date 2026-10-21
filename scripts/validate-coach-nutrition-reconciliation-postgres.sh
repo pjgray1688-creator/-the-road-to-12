@@ -238,11 +238,19 @@ psql_db "$state_c" --single-transaction --file=supabase/migrations/2026-12-31-ca
 psql_db "$state_c" --file=supabase/migrations/2027-01-01-club-access-safety-empty-booking-fix.sql
 psql_db "$state_c" --single-transaction --file=supabase/migrations/2027-01-02-golden-ticket-lifetime-memberships.sql
 psql_db "$state_c" --single-transaction --file=supabase/migrations/2027-01-03-paypal-pay-in-3-checkout-foundation.sql
+psql_db "$state_c" --single-transaction --file=supabase/migrations/2027-01-04-madhouse-class-booking-fail-closed.sql
+psql_db "$state_c" --single-transaction --file=supabase/migrations/2027-01-05-madhouse-weekly-operations-import.sql
+psql_db "$state_c" --single-transaction --file=supabase/migrations/2027-01-06-madhouse-trusted-station-checkin.sql
+psql_db "$state_c" --single-transaction --file=supabase/migrations/2027-01-07-madhouse-class-credit-iso-weeks.sql
+psql_db "$state_c" --single-transaction --file=supabase/migrations/2027-01-08-madhouse-daily-checks-import.sql
+psql_db "$state_c" --single-transaction --file=supabase/migrations/2027-01-09-madhouse-class-payments-and-register.sql
+psql_db "$state_c" --single-transaction --file=supabase/migrations/2027-01-10-madhouse-pending-staff-assignments.sql
 
 # These fixtures have separate synthetic identities and each owns a BEGIN /
 # ROLLBACK boundary. Continue across independent fixture files so one SQL
 # failure cannot hide diagnostics from the rest of the disposable test suite.
 run_sql_fixture "Household billing lifecycle" tests/sql/member-household-billing-lifecycle.sql
+run_sql_fixture "Madhouse weekly operations import" tests/sql/madhouse-weekly-operations-import.sql
 run_sql_fixture "Notification outbox permissions and retry" tests/sql/notification-outbox-launch.sql
 run_sql_fixture "Notification generation" tests/sql/notification-generation-launch.sql
 run_sql_fixture "Staff owner transfer" tests/sql/staff-owner-transfer.sql

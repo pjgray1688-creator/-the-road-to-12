@@ -23,10 +23,11 @@ test("Madhouse catalogue is the exact typed twelve-product source of truth", () 
 });
 
 test("membership, transformation and PT catalogue benefits retain exact semantics", () => {
-  assert.deepEqual(entitlement(byName("Standard Monthly"), "class_access")?.allowance, { quantity: 4, period: "month" });
-  assert.deepEqual(entitlement(byName("Yearly Membership"), "class_access")?.allowance, { quantity: 1, period: "week" });
+  assert.equal(entitlement(byName("Standard Monthly"), "class_access"), undefined);
+  assert.equal(entitlement(byName("Yearly Membership"), "class_access"), undefined);
   for (const [level, credits] of [["Bronze", 1], ["Silver", 2], ["Gold", 3]] as const) {
     const product = byName(`Transformation ${level}`); assert.deepEqual(entitlement(product, "pt_session_credit")?.allowance, { quantity: credits, period: "week" });
+    assert.deepEqual(entitlement(product, "included_class_credit")?.allowance, { quantity: 1, period: "week" });
     for (const feature of ["enhanced_training", "nutrition", "trainer_managed"]) assert.equal(entitlement(product, feature)?.scope, "organisation");
   }
   assert.ok(madhouseCatalogue.filter(product => product.entitlements.some(item => item.entitlementKey === "gym_access")).every(product => entitlement(product, "gym_access")?.scope === "future_locations"));

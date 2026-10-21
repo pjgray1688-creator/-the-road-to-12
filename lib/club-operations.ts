@@ -8,11 +8,11 @@ export type ClubClassSessionVisibility = "public" | "members_only" | "private";
 export type ClubClassSession = {
   id: string; organisationId: string; locationId: string; classTypeId: string; hostUserId?: string; title?: string;
   startsAt: string; endsAt: string; capacity?: number; bookingOpensAt?: string; bookingClosesAt?: string; cancellationClosesAt?: string;
-  visibility: ClubClassSessionVisibility; status: ClubClassSessionStatus; recurrenceMetadata?: Record<string, unknown>; createdAt: string; updatedAt: string;
+  visibility: ClubClassSessionVisibility; status: ClubClassSessionStatus; instructorName?: string; recurrenceMetadata?: Record<string, unknown>; createdAt: string; updatedAt: string;
 };
 export type ClubClassAvailability = { sessionId: string; capacity?: number; confirmedCount: number; spacesRemaining?: number; waitlistedCount: number; isFull: boolean };
 
-export type ClubBookingStatus = "confirmed" | "cancelled" | "waitlisted";
+export type ClubBookingStatus = "confirmed" | "cancelled" | "waitlisted" | "pending_payment" | "cash_due" | "payment_failed";
 export type ClubAttendanceState = "pending" | "checked_in" | "attended" | "no_show";
 export type ClubClassBooking = {
   id: string; organisationId: string; sessionId: string; customerId: string; status: ClubBookingStatus; bookedAt: string; cancelledAt?: string;

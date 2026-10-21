@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { AppNav } from "@/components/app-nav";
 import { ClubClassesWorkspace } from "@/components/club-classes";
 import { AppShell, BackButton, EmptyState, PageHeader } from "@/components/ui";
@@ -21,11 +22,12 @@ function LoadError() {
 
 function LoadedClasses({ theme, organisation, classTypes, sessions, locations, members, availability, role, userId, today, contexts }: { theme: ReturnType<typeof resolveOrganisationTheme>; organisation: import("@/lib/club").Organisation; classTypes: ClubClassType[]; sessions: ClubClassSession[]; locations: OrganisationLocation[]; members: OrganisationMember[]; availability: Record<string, ClubClassAvailability | null>; role: ClubRole; userId: string; today: string; contexts?: Array<{ organisation: import("@/lib/club").Organisation; role: ClubRole }> }) {
   if (!(["gym_staff", "gym_admin", "owner", "trainer"] as ClubRole[]).includes(role)) return <MemberClassesLoaded organisation={organisation} sessions={sessions} availability={availability} bookings={[]} contexts={contexts} />;
-  return <AppShell className="module-page club-classes-page"><PageHeader eyebrow="R12 CLUB · CLASSES" title="Classes" description="Classes, capacity and timetable management." /><ClubSectionNav organisation={organisation} role={role} contexts={contexts} /><ClubClassesWorkspace classTypes={classTypes} sessions={sessions} locations={locations} members={members} availability={availability} role={role} currentUserId={userId} today={today} accent={theme.primaryAccent} /><BackButton href={`/club?org=${encodeURIComponent(organisation.id)}`}>Back to Club</BackButton><AppNav /></AppShell>;
+  return <AppShell className="module-page club-classes-page"><PageHeader eyebrow="R12 CLUB · CLASSES" title="Classes" description="Classes, capacity and timetable management." /><ClubSectionNav organisation={organisation} role={role} contexts={contexts} />{["gym_staff", "gym_admin", "owner"].includes(role) ? <Link className="text-button" href={`/club/classes/reports?org=${encodeURIComponent(organisation.id)}`}>Cancellation and credit reports</Link> : null}{["gym_admin", "owner"].includes(role) ? <Link className="text-button" href={`/club/classes/setup?org=${encodeURIComponent(organisation.id)}`}>Class, rota and daily-check setup</Link> : null}<ClubClassesWorkspace classTypes={classTypes} sessions={sessions} locations={locations} members={members} availability={availability} role={role} currentUserId={userId} today={today} accent={theme.primaryAccent} organisationId={organisation.id} /><BackButton href={`/club?org=${encodeURIComponent(organisation.id)}`}>Back to Club</BackButton><AppNav /></AppShell>;
 }
 
-function MemberClassesLoaded({ organisation, sessions, availability, bookings, customerId, contexts }: { organisation: import("@/lib/club").Organisation; sessions: ClubClassSession[]; availability: Record<string, ClubClassAvailability | null>; bookings: ClubClassBooking[]; customerId?: string; contexts?: Array<{ organisation: import("@/lib/club").Organisation; role: ClubRole }> }) {
-  return <AppShell className="module-page club-classes-page"><PageHeader eyebrow="MY CLUB" title="Classes" description="Book an upcoming class or manage your bookings." /><ClubSectionNav organisation={organisation} role="member" contexts={contexts} /><ClubMemberClasses sessions={sessions} availability={availability} bookings={bookings} customerId={customerId} /><BackButton href={`/club?org=${encodeURIComponent(organisation.id)}`}>Back to My Club</BackButton><AppNav /></AppShell>;
+type ClassCreditInfo = { credits: Array<{ id: string; issuedAt: string; expiresAt: string; status: "available" | "used" | "expired"; issuer: "member_cancellation" | "madhouse_cancellation" }>; history?: Array<{ eventType: string; bookingId: string | null; sourceBookingId: string; occurredAt: string }>; weeklyEntitlements: Array<{ sessionId: string; classWeek: string; status: "available" | "used" | "not_included" }> };
+function MemberClassesLoaded({ organisation, sessions, availability, bookings, customerId, paygPriceMinor, classCredits, contexts }: { organisation: import("@/lib/club").Organisation; sessions: ClubClassSession[]; availability: Record<string, ClubClassAvailability | null>; bookings: ClubClassBooking[]; customerId?: string; paygPriceMinor?: number; classCredits?: ClassCreditInfo; contexts?: Array<{ organisation: import("@/lib/club").Organisation; role: ClubRole }> }) {
+  return <AppShell className="module-page club-classes-page"><PageHeader eyebrow="MY CLUB" title="Classes" description="View upcoming classes and manage your bookings." /><ClubSectionNav organisation={organisation} role="member" contexts={contexts} /><ClubMemberClasses sessions={sessions} availability={availability} bookings={bookings} customerId={customerId} paygPriceMinor={paygPriceMinor} classCredits={classCredits} /><BackButton href={`/club?org=${encodeURIComponent(organisation.id)}`}>Back to My Club</BackButton><AppNav /></AppShell>;
 }
 
 async function loadClasses(supabase: Awaited<ReturnType<typeof serverSupabase>>, userId: string, organisationId?: string) {
@@ -37,7 +39,14 @@ async function loadClasses(supabase: Awaited<ReturnType<typeof serverSupabase>>,
   const availability = Object.fromEntries(visibleSessions.map((session, index) => [session.id, availabilityResults[index].status === "fulfilled" ? availabilityResults[index].value : null]));
   const profile = ["gym_staff", "gym_admin", "owner", "trainer"].includes(context.role) ? undefined : await context.repository.getMemberOperationalProfile(context.organisation.id, userId);
   const bookings = profile?.customer?.id ? (await context.repository.listClassBookings(context.organisation.id)).filter(item => item.customerId === profile.customer!.id) : [];
-  return { context, classTypes, locations, visibleSessions, today, availability, theme: resolveOrganisationTheme(context.organisation), memberCustomerId: profile?.customer?.id, memberBookings: bookings };
+  const [pricingResult, creditResult] = await Promise.all([
+    supabase.from("club_madhouse_class_commercial_config").select("payg_price_minor,currency").eq("organisation_id", context.organisation.id).maybeSingle(),
+    profile?.customer?.id ? supabase.rpc("club_list_my_class_credits", { p_organisation_id: context.organisation.id }) : Promise.resolve({ data: null, error: null }),
+  ]);
+  const classPricing = pricingResult.data;
+  const paygPriceMinor = classPricing?.currency === "GBP" && Number.isInteger(classPricing.payg_price_minor) ? Number(classPricing.payg_price_minor) : undefined;
+  const classCredits = creditResult.data && !creditResult.error ? creditResult.data as ClassCreditInfo : undefined;
+  return { context, classTypes, locations, visibleSessions, today, availability, theme: resolveOrganisationTheme(context.organisation), memberCustomerId: profile?.customer?.id, memberBookings: bookings, paygPriceMinor, classCredits };
 }
 
 export default async function ClubClassesPage({ searchParams }: { searchParams?: Promise<{ org?: string }> }) {
@@ -52,5 +61,5 @@ export default async function ClubClassesPage({ searchParams }: { searchParams?:
     failed = true;
   }
   if (failed || !loaded) return failed ? <LoadError /> : <AccessRequired />;
-  return loaded.context.role === "member" || loaded.context.role === "guest" ? <MemberClassesLoaded organisation={loaded.context.organisation} sessions={loaded.visibleSessions} availability={loaded.availability} bookings={loaded.memberBookings} customerId={loaded.memberCustomerId} contexts={loaded.context.availableContexts} /> : <LoadedClasses theme={loaded.theme} organisation={loaded.context.organisation} classTypes={loaded.classTypes} sessions={loaded.visibleSessions} locations={loaded.locations} members={loaded.context.members} availability={loaded.availability} role={loaded.context.role} userId={user.id} today={loaded.today} contexts={loaded.context.availableContexts} />;
+  return loaded.context.role === "member" || loaded.context.role === "guest" ? <MemberClassesLoaded organisation={loaded.context.organisation} sessions={loaded.visibleSessions} availability={loaded.availability} bookings={loaded.memberBookings} customerId={loaded.memberCustomerId} paygPriceMinor={loaded.paygPriceMinor} classCredits={loaded.classCredits} contexts={loaded.context.availableContexts} /> : <LoadedClasses theme={loaded.theme} organisation={loaded.context.organisation} classTypes={loaded.classTypes} sessions={loaded.visibleSessions} locations={loaded.locations} members={loaded.context.members} availability={loaded.availability} role={loaded.context.role} userId={user.id} today={loaded.today} contexts={loaded.context.availableContexts} />;
 }

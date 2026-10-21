@@ -26,6 +26,8 @@ Peter should use the raw SQL bundle, not local tooling:
 
 The final-state bundle assumes the known manual baseline below and is safe to rerun after the failed replay attempts. It contains the additive profiles/WHOOP/workout foundations and the current schema/RPC contract, a final-state marker, and read-only readiness diagnostics. It does not create organisations, members, memberships, payments, Auth users, or Coach grants.
 
+The dated November 22 artifact ends at its read-only readiness diagnostics. Later Madhouse class changes are not folded into that historical release. The 2027-01-04 through 2027-01-09 migrations are already applied to the Madhouse production Supabase target and must not be replayed. The pending-staff follow-up is [`2027-01-10-madhouse-pending-staff-assignments.sql`](../supabase/migrations/2027-01-10-madhouse-pending-staff-assignments.sql). Before execution, verify the target's complete `r12_schema_migrations` ledger and checksum for 04–09, take a restorable backup, then apply only the 01-10 migration and record its manifest checksum. Do not use the broad historical reconciliation bundle to deploy this follow-up.
+
 The SQL bundle is the established deployment workflow and requires no `psql`, Homebrew, Supabase CLI, local PostgreSQL, Docker, or local database connection.
 
 The former [`2026-11-22-madhouse-manual-reconciliation.sql`](../supabase/deployment/2026-11-22-madhouse-manual-reconciliation.sql) is **SUPERSEDED — DO NOT RUN AGAIN**. It is retained only as evidence of the failed replay approach. The final-state bundle is safe to start from the top after the WHOOP, supplier, and promotion-repair failures: it uses additive guards and canonical `CREATE OR REPLACE FUNCTION` definitions, and it preserves existing rows.
@@ -39,6 +41,8 @@ R12_DATABASE_URL='[reviewed connection string]' ./scripts/apply-madhouse-schema.
 ```
 
 It runs the same additive profile foundation and manifest in order with `ON_ERROR_STOP=1`. It is not required for Peter's normal workflow.
+
+The runner applies every unrecorded migration in the full manifest, not only the six Madhouse class migrations. Use it only after the production ledger and its known manual baseline have been verified read-only. If the November final-state bundle was applied through SQL Editor, first reconcile the actual migration ledger and schema objects; its historical marker alone does not prove which later forward migrations ran.
 
 Do not run the superseded replay bundle or historical repair migrations manually. If the database differs from the stated baseline, stop and review the diagnostic output before a deliberate forward change.
 

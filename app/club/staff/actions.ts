@@ -56,6 +56,21 @@ export async function resendStaffInvitation(organisationId: string, grantId: str
   return { ok: true as const };
 }
 
+export async function linkOperationalStaffInvitation(input: { organisationId: string; assignmentId: string; grantId: string }) {
+  const manager = await staffManager(input.organisationId);
+  if (!manager) return { ok: false as const, error: "You don’t have permission to manage staff assignments." };
+  const { error } = await manager.client.rpc("club_madhouse_attach_staff_invitation", {
+    p_organisation_id: manager.context.organisation.id,
+    p_assignment_id: input.assignmentId,
+    p_grant_id: input.grantId,
+  });
+  if (error) return { ok: false as const, error: "The invitation could not be linked to the prepared class and rota identity." };
+  revalidatePath("/club/staff");
+  revalidatePath("/club/classes");
+  revalidatePath("/club/schedule");
+  return { ok: true as const };
+}
+
 export async function claimStaffAccessGrant(grantId: string) {
   const client = await serverSupabase();
   const { data: { user } } = await client.auth.getUser();

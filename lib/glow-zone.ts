@@ -1,6 +1,5 @@
 export const GLOW_ZONE_LEGAL_ENTITY = "MADHOUSE PRODUCTS AND SERVICES LIMITED";
 export const GLOW_ZONE_LOCATION = "Madhouse Gym Carlton";
-export const glowZoneHours = ["Monday–Friday · 08:00–20:00", "Saturday · 10:00–13:00", "Sunday · Closed", "Times may vary"];
 export const glowZonePackages = [
   { id: "member-30", name: "30 Minute Starter", minutes: 30, priceMinor: 1000, membersOnly: true },
   { id: "member-100", name: "100 Minute Power Bundle", minutes: 100, priceMinor: 3000, membersOnly: true },

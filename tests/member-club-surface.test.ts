@@ -17,14 +17,17 @@ test("member Club home keeps member-only surfaces and avoids operational records
   assert.doesNotMatch(source, /club-detail-row.*memberEmail|staff notes|service-role/i);
 });
 
-test("member class booking uses server-authorised repository actions", () => {
+test("member class booking redeems secure credits and gates PAYG by payment state", () => {
   const actions = fs.readFileSync("app/club/classes/member-actions.ts", "utf8");
   const component = fs.readFileSync("components/club-member-classes.tsx", "utf8");
-  assert.match(actions, /resolveClubOrganisationContext/);
-  assert.match(actions, /getMemberOperationalProfile/);
-  assert.match(actions, /createClassBooking/);
+  assert.match(actions, /club_redeem_transformation_class_credit/);
+  assert.match(actions, /club_redeem_reusable_class_credit/);
+  assert.match(actions, /No booking was confirmed; no payment was recorded/);
+  assert.doesNotMatch(actions, /createClassBooking/);
   assert.match(actions, /cancelClassBooking/);
-  assert.match(component, /Book class/);
+  assert.match(component, /Use included class/);
+  assert.match(component, /Stripe · £10/);
+  assert.match(component, /PAYG price unavailable/);
   assert.match(component, /Cancel/);
   assert.match(component, /aria-live|role="alert"/);
 });
