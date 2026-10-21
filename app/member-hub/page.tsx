@@ -3,9 +3,12 @@ import { serverSupabase } from "@/lib/supabase-server";
 import { clubRepository } from "@/lib/club-repository";
 import { MemberHub, type MemberHubData } from "@/components/member-hub";
 import type { MemberAccessPassData } from "@/components/member-access-pass";
+import { hasPlayReviewerEntitlement } from "@/lib/play-reviewer";
+import { PlayReviewerMemberHub } from "@/components/play-reviewer-member-hub";
 
 export default async function MemberHubPage() {
   const supabase = await serverSupabase(); const { data: { user } } = await supabase.auth.getUser(); if (!user) redirect("/account?mode=signIn&next=%2Fmember-hub");
+  if (hasPlayReviewerEntitlement(user)) return <PlayReviewerMemberHub />;
   const { data, error } = await supabase.rpc("club_list_my_memberships");
   if (error) return <MemberHub data={[]} />;
   const memberships = Array.isArray(data) ? data as Array<Record<string, unknown>> : [];
