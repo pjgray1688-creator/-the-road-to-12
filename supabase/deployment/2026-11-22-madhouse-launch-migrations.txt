@@ -152,4 +152,5 @@ supabase/migrations/2027-01-10-madhouse-pending-staff-assignments.sql
 supabase/migrations/2027-01-11-stripe-membership-subscriptions.sql
 supabase/migrations/2027-01-12-two-stripe-merchant-isolation.sql
 supabase/migrations/2027-01-13-paypal-pay-in-3-checkout.sql
+supabase/migrations/2027-01-14-madhouse-operations-generator-hotfix.sql
 
