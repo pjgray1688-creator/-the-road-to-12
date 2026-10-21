@@ -50,7 +50,8 @@ test("linked member profile exposes authorised checkout and recurring billing st
   assert.match(profile, /club_get_member_join_state/);
   assert.match(profile, /club_list_customer_billing/);
   assert.match(profile, /Upfront card payment/);
-  assert.match(profile, /Recurring Direct Debit/);
+  assert.match(profile, /Recurring membership payment/);
+  assert.match(profile, /Stripe · Franchise/);
 });
 
 test("launch migration is included in the reviewed deployment manifest", () => {

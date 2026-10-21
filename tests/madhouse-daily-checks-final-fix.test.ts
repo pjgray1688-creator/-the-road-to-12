@@ -90,9 +90,11 @@ test("active staff-name matching lowercases before the case-sensitive filter", (
   assert.equal(normalize("sHaNnOn"), "shannon");
 });
 
-test("forward migration follows the executed 01-14 hotfix without altering it", () => {
+test("daily-check fix remains ordered after the executed 01-14 hotfix and before later migrations", () => {
   const manifest = readFileSync("supabase/deployment/2026-11-22-madhouse-launch-migrations.txt", "utf8").trim().split(/\r?\n/);
-  assert.equal(manifest.at(-1), migrationPath);
-  assert.ok(manifest.includes("supabase/migrations/2027-01-14-madhouse-operations-generator-hotfix.sql"));
+  const operationsIndex = manifest.indexOf("supabase/migrations/2027-01-14-madhouse-operations-generator-hotfix.sql");
+  const dailyChecksIndex = manifest.indexOf(migrationPath);
+  const stripeIndex = manifest.indexOf("supabase/migrations/2027-01-16-stripe-merchant-category-guards.sql");
+  assert.ok(operationsIndex >= 0 && operationsIndex < dailyChecksIndex && dailyChecksIndex < stripeIndex);
   assert.ok(deployment.includes("supabase/migrations/2027-01-15-madhouse-daily-checks-final-fix.sql"));
 });

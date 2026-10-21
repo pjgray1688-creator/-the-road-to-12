@@ -1,4 +1,5 @@
 import { readStripeMerchantConfig, stripeMerchantRequest } from "./stripe-merchant";
+import { assertStripeLiveCheckoutEnabled, stripeMerchantForCategory } from "./stripe-routing-policy";
 
 export type StripeCheckoutSession = {
   id: string;
@@ -80,10 +81,12 @@ export function createStripeCheckoutSession(input: {
     body.set("line_items[1][price_data][product_data][metadata][membership_product_id]", input.membershipProductId);
   }
   return (async () => {
-    const config = readStripeMerchantConfig("madhouse_franchise");
-    const account = await stripeMerchantRequest<{ id: string }>("madhouse_franchise", "/account", {}, fetcher);
+    const entity = stripeMerchantForCategory("gym_membership");
+    const config = readStripeMerchantConfig(entity);
+    assertStripeLiveCheckoutEnabled(entity, config.mode);
+    const account = await stripeMerchantRequest<{ id: string }>(entity, "/account", {}, fetcher);
     if (account.id !== config.accountId) throw new Error("Stripe credentials are not for the Madhouse Franchise account");
-    return stripeMerchantRequest<StripeCheckoutSession>("madhouse_franchise", "/checkout/sessions", {
+    return stripeMerchantRequest<StripeCheckoutSession>(entity, "/checkout/sessions", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded", "Idempotency-Key": `r12-join-${input.requestId}-stripe-${input.generation}` },
       body,
@@ -92,10 +95,9 @@ export function createStripeCheckoutSession(input: {
 }
 
 function classStripeConfig() {
-  const config = readStripeMerchantConfig("madhouse_products_services");
-  if (config.mode === "live" && process.env.MADHOUSE_CLASS_STRIPE_LIVE_ENABLED !== "true") {
-    throw new Error("Class checkout is restricted to Stripe test mode until live payments are explicitly enabled");
-  }
+  const entity = stripeMerchantForCategory("class_booking");
+  const config = readStripeMerchantConfig(entity);
+  assertStripeLiveCheckoutEnabled(entity, config.mode);
   return config;
 }
 
@@ -119,9 +121,10 @@ export function createStripeClassCheckoutSession(input: {
   });
   return (async () => {
     const config = classStripeConfig();
-    const account = await stripeMerchantRequest<{ id: string }>("madhouse_products_services", "/account", {}, fetcher);
+    const entity = stripeMerchantForCategory("class_booking");
+    const account = await stripeMerchantRequest<{ id: string }>(entity, "/account", {}, fetcher);
     if (account.id !== config.accountId) throw new Error("Stripe credentials are not for Madhouse Products and Services");
-    return stripeMerchantRequest<StripeCheckoutSession>("madhouse_products_services", "/checkout/sessions", {
+    return stripeMerchantRequest<StripeCheckoutSession>(entity, "/checkout/sessions", {
       method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded", "Idempotency-Key": `r12-madhouse-class-${input.bookingId}` }, body,
     }, fetcher);
   })();

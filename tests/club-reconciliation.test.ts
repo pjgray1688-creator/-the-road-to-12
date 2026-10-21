@@ -42,7 +42,9 @@ test("partial payments are not reconciled and multiple tenders are represented",
   const order = { id: "o", created_at: "2026-09-01T00:00:00Z", status: "paid", subtotal_minor: 10000, discount_minor: 0, total_minor: 10000, currency: "GBP" };
   const partial = [{ id: "p1", order_id: "o", created_at: "2026-09-01T00:00:00Z", method: "balance", amount_minor: 2000, status: "paid" }];
   assert.equal(reconciliationState(order, partial), "unpaid");
-  const csv = reconciliationCsv([order], [...partial, { id: "p2", order_id: "o", created_at: "2026-09-01T00:00:01Z", method: "card", amount_minor: 8000, status: "paid" }]);
+  const csv = reconciliationCsv([order], [...partial, { id: "p2", order_id: "o", created_at: "2026-09-01T00:00:01Z", method: "card", amount_minor: 8000, status: "paid", stripe_merchant_entity: "madhouse_products_services" }]);
   assert.match(csv, /balance \+ card/);
+  assert.match(csv, /stripe_merchant_entities/);
+  assert.match(csv, /madhouse_products_services/);
   assert.match(csv, /reconciled/);
 });

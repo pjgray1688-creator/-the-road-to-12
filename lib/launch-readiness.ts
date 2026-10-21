@@ -24,6 +24,7 @@ export function launchReadiness(env: NodeJS.ProcessEnv = process.env): Readiness
     const mode = env[`STRIPE_${name}_MODE`]?.trim().toLowerCase();
     const account = env[`STRIPE_${name}_ACCOUNT_ID`]?.trim();
     const webhook = env[`STRIPE_${name}_WEBHOOK_SECRET`]?.trim();
+    const liveEnabled = env[`STRIPE_${name}_LIVE_ENABLED`] === "true";
     const productionRuntime = env.NODE_ENV === "production" && env.VERCEL_ENV !== "preview";
     const modeState: ReadinessState = !mode ? "missing" : !["test", "live"].includes(mode) || (productionRuntime && mode !== "live") ? "invalid" : "configured";
     const keyState: ReadinessState = !key ? "missing" : Boolean(mode && key.startsWith(`sk_${mode}_`) && /^sk_(live|test)_/.test(key) && !(productionRuntime && key.startsWith("sk_test_"))) ? "configured" : "invalid";
@@ -33,6 +34,7 @@ export function launchReadiness(env: NodeJS.ProcessEnv = process.env): Readiness
       { key: `stripe${name}Mode`, label: `${label} Stripe mode`, state: modeState, detail: !mode ? "Set test or live explicitly; production must be live." : modeState === "invalid" ? "Use exactly test or live; production requires live." : `Selected mode: ${mode}.` },
       { key: `stripe${name}Account`, label: `${label} Stripe account`, state: accountState, detail: accountState === "configured" ? "Account ID format is present; Checkout verifies it against the API key." : `Set this entity’s exact Stripe acct_ identifier.` },
       { key: `stripe${name}Webhook`, label: `${label} Stripe webhook secret`, state: webhook?.startsWith("whsec_") ? "configured" : webhook ? "invalid" : "missing", detail: webhook?.startsWith("whsec_") ? "Endpoint signing secret is present; delivery is not tested here." : "Set this entity’s endpoint-specific webhook signing secret." },
+      { key: `stripe${name}LiveCheckout`, label: `${label} live Checkout release gate`, state: liveEnabled ? "configured" : "disabled", detail: liveEnabled ? "Live Checkout is enabled. Retain account-owner verification and one controlled account-specific payment record." : "Live Checkout creation is blocked until the account owner verifies this legal entity and its Stripe account routing." },
     ];
   };
   const environment = env.GOCARDLESS_ENVIRONMENT?.trim().toLowerCase();

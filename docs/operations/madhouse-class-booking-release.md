@@ -27,7 +27,7 @@ The PostgreSQL harness reruns the idempotent Madhouse operating, station, credit
    pg_restore --list "$BACKUP_FILE" >/dev/null
    ```
 
-3. Confirm the application has `STRIPE_PRODUCTS_SERVICES_SECRET_KEY` set to the Products & Services **test** key and `STRIPE_PRODUCTS_SERVICES_WEBHOOK_SECRET` set to the signing secret for `/api/webhooks/stripe/classes`. Keep `MADHOUSE_CLASS_STRIPE_LIVE_ENABLED` unset or `false`. Confirm `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` remain assigned to Franchise membership checkout. Configure the class endpoint for checkout completion, asynchronous payment success/failure, and expiration.
+3. Confirm the application has `STRIPE_PRODUCTS_SERVICES_SECRET_KEY` set to the Products & Services **test** key and `STRIPE_PRODUCTS_SERVICES_WEBHOOK_SECRET` set to the signing secret for `/api/webhooks/stripe/classes`. Keep `STRIPE_PRODUCTS_SERVICES_LIVE_ENABLED` unset or `false`. Franchise joining uses its independent `STRIPE_FRANCHISE_SECRET_KEY` and `STRIPE_FRANCHISE_WEBHOOK_SECRET`; do not use legacy shared Stripe variables. Configure the class endpoint for checkout completion, asynchronous payment success/failure, and expiration.
 4. Read-only preflight must confirm exactly one active Madhouse row for each configured instructor and location alias, and inspect registered station-to-site bindings. Do not seed schedules, rota, daily checks or station rows until those identities are reviewed.
 5. Schedule a maintenance window. Class booking will be unavailable while schema changes and application release are coordinated.
 
@@ -44,9 +44,9 @@ The forward chain is not a schema-only change. Migration 2027-01-05 reconciles M
 ## Products & Services Stripe test setup
 
 1. In Stripe Dashboard, select the Products & Services account and enable test data. Create a test-mode webhook for the approved preview or test application URL at `/api/webhooks/stripe/classes` with `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`, `checkout.session.expired`, and `payment_intent.payment_failed`.
-2. Store that account's `sk_test_` key as `STRIPE_PRODUCTS_SERVICES_SECRET_KEY`; store the endpoint's `whsec_` signing secret as `STRIPE_PRODUCTS_SERVICES_WEBHOOK_SECRET`. Use the deployment's secret manager, never source files, command output or client-visible variables. Do not set `MADHOUSE_CLASS_STRIPE_LIVE_ENABLED`.
+2. Store that account's `sk_test_` key as `STRIPE_PRODUCTS_SERVICES_SECRET_KEY`; store the endpoint's `whsec_` signing secret as `STRIPE_PRODUCTS_SERVICES_WEBHOOK_SECRET`. Use the deployment's secret manager, never source files, command output or client-visible variables. Do not set `STRIPE_PRODUCTS_SERVICES_LIVE_ENABLED`.
 3. Complete a £10 class checkout with Stripe's documented test payment data. Confirm the Checkout Session is shown under Products & Services, the signed event delivery is successful, and the booking changes only after the webhook. Separately test a declined attempt and an abandoned/expired session, then redeliver a webhook from the Dashboard to verify duplicate delivery is harmless. Inspect only synthetic booking/payment rows.
-4. Keep Franchise `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` untouched. Do not enable the class webhook in live mode or use live payment data.
+4. Keep the Franchise account's `STRIPE_FRANCHISE_SECRET_KEY` and `STRIPE_FRANCHISE_WEBHOOK_SECRET` separate. Do not enable live Checkout or use live payment data until the account owner verifies each account and its product routing.
 
 For the runner path, set `R12_DATABASE_URL` in a protected operator shell without putting credentials in command history, then run:
 

@@ -1,4 +1,5 @@
 import { readStripeMerchantConfig, stripeMerchantRequest } from "./stripe-merchant";
+import { assertStripeLiveCheckoutEnabled, stripeMerchantForCategory } from "./stripe-routing-policy";
 
 export type StripeCommercePrice = {
   id: string;
@@ -66,8 +67,10 @@ export function createStripeCommerceCheckoutSession(input: {
     throw new Error("Stripe price references do not match the server order total");
   }
   return (async () => {
-    const config = readStripeMerchantConfig("madhouse_products_services");
-    const account = await stripeMerchantRequest<{ id: string }>("madhouse_products_services", "/account", {}, fetcher);
+    const entity = stripeMerchantForCategory("other_product_or_service");
+    const config = readStripeMerchantConfig(entity);
+    assertStripeLiveCheckoutEnabled(entity, config.mode);
+    const account = await stripeMerchantRequest<{ id: string }>(entity, "/account", {}, fetcher);
     if (account.id !== config.accountId) throw new Error("Stripe credentials are not for Madhouse Products and Services Limited");
     for (const line of input.lines) {
       const price = await retrieveStripeCommercePrice(line.stripePriceId, fetcher);
@@ -98,7 +101,7 @@ export function createStripeCommerceCheckoutSession(input: {
       body.set(`line_items[${index}][price]`, line.stripePriceId);
       body.set(`line_items[${index}][quantity]`, String(line.quantity));
     });
-    const session = await stripeMerchantRequest<StripeCommerceSession>("madhouse_products_services", "/checkout/sessions", {
+    const session = await stripeMerchantRequest<StripeCommerceSession>(entity, "/checkout/sessions", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded", "Idempotency-Key": `r12-commerce-${input.attemptId}` },
       body,

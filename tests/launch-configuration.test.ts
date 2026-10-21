@@ -40,6 +40,10 @@ test("Stripe readiness keeps each legal merchant mode, key, account and webhook 
   const testChecks = launchReadiness({ NODE_ENV: "test", STRIPE_FRANCHISE_MODE: "test", STRIPE_FRANCHISE_SECRET_KEY: "sk_test_private", STRIPE_FRANCHISE_ACCOUNT_ID: "acct_franchise", STRIPE_FRANCHISE_WEBHOOK_SECRET: "whsec_franchise", STRIPE_PRODUCTS_SERVICES_MODE: "test", STRIPE_PRODUCTS_SERVICES_SECRET_KEY: "sk_test_services", STRIPE_PRODUCTS_SERVICES_ACCOUNT_ID: "acct_services", STRIPE_PRODUCTS_SERVICES_WEBHOOK_SECRET: "whsec_services", STRIPE_PRODUCTS_SERVICES_CLASS_WEBHOOK_SECRET: "whsec_classes" } as NodeJS.ProcessEnv);
   for (const prefix of ["FRANCHISE", "PRODUCTS_SERVICES"]) for (const suffix of ["Secret", "Mode", "Account", "Webhook"]) assert.equal(testChecks.find(check => check.key === `stripe${prefix}${suffix}`)?.state, "configured");
   assert.equal(testChecks.find(check => check.key === "madhouseClassStripeWebhook")?.state, "configured");
+  assert.equal(testChecks.find(check => check.key === "stripeFRANCHISELiveCheckout")?.state, "disabled");
+  assert.equal(testChecks.find(check => check.key === "stripePRODUCTS_SERVICESLiveCheckout")?.state, "disabled");
+  const explicitlyEnabled = launchReadiness({ NODE_ENV: "production", STRIPE_FRANCHISE_MODE: "live", STRIPE_FRANCHISE_SECRET_KEY: "sk_live_franchise", STRIPE_FRANCHISE_ACCOUNT_ID: "acct_franchise", STRIPE_FRANCHISE_WEBHOOK_SECRET: "whsec_franchise", STRIPE_FRANCHISE_LIVE_ENABLED: "true" } as NodeJS.ProcessEnv);
+  assert.equal(explicitlyEnabled.find(check => check.key === "stripeFRANCHISELiveCheckout")?.state, "configured");
   const wrongMode = launchReadiness({ NODE_ENV: "production", STRIPE_FRANCHISE_MODE: "test", STRIPE_FRANCHISE_SECRET_KEY: "sk_test_private", STRIPE_FRANCHISE_ACCOUNT_ID: "acct_franchise", STRIPE_FRANCHISE_WEBHOOK_SECRET: "whsec_franchise" } as NodeJS.ProcessEnv);
   assert.equal(wrongMode.find(check => check.key === "stripeFRANCHISESecret")?.state, "invalid");
   assert.equal(wrongMode.find(check => check.key === "stripeFRANCHISEMode")?.state, "invalid");

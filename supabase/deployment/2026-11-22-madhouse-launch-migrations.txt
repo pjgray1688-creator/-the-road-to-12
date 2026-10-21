@@ -155,3 +155,4 @@ supabase/migrations/2027-01-13-paypal-pay-in-3-checkout.sql
 supabase/migrations/2027-01-14-madhouse-operations-generator-hotfix.sql
 
 supabase/migrations/2027-01-15-madhouse-daily-checks-final-fix.sql
+supabase/migrations/2027-01-16-stripe-merchant-category-guards.sql

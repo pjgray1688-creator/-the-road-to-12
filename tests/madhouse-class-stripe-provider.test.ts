@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createStripeClassCheckoutSession } from "../lib/stripe-join-provider";
 
-const keys = ["STRIPE_PRODUCTS_SERVICES_SECRET_KEY", "STRIPE_PRODUCTS_SERVICES_WEBHOOK_SECRET", "STRIPE_PRODUCTS_SERVICES_CLASS_WEBHOOK_SECRET", "STRIPE_PRODUCTS_SERVICES_ACCOUNT_ID", "STRIPE_PRODUCTS_SERVICES_MODE", "STRIPE_SECRET_KEY", "MADHOUSE_CLASS_STRIPE_LIVE_ENABLED"];
+const keys = ["STRIPE_PRODUCTS_SERVICES_SECRET_KEY", "STRIPE_PRODUCTS_SERVICES_WEBHOOK_SECRET", "STRIPE_PRODUCTS_SERVICES_CLASS_WEBHOOK_SECRET", "STRIPE_PRODUCTS_SERVICES_ACCOUNT_ID", "STRIPE_PRODUCTS_SERVICES_MODE", "STRIPE_PRODUCTS_SERVICES_LIVE_ENABLED", "STRIPE_SECRET_KEY"];
 const saved = () => Object.fromEntries(keys.map(key => [key, process.env[key]]));
 const restore = (values: Record<string, string | undefined>) => { for (const [key, value] of Object.entries(values)) if (value === undefined) delete process.env[key]; else process.env[key] = value; };
 const configure = () => Object.assign(process.env, {
@@ -14,7 +14,7 @@ const configure = () => Object.assign(process.env, {
 });
 
 test("class checkout verifies and uses the configured Products & Services account with exact £10 payload", async () => {
-  const original = saved(); configure(); process.env.STRIPE_SECRET_KEY = "sk_test_franchise_fixture"; delete process.env.MADHOUSE_CLASS_STRIPE_LIVE_ENABLED;
+  const original = saved(); configure(); process.env.STRIPE_SECRET_KEY = "sk_test_franchise_fixture";
   try {
     const requests: Request[] = [];
     const result = await createStripeClassCheckoutSession({ bookingId: "booking-fixture", sessionId: "session-fixture", amountMinor: 1000, currency: "GBP", successUrl: "https://r12.test/club/classes", cancelUrl: "https://r12.test/club/classes?cancelled=1" }, async (input, init) => {
@@ -40,7 +40,6 @@ test("class checkout never falls back to Franchise and rejects wrong account or 
     await assert.rejects(() => createStripeClassCheckoutSession({ bookingId: "b", sessionId: "s", amountMinor: 1000, currency: "GBP", successUrl: "https://r12.test", cancelUrl: "https://r12.test" }, async url => String(url).endsWith("/account") ? new Response(JSON.stringify({ id: "acct_wrong" })) : new Response("{}")), /not for Madhouse Products and Services/);
     process.env.STRIPE_PRODUCTS_SERVICES_SECRET_KEY = "sk_live_products_fixture";
     process.env.STRIPE_PRODUCTS_SERVICES_MODE = "live";
-    delete process.env.MADHOUSE_CLASS_STRIPE_LIVE_ENABLED;
-    await assert.rejects(() => createStripeClassCheckoutSession({ bookingId: "b", sessionId: "s", amountMinor: 1000, currency: "GBP", successUrl: "https://r12.test", cancelUrl: "https://r12.test" }, async () => { throw new Error("must not call provider"); }), /restricted to Stripe test mode/);
+    await assert.rejects(() => createStripeClassCheckoutSession({ bookingId: "b", sessionId: "s", amountMinor: 1000, currency: "GBP", successUrl: "https://r12.test", cancelUrl: "https://r12.test" }, async () => { throw new Error("must not call provider"); }), /live Stripe Checkout is not enabled/);
   } finally { restore(original); }
 });

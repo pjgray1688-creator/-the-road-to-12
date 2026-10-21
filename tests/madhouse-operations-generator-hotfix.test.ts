@@ -49,7 +49,8 @@ test("class and rota staff matching lower names before case-sensitive normalizat
 test("the forward hotfix manifest does not replay earlier Madhouse migrations", () => {
   const lines = manifest.split(/\r?\n/).filter(Boolean);
   assert.ok(lines.includes("supabase/migrations/2027-01-14-madhouse-operations-generator-hotfix.sql"));
-  assert.equal(lines.at(-1), hotfixPath);
+  assert.ok(lines.includes(hotfixPath));
+  assert.equal(lines.at(-1), "supabase/migrations/2027-01-16-stripe-merchant-category-guards.sql");
   assert.equal(lines.filter(line => /2027-01-(?:08|10)-/.test(line)).length, 2,
     "prior migrations remain in the manifest for ledger-based skip, and the hotfix is appended separately");
   assert.match(hotfix, /revoke all on function public\.club_madhouse_seed_daily_checks\(uuid\)/i);

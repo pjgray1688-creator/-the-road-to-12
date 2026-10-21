@@ -6,6 +6,7 @@ import { createStripeCommerceCheckoutSession } from "../lib/stripe-commerce-prov
 import { appBaseUrlStatus } from "../lib/site-url";
 
 const migration = readFileSync("supabase/migrations/2027-01-12-two-stripe-merchant-isolation.sql", "utf8");
+const categoryGuardMigration = readFileSync("supabase/migrations/2027-01-16-stripe-merchant-category-guards.sql", "utf8");
 const franchiseWebhook = readFileSync("app/api/webhooks/stripe/route.ts", "utf8");
 const productsWebhook = readFileSync("app/api/webhooks/stripe/products-services/route.ts", "utf8");
 const joinForm = readFileSync("components/club-joining-form.tsx", "utf8");
@@ -113,6 +114,18 @@ test("membership stays one cross-site Madhouse plan; home gym is optional prefer
   assert.match(migration, /stripe_merchant_entity is distinct from p_merchant_entity or r\.stripe_account_id is distinct from p_account_id/);
   assert.match(migration, /club_record_stripe_membership_event_for_account/);
   assert.doesNotMatch(joinAction, /home_location.*stripe|stripe.*home_location/i);
+});
+
+test("Franchise checkout binding, preparation and webhook fulfilment reject non-membership products", () => {
+  assert.match(categoryGuardMigration, /p\.kind<>'membership'/i);
+  assert.match(categoryGuardMigration, /product\.kind='membership'/i);
+  assert.match(categoryGuardMigration, /Franchise Stripe events cannot fulfil transformation or service products/i);
+  assert.match(categoryGuardMigration, /create or replace function public\.club_prepare_stripe_membership_attempt/i);
+  assert.match(categoryGuardMigration, /create or replace function public\.club_bind_stripe_join_account/i);
+  assert.match(categoryGuardMigration, /create or replace function public\.club_record_stripe_membership_event_for_account/i);
+  assert.doesNotMatch(categoryGuardMigration, /update public\.club_(?:payments|memberships|entitlement_grants|product_entitlements)\s+set/i);
+  const manifest = readFileSync("supabase/deployment/2026-11-22-madhouse-launch-migrations.txt", "utf8").trim().split(/\r?\n/);
+  assert.equal(manifest.at(-1), "supabase/migrations/2027-01-16-stripe-merchant-category-guards.sql");
 });
 
 test("signed webhook routes and durable event ledger are isolated by legal merchant/account", () => {
