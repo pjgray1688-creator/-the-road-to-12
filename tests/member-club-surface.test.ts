@@ -25,10 +25,12 @@ test("member class booking redeems secure credits and gates PAYG by payment stat
   assert.match(actions, /No booking was confirmed; no payment was recorded/);
   assert.doesNotMatch(actions, /createClassBooking/);
   assert.match(actions, /cancelClassBooking/);
-  assert.match(component, /Use included class/);
-  assert.match(component, /Stripe · £10/);
-  assert.match(component, /PAYG price unavailable/);
-  assert.match(component, /Cancel/);
+  assert.match(component, /Use included weekly class/);
+  assert.match(component, /Pay by card/);
+  assert.match(component, /Cash on arrival/);
+  assert.match(component, /Cancel booking/);
+  assert.match(component, /availabilityUnavailable \|\| full/);
+  assert.doesNotMatch(component, /Stripe · £10|Cash · £10 due|£10 CASH DUE/);
   assert.match(component, /aria-live|role="alert"/);
 });
 

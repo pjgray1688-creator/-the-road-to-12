@@ -5,6 +5,8 @@ import type { GlowZoneHourRow } from "@/components/glow-zone-opening-hours";
 
 export const REVIEWER_ORG_ID = "f0000000-0000-4000-8000-000000000012";
 export const REVIEWER_LOCATION_ID = "f0000000-0000-4000-8000-000000000013";
+export const REVIEWER_ROTHERHAM_LOCATION_ID = "f0000000-0000-4000-8000-000000000016";
+export const REVIEWER_CARLTON_LOCATION_ID = "f0000000-0000-4000-8000-000000000017";
 export const REVIEWER_CUSTOMER_ID = "f0000000-0000-4000-8000-000000000014";
 const now = "2026-10-01T00:00:00.000Z";
 
@@ -17,7 +19,7 @@ export const reviewerSessions: ClubClassSession[] = [
   ["circuit-carlton", "Circuit", "2026-10-30T10:00:00+00:00", "Keenan", "Carlton"],
 ].map(([suffix, title, startsAt, instructorName, locationName], index) => ({
   id: `f0000000-0000-4000-8000-${String(index + 20).padStart(12, "0")}`,
-  organisationId: REVIEWER_ORG_ID, locationId: REVIEWER_LOCATION_ID, classTypeId: `demo-${title.toLowerCase().replaceAll(" ", "-")}`,
+  organisationId: REVIEWER_ORG_ID, locationId: locationName === "Carlton" ? REVIEWER_CARLTON_LOCATION_ID : REVIEWER_ROTHERHAM_LOCATION_ID, classTypeId: `demo-${title.toLowerCase().replaceAll(" ", "-")}`,
   title, startsAt, endsAt: new Date(new Date(startsAt).getTime() + 60 * 60 * 1000).toISOString(), capacity: 6,
   visibility: "public", status: "scheduled", instructorName, createdAt: now, updatedAt: now,
 } satisfies ClubClassSession));

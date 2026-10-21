@@ -25,11 +25,12 @@ test("member booking uses authenticated entitlement, reusable-credit, Stripe, an
 });
 
 test("member timetable displays confirmed PAYG options and credit choices", () => {
-  assert.match(memberUi, /PAYG price unavailable/);
-  assert.match(memberUi, /Use included class/);
-  assert.match(memberUi, /Use class credit/);
-  assert.match(memberUi, /Stripe · £10/);
-  assert.match(memberUi, /Cash · £10 due/);
+  assert.match(memberUi, /PAYG pricing is temporarily unavailable/);
+  assert.match(memberUi, /Use included weekly class/);
+  assert.match(memberUi, /Use reusable class credit/);
+  assert.match(memberUi, /Pay by card/);
+  assert.match(memberUi, /Cash on arrival/);
+  assert.doesNotMatch(memberUi, /Stripe|Cash · £10 due/);
   assert.doesNotMatch(memberUi, /disabled title=/);
 });
 
