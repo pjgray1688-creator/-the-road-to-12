@@ -10,6 +10,7 @@ import { listClubOrganisationContexts, isClubStaffRole, toClubNavContexts } from
 import { resolveOrganisationTheme } from "@/lib/club";
 import type { Metadata } from "next";
 import { clubMetadata } from "@/lib/club-metadata";
+import { hasPlayReviewerEntitlement } from "@/lib/play-reviewer";
 import { ClubMemberHome, MemberClubUnavailable } from "@/components/club-member-home";
 import { ClubMembersDirectory } from "@/components/club-members-directory";
 import { ClubMemberOnboarding } from "@/components/club-member-onboarding";
@@ -21,6 +22,7 @@ export async function generateMetadata({ searchParams }: { searchParams?: Promis
   try {
     const supabase = await serverSupabase(); const { data: { user } } = await supabase.auth.getUser();
     if (!user) return clubMetadata("Overview");
+    if (hasPlayReviewerEntitlement(user)) return clubMetadata("Google Play review · demo");
     const contexts = await listClubOrganisationContexts(supabase, user.id); const params = await searchParams; const orgId = params?.org; const organisation = contexts.find(item => item.organisation.id === orgId)?.organisation ?? (contexts.length === 1 ? contexts[0].organisation : undefined);
     return clubMetadata("Overview", organisation?.name);
   } catch { return clubMetadata("Overview"); }
@@ -30,6 +32,7 @@ export default async function ClubPage({ searchParams }: { searchParams?: Promis
   const supabase = await serverSupabase();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) { const params = await searchParams; const next = `/club${params?.org ? `?org=${encodeURIComponent(params.org)}` : ""}`; redirect(`/account?mode=signIn&next=${encodeURIComponent(next)}`); }
+  if (hasPlayReviewerEntitlement(user)) redirect("/club/reviewer");
   try {
     const contexts = await listClubOrganisationContexts(supabase, user.id);
     const params = await searchParams; const orgId = params?.org;
