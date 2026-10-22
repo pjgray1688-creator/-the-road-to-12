@@ -34,9 +34,10 @@ test("member hub shows server-authoritative credentials and uses verified-email 
 
 test("Today uses member-safe gym context and keeps recovery management in Account", () => {
   const today = readFileSync("components/dashboard-foundation.tsx", "utf8");
+  const homeCard = readFileSync("lib/home-member-area.ts", "utf8");
   const account = readFileSync("app/account/page.tsx", "utf8");
   assert.match(today, /\/api\/member-hub/);
-  assert.match(today, /href="\/member-hub"/);
+  assert.match(homeCard, /href: "\/member-hub"/);
   assert.doesNotMatch(today, /whoop\/disconnect/);
   assert.match(account, /whoop\/disconnect/);
 });

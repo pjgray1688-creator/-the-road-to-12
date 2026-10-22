@@ -19,7 +19,7 @@ test("Today missed-session eligibility is based on the canonical planned occurre
 test("Today gym shortcut is ordered directly after the greeting", () => {
   const dashboard = fs.readFileSync("components/dashboard-foundation.tsx", "utf8");
   const greeting = dashboard.indexOf('today-greeting');
-  const gym = dashboard.indexOf('member-gym-shortcut');
+  const gym = dashboard.indexOf('className="card dashboard member-gym-shortcut home-member-area"');
   assert.ok(greeting >= 0 && gym > greeting);
   const styles = fs.readFileSync("app/training-polish.css", "utf8");
   assert.match(styles, /\.home-screen > \.member-gym-shortcut \{ order: 3; \}/);
