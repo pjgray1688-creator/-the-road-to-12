@@ -1,4 +1,4 @@
-import { readStripeMerchantConfig, stripeMerchantRequest } from "./stripe-merchant";
+import { readStripeMerchantConfig, stripeMerchantRequest, verifyStripeMerchantAccount } from "./stripe-merchant";
 import { assertStripeLiveCheckoutEnabled, stripeMerchantForCategory } from "./stripe-routing-policy";
 
 export type StripeCommercePrice = {
@@ -22,26 +22,24 @@ export type StripeCommerceSession = {
 };
 
 export function retrieveStripeCommercePrice(id: string, fetcher?: typeof fetch) {
-  return stripeMerchantRequest<StripeCommercePrice>("madhouse_products_services", `/prices/${encodeURIComponent(id)}`, {}, fetcher);
+  return (async () => { await verifyStripeMerchantAccount("madhouse_products_services", fetcher); return stripeMerchantRequest<StripeCommercePrice>("madhouse_products_services", `/prices/${encodeURIComponent(id)}`, {}, fetcher); })();
 }
 
 export function retrieveStripeCommerceCharge(id: string, fetcher?: typeof fetch) {
-  return stripeMerchantRequest<{ id: string; payment_intent: string | { id: string }; customer: string | null; amount_refunded: number; amount: number; currency: string; metadata?: Record<string, string> }>("madhouse_products_services", `/charges/${encodeURIComponent(id)}`, {}, fetcher);
+  return (async () => { await verifyStripeMerchantAccount("madhouse_products_services", fetcher); return stripeMerchantRequest<{ id: string; payment_intent: string | { id: string }; customer: string | null; amount_refunded: number; amount: number; currency: string; metadata?: Record<string, string> }>("madhouse_products_services", `/charges/${encodeURIComponent(id)}`, {}, fetcher); })();
 }
 
 export function retrieveStripeCommercePaymentIntent(id: string, fetcher?: typeof fetch) {
-  return stripeMerchantRequest<{ id: string; metadata?: Record<string, string> }>("madhouse_products_services", `/payment_intents/${encodeURIComponent(id)}`, {}, fetcher);
+  return (async () => { await verifyStripeMerchantAccount("madhouse_products_services", fetcher); return stripeMerchantRequest<{ id: string; metadata?: Record<string, string> }>("madhouse_products_services", `/payment_intents/${encodeURIComponent(id)}`, {}, fetcher); })();
 }
 
 export async function retrieveStripeCommerceCheckoutSession(id: string, fetcher?: typeof fetch) {
-  const config = readStripeMerchantConfig("madhouse_products_services");
-  const account = await stripeMerchantRequest<{ id: string }>("madhouse_products_services", "/account", {}, fetcher);
-  if (account.id !== config.accountId) throw new Error("Stripe credentials are not for Madhouse Products and Services Limited");
+  await verifyStripeMerchantAccount("madhouse_products_services", fetcher);
   return stripeMerchantRequest<StripeCommerceSession>("madhouse_products_services", `/checkout/sessions/${encodeURIComponent(id)}`, {}, fetcher);
 }
 
 export function expireStripeCommerceCheckoutSession(id: string, fetcher?: typeof fetch) {
-  return stripeMerchantRequest<StripeCommerceSession>("madhouse_products_services", `/checkout/sessions/${encodeURIComponent(id)}/expire`, { method: "POST" }, fetcher);
+  return (async () => { await verifyStripeMerchantAccount("madhouse_products_services", fetcher); return stripeMerchantRequest<StripeCommerceSession>("madhouse_products_services", `/checkout/sessions/${encodeURIComponent(id)}/expire`, { method: "POST" }, fetcher); })();
 }
 
 export function createStripeCommerceCheckoutSession(input: {
@@ -70,10 +68,9 @@ export function createStripeCommerceCheckoutSession(input: {
     const entity = stripeMerchantForCategory("other_product_or_service");
     const config = readStripeMerchantConfig(entity);
     assertStripeLiveCheckoutEnabled(entity, config.mode);
-    const account = await stripeMerchantRequest<{ id: string }>(entity, "/account", {}, fetcher);
-    if (account.id !== config.accountId) throw new Error("Stripe credentials are not for Madhouse Products and Services Limited");
+    await verifyStripeMerchantAccount(entity, fetcher);
     for (const line of input.lines) {
-      const price = await retrieveStripeCommercePrice(line.stripePriceId, fetcher);
+      const price = await stripeMerchantRequest<StripeCommercePrice>(entity, `/prices/${encodeURIComponent(line.stripePriceId)}`, {}, fetcher);
       const productId = typeof price.product === "string" ? price.product : price.product.id;
       if (!price.active || price.id !== line.stripePriceId || productId !== line.stripeProductId
         || price.currency.toUpperCase() !== input.currency || price.unit_amount !== line.unitPriceMinor) {

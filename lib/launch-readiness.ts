@@ -1,5 +1,6 @@
 import { appBaseUrlStatus } from "./site-url";
 import { inspectSmtpConfiguration } from "./smtp-config";
+import { stripeApiKeyMatchesMode } from "./stripe-merchant";
 
 export type ReadinessState = "configured" | "missing" | "invalid" | "disabled" | "adapter_unavailable" | "external_verification_required";
 export type ReadinessCheck = { key: string; label: string; state: ReadinessState; detail: string };
@@ -27,10 +28,10 @@ export function launchReadiness(env: NodeJS.ProcessEnv = process.env): Readiness
     const liveEnabled = env[`STRIPE_${name}_LIVE_ENABLED`] === "true";
     const productionRuntime = env.NODE_ENV === "production" && env.VERCEL_ENV !== "preview";
     const modeState: ReadinessState = !mode ? "missing" : !["test", "live"].includes(mode) || (productionRuntime && mode !== "live") ? "invalid" : "configured";
-    const keyState: ReadinessState = !key ? "missing" : Boolean(mode && key.startsWith(`sk_${mode}_`) && /^sk_(live|test)_/.test(key) && !(productionRuntime && key.startsWith("sk_test_"))) ? "configured" : "invalid";
+    const keyState: ReadinessState = !key ? "missing" : Boolean((mode === "test" || mode === "live") && stripeApiKeyMatchesMode(key, mode) && !(productionRuntime && mode !== "live")) ? "configured" : "invalid";
     const accountState: ReadinessState = !account ? "missing" : /^acct_[A-Za-z0-9]+$/.test(account) ? "configured" : "invalid";
     return [
-      { key: `stripe${name}Secret`, label: `${label} Stripe secret key`, state: keyState, detail: keyState === "configured" ? "Key format and mode agree; the Stripe API account is verified before Checkout." : "Set this entity’s own test/live secret key matching its explicit mode." },
+      { key: `stripe${name}Secret`, label: `${label} Stripe API key`, state: keyState, detail: keyState === "configured" ? "Standard or restricted key format and mode agree; account identity is checked separately." : "Set this entity’s own test/live standard or restricted API key matching its explicit mode." },
       { key: `stripe${name}Mode`, label: `${label} Stripe mode`, state: modeState, detail: !mode ? "Set test or live explicitly; production must be live." : modeState === "invalid" ? "Use exactly test or live; production requires live." : `Selected mode: ${mode}.` },
       { key: `stripe${name}Account`, label: `${label} Stripe account`, state: accountState, detail: accountState === "configured" ? "Account ID format is present; Checkout verifies it against the API key." : `Set this entity’s exact Stripe acct_ identifier.` },
       { key: `stripe${name}Webhook`, label: `${label} Stripe webhook secret`, state: webhook?.startsWith("whsec_") ? "configured" : webhook ? "invalid" : "missing", detail: webhook?.startsWith("whsec_") ? "Endpoint signing secret is present; delivery is not tested here." : "Set this entity’s endpoint-specific webhook signing secret." },
@@ -52,6 +53,7 @@ export function launchReadiness(env: NodeJS.ProcessEnv = process.env): Readiness
     { key: "clubStationSession", label: "Shared Club station session signing key", state: env.R12_CLUB_STATION_SESSION_SECRET && Buffer.byteLength(env.R12_CLUB_STATION_SESSION_SECRET) >= 32 ? "configured" : "missing", detail: "A random server-only key of at least 32 bytes is required to bind station unlocks to the selected signed-in staff identity." },
     ...stripeChecks("FRANCHISE", "Madhouse Franchise Limited"),
     ...stripeChecks("PRODUCTS_SERVICES", "Madhouse Products and Services Limited"),
+    { key: "stripeMerchantIsolation", label: "Stripe legal-entity account isolation", state: env.STRIPE_FRANCHISE_ACCOUNT_ID && env.STRIPE_PRODUCTS_SERVICES_ACCOUNT_ID && env.STRIPE_FRANCHISE_ACCOUNT_ID !== env.STRIPE_PRODUCTS_SERVICES_ACCOUNT_ID ? "configured" : "invalid", detail: "The two configured Stripe account IDs must be present and distinct; live account identity is verified separately." },
     presence("madhouseClassStripeWebhook", "Products & Services class webhook signing secret", env.STRIPE_PRODUCTS_SERVICES_CLASS_WEBHOOK_SECRET),
     presence("goCardlessToken", "GoCardless access token", env.GOCARDLESS_ACCESS_TOKEN),
     { key: "goCardlessEnvironment", label: "GoCardless environment", state: goCardlessState, detail: !environment ? "Set sandbox or live explicitly; production must be live." : goCardlessState === "invalid" ? productionGoCardless ? "Production requires GOCARDLESS_ENVIRONMENT=live." : "Use exactly sandbox or live." : `Selected environment: ${environment}.` },

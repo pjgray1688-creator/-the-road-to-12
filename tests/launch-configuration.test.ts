@@ -42,6 +42,10 @@ test("Stripe readiness keeps each legal merchant mode, key, account and webhook 
   assert.equal(testChecks.find(check => check.key === "madhouseClassStripeWebhook")?.state, "configured");
   assert.equal(testChecks.find(check => check.key === "stripeFRANCHISELiveCheckout")?.state, "disabled");
   assert.equal(testChecks.find(check => check.key === "stripePRODUCTS_SERVICESLiveCheckout")?.state, "disabled");
+  const restrictedLive = launchReadiness({ NODE_ENV: "production", STRIPE_FRANCHISE_MODE: "live", STRIPE_FRANCHISE_SECRET_KEY: "rk_live_FranchiseFixture", STRIPE_FRANCHISE_ACCOUNT_ID: "acct_franchise", STRIPE_FRANCHISE_WEBHOOK_SECRET: "whsec_franchise", STRIPE_PRODUCTS_SERVICES_MODE: "live", STRIPE_PRODUCTS_SERVICES_SECRET_KEY: "rk_live_ProductsFixture", STRIPE_PRODUCTS_SERVICES_ACCOUNT_ID: "acct_products", STRIPE_PRODUCTS_SERVICES_WEBHOOK_SECRET: "whsec_products" } as NodeJS.ProcessEnv);
+  assert.equal(restrictedLive.find(check => check.key === "stripeFRANCHISESecret")?.state, "configured");
+  assert.equal(restrictedLive.find(check => check.key === "stripePRODUCTS_SERVICESSecret")?.state, "configured");
+  assert.equal(restrictedLive.find(check => check.key === "stripeMerchantIsolation")?.state, "configured");
   const explicitlyEnabled = launchReadiness({ NODE_ENV: "production", STRIPE_FRANCHISE_MODE: "live", STRIPE_FRANCHISE_SECRET_KEY: "sk_live_franchise", STRIPE_FRANCHISE_ACCOUNT_ID: "acct_franchise", STRIPE_FRANCHISE_WEBHOOK_SECRET: "whsec_franchise", STRIPE_FRANCHISE_LIVE_ENABLED: "true" } as NodeJS.ProcessEnv);
   assert.equal(explicitlyEnabled.find(check => check.key === "stripeFRANCHISELiveCheckout")?.state, "configured");
   const wrongMode = launchReadiness({ NODE_ENV: "production", STRIPE_FRANCHISE_MODE: "test", STRIPE_FRANCHISE_SECRET_KEY: "sk_test_private", STRIPE_FRANCHISE_ACCOUNT_ID: "acct_franchise", STRIPE_FRANCHISE_WEBHOOK_SECRET: "whsec_franchise" } as NodeJS.ProcessEnv);

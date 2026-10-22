@@ -19,14 +19,14 @@ test("monthly Stripe Checkout separates the joining fee from the recurring subsc
   const originalMode = process.env.STRIPE_FRANCHISE_MODE;
   const originalWebhook = process.env.STRIPE_FRANCHISE_WEBHOOK_SECRET;
   const originalAccount = process.env.STRIPE_FRANCHISE_ACCOUNT_ID;
-  process.env.STRIPE_FRANCHISE_SECRET_KEY = "sk_test_not_real";
+  process.env.STRIPE_FRANCHISE_SECRET_KEY = "sk_test_notreal";
   process.env.STRIPE_FRANCHISE_MODE = "test";
   process.env.STRIPE_FRANCHISE_WEBHOOK_SECRET = "whsec_test_not_real";
   process.env.STRIPE_FRANCHISE_ACCOUNT_ID = "acct_franchise";
   let request: { url: string; init?: RequestInit } | undefined;
   const fetcher = (async (url: string | URL | Request, init?: RequestInit) => {
     request = { url: String(url), init };
-    if (String(url).endsWith("/account")) return new Response(JSON.stringify({ id: "acct_franchise" }), { status: 200 });
+    if (String(url).endsWith("/account")) return new Response(JSON.stringify({ id: "acct_franchise", company: { name: "Madhouse Franchise Limited" } }), { status: 200 });
     return new Response(JSON.stringify({ id: "cs_test_123", url: "https://checkout.stripe.test/session", mode: "subscription", status: "open", payment_status: "unpaid", amount_total: 4200, payment_intent: null, customer: null, subscription: null }), { status: 200 });
   }) as typeof fetch;
   try {
@@ -55,11 +55,11 @@ test("monthly Stripe Checkout separates the joining fee from the recurring subsc
 
 test("annual Madhouse Checkout charges the configured joining fee and annual membership separately once", async () => {
   const originals = ["STRIPE_FRANCHISE_SECRET_KEY", "STRIPE_FRANCHISE_WEBHOOK_SECRET", "STRIPE_FRANCHISE_MODE", "STRIPE_FRANCHISE_ACCOUNT_ID"].map(key => process.env[key]);
-  process.env.STRIPE_FRANCHISE_SECRET_KEY = "sk_test_not_real"; process.env.STRIPE_FRANCHISE_WEBHOOK_SECRET = "whsec_test_not_real";
+  process.env.STRIPE_FRANCHISE_SECRET_KEY = "sk_test_notreal"; process.env.STRIPE_FRANCHISE_WEBHOOK_SECRET = "whsec_test_not_real";
   process.env.STRIPE_FRANCHISE_MODE = "test"; process.env.STRIPE_FRANCHISE_ACCOUNT_ID = "acct_franchise";
   let request: { url: string; init?: RequestInit } | undefined;
   const fetcher = (async (url: string | URL | Request, init?: RequestInit) => {
-    if (String(url).endsWith("/account")) return new Response(JSON.stringify({ id: "acct_franchise" }));
+    if (String(url).endsWith("/account")) return new Response(JSON.stringify({ id: "acct_franchise", company: { name: "Madhouse Franchise Limited" } }));
     request = { url: String(url), init };
     return new Response(JSON.stringify({ id: "cs_test_annual", url: "https://checkout.stripe.test/annual", mode: "payment", status: "open", payment_status: "unpaid", amount_total: 71_500, payment_intent: "pi_annual", customer: "cus_annual", subscription: null }));
   }) as typeof fetch;
@@ -124,6 +124,8 @@ test("signed webhook helpers reject tampering and stale Stripe requests", () => 
   const timestamp = 1_800_000_000;
   const stripe = createHmac("sha256", secret).update(`${timestamp}.${body}`).digest("hex");
   assert.equal(verifyStripeSignature(body, `t=${timestamp},v1=${stripe}`, secret, timestamp), true);
+  assert.equal(verifyStripeSignature(body, `t=${timestamp},v1=${stripe.slice(0, -1)}0`, secret, timestamp), false);
+  assert.equal(verifyStripeSignature(`${body}x`, `t=${timestamp},v1=${stripe}`, secret, timestamp), false);
   assert.equal(verifyStripeSignature(body, `t=${timestamp},v1=${stripe}`, secret, timestamp + 301), false);
 });
 

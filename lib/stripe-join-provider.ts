@@ -1,4 +1,4 @@
-import { readStripeMerchantConfig, stripeMerchantRequest } from "./stripe-merchant";
+import { readStripeMerchantConfig, stripeMerchantRequest, verifyStripeMerchantAccount } from "./stripe-merchant";
 import { assertStripeLiveCheckoutEnabled, stripeMerchantForCategory } from "./stripe-routing-policy";
 
 export type StripeCheckoutSession = {
@@ -22,14 +22,14 @@ export type StripeInvoice = {
 };
 
 export function retrieveStripeCheckoutSession(id: string, fetcher?: typeof fetch) {
-  return stripeMerchantRequest<StripeCheckoutSession>("madhouse_franchise", `/checkout/sessions/${encodeURIComponent(id)}`, {}, fetcher);
+  return (async () => { await verifyStripeMerchantAccount("madhouse_franchise", fetcher); return stripeMerchantRequest<StripeCheckoutSession>("madhouse_franchise", `/checkout/sessions/${encodeURIComponent(id)}`, {}, fetcher); })();
 }
 export function retrieveStripeCharge(id: string, fetcher?: typeof fetch) {
-  return stripeMerchantRequest<StripeCharge>("madhouse_franchise", `/charges/${encodeURIComponent(id)}`, {}, fetcher);
+  return (async () => { await verifyStripeMerchantAccount("madhouse_franchise", fetcher); return stripeMerchantRequest<StripeCharge>("madhouse_franchise", `/charges/${encodeURIComponent(id)}`, {}, fetcher); })();
 }
 
 export function retrieveStripeInvoice(id: string, fetcher?: typeof fetch) {
-  return stripeMerchantRequest<StripeInvoice>("madhouse_franchise", `/invoices/${encodeURIComponent(id)}`, {}, fetcher);
+  return (async () => { await verifyStripeMerchantAccount("madhouse_franchise", fetcher); return stripeMerchantRequest<StripeInvoice>("madhouse_franchise", `/invoices/${encodeURIComponent(id)}`, {}, fetcher); })();
 }
 
 export function createStripeCheckoutSession(input: {
@@ -84,8 +84,7 @@ export function createStripeCheckoutSession(input: {
     const entity = stripeMerchantForCategory("gym_membership");
     const config = readStripeMerchantConfig(entity);
     assertStripeLiveCheckoutEnabled(entity, config.mode);
-    const account = await stripeMerchantRequest<{ id: string }>(entity, "/account", {}, fetcher);
-    if (account.id !== config.accountId) throw new Error("Stripe credentials are not for the Madhouse Franchise account");
+    await verifyStripeMerchantAccount(entity, fetcher);
     return stripeMerchantRequest<StripeCheckoutSession>(entity, "/checkout/sessions", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded", "Idempotency-Key": `r12-join-${input.requestId}-stripe-${input.generation}` },
@@ -96,13 +95,12 @@ export function createStripeCheckoutSession(input: {
 
 function classStripeConfig() {
   const entity = stripeMerchantForCategory("class_booking");
-  const config = readStripeMerchantConfig(entity);
-  assertStripeLiveCheckoutEnabled(entity, config.mode);
-  return config;
+  return readStripeMerchantConfig(entity);
 }
 
 async function classStripeRequest<T>(path: string, init: RequestInit = {}, fetcher: typeof fetch = fetch): Promise<T> {
   classStripeConfig();
+  await verifyStripeMerchantAccount("madhouse_products_services", fetcher);
   return stripeMerchantRequest<T>("madhouse_products_services", path, init, fetcher);
 }
 
@@ -122,8 +120,8 @@ export function createStripeClassCheckoutSession(input: {
   return (async () => {
     const config = classStripeConfig();
     const entity = stripeMerchantForCategory("class_booking");
-    const account = await stripeMerchantRequest<{ id: string }>(entity, "/account", {}, fetcher);
-    if (account.id !== config.accountId) throw new Error("Stripe credentials are not for Madhouse Products and Services");
+    assertStripeLiveCheckoutEnabled(entity, config.mode);
+    await verifyStripeMerchantAccount(entity, fetcher);
     return stripeMerchantRequest<StripeCheckoutSession>(entity, "/checkout/sessions", {
       method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded", "Idempotency-Key": `r12-madhouse-class-${input.bookingId}` }, body,
     }, fetcher);

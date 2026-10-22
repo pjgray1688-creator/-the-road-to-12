@@ -40,8 +40,8 @@ test("membership and product/service provider paths block live Checkout before n
   const previous = Object.fromEntries(keys.map(key => [key, process.env[key]]));
   Object.assign(process.env, {
     NODE_ENV: "test",
-    STRIPE_FRANCHISE_SECRET_KEY: "sk_live_franchise_fixture", STRIPE_FRANCHISE_WEBHOOK_SECRET: "whsec_franchise_fixture", STRIPE_FRANCHISE_ACCOUNT_ID: "acct_franchisefixture", STRIPE_FRANCHISE_MODE: "live",
-    STRIPE_PRODUCTS_SERVICES_SECRET_KEY: "sk_live_products_fixture", STRIPE_PRODUCTS_SERVICES_WEBHOOK_SECRET: "whsec_products_fixture", STRIPE_PRODUCTS_SERVICES_ACCOUNT_ID: "acct_productsfixture", STRIPE_PRODUCTS_SERVICES_MODE: "live",
+    STRIPE_FRANCHISE_SECRET_KEY: "sk_live_franchisefixture", STRIPE_FRANCHISE_WEBHOOK_SECRET: "whsec_franchise_fixture", STRIPE_FRANCHISE_ACCOUNT_ID: "acct_franchisefixture", STRIPE_FRANCHISE_MODE: "live",
+    STRIPE_PRODUCTS_SERVICES_SECRET_KEY: "sk_live_productsfixture", STRIPE_PRODUCTS_SERVICES_WEBHOOK_SECRET: "whsec_products_fixture", STRIPE_PRODUCTS_SERVICES_ACCOUNT_ID: "acct_productsfixture", STRIPE_PRODUCTS_SERVICES_MODE: "live",
   });
   delete process.env.STRIPE_FRANCHISE_LIVE_ENABLED;
   delete process.env.STRIPE_PRODUCTS_SERVICES_LIVE_ENABLED;

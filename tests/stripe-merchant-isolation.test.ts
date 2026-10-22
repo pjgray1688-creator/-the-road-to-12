@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { readStripeMerchantConfig } from "../lib/stripe-merchant";
+import { readStripeMerchantConfig, stripeApiKeyMatchesMode } from "../lib/stripe-merchant";
 import { createStripeCommerceCheckoutSession } from "../lib/stripe-commerce-provider";
 import { appBaseUrlStatus } from "../lib/site-url";
+import { inspectStripeReadiness } from "../lib/stripe-readiness-diagnostic";
 
 const migration = readFileSync("supabase/migrations/2027-01-12-two-stripe-merchant-isolation.sql", "utf8");
 const categoryGuardMigration = readFileSync("supabase/migrations/2027-01-16-stripe-merchant-category-guards.sql", "utf8");
@@ -17,7 +18,7 @@ const localTestRunbook = readFileSync("docs/r12-stripe-local-test-runbook.md", "
 
 const productsEnv = {
   NODE_ENV: "test",
-  STRIPE_PRODUCTS_SERVICES_SECRET_KEY: "sk_test_products_only",
+  STRIPE_PRODUCTS_SERVICES_SECRET_KEY: "sk_test_productsonly",
   STRIPE_PRODUCTS_SERVICES_WEBHOOK_SECRET: "whsec_products_only",
   STRIPE_PRODUCTS_SERVICES_ACCOUNT_ID: "acct_products",
   STRIPE_PRODUCTS_SERVICES_MODE: "test",
@@ -25,7 +26,7 @@ const productsEnv = {
 
 test("merchant config requires separate entity-specific credentials and never falls back", () => {
   const franchiseEnv = {
-    STRIPE_FRANCHISE_SECRET_KEY: "sk_test_franchise_only",
+    STRIPE_FRANCHISE_SECRET_KEY: "sk_test_franchiseonly",
     STRIPE_FRANCHISE_WEBHOOK_SECRET: "whsec_franchise_only",
     STRIPE_FRANCHISE_ACCOUNT_ID: "acct_franchise",
     STRIPE_FRANCHISE_MODE: "test",
@@ -34,7 +35,51 @@ test("merchant config requires separate entity-specific credentials and never fa
   assert.equal(readStripeMerchantConfig("madhouse_franchise", franchiseEnv).legalEntityNumber, "17383077");
   assert.equal(readStripeMerchantConfig("madhouse_products_services", productsEnv).legalEntityNumber, "17383213");
   assert.throws(() => readStripeMerchantConfig("madhouse_franchise", productsEnv), /configuration is incomplete/);
-  assert.throws(() => readStripeMerchantConfig("madhouse_products_services", { ...productsEnv, STRIPE_PRODUCTS_SERVICES_SECRET_KEY: "sk_live_wrong_mode" }), /does not match its configured mode/);
+  assert.throws(() => readStripeMerchantConfig("madhouse_products_services", { ...productsEnv, STRIPE_PRODUCTS_SERVICES_SECRET_KEY: "sk_live_wrongmode" }), /does not match its configured mode/);
+});
+
+test("restricted and standard Stripe keys accept matching modes and reject malformed or mismatched keys", () => {
+  for (const mode of ["live", "test"] as const) {
+    for (const kind of ["sk", "rk"] as const) {
+      const key = `${kind}_${mode}_A1b2C3d4E5`;
+      assert.equal(stripeApiKeyMatchesMode(key, mode), true);
+      assert.equal(stripeApiKeyMatchesMode(key, mode === "live" ? "test" : "live"), false);
+    }
+  }
+  for (const malformed of ["rk_live_", "sk_test_short", "rk_live_bad key", "rk_live_bad_key", "pk_live_A1b2C3d4E5", "sk_mode_A1b2C3d4E5"]) {
+    assert.equal(stripeApiKeyMatchesMode(malformed, "live"), false, malformed);
+  }
+  const liveRestricted = { ...productsEnv, STRIPE_PRODUCTS_SERVICES_SECRET_KEY: "rk_live_A1b2C3d4E5", STRIPE_PRODUCTS_SERVICES_MODE: "live" };
+  assert.equal(readStripeMerchantConfig("madhouse_products_services", liveRestricted).mode, "live");
+  const testRestricted = { ...productsEnv, STRIPE_PRODUCTS_SERVICES_SECRET_KEY: "rk_test_A1b2C3d4E5" };
+  assert.equal(readStripeMerchantConfig("madhouse_products_services", testRestricted).mode, "test");
+});
+
+test("Stripe readiness diagnostic performs only two account identity GETs and reports restricted scopes safely", async () => {
+  const env = {
+    NODE_ENV: "test",
+    STRIPE_FRANCHISE_SECRET_KEY: "rk_live_franchisefixture", STRIPE_FRANCHISE_WEBHOOK_SECRET: "whsec_franchisefixture", STRIPE_FRANCHISE_ACCOUNT_ID: "acct_franchise", STRIPE_FRANCHISE_MODE: "live",
+    STRIPE_PRODUCTS_SERVICES_SECRET_KEY: "rk_live_productfixture", STRIPE_PRODUCTS_SERVICES_WEBHOOK_SECRET: "whsec_productfixture", STRIPE_PRODUCTS_SERVICES_CLASS_WEBHOOK_SECRET: "whsec_classfixture", STRIPE_PRODUCTS_SERVICES_ACCOUNT_ID: "acct_products", STRIPE_PRODUCTS_SERVICES_MODE: "live",
+  } as NodeJS.ProcessEnv;
+  const requests: Array<{ url: string; method: string }> = [];
+  const fetcher = (async (url: string | URL | Request, init?: RequestInit) => {
+    requests.push({ url: String(url), method: init?.method ?? "GET" });
+    const authorization = new Headers(init?.headers).get("authorization") ?? "";
+    const accountId = authorization.includes("franchisefixture") ? "acct_franchise" : "acct_products";
+    return Response.json({ id: accountId, company: { name: accountId === "acct_franchise" ? "Madhouse Franchise Limited" : "Madhouse Products & Services Limited" }, email: "must-not-be-returned@example.test", settings: { sensitive: true } });
+  }) as typeof fetch;
+  const result = await inspectStripeReadiness(env, fetcher);
+  assert.equal(requests.length, 2);
+  assert.ok(requests.every(request => request.url === "https://api.stripe.com/v1/account" && request.method === "GET"));
+  assert.equal(result.accountIdsDistinct, "yes");
+  assert.equal(result.classWebhookSecret, "configured");
+  assert.ok(result.merchants.every(merchant => merchant.accountIdentity === "confirmed" && merchant.legalEntityIdentity === "confirmed" && merchant.checkoutWritePermission === "not_probed"));
+  assert.match(JSON.stringify(result), /Checkout Sessions: Write/);
+  assert.doesNotMatch(JSON.stringify(result), /must-not-be-returned|Madhouse Franchise Limited|rk_live_|whsec_|acct_franchise|acct_products/);
+
+  const denied = await inspectStripeReadiness(env, (async () => Response.json({ error: { message: "private provider detail" } }, { status: 403 })) as typeof fetch);
+  assert.ok(denied.merchants.every(merchant => merchant.accountIdentity === "blocked_or_unavailable"));
+  assert.doesNotMatch(JSON.stringify(denied), /private provider detail/);
 });
 
 test("Stripe test credentials are allowed only on an explicit Vercel Preview and Preview return URLs stay on that deployment", () => {
@@ -74,7 +119,7 @@ test("Products and Services Checkout validates its account, Product/Price and ex
   const calls: string[] = [];
   const fetcher = (async (url: string | URL | Request, init?: RequestInit) => {
     const path = String(url).replace("https://api.stripe.com/v1", ""); calls.push(path);
-    if (path === "/account") return new Response(JSON.stringify({ id: "acct_products" }));
+    if (path === "/account") return new Response(JSON.stringify({ id: "acct_products", company: { name: "Madhouse Products & Services Limited" } }));
     if (path === "/prices/price_supplement") return new Response(JSON.stringify({ id: "price_supplement", active: true, currency: "gbp", unit_amount: 1250, product: "prod_supplement" }));
     if (path === "/checkout/sessions") {
       const body = new URLSearchParams(String(init?.body));
@@ -92,8 +137,10 @@ test("Products and Services Checkout validates its account, Product/Price and ex
     assert.equal(session.id, "cs_test_order");
     assert.deepEqual(calls, ["/account", "/prices/price_supplement", "/checkout/sessions"]);
 
-    const wrongAccount = (async (url: string | URL | Request) => String(url).endsWith("/account") ? new Response(JSON.stringify({ id: "acct_franchise" })) : new Response("{}")) as typeof fetch;
-    await assert.rejects(createStripeCommerceCheckoutSession({ attemptId: "attempt-2", orderId: "order-2", userId: "user-1", customerEmail: "member@example.test", totalMinor: 1250, currency: "GBP", successUrl: "https://app.test", cancelUrl: "https://app.test", lines: [{ productId: "local-product", stripeProductId: "prod_supplement", stripePriceId: "price_supplement", quantity: 1, unitPriceMinor: 1250, currency: "GBP" }] }, wrongAccount), /not for Madhouse Products and Services/);
+    const wrongAccount = (async (url: string | URL | Request) => String(url).endsWith("/account") ? new Response(JSON.stringify({ id: "acct_franchise", company: { name: "Madhouse Franchise Limited" } })) : new Response("{}")) as typeof fetch;
+    await assert.rejects(createStripeCommerceCheckoutSession({ attemptId: "attempt-2", orderId: "order-2", userId: "user-1", customerEmail: "member@example.test", totalMinor: 1250, currency: "GBP", successUrl: "https://app.test", cancelUrl: "https://app.test", lines: [{ productId: "local-product", stripeProductId: "prod_supplement", stripePriceId: "price_supplement", quantity: 1, unitPriceMinor: 1250, currency: "GBP" }] }, wrongAccount), /account identity does not match configuration/);
+    const wrongLegalEntity = (async (url: string | URL | Request) => String(url).endsWith("/account") ? new Response(JSON.stringify({ id: "acct_products", company: { name: "Madhouse Franchise Limited" } })) : new Response("{}")) as typeof fetch;
+    await assert.rejects(createStripeCommerceCheckoutSession({ attemptId: "attempt-3", orderId: "order-3", userId: "user-1", customerEmail: "member@example.test", totalMinor: 1250, currency: "GBP", successUrl: "https://app.test", cancelUrl: "https://app.test", lines: [{ productId: "local-product", stripeProductId: "prod_supplement", stripePriceId: "price_supplement", quantity: 1, unitPriceMinor: 1250, currency: "GBP" }] }, wrongLegalEntity), /account identity does not match configuration/);
   } finally {
     for (const [key, value] of Object.entries(saved)) if (value === undefined) delete process.env[key]; else process.env[key] = value;
   }
@@ -143,6 +190,37 @@ test("signed webhook routes and durable event ledger are isolated by legal merch
   assert.match(productsWebhook, /checkout\.session\.async_payment_succeeded/);
   assert.match(productsWebhook, /payment_intent\.payment_failed/);
   assert.match(productsWebhook, /charge\.dispute\.created/);
+  const classWebhook = readFileSync("app/api/webhooks/stripe/classes/route.ts", "utf8");
+  assert.match(classWebhook, /STRIPE_PRODUCTS_SERVICES_CLASS_WEBHOOK_SECRET/);
+  assert.match(classWebhook, /verifyStripeSignature/);
+  assert.match(franchiseWebhook, /verifyStripeSignature/);
+  assert.match(productsWebhook, /verifyStripeSignature/);
+});
+
+test("Stripe operations use separate merchant keys and the only checkout-expiry writes are explicit", () => {
+  const joinProvider = readFileSync("lib/stripe-join-provider.ts", "utf8");
+  const commerceProvider = readFileSync("lib/stripe-commerce-provider.ts", "utf8");
+  assert.match(joinProvider, /stripeMerchantRequest<StripeCheckoutSession>\("madhouse_franchise", `\/checkout\/sessions\/\$\{encodeURIComponent\(id\)\}`/);
+  assert.match(joinProvider, /\/checkout\/sessions\/\$\{encodeURIComponent\(id\)\}\/expire/);
+  assert.match(joinProvider, /stripeMerchantForCategory\("class_booking"\)/);
+  assert.match(commerceProvider, /stripeMerchantRequest<StripeCommercePrice>\("madhouse_products_services", `\/prices\//);
+  assert.match(commerceProvider, /\/checkout\/sessions\/\$\{encodeURIComponent\(id\)\}\/expire/);
+  assert.match(commerceProvider, /stripeMerchantForCategory\("other_product_or_service"\)/);
+  assert.match(joinProvider, /\/charges\//);
+  assert.match(joinProvider, /\/invoices\//);
+  assert.match(commerceProvider, /\/payment_intents\//);
+  assert.match(commerceProvider, /\/charges\//);
+});
+
+test("Stripe merchant diagnostic page is private to owner and gym admin and explicitly read-only", () => {
+  const page = readFileSync("app/club/launch-readiness/stripe/page.tsx", "utf8");
+  const diagnostic = readFileSync("lib/stripe-readiness-diagnostic.ts", "utf8");
+  assert.match(page, /\["owner", "gym_admin"\]/);
+  assert.match(page, /hasPlayReviewerEntitlement/);
+  assert.match(page, /does not create Checkout Sessions/);
+  assert.match(diagnostic, /GET \/v1\/account/);
+  assert.match(diagnostic, /checkoutWriteChecks: "not_performed_read_only_only"/);
+  assert.doesNotMatch(diagnostic, /stripeMerchantRequest[^\n]*method:\s*"POST"/);
 });
 
 test("duplicate, superseded, failed, and out-of-order events cannot settle the wrong commerce payment", () => {
