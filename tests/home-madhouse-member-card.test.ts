@@ -17,10 +17,11 @@ test("linked Madhouse Home card uses the canonical gym name, real asset and scop
     "/member-hub#membership-access-gym%2Fid",
     "/member-hub/shop?org=gym%2Fid",
   ]);
-  assert.ok(existsSync("public/club-branding/madhouse-carlton-training.png"));
+  assert.ok(existsSync("public/club-branding/madhouse-rotherham-wall-logo.jpg"));
   const component = read("components/dashboard-foundation.tsx");
   assert.match(component, /Madhouse Gym/);
-  assert.match(component, /madhouse-carlton-training\.png/);
+  assert.match(component, /madhouse-rotherham-wall-logo\.jpg/);
+  assert.match(component, /Rotherham, with its wall logo/);
   assert.doesNotMatch(component, /R12 Performance/);
   assert.match(component, /aria-label=\{`Open \$\{card\.name\} Member Area`\}/);
 });

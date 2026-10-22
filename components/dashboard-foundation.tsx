@@ -34,7 +34,7 @@ function HomeMemberAreaCard({ organisation }: { organisation: { id: string; name
   const card = homeMemberAreaCard(organisation);
   return <article className="member-gym-card" aria-label={`${card.name} Member Area`}>
     <Link className="member-gym-card-main" href={card.href} aria-label={`Open ${card.name} Member Area`}>
-      {card.isMadhouse ? <Image className="member-gym-photo" src="/club-branding/madhouse-carlton-training.png" alt="Inside Madhouse Gym in Carlton" width={128} height={96} sizes="64px" /> : <span className="member-gym-generic-photo" aria-hidden="true">⌂</span>}
+      {card.isMadhouse ? <Image className="member-gym-photo" src="/club-branding/madhouse-rotherham-wall-logo.jpg" alt="Inside Madhouse Gym in Rotherham, with its wall logo" width={128} height={96} sizes="64px" /> : <span className="member-gym-generic-photo" aria-hidden="true">⌂</span>}
       <span className="member-gym-card-title"><strong>{card.name}</strong><small>MEMBER AREA</small></span>
       <span className="member-gym-card-chevron" aria-hidden="true">›</span>
     </Link>
