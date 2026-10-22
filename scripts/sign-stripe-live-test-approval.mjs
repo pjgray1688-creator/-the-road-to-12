@@ -15,7 +15,7 @@ try {
     || Object.keys(approval).sort().join(",") !== [...fields].sort().join(",")
     || approval.version !== 1 || approval.purpose !== "r12_controlled_live_payment_test" || approval.entity !== entity
     || !/^acct_[A-Za-z0-9]+$/.test(approval.accountId) || approval.observedDashboardName !== expectedName
-    || typeof approval.observedAccountHolder !== "string" || !/^[^\r\n]{3,160}$/.test(approval.observedAccountHolder.trim())
+    || approval.observedAccountHolder !== "Keenan Freer"
     || approval.legalEntityTransition !== "pending" || approval.legalEntityVerified !== false
     || !/^[a-f0-9]{64}$/.test(approval.apiKeyFingerprint) || approval.amountMinor !== 100 || approval.currency !== "GBP"
     || !Number.isFinite(Date.parse(approval.approvedAt)) || !/^[^\r\n]{3,160}$/.test(approval.approvedBy)

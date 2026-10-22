@@ -14,7 +14,7 @@ The owner-only screen is `/club/launch-readiness/stripe/live-test` (production: 
 4. Ensure both restricted live keys have the narrow Checkout Sessions write permission needed by `POST /v1/checkout/sessions`. The screen does not probe this permission. One owner click performs the first real resource request and tests it. If Stripe returns a permission error, this merchant's one attempt is consumed and no second session can be created; grant only the precise permission Stripe identifies after owner review. The webhook handler itself needs no Stripe API key permission.
 5. Record one signed test-only approval per merchant. Use the exact IDs and SHA-256 key fingerprints shown by the privileged Stripe diagnostic; independently observe the current Dashboard account holder. Keep the private signing key offline. `observedAccountHolder` and evidence references are server-side approval data and must not contain customer details.
 
-Approval JSON shape (use the exact fourteen fields and no others):
+Approval JSON shape (use the exact fourteen fields and no others). The observed Stripe account holder must be `Keenan Freer`; this is an owner-observed Dashboard fact recorded for the test and is not independent API/legal-entity verification:
 
 ```json
 {
@@ -23,7 +23,7 @@ Approval JSON shape (use the exact fourteen fields and no others):
   "entity": "madhouse_franchise",
   "accountId": "acct_FROM_THE_DASHBOARD",
   "observedDashboardName": "Madhouse Gym Rotherham",
-  "observedAccountHolder": "OWNER-OBSERVED CURRENT HOLDER",
+  "observedAccountHolder": "Keenan Freer",
   "legalEntityTransition": "pending",
   "legalEntityVerified": false,
   "apiKeyFingerprint": "64_CHARACTER_SHA256_FROM_DIAGNOSTIC",
@@ -55,9 +55,9 @@ Do not print or paste these values into source control, logs, tickets or chat. T
 
 1. Deploy the approved code and apply migration `2027-01-18-controlled-stripe-live-tests.sql` after backup and migration preflight. Do not execute another migration as part of this code change.
 2. Visit `https://app.r12.live/club/launch-readiness/stripe/live-test` signed in as the Madhouse Club Owner, not a reviewer or staff account. Confirm both normal live Checkout gates still show disabled and both approvals show verified.
-3. Click **Owner: create £1 Madhouse Franchise hosted Checkout**. On Stripe-hosted Checkout, before entering a card, verify the displayed receiving account is the account currently labelled **Madhouse Gym Rotherham**. If the destination label/account appears wrong or ambiguous, stop and do not pay. Use the owner's card and complete one £1 purchase only.
+3. The Madhouse owner or authorised gym_admin initiates the Franchise session using **Authorised admin: create £1 Madhouse Franchise hosted Checkout**. The account owner must personally complete payment with their own card. Before entering a card, verify Stripe-hosted Checkout identifies the account currently labelled **Madhouse Gym Rotherham**. If the destination label/account appears wrong or ambiguous, stop and do not pay. Complete one £1 purchase only.
 4. Return to the results screen and wait for the `/api/webhooks/stripe` event to show a completed session, paid £1.00 GBP, PaymentIntent, and reconciled event ID. The success redirect is not evidence.
-5. Repeat once by clicking **Owner: create £1 Madhouse Products & Services hosted Checkout**. Before paying, verify Stripe-hosted Checkout identifies **Madhouse Gym Carlton** as the receiving account. Complete one £1 purchase only, then wait for `/api/webhooks/stripe/products-services` reconciliation.
+5. Repeat once by clicking **Authorised admin: create £1 Madhouse Products & Services hosted Checkout**. Before paying, verify Stripe-hosted Checkout identifies **Madhouse Gym Carlton** as the receiving account. Complete one £1 purchase only, then wait for `/api/webhooks/stripe/products-services` reconciliation.
 6. Stop when both rows show PASS. Each merchant has a permanent unique test row; the app cannot create a replacement session or payment. If either test fails or remains incomplete, do not attempt a second payment; review Stripe Dashboard and the stored safe failure classification.
 
 The application caps each merchant at one £1 session and has only two merchant slots. It records only Checkout/payment references, state and safe failure categories. Webhook event IDs are unique; duplicate delivery is idempotent. No automated check creates any live Stripe resource. The authorization is for these two manual purchases only.

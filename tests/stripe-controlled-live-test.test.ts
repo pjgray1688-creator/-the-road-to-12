@@ -12,6 +12,7 @@ const franchiseWebhook = readFileSync("app/api/webhooks/stripe/route.ts", "utf8"
 const productsWebhook = readFileSync("app/api/webhooks/stripe/products-services/route.ts", "utf8");
 const classWebhook = readFileSync("app/api/webhooks/stripe/classes/route.ts", "utf8");
 const migrationManifest = readFileSync("supabase/deployment/2026-11-22-madhouse-launch-migrations.txt", "utf8");
+const adminMigration = readFileSync("supabase/migrations/2027-01-19-controlled-stripe-live-test-admins.sql", "utf8");
 
 const keyPair = generateKeyPairSync("ed25519");
 const publicKey = keyPair.publicKey.export({ type: "spki", format: "pem" }).toString();
@@ -26,7 +27,7 @@ function approvalEnv(entity: StripeMerchantEntity, overrides: Partial<StripeLive
     entity,
     accountId: franchise ? "acct_franchise" : "acct_products",
     observedDashboardName: franchise ? "Madhouse Gym Rotherham" : "Madhouse Gym Carlton",
-    observedAccountHolder: "Verified Dashboard account holder",
+    observedAccountHolder: "Keenan Freer",
     legalEntityTransition: "pending",
     legalEntityVerified: false,
     apiKeyFingerprint: stripeMerchantApiKeyFingerprint(secret),
@@ -77,10 +78,10 @@ test("amount and destination labels are fixed server values for only the two app
   assert.match(actions, /Idempotency-Key/);
   assert.match(actions, /\[price_data\]\[unit_amount\]": String\(STRIPE_LIVE_TEST_AMOUNT_MINOR\)/);
   assert.match(actions, /subscription \|\| session\.customer/);
-  assert.match(page, /Owner: create £1 \{merchant\.title\} hosted Checkout/);
+  assert.match(page, /Authorised admin: create £1 \{merchant\.title\} hosted Checkout/);
   assert.match(page, /hasPlayReviewerEntitlement/);
-  assert.match(page, /context\.role !== "owner"/);
-  assert.match(actions, /context\.role !== "owner"/);
+  assert.match(page, /\["owner", "gym_admin"\]\.includes\(context\.role\)/);
+  assert.match(actions, /\["owner", "gym_admin"\]\.includes\(context\.role\)/);
   assert.match(actions, /LIVE_ENABLED === "true"/);
 });
 
@@ -123,6 +124,10 @@ test("migration enforces two fixed merchant slots, one £1 attempt each and idem
   assert.match(migration, /on conflict \(provider_event_id\) do nothing/i);
   assert.match(migration, /to service_role/i);
   assert.match(migration, /role='owner'/i);
+  assert.match(adminMigration, /member\.role in \('owner','gym_admin'\)/i);
+  assert.match(adminMigration, /club_has_active_role\([^;]*array\['owner','gym_admin'\]/i);
+  assert.match(adminMigration, /observed_account_holder is distinct from 'Keenan Freer'/i);
+  assert.match(adminMigration, /revoke all on function public\.club_begin_stripe_live_test[\s\S]*to service_role/i);
   assert.match(migration, /payment_intent\.payment_failed/);
   assert.doesNotMatch(migration, /insert into public\.(club_orders|club_memberships|club_entitlement_grants|club_class_bookings)/i);
 });
@@ -134,4 +139,14 @@ test("webhooks reconcile the controlled test before normal fulfilment and keep c
   assert.match(migration, /provider_event_id text primary key/);
   assert.match(migration, /enable row level security/i);
   assert.ok(migrationManifest.indexOf("2027-01-17-member-training-setup-and-coach-plan-read.sql") < migrationManifest.indexOf("2027-01-18-controlled-stripe-live-tests.sql"));
+  assert.ok(migrationManifest.indexOf("2027-01-18-controlled-stripe-live-tests.sql") < migrationManifest.indexOf("2027-01-19-controlled-stripe-live-test-admins.sql"));
+});
+
+test("only active Madhouse owner or gym admin roles can initiate/read results; ordinary staff and reviewers stay excluded", () => {
+  assert.match(actions, /resolveClubOrganisationContext\(client, user\.id, MADHOUSE_ORGANISATION_ID\)/);
+  assert.match(actions, /context\.organisation\.id !== MADHOUSE_ORGANISATION_ID/);
+  assert.match(actions, /hasPlayReviewerEntitlement\(user\)/);
+  assert.match(adminMigration, /member\.active and member\.role in \('owner','gym_admin'\)/i);
+  assert.match(adminMigration, /club_has_active_role\([^;]*array\['owner','gym_admin'\]/i);
+  assert.doesNotMatch(adminMigration, /role in \([^)]*gym_staff|role in \([^)]*trainer/i);
 });

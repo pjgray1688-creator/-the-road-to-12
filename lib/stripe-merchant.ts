@@ -135,7 +135,7 @@ export function inspectStripeLiveTestApproval(entity: StripeMerchantEntity, env:
   if (approval.version !== 1 || approval.purpose !== "r12_controlled_live_payment_test" || approval.entity !== entity
     || !/^acct_[A-Za-z0-9]+$/.test(approval.accountId)
     || typeof approval.observedDashboardName !== "string" || !/^[^\r\n]{3,100}$/.test(approval.observedDashboardName)
-    || typeof approval.observedAccountHolder !== "string" || !/^[^\r\n]{3,160}$/.test(approval.observedAccountHolder.trim())
+    || approval.observedAccountHolder !== "Keenan Freer"
     || approval.legalEntityTransition !== "pending" || approval.legalEntityVerified !== false
     || typeof approval.apiKeyFingerprint !== "string" || !/^[a-f0-9]{64}$/.test(approval.apiKeyFingerprint)
     || approval.amountMinor !== 100 || approval.currency !== "GBP"

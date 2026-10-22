@@ -17,7 +17,7 @@ async function startOwnerTest(entity: StripeMerchantEntity) {
   const { data: { user } } = await client.auth.getUser();
   if (!user || hasPlayReviewerEntitlement(user)) redirect("/account?mode=signIn");
   const context = await resolveClubOrganisationContext(client, user.id, MADHOUSE_ORGANISATION_ID);
-  if (!context || context.role !== "owner" || context.organisation.id !== MADHOUSE_ORGANISATION_ID) redirect(failPath);
+  if (!context || !["owner", "gym_admin"].includes(context.role) || context.organisation.id !== MADHOUSE_ORGANISATION_ID) redirect(failPath);
 
   let checkoutUrl: string | undefined;
   let runId: string | undefined;
