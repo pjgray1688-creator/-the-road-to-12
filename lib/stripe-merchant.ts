@@ -24,6 +24,27 @@ export type StripeMerchantBinding = {
 };
 export type StripeMerchantBindingStatus = "verified" | "missing" | "invalid" | "mismatch";
 
+/** Separate, narrowly scoped attestation for the two owner-initiated £1 tests.
+ * It records the observed Dashboard destination during a pending company-name
+ * transition; it is deliberately not a legal-entity binding. */
+export type StripeLiveTestApproval = {
+  version: 1;
+  purpose: "r12_controlled_live_payment_test";
+  entity: StripeMerchantEntity;
+  accountId: string;
+  observedDashboardName: string;
+  observedAccountHolder: string;
+  legalEntityTransition: "pending";
+  legalEntityVerified: false;
+  apiKeyFingerprint: string;
+  amountMinor: 100;
+  currency: "GBP";
+  approvedAt: string;
+  approvedBy: string;
+  evidenceReference: string;
+};
+export type StripeLiveTestApprovalStatus = "verified" | "missing" | "invalid" | "mismatch";
+
 export type StripeSafeApiError = {
   status: number;
   type?: string;
@@ -85,6 +106,53 @@ const expectedLegalNames: Record<StripeMerchantEntity, string> = {
   madhouse_franchise: "Madhouse Franchise Limited",
   madhouse_products_services: "Madhouse Products and Services Limited",
 };
+const liveTestApprovals = {
+  madhouse_franchise: { record: "STRIPE_FRANCHISE_LIVE_TEST_APPROVAL", signature: "STRIPE_FRANCHISE_LIVE_TEST_APPROVAL_SIGNATURE", dashboardName: "Madhouse Gym Rotherham" },
+  madhouse_products_services: { record: "STRIPE_PRODUCTS_SERVICES_LIVE_TEST_APPROVAL", signature: "STRIPE_PRODUCTS_SERVICES_LIVE_TEST_APPROVAL_SIGNATURE", dashboardName: "Madhouse Gym Carlton" },
+} as const;
+const liveTestApprovalFields = ["version", "purpose", "entity", "accountId", "observedDashboardName", "observedAccountHolder", "legalEntityTransition", "legalEntityVerified", "apiKeyFingerprint", "amountMinor", "currency", "approvedAt", "approvedBy", "evidenceReference"] as const;
+
+export function stripeLiveTestApprovalMessage(approval: StripeLiveTestApproval): string {
+  return JSON.stringify(Object.fromEntries(liveTestApprovalFields.map(field => [field, approval[field]])));
+}
+
+export function stripeLiveTestApprovalSignature(entity: StripeMerchantEntity, env: NodeJS.ProcessEnv = process.env): string | undefined {
+  return env[liveTestApprovals[entity].signature]?.trim();
+}
+
+export function inspectStripeLiveTestApproval(entity: StripeMerchantEntity, env: NodeJS.ProcessEnv = process.env): { status: StripeLiveTestApprovalStatus; approval?: StripeLiveTestApproval } {
+  const setting = liveTestApprovals[entity];
+  const raw = env[setting.record]?.trim();
+  const signature = env[setting.signature]?.trim();
+  const publicKey = env.STRIPE_ACCOUNT_BINDING_PUBLIC_KEY?.trim();
+  if (!raw || !signature || !publicKey) return { status: "missing" };
+  let parsed: unknown;
+  try { parsed = JSON.parse(raw); } catch { return { status: "invalid" }; }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return { status: "invalid" };
+  const value = parsed as Record<string, unknown>;
+  if (Object.keys(value).sort().join(",") !== [...liveTestApprovalFields].sort().join(",")) return { status: "invalid" };
+  const approval = value as unknown as StripeLiveTestApproval;
+  if (approval.version !== 1 || approval.purpose !== "r12_controlled_live_payment_test" || approval.entity !== entity
+    || !/^acct_[A-Za-z0-9]+$/.test(approval.accountId)
+    || typeof approval.observedDashboardName !== "string" || !/^[^\r\n]{3,100}$/.test(approval.observedDashboardName)
+    || typeof approval.observedAccountHolder !== "string" || !/^[^\r\n]{3,160}$/.test(approval.observedAccountHolder.trim())
+    || approval.legalEntityTransition !== "pending" || approval.legalEntityVerified !== false
+    || typeof approval.apiKeyFingerprint !== "string" || !/^[a-f0-9]{64}$/.test(approval.apiKeyFingerprint)
+    || approval.amountMinor !== 100 || approval.currency !== "GBP"
+    || typeof approval.approvedAt !== "string" || !Number.isFinite(Date.parse(approval.approvedAt))
+    || typeof approval.approvedBy !== "string" || !/^[^\r\n]{3,160}$/.test(approval.approvedBy.trim())
+    || typeof approval.evidenceReference !== "string" || !/^[A-Za-z0-9._:/-]{3,160}$/.test(approval.evidenceReference.trim())) return { status: "invalid" };
+  const contract = contracts[entity];
+  if (approval.accountId !== env[contract.account]?.trim()
+    || approval.observedDashboardName !== setting.dashboardName
+    || approval.apiKeyFingerprint !== stripeMerchantApiKeyFingerprint(env[contract.key]?.trim() ?? "")) return { status: "mismatch", approval };
+  try {
+    const bytes = Buffer.from(signature, "base64");
+    if (!bytes.length || bytes.toString("base64") !== signature
+      || !verifySignature(null, Buffer.from(stripeLiveTestApprovalMessage(approval), "utf8"), publicKey, bytes)) return { status: "invalid" };
+  } catch { return { status: "invalid" }; }
+  return { status: "verified", approval };
+}
 
 /** Stable signed representation. The offline approver signs exactly this canonical JSON string. */
 export function stripeMerchantBindingMessage(binding: StripeMerchantBinding): string {

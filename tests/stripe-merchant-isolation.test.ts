@@ -189,8 +189,9 @@ test("Franchise checkout binding, preparation and webhook fulfilment reject non-
   assert.match(categoryGuardMigration, /create or replace function public\.club_record_stripe_membership_event_for_account/i);
   assert.doesNotMatch(categoryGuardMigration, /update public\.club_(?:payments|memberships|entitlement_grants|product_entitlements)\s+set/i);
   const manifest = readFileSync("supabase/deployment/2026-11-22-madhouse-launch-migrations.txt", "utf8").trim().split(/\r?\n/);
-  assert.equal(manifest.at(-2), "supabase/migrations/2027-01-16-stripe-merchant-category-guards.sql");
-  assert.equal(manifest.at(-1), "supabase/migrations/2027-01-17-member-training-setup-and-coach-plan-read.sql");
+  assert.equal(manifest.at(-3), "supabase/migrations/2027-01-16-stripe-merchant-category-guards.sql");
+  assert.equal(manifest.at(-2), "supabase/migrations/2027-01-17-member-training-setup-and-coach-plan-read.sql");
+  assert.equal(manifest.at(-1), "supabase/migrations/2027-01-18-controlled-stripe-live-tests.sql");
 });
 
 test("signed webhook routes and durable event ledger are isolated by legal merchant/account", () => {

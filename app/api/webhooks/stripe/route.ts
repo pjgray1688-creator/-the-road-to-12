@@ -4,6 +4,7 @@ import { stripeMembershipEvent } from "@/lib/join-provider-events";
 import { retrieveStripeCharge, retrieveStripeInvoice } from "@/lib/stripe-join-provider";
 import { adminSupabase } from "@/lib/supabase-admin";
 import { readStripeMerchantConfig } from "@/lib/stripe-merchant";
+import { reconcileControlledStripeLiveTestWebhook } from "@/lib/stripe-live-test";
 
 export const runtime = "nodejs";
 
@@ -19,6 +20,8 @@ export async function POST(request: NextRequest) {
   try { event = JSON.parse(body) as StripeEvent; } catch { return NextResponse.json({ error: "Invalid payload" }, { status: 400 }); }
   if (event.livemode !== (config.mode === "live")) return NextResponse.json({ error: "Stripe event mode does not match this deployment" }, { status: 400 });
   if (event.account && event.account !== config.accountId) return NextResponse.json({ error: "Stripe event is from the wrong merchant account" }, { status: 400 });
+  const controlled = await reconcileControlledStripeLiveTestWebhook(event as unknown as Parameters<typeof reconcileControlledStripeLiveTestWebhook>[0], "madhouse_franchise", config.accountId);
+  if (controlled.handled) return new NextResponse(null, { status: controlled.status });
   let parsed = stripeMembershipEvent(event);
   if (!parsed) return new NextResponse(null, { status: 204 });
   try {

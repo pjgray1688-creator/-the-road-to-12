@@ -3,6 +3,7 @@ import { verifyStripeSignature } from "@/lib/join-provider-crypto";
 import { adminSupabase } from "@/lib/supabase-admin";
 import { readStripeMerchantConfig } from "@/lib/stripe-merchant";
 import { retrieveStripeCommerceCharge, retrieveStripeCommercePaymentIntent } from "@/lib/stripe-commerce-provider";
+import { reconcileControlledStripeLiveTestWebhook } from "@/lib/stripe-live-test";
 
 export const runtime = "nodejs";
 
@@ -22,6 +23,8 @@ export async function POST(request: NextRequest) {
   if (!event.id || !Number.isSafeInteger(event.created) || !event.data?.object || event.livemode !== (config.mode === "live") || (event.account && event.account !== config.accountId)) {
     return NextResponse.json({ error: "Stripe event is not for this merchant or mode" }, { status: 400 });
   }
+  const controlled = await reconcileControlledStripeLiveTestWebhook(event, "madhouse_products_services", config.accountId);
+  if (controlled.handled) return new NextResponse(null, { status: controlled.status });
   const object = event.data.object;
   let kind: string | undefined;
   let attemptId = typeof (object.metadata as Record<string, unknown> | undefined)?.payment_attempt_id === "string" ? String((object.metadata as Record<string, unknown>).payment_attempt_id) : null;

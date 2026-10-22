@@ -21,6 +21,10 @@ export async function POST(request: NextRequest) {
   let event: StripeEvent;
   try { event = JSON.parse(body) as StripeEvent; } catch { return NextResponse.json({ error: "Invalid payload" }, { status: 400 }); }
   if (event.livemode !== (config.mode === "live") || (event.account && event.account !== config.accountId)) return NextResponse.json({ error: "Stripe event does not match the Products & Services account and mode" }, { status: 400 });
+  // The class endpoint is separately signed and must never turn the isolated
+  // owner test into a class booking. The main Products & Services endpoint
+  // performs the controlled-test reconciliation instead.
+  if (event.data?.object?.metadata?.r12_controlled_live_test === "1") return new NextResponse(null, { status: 204 });
   const accepted = new Set(["checkout.session.completed", "checkout.session.async_payment_succeeded", "checkout.session.async_payment_failed", "checkout.session.expired", "payment_intent.payment_failed"]);
   if (!accepted.has(event.type)) return new NextResponse(null, { status: 204 });
   const session = event.data?.object;
