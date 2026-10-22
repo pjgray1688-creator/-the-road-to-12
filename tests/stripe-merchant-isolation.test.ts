@@ -77,9 +77,14 @@ test("Stripe readiness diagnostic performs only two account identity GETs and re
   assert.match(JSON.stringify(result), /Checkout Sessions: Write/);
   assert.doesNotMatch(JSON.stringify(result), /must-not-be-returned|Madhouse Franchise Limited|rk_live_|whsec_|acct_franchise|acct_products/);
 
-  const denied = await inspectStripeReadiness(env, (async () => Response.json({ error: { message: "private provider detail" } }, { status: 403 })) as typeof fetch);
+  const denied = await inspectStripeReadiness(env, (async () => Response.json({ error: { type: "invalid_request_error", code: "restricted_api_key", missing_permissions: ["rak_account_read"], message: "private provider detail" } }, { status: 403 })) as typeof fetch);
   assert.ok(denied.merchants.every(merchant => merchant.accountIdentity === "blocked_or_unavailable"));
+  assert.ok(denied.merchants.every(merchant => merchant.accountVerificationError?.kind === "stripe_api" && merchant.accountVerificationError.status === 403 && merchant.accountVerificationError.type === "invalid_request_error" && merchant.accountVerificationError.code === "restricted_api_key" && merchant.accountVerificationError.missingPermission === "rak_account_read"));
   assert.doesNotMatch(JSON.stringify(denied), /private provider detail/);
+
+  const networkFailure = await inspectStripeReadiness(env, (async () => { throw new TypeError("fetch failed with Authorization: secret"); }) as typeof fetch);
+  assert.ok(networkFailure.merchants.every(merchant => merchant.accountVerificationError?.kind === "network"));
+  assert.doesNotMatch(JSON.stringify(networkFailure), /Authorization|secret/);
 });
 
 test("Stripe test credentials are allowed only on an explicit Vercel Preview and Preview return URLs stay on that deployment", () => {
@@ -94,6 +99,14 @@ test("Stripe test credentials are allowed only on an explicit Vercel Preview and
     status: "configured", source: "VERCEL_URL", effectiveUrl: "https://r12-launch-preview.vercel.app",
   });
   assert.equal(appBaseUrlStatus({ ...preview, VERCEL_URL: "https://evil.example/path" }).status, "invalid");
+  const production = { NODE_ENV: "production", VERCEL_ENV: "production", NEXT_PUBLIC_SITE_URL: "https://the-road-to-12.vercel.app" } as NodeJS.ProcessEnv;
+  assert.deepEqual(appBaseUrlStatus(production), {
+    status: "invalid", source: "NEXT_PUBLIC_SITE_URL", effectiveUrl: "https://app.r12.live",
+    detail: "Production callbacks use https://app.r12.live; update the configured production site URL to this origin.",
+  });
+  assert.deepEqual(appBaseUrlStatus({ ...production, NEXT_PUBLIC_SITE_URL: "https://app.r12.live" }), {
+    status: "configured", source: "NEXT_PUBLIC_SITE_URL", effectiveUrl: "https://app.r12.live",
+  });
   assert.throws(() => readStripeMerchantConfig("madhouse_franchise", { ...preview, VERCEL_ENV: "production" }), /must use live mode/);
   assert.throws(() => readStripeMerchantConfig("madhouse_franchise", { ...preview, VERCEL_ENV: undefined }), /must use live mode/);
 });

@@ -1,6 +1,6 @@
 export type AppBaseUrlStatus = { status: "configured" | "missing" | "invalid"; source: "R12_APP_BASE_URL" | "NEXT_PUBLIC_SITE_URL" | "VERCEL_URL" | "fallback"; effectiveUrl: string; detail?: string };
 
-const productionFallback = "https://the-road-to-12.vercel.app";
+const productionFallback = "https://app.r12.live";
 const invalidAppHosts = new Set(["www.r12.live"]);
 
 export function appBaseUrlStatus(env: NodeJS.ProcessEnv = process.env): AppBaseUrlStatus {
@@ -24,6 +24,9 @@ export function appBaseUrlStatus(env: NodeJS.ProcessEnv = process.env): AppBaseU
     const url = new URL(configured);
     if (!(["http:", "https:"].includes(url.protocol)) || url.username || url.password || url.search || url.hash || (url.pathname !== "/" && url.pathname !== "") || invalidAppHosts.has(url.hostname.toLowerCase())) {
       return { status: "invalid", source, effectiveUrl: fallback, detail: "Use the R12 application origin without a path, query or fragment. The r12.live origin is valid once its application routes are proxied." };
+    }
+    if (env.VERCEL_ENV === "production" && url.origin !== "https://app.r12.live") {
+      return { status: "invalid", source, effectiveUrl: productionFallback, detail: "Production callbacks use https://app.r12.live; update the configured production site URL to this origin." };
     }
     return { status: "configured", source: source as "R12_APP_BASE_URL" | "NEXT_PUBLIC_SITE_URL", effectiveUrl: url.origin };
   } catch {

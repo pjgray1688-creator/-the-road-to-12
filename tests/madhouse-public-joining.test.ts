@@ -63,7 +63,8 @@ test("legacy Madhouse member-link path redirects instead of duplicating activati
 
 test("launch routing documentation preserves the marketing root and calls out both join path forms",()=>{
   const routing=readFileSync("docs/r12-launch-configuration.md","utf8");
-  assert.match(routing,/Keep `\/` and all current marketing paths/);
-  assert.match(routing,/both `\/join` and `\/join\/\*`/);
-  assert.match(routing,/`\/member-hub\*` \(including `\/member-hub\/link`\)/);
+  assert.match(routing,/bare `r12\.live` host/);
+  assert.match(routing,/dedicated Vercel domain `https:\/\/app\.r12\.live`/);
+  assert.match(routing,/`https:\/\/app\.r12\.live\/api\/webhooks\/stripe`/);
+  assert.match(routing,/`https:\/\/app\.r12\.live\/api\/webhooks\/stripe\/products-services`/);
 });

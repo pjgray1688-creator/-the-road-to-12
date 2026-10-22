@@ -207,6 +207,6 @@ test("notification links use the explicit application origin", () => {
   assert.match(provider, /siteUrl\(\)/);
   assert.match(resolver, /R12_APP_BASE_URL\?\.trim\(\)/);
   assert.match(resolver, /NEXT_PUBLIC_SITE_URL\?\.trim\(\)/);
-  assert.match(resolver, /the-road-to-12\.vercel\.app/);
+  assert.match(resolver, /app\.r12\.live/);
   assert.match(resolver, /r12\.live/);
 });

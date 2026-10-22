@@ -11,13 +11,9 @@ Use this as the Vercel/provider-dashboard checklist. Never put secret values in 
 
 ## Public app URL while preserving the landing site
 
-The Next.js app's root route is an authenticated app home, not the existing public R12 landing site. Do not point the bare-domain root `/` at this Vercel project or replace the current landing origin. The app can use `https://r12.live` as its canonical origin after Cloudflare routes app paths to the existing Vercel deployment. Keep the landing site as the origin for `/` and its existing marketing paths.
+The Next.js app uses the dedicated Vercel domain `https://app.r12.live`. The public marketing site keeps the bare `r12.live` host. Production callbacks, notification links and webhook destinations must use `https://app.r12.live`; do not use the Vercel project hostname or the bare marketing domain.
 
-Use a Cloudflare Worker (or equivalent path-aware reverse proxy) on the existing `r12.live` zone. Route only app paths to `https://the-road-to-12.vercel.app`, preserving method, path, query, request body, cookies and response `Set-Cookie` headers. Forward `x-forwarded-host: r12.live` and `x-forwarded-proto: https`; do not cache authenticated pages, `/api/*`, or auth responses. Keep `/` and all current marketing paths on their present landing origin. Route the required `/club*`, `/coach*`, `/member-hub*` (including `/member-hub/link`), `/member-link` (legacy redirect only), `/account*`, `/api/*`, `/training*`, `/nutrition*`, `/progress*`, `/history*`, `/onboarding*`, and both `/join` and `/join/*` (including `/join/madhouse-gym`) app paths, along with `/manifest.webmanifest`, `/club/manifest.webmanifest`, `/r12-app-assets/*`, and app-owned public assets such as `/icons/*`, `/club-branding/*`, and `/product-images/*`. The app-specific icon assets use `/r12-app-assets/*` so the marketing site's existing root favicon and apple-touch icon are not replaced. Compare this allowlist with the landing site's routes and asset paths before activation; resolve any collision explicitly rather than proxying all traffic. Route `/privacy` and `/terms` to the app only if those paths are not existing landing pages. The current app root is intentionally not included.
-
-The proxy must also serve the app's Next static chunks at `/_next/static/*`. If that path is used by the landing site too, use a distinct app asset origin/prefix or a Vercel rewrite arrangement that keeps both builds' chunk URLs isolated; do not blindly route the shared path and risk breaking landing assets. Test Server Actions, Supabase cookie set/refresh, deep links and checkout callbacks through the public hostname before changing provider callbacks.
-
-The browser will see `r12.live`, so host-only Supabase cookies will belong to that host across app paths; do not widen them with `Domain=.r12.live`. Same-origin proxying does not isolate cookies by path, so confirm the landing site's authentication does not collide with R12's Supabase cookie names/session. The PWA starts at `/member-hub`, not the marketing root. Native/app deep links should use the same public app paths once routing is live.
+The app's Vercel project reports `app.r12.live` as a verified project domain. Confirm the Vercel domain remains assigned to the production project and that its DNS points to Vercel. The app root and authenticated routes remain on the app subdomain, so no path proxy or shared landing-site cookie routing is required.
 
 ## External setup required
 
@@ -25,10 +21,10 @@ The browser will see `r12.live`, so host-only Supabase cookies will belong to th
 
 Set the following server-side values in the Production environment:
 
-- `R12_APP_BASE_URL=https://r12.live` (preferred canonical app origin, after Cloudflare app-path routing is active). Set `NEXT_PUBLIC_SITE_URL=https://r12.live` as the legacy fallback as well. Until the path proxy and callback allowlist are ready, retain the current Vercel origin rather than switching early.
+- `R12_APP_BASE_URL=https://app.r12.live` (preferred canonical app origin). Set `NEXT_PUBLIC_SITE_URL=https://app.r12.live` as the legacy fallback as well. Production URL resolution pins callbacks to this host and reports a mismatched configured origin.
 - Franchise membership payments use `STRIPE_FRANCHISE_SECRET_KEY`, `STRIPE_FRANCHISE_WEBHOOK_SECRET`, `STRIPE_FRANCHISE_ACCOUNT_ID=acct_...`, and `STRIPE_FRANCHISE_MODE=test|live`; all four values belong to Madhouse Franchise Limited (17383077).
 - Supported one-off shop/service purchases use the separate `STRIPE_PRODUCTS_SERVICES_SECRET_KEY`, `STRIPE_PRODUCTS_SERVICES_WEBHOOK_SECRET`, `STRIPE_PRODUCTS_SERVICES_ACCOUNT_ID=acct_...`, and `STRIPE_PRODUCTS_SERVICES_MODE=test|live`; all four belong to Madhouse Products and Services Limited (17383213). There is no generic Stripe key fallback.
-- Checkout verifies the API key's account before creating a session. Product ownership and exact Stripe Product/Price IDs must be explicitly configured in the catalogue after commercial ownership is confirmed; categories and gym sites never infer a merchant.
+- Checkout verifies the API key's account before creating a session. Product ownership and exact Stripe Product/Price IDs must be explicitly configured in the catalogue after commercial ownership is confirmed; categories and gym sites never infer a merchant. The read-only readiness page uses `GET /v1/account` for the authenticated key's own account and requires Accounts: Read; it does not use Connect's `GET /v1/accounts/:id` endpoint or require blanket Connect resource permissions.
 - `GOCARDLESS_ACCESS_TOKEN`, `GOCARDLESS_WEBHOOK_SECRET`, and `GOCARDLESS_ENVIRONMENT=live` after the live provider setup is verified. The integration defaults to sandbox if the environment is omitted; set it explicitly.
 - `CRON_SECRET` for Vercel Cron requests. Billing and notification workers also accept their dedicated `R12_BILLING_WORKER_SECRET` / `R12_NOTIFICATION_WORKER_SECRET` for trusted manual calls.
 - `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` for protected server workers. Keep the service-role key server-only.
@@ -64,14 +60,16 @@ Workers are safe to invoke repeatedly: billing uses durable claims and stable pr
 
 ## Provider endpoints
 
-- Stripe webhook: `https://r12.live/api/webhooks/stripe` (after `/api/*` is proxied)
-- Products & Services Stripe webhook: `https://r12.live/api/webhooks/stripe/products-services` (after `/api/*` is proxied)
-- Products & Services class Stripe webhook: `https://r12.live/api/webhooks/stripe/classes` (separate endpoint signing secret, same merchant account)
-- GoCardless webhook: `https://r12.live/api/webhooks/gocardless` (after `/api/*` is proxied)
-- GoCardless redirect callback: `https://r12.live/api/club/join/gocardless/complete` (after `/api/*` is proxied)
-- Membership billing worker: `GET https://r12.live/api/internal/membership-billing-worker`
-- Queued supplier import worker: `GET https://r12.live/api/internal/supplier-import-worker`
-- Notification delivery worker: `GET https://r12.live/api/internal/notification-worker`
+- Madhouse Franchise Stripe webhook: `https://app.r12.live/api/webhooks/stripe`
+- Madhouse Products & Services Stripe webhook: `https://app.r12.live/api/webhooks/stripe/products-services`
+- Products & Services class Stripe webhook: `https://app.r12.live/api/webhooks/stripe/classes` (separate endpoint signing secret, same merchant account)
+- GoCardless webhook: `https://app.r12.live/api/webhooks/gocardless`
+- GoCardless redirect callback: `https://app.r12.live/api/club/join/gocardless/complete`
+- Membership billing worker: `GET https://app.r12.live/api/internal/membership-billing-worker`
+- Queued supplier import worker: `GET https://app.r12.live/api/internal/supplier-import-worker`
+- Notification delivery worker: `GET https://app.r12.live/api/internal/notification-worker`
+
+These are the exact application destinations to configure in the corresponding provider dashboards. Dashboard endpoint registrations and signing-secret associations must be checked by an authorised account owner; this repository and its readiness page cannot read those dashboard settings.
 
 Vercel Cron supplies the bearer header from `CRON_SECRET`. Trusted manual calls may use the corresponding dedicated worker secret or `CRON_SECRET`; never put a secret in a URL or log.
 
@@ -109,7 +107,7 @@ Configure GoCardless webhook events for mandate and payment lifecycle changes us
 
 ### Supabase Auth redirects
 
-In Supabase Authentication → URL Configuration, once path routing is active, set the Site URL to `https://r12.live` and allow the production callback URLs `https://r12.live/account` and `https://r12.live/account/reset` (plus any specific existing claim callback that is configured to receive Auth redirects). Keep preview/development origins separate. Browser signup/reset redirects derive from the current app origin, so using the app at `r12.live` sends those callbacks back to `r12.live`. Supabase Auth SMTP is configured separately from application transactional SMTP.
+In Supabase Authentication → URL Configuration, set the Site URL to `https://app.r12.live` and allow the production callback URLs `https://app.r12.live/account` and `https://app.r12.live/account/reset` (plus any specific existing claim callback that is configured to receive Auth redirects). Keep preview/development origins separate. Browser signup/reset redirects derive from the current app origin, so callbacks return to the app subdomain. Supabase Auth SMTP is configured separately from application transactional SMTP.
 
 ## Notification lease recovery and delivery guarantees
 

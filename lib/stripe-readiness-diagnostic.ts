@@ -1,4 +1,4 @@
-import { readStripeMerchantConfig, stripeMerchantRequest, type StripeMerchantEntity } from "./stripe-merchant";
+import { readStripeMerchantConfig, stripeMerchantRequest, StripeMerchantApiError, StripeMerchantNetworkError, type StripeMerchantEntity } from "./stripe-merchant";
 
 export type StripeMerchantDiagnostic = {
   entity: StripeMerchantEntity;
@@ -6,6 +6,7 @@ export type StripeMerchantDiagnostic = {
   mode: "live" | "not_live" | "unavailable";
   accountIdentity: "confirmed" | "mismatch" | "blocked_or_unavailable" | "not_checked";
   legalEntityIdentity: "confirmed" | "mismatch" | "unavailable" | "not_checked";
+  accountVerificationError: null | { kind: "stripe_api" | "network" | "diagnostic"; status?: number; type?: string; code?: string; missingPermission?: string };
   webhookSecret: "configured" | "missing_or_invalid";
   liveCheckoutGate: "enabled" | "disabled";
   checkoutWritePermission: "not_probed";
@@ -43,7 +44,7 @@ async function inspectEntity(entity: StripeMerchantEntity, expectedMode: "live" 
   try { config = readStripeMerchantConfig(entity, env); }
   catch {
     return { diagnostic: {
-      entity, configuration: "missing_or_invalid", mode: "unavailable", accountIdentity: "not_checked", legalEntityIdentity: "not_checked",
+      entity, configuration: "missing_or_invalid", mode: "unavailable", accountIdentity: "not_checked", legalEntityIdentity: "not_checked", accountVerificationError: null,
       webhookSecret: "missing_or_invalid", liveCheckoutGate: "disabled", checkoutWritePermission: "not_probed",
       requiredPermissions: requiredPermissions[entity],
     } };
@@ -53,21 +54,25 @@ async function inspectEntity(entity: StripeMerchantEntity, expectedMode: "live" 
     : env.STRIPE_PRODUCTS_SERVICES_LIVE_ENABLED === "true";
   let accountIdentity: StripeMerchantDiagnostic["accountIdentity"] = "blocked_or_unavailable";
   let legalEntityIdentity: StripeMerchantDiagnostic["legalEntityIdentity"] = "unavailable";
+  let accountVerificationError: StripeMerchantDiagnostic["accountVerificationError"] = null;
   try {
-    // Keep only identifier and legal company name; never serialize account
-    // details or any customer/payment objects returned by Stripe.
+    // Stripe's /v1/account is the authenticated key's own account endpoint.
+    // Do not substitute /v1/accounts/:id, which is a Connect resource.
     const account = await stripeMerchantRequest<{ id?: string; company?: { name?: string | null } }>(entity, "/account", {}, fetcher, env);
     accountIdentity = account.id === config.accountId ? "confirmed" : "mismatch";
     const actualName = canonicalLegalName(account.company?.name ?? undefined);
     const expectedName = canonicalLegalName(expectedLegalNames[entity]);
     legalEntityIdentity = actualName ? actualName === expectedName ? "confirmed" : "mismatch" : "unavailable";
-  } catch {
+  } catch (error) {
     accountIdentity = "blocked_or_unavailable";
     legalEntityIdentity = "unavailable";
+    if (error instanceof StripeMerchantApiError) accountVerificationError = { kind: "stripe_api", ...error.safe };
+    else if (error instanceof StripeMerchantNetworkError) accountVerificationError = { kind: "network" };
+    else accountVerificationError = { kind: "diagnostic" };
   }
   return { accountId: config.accountId, diagnostic: {
     entity, configuration: "ready", mode: config.mode === "live" && config.mode === expectedMode ? "live" : "not_live",
-    accountIdentity, legalEntityIdentity, webhookSecret: config.webhookSecret.startsWith("whsec_") ? "configured" : "missing_or_invalid",
+    accountIdentity, legalEntityIdentity, accountVerificationError, webhookSecret: config.webhookSecret.startsWith("whsec_") ? "configured" : "missing_or_invalid",
     liveCheckoutGate: liveEnabled ? "enabled" : "disabled", checkoutWritePermission: "not_probed",
     requiredPermissions: requiredPermissions[entity],
   } };

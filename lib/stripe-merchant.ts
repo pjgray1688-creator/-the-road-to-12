@@ -9,6 +9,40 @@ export type StripeMerchantConfig = {
   mode: "test" | "live";
 };
 
+export type StripeSafeApiError = {
+  status: number;
+  type?: string;
+  code?: string;
+  missingPermission?: string;
+};
+
+export class StripeMerchantApiError extends Error {
+  readonly safe: StripeSafeApiError;
+
+  constructor(label: string, safe: StripeSafeApiError) {
+    super(`${label} Stripe request failed (HTTP ${safe.status})`);
+    this.name = "StripeMerchantApiError";
+    this.safe = safe;
+  }
+}
+
+export class StripeMerchantNetworkError extends Error {
+  constructor(label: string) {
+    super(`${label} Stripe request failed (network)`);
+    this.name = "StripeMerchantNetworkError";
+  }
+}
+
+function safeStripeIdentifier(value: unknown): string | undefined {
+  return typeof value === "string" && /^[a-z][a-z0-9_]{0,63}$/.test(value) ? value : undefined;
+}
+
+function safeStripePermission(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const normalized = value.trim().toLowerCase().replace(/[ -]+/g, "_");
+  return ["accounts_read", "account_read", "accounts_write", "account_write", "rak_accounts_read", "rak_account_read", "connect_accounts_read", "connect_account_read"].includes(normalized) ? normalized : undefined;
+}
+
 const contracts = {
   madhouse_franchise: {
     label: "Madhouse Franchise Limited",
@@ -80,15 +114,32 @@ export async function stripeMerchantRequest<T>(
   env: NodeJS.ProcessEnv = process.env,
 ): Promise<T> {
   const config = readStripeMerchantConfig(entity, env);
-  const response = await fetcher(`https://api.stripe.com/v1${path}`, {
-    ...init,
-    headers: { Authorization: `Bearer ${config.secretKey}`, ...(init.headers ?? {}) },
-    cache: "no-store",
-  });
-  const value = await response.json() as T;
-  // Provider error bodies are intentionally not propagated: diagnostics and
-  // logs must never echo credentials or arbitrary provider-controlled text.
-  if (!response.ok) throw new Error(`${config.label} Stripe request failed (HTTP ${response.status})`);
+  let response: Response;
+  try {
+    response = await fetcher(`https://api.stripe.com/v1${path}`, {
+      ...init,
+      headers: { Authorization: `Bearer ${config.secretKey}`, ...(init.headers ?? {}) },
+      cache: "no-store",
+    });
+  } catch {
+    // Fetch exceptions can contain request details; surface only a safe class.
+    throw new StripeMerchantNetworkError(config.label);
+  }
+  let raw: unknown;
+  try { raw = await response.json(); } catch { raw = undefined; }
+  if (!response.ok) {
+    const error = raw && typeof raw === "object" && "error" in raw
+      ? (raw as { error?: Record<string, unknown> }).error : undefined;
+    const permissionValue = error?.missing_permission ?? error?.missing_permissions ?? error?.permission;
+    const permissionValues = Array.isArray(permissionValue) ? permissionValue : [permissionValue];
+    throw new StripeMerchantApiError(config.label, {
+      status: response.status,
+      type: safeStripeIdentifier(error?.type),
+      code: safeStripeIdentifier(error?.code),
+      missingPermission: permissionValues.map(safeStripePermission).find(Boolean),
+    });
+  }
+  const value = raw as T;
   return value;
 }
 

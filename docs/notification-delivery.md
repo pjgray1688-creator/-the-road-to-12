@@ -5,7 +5,7 @@ Business workflows queue durable `club_member_notification_intents`; the worker 
 Server-only configuration:
 
 - `R12_EMAIL_PROVIDER=smtp` selects the built-in Node SMTP transport. `mock` is test-only; missing or invalid configuration fails closed before an outbox intent is claimed.
-- `R12_APP_BASE_URL` (preferred), then `NEXT_PUBLIC_SITE_URL`, for links in messages. Production should use `https://the-road-to-12.vercel.app`; `r12.live` is the landing domain and is rejected for app links. See [the launch configuration checklist](r12-launch-configuration.md).
+- `R12_APP_BASE_URL` (preferred), then `NEXT_PUBLIC_SITE_URL`, for links in messages. Production uses `https://app.r12.live`; the bare `r12.live` domain remains the marketing site. See [the launch configuration checklist](r12-launch-configuration.md).
 - `R12_EMAIL_FROM_MEMBERS` (default `members@r12.live`)
 - `R12_EMAIL_FROM_BILLING` (default `madhouse.accounts@r12.live`)
 - `R12_EMAIL_FROM_STAFF` (default `staff@r12.live`)
