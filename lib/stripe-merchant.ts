@@ -1,3 +1,5 @@
+import { createHash, verify as verifySignature } from "node:crypto";
+
 export type StripeMerchantEntity = "madhouse_franchise" | "madhouse_products_services";
 export type StripeMerchantConfig = {
   entity: StripeMerchantEntity;
@@ -8,6 +10,19 @@ export type StripeMerchantConfig = {
   accountId: string;
   mode: "test" | "live";
 };
+
+export type StripeMerchantBinding = {
+  version: 1;
+  entity: StripeMerchantEntity;
+  accountId: string;
+  legalEntityNumber: "17383077" | "17383213";
+  legalEntityName: string;
+  apiKeyFingerprint: string;
+  approvedAt: string;
+  approvedBy: string;
+  evidenceReference: string;
+};
+export type StripeMerchantBindingStatus = "verified" | "missing" | "invalid" | "mismatch";
 
 export type StripeSafeApiError = {
   status: number;
@@ -25,7 +40,6 @@ export class StripeMerchantApiError extends Error {
     this.safe = safe;
   }
 }
-
 export class StripeMerchantNetworkError extends Error {
   constructor(label: string) {
     super(`${label} Stripe request failed (network)`);
@@ -51,6 +65,8 @@ const contracts = {
     webhook: "STRIPE_FRANCHISE_WEBHOOK_SECRET",
     account: "STRIPE_FRANCHISE_ACCOUNT_ID",
     mode: "STRIPE_FRANCHISE_MODE",
+    binding: "STRIPE_FRANCHISE_ACCOUNT_BINDING",
+    bindingSignature: "STRIPE_FRANCHISE_ACCOUNT_BINDING_SIGNATURE",
   },
   madhouse_products_services: {
     label: "Madhouse Products and Services Limited",
@@ -59,8 +75,71 @@ const contracts = {
     webhook: "STRIPE_PRODUCTS_SERVICES_WEBHOOK_SECRET",
     account: "STRIPE_PRODUCTS_SERVICES_ACCOUNT_ID",
     mode: "STRIPE_PRODUCTS_SERVICES_MODE",
+    binding: "STRIPE_PRODUCTS_SERVICES_ACCOUNT_BINDING",
+    bindingSignature: "STRIPE_PRODUCTS_SERVICES_ACCOUNT_BINDING_SIGNATURE",
   },
 } as const;
+
+const bindingFields = ["version", "entity", "accountId", "legalEntityNumber", "legalEntityName", "apiKeyFingerprint", "approvedAt", "approvedBy", "evidenceReference"] as const;
+const expectedLegalNames: Record<StripeMerchantEntity, string> = {
+  madhouse_franchise: "Madhouse Franchise Limited",
+  madhouse_products_services: "Madhouse Products and Services Limited",
+};
+
+/** Stable signed representation. The offline approver signs exactly this canonical JSON string. */
+export function stripeMerchantBindingMessage(binding: StripeMerchantBinding): string {
+  return JSON.stringify(Object.fromEntries(bindingFields.map(field => [field, binding[field]])));
+}
+
+export function stripeMerchantApiKeyFingerprint(secretKey: string): string {
+  return createHash("sha256").update(secretKey, "utf8").digest("hex");
+}
+
+export function inspectStripeMerchantBinding(
+  entity: StripeMerchantEntity,
+  env: NodeJS.ProcessEnv = process.env,
+): { status: StripeMerchantBindingStatus; binding?: StripeMerchantBinding } {
+  const contract = contracts[entity];
+  const configured = env[contract.binding]?.trim();
+  const signature = env[contract.bindingSignature]?.trim();
+  const publicKey = env.STRIPE_ACCOUNT_BINDING_PUBLIC_KEY?.trim();
+  if (!configured || !signature || !publicKey) return { status: "missing" };
+
+  let parsed: unknown;
+  try { parsed = JSON.parse(configured); } catch { return { status: "invalid" }; }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return { status: "invalid" };
+  const value = parsed as Record<string, unknown>;
+  if (Object.keys(value).sort().join(",") !== [...bindingFields].sort().join(",")) return { status: "invalid" };
+  const binding = value as unknown as StripeMerchantBinding;
+  if (binding.version !== 1 || binding.entity !== entity
+    || !/^acct_[A-Za-z0-9]+$/.test(binding.accountId)
+    || !/^\d{8}$/.test(binding.legalEntityNumber)
+    || typeof binding.legalEntityName !== "string"
+    || typeof binding.apiKeyFingerprint !== "string" || !/^[a-f0-9]{64}$/.test(binding.apiKeyFingerprint)
+    || typeof binding.approvedAt !== "string" || !Number.isFinite(Date.parse(binding.approvedAt))
+    || typeof binding.approvedBy !== "string" || !/^[^\r\n]{3,160}$/.test(binding.approvedBy.trim())
+    || typeof binding.evidenceReference !== "string" || !/^[A-Za-z0-9._:/-]{3,160}$/.test(binding.evidenceReference.trim())) {
+    return { status: "invalid" };
+  }
+  const configAccountId = env[contract.account]?.trim();
+  const expectedNumber = contracts[entity].legalEntityNumber;
+  const configuredKey = env[contract.key]?.trim() ?? "";
+  if (binding.accountId !== configAccountId || binding.legalEntityNumber !== expectedNumber
+    || binding.apiKeyFingerprint !== stripeMerchantApiKeyFingerprint(configuredKey)
+    || canonicalLegalName(binding.legalEntityName) !== canonicalLegalName(expectedLegalNames[entity])) {
+    return { status: "mismatch", binding };
+  }
+  try {
+    const signatureBytes = Buffer.from(signature, "base64");
+    if (!signatureBytes.length || signatureBytes.toString("base64") !== signature
+      || !verifySignature(null, Buffer.from(stripeMerchantBindingMessage(binding), "utf8"), publicKey, signatureBytes)) {
+      return { status: "invalid" };
+    }
+  } catch {
+    return { status: "invalid" };
+  }
+  return { status: "verified", binding };
+}
 
 export function stripeMerchantContract(entity: StripeMerchantEntity) {
   return contracts[entity];
@@ -150,6 +229,17 @@ export async function verifyStripeMerchantAccount(
   env: NodeJS.ProcessEnv = process.env,
 ) {
   const config = readStripeMerchantConfig(entity, env);
+  // Restricted live keys cannot read Stripe's self-account resource when
+  // Stripe omits Accounts: Read from the key-permissions UI. Require an
+  // offline operator-signed binding instead of trusting the account ID env
+  // setting. Keep the API identity check for test mode.
+  if (config.mode === "live") {
+    const binding = inspectStripeMerchantBinding(entity, env);
+    if (binding.status !== "verified") {
+      throw new Error(`${config.label} Stripe account binding is ${binding.status}`);
+    }
+    return config;
+  }
   const account = await stripeMerchantRequest<{ id?: string; company?: { name?: string | null } }>(entity, "/account", {}, fetcher, env);
   if (account.id !== config.accountId || canonicalLegalName(account.company?.name) !== canonicalLegalName(config.label)) {
     throw new Error(`${config.label} Stripe account identity does not match configuration`);

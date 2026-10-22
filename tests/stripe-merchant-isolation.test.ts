@@ -55,7 +55,7 @@ test("restricted and standard Stripe keys accept matching modes and reject malfo
   assert.equal(readStripeMerchantConfig("madhouse_products_services", testRestricted).mode, "test");
 });
 
-test("Stripe readiness diagnostic performs only two account identity GETs and reports restricted scopes safely", async () => {
+test("Stripe readiness diagnostic separates binding, key authentication and self-account permission safely", async () => {
   const env = {
     NODE_ENV: "test",
     STRIPE_FRANCHISE_SECRET_KEY: "rk_live_franchisefixture", STRIPE_FRANCHISE_WEBHOOK_SECRET: "whsec_franchisefixture", STRIPE_FRANCHISE_ACCOUNT_ID: "acct_franchise", STRIPE_FRANCHISE_MODE: "live",
@@ -73,17 +73,21 @@ test("Stripe readiness diagnostic performs only two account identity GETs and re
   assert.ok(requests.every(request => request.url === "https://api.stripe.com/v1/account" && request.method === "GET"));
   assert.equal(result.accountIdsDistinct, "yes");
   assert.equal(result.classWebhookSecret, "configured");
-  assert.ok(result.merchants.every(merchant => merchant.accountIdentity === "confirmed" && merchant.legalEntityIdentity === "confirmed" && merchant.checkoutWritePermission === "not_probed"));
+  assert.ok(result.merchants.every(merchant => merchant.providerIdentityMatch === "confirmed" && merchant.accountBinding === "missing" && merchant.keyAuthentication === "accepted" && merchant.checkoutPermission === "not_tested"));
   assert.match(JSON.stringify(result), /Checkout Sessions: Write/);
   assert.doesNotMatch(JSON.stringify(result), /must-not-be-returned|Madhouse Franchise Limited|rk_live_|whsec_|acct_franchise|acct_products/);
 
-  const denied = await inspectStripeReadiness(env, (async () => Response.json({ error: { type: "invalid_request_error", code: "restricted_api_key", missing_permissions: ["rak_account_read"], message: "private provider detail" } }, { status: 403 })) as typeof fetch);
-  assert.ok(denied.merchants.every(merchant => merchant.accountIdentity === "blocked_or_unavailable"));
-  assert.ok(denied.merchants.every(merchant => merchant.accountVerificationError?.kind === "stripe_api" && merchant.accountVerificationError.status === 403 && merchant.accountVerificationError.type === "invalid_request_error" && merchant.accountVerificationError.code === "restricted_api_key" && merchant.accountVerificationError.missingPermission === "rak_account_read"));
+  const denied = await inspectStripeReadiness(env, (async () => Response.json({ error: { type: "invalid_request_error", code: "more_permissions_required", missing_permissions: ["rak_account_read"], message: "private provider detail" } }, { status: 403 })) as typeof fetch);
+  assert.ok(denied.merchants.every(merchant => merchant.accountBinding === "missing" && merchant.keyAuthentication === "accepted" && merchant.selfAccountRead === "permission_denied"));
+  assert.ok(denied.merchants.every(merchant => merchant.selfAccountReadError?.kind === "stripe_api" && merchant.selfAccountReadError.status === 403 && merchant.selfAccountReadError.type === "invalid_request_error" && merchant.selfAccountReadError.code === "more_permissions_required" && merchant.selfAccountReadError.missingPermission === "rak_account_read"));
   assert.doesNotMatch(JSON.stringify(denied), /private provider detail/);
 
+  const rejected = await inspectStripeReadiness(env, (async () => Response.json({ error: { type: "authentication_error", code: "invalid_api_key", message: "private provider detail" } }, { status: 401 })) as typeof fetch);
+  assert.ok(rejected.merchants.every(merchant => merchant.keyAuthentication === "rejected" && merchant.selfAccountRead === "unavailable"));
+  assert.doesNotMatch(JSON.stringify(rejected), /private provider detail/);
+
   const networkFailure = await inspectStripeReadiness(env, (async () => { throw new TypeError("fetch failed with Authorization: secret"); }) as typeof fetch);
-  assert.ok(networkFailure.merchants.every(merchant => merchant.accountVerificationError?.kind === "network"));
+  assert.ok(networkFailure.merchants.every(merchant => merchant.selfAccountReadError?.kind === "network" && merchant.keyAuthentication === "unknown"));
   assert.doesNotMatch(JSON.stringify(networkFailure), /Authorization|secret/);
 });
 
@@ -230,9 +234,10 @@ test("Stripe merchant diagnostic page is private to owner and gym admin and expl
   const diagnostic = readFileSync("lib/stripe-readiness-diagnostic.ts", "utf8");
   assert.match(page, /\["owner", "gym_admin"\]/);
   assert.match(page, /hasPlayReviewerEntitlement/);
-  assert.match(page, /does not create Checkout Sessions/);
-  assert.match(diagnostic, /GET \/v1\/account/);
-  assert.match(diagnostic, /checkoutWriteChecks: "not_performed_read_only_only"/);
+  assert.match(page, /no session is created/);
+  assert.match(diagnostic, /"\/account"/);
+  assert.match(diagnostic, /does not use Connect's \/v1\/accounts\/:id/);
+  assert.match(diagnostic, /checkoutPermissionChecks: "not_performed_read_only_only"/);
   assert.doesNotMatch(diagnostic, /stripeMerchantRequest[^\n]*method:\s*"POST"/);
 });
 

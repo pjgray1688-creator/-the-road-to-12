@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
+import { generateKeyPairSync, sign } from "node:crypto";
 import test from "node:test";
 import { createStripeClassCheckoutSession, expireStripeClassCheckoutSession, retrieveStripeClassCheckoutSession } from "../lib/stripe-join-provider";
+import { stripeMerchantApiKeyFingerprint, stripeMerchantBindingMessage, type StripeMerchantBinding } from "../lib/stripe-merchant";
 
-const keys = ["STRIPE_PRODUCTS_SERVICES_SECRET_KEY", "STRIPE_PRODUCTS_SERVICES_WEBHOOK_SECRET", "STRIPE_PRODUCTS_SERVICES_CLASS_WEBHOOK_SECRET", "STRIPE_PRODUCTS_SERVICES_ACCOUNT_ID", "STRIPE_PRODUCTS_SERVICES_MODE", "STRIPE_PRODUCTS_SERVICES_LIVE_ENABLED", "STRIPE_SECRET_KEY"];
+const keys = ["STRIPE_PRODUCTS_SERVICES_SECRET_KEY", "STRIPE_PRODUCTS_SERVICES_WEBHOOK_SECRET", "STRIPE_PRODUCTS_SERVICES_CLASS_WEBHOOK_SECRET", "STRIPE_PRODUCTS_SERVICES_ACCOUNT_ID", "STRIPE_PRODUCTS_SERVICES_MODE", "STRIPE_PRODUCTS_SERVICES_LIVE_ENABLED", "STRIPE_PRODUCTS_SERVICES_ACCOUNT_BINDING", "STRIPE_PRODUCTS_SERVICES_ACCOUNT_BINDING_SIGNATURE", "STRIPE_ACCOUNT_BINDING_PUBLIC_KEY", "STRIPE_SECRET_KEY"];
 const saved = () => Object.fromEntries(keys.map(key => [key, process.env[key]]));
 const restore = (values: Record<string, string | undefined>) => { for (const [key, value] of Object.entries(values)) if (value === undefined) delete process.env[key]; else process.env[key] = value; };
 const configure = () => Object.assign(process.env, {
@@ -12,6 +14,18 @@ const configure = () => Object.assign(process.env, {
   STRIPE_PRODUCTS_SERVICES_ACCOUNT_ID: "acct_productsfixture",
   STRIPE_PRODUCTS_SERVICES_MODE: "test",
 });
+const bindingKeyPair = generateKeyPairSync("ed25519");
+const configureLiveBinding = () => {
+  const binding: StripeMerchantBinding = {
+    version: 1, entity: "madhouse_products_services", accountId: process.env.STRIPE_PRODUCTS_SERVICES_ACCOUNT_ID!,
+    legalEntityNumber: "17383213", legalEntityName: "Madhouse Products and Services Ltd",
+    apiKeyFingerprint: stripeMerchantApiKeyFingerprint(process.env.STRIPE_PRODUCTS_SERVICES_SECRET_KEY!),
+    approvedAt: "2026-10-22T12:00:00.000Z", approvedBy: "Fixture owner", evidenceReference: "class-test-evidence-1",
+  };
+  process.env.STRIPE_ACCOUNT_BINDING_PUBLIC_KEY = bindingKeyPair.publicKey.export({ type: "spki", format: "pem" }).toString();
+  process.env.STRIPE_PRODUCTS_SERVICES_ACCOUNT_BINDING = JSON.stringify(binding);
+  process.env.STRIPE_PRODUCTS_SERVICES_ACCOUNT_BINDING_SIGNATURE = sign(null, Buffer.from(stripeMerchantBindingMessage(binding)), bindingKeyPair.privateKey).toString("base64");
+};
 
 test("class checkout verifies and uses the configured Products & Services account with exact £10 payload", async () => {
   const original = saved(); configure(); process.env.STRIPE_SECRET_KEY = "sk_test_franchisefixture";
@@ -48,20 +62,20 @@ test("class session reads and expiration keep account binding while remaining av
   const original = saved(); configure();
   process.env.STRIPE_PRODUCTS_SERVICES_SECRET_KEY = "rk_live_productsfixture";
   process.env.STRIPE_PRODUCTS_SERVICES_MODE = "live";
+  configureLiveBinding();
   delete process.env.STRIPE_PRODUCTS_SERVICES_LIVE_ENABLED;
   try {
     const calls: Array<{ path: string; method: string }> = [];
     const fetcher = (async (url: string | URL | Request, init?: RequestInit) => {
       calls.push({ path: String(url).replace("https://api.stripe.com/v1", ""), method: init?.method ?? "GET" });
-      if (String(url).endsWith("/account")) return Response.json({ id: "acct_productsfixture", company: { name: "Madhouse Products and Services Ltd" } });
       if (String(url).includes("/expire")) return Response.json({ id: "cs_live_fixture", status: "expired" });
       return Response.json({ id: "cs_live_fixture", status: "open" });
     }) as typeof fetch;
     assert.equal((await retrieveStripeClassCheckoutSession("cs_live_fixture", fetcher)).status, "open");
     assert.equal((await expireStripeClassCheckoutSession("cs_live_fixture", fetcher)).status, "expired");
     assert.deepEqual(calls, [
-      { path: "/account", method: "GET" }, { path: "/checkout/sessions/cs_live_fixture", method: "GET" },
-      { path: "/account", method: "GET" }, { path: "/checkout/sessions/cs_live_fixture/expire", method: "POST" },
+      { path: "/checkout/sessions/cs_live_fixture", method: "GET" },
+      { path: "/checkout/sessions/cs_live_fixture/expire", method: "POST" },
     ]);
   } finally { restore(original); }
 });
