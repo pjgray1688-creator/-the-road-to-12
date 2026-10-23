@@ -38,7 +38,9 @@ test("Club mobile menu uses one vertical link list, separate selectors, close an
 test("Club navigation keeps role-based destinations and organisation-scoped venue selection", () => {
   assert.match(shell, /const operational = \["trainer", "gym_staff", "gym_admin", "owner"\]/);
   assert.match(shell, /const admin = \["gym_admin", "owner"\]/);
-  assert.match(shell, /\[\["Classes", `\/club\/classes/);
+  assert.match(shell, /\[\["Home", `\/club/);
+  assert.match(shell, /\["Members", `\/club\/members/);
+  assert.doesNotMatch(shell, /\["Check-in station"/);
   assert.match(shell, /\["Membership payments", `\/club\/membership-billing/);
   assert.match(shell, /org=\$\{encodeURIComponent\(organisation\.id\)\}/);
   assert.match(shell, /Choose operational venue/);
@@ -67,6 +69,18 @@ test("class timetable defaults to six upcoming sessions and can browse historica
   assert.match(classesPage, /const availabilitySessions = visibleSessions\.filter/);
   assert.match(classesCss, /@media\(max-width:360px\)/);
   assert.match(classesCss, /@media\(max-width:720px\)/);
+  assert.match(source, /<details className=\{styles\.sessionActions\}>/);
+  assert.match(source, /Class register/);
+});
+
+test("staff member navigation is dedicated and shop products are paginated without removing sale flows", () => {
+  const memberPage = readFileSync("app/club/members/page.tsx", "utf8");
+  const shop = readFileSync("components/club-shop.tsx", "utf8");
+  assert.match(memberPage, /listMemberSummaries\(context\.organisation\.id\)/);
+  assert.match(memberPage, /ClubMembersDirectory/);
+  assert.match(shop, /visibleStaffProducts/);
+  assert.match(shop, /club-product-pagination/);
+  assert.match(shop, /staff_checkout|purchaseAction/);
 });
 
 test("schedule, Glow Zone and mobile page rules stay within the viewport", () => {

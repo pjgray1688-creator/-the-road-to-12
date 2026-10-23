@@ -18,10 +18,12 @@ test("unlinked customer rows are excluded from membership-specific filters", () 
   assert.match(source, /No R12 account linked/);
 });
 
-test("Club overview owns the management shell separately from the member app", () => {
+test("Club overview and dedicated member management keep the management shell separate from the member app", () => {
   const overview = readFileSync("app/club/page.tsx", "utf8");
   const membersRoute = readFileSync("app/club/members/page.tsx", "utf8");
   assert.match(overview, /ClubSectionNav/);
   assert.doesNotMatch(overview, /AppNav/);
-  assert.match(membersRoute, /redirect\(`\/club/);
+  assert.match(membersRoute, /isClubStaffRole\(context\.role\)/);
+  assert.match(membersRoute, /ClubMembersDirectory/);
+  assert.match(membersRoute, /listMemberSummaries/);
 });

@@ -2,6 +2,18 @@ export type ReconciliationOrder = { id: string; created_at: string; location_id?
 export type ReconciliationPayment = { id: string; order_id: string; created_at: string; method: string; amount_minor: number; status: string; stripe_merchant_entity?: string | null };
 export type ReconciliationSummary = { grossMinor: number; discountMinor: number; netMinor: number; paidMinor: number; cashMinor: number; balanceMinor: number; externalMinor: number; refundMinor: number; unpaidMinor: number; pendingMinor: number; failedMinor: number; compValueMinor: number };
 export function filterCashForPeriod<T extends { status: string; declaredAt: string; locationId?: string }>(cash: T[], from: Date, to: Date, locationId?: string): T[] { return cash.filter(item => item.status === "confirmed" && new Date(item.declaredAt) >= from && new Date(item.declaredAt) <= to && (!locationId || item.locationId === locationId)); }
+export function filterCashAwaitingVerification<T extends { status: string; declaredAt: string; locationId?: string }>(cash: T[], from: Date, to: Date, locationId?: string): T[] { return cash.filter(item => item.status === "declared" && new Date(item.declaredAt) >= from && new Date(item.declaredAt) <= to && (!locationId || item.locationId === locationId)); }
+export function collectibleMembershipOutstanding(rows: Array<{ id?: unknown; amount_minor?: unknown; state?: unknown; next_due_at?: unknown }>, now = new Date()) {
+  const collectible = new Set(["due", "failed", "grace", "retry_scheduled", "overdue"]);
+  const seen = new Set<string>();
+  return rows.reduce((sum, row, index) => {
+    const id = String(row.id ?? `row-${index}`);
+    const dueAt = new Date(String(row.next_due_at ?? ""));
+    if (seen.has(id) || !collectible.has(String(row.state)) || Number.isNaN(dueAt.getTime()) || dueAt > now) return sum;
+    seen.add(id);
+    return sum + Math.max(0, Number(row.amount_minor) || 0);
+  }, 0);
+}
 export function summariseReconciliation(orders: ReconciliationOrder[], payments: ReconciliationPayment[], refunds: Array<{ amount_minor: number; order_id: string }> = []): ReconciliationSummary {
   const summary: ReconciliationSummary = { grossMinor: 0, discountMinor: 0, netMinor: 0, paidMinor: 0, cashMinor: 0, balanceMinor: 0, externalMinor: 0, refundMinor: 0, unpaidMinor: 0, pendingMinor: 0, failedMinor: 0, compValueMinor: 0 };
   const byOrder = new Map(orders.map(order => [order.id, order]));
