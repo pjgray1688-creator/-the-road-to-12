@@ -13,7 +13,7 @@ test("Club operations keeps organisation context explicit and switchable", () =>
   assert.match(shell, /Choose organisation/);
   assert.match(shell, /router\.push\(`\/club\?org=/);
   assert.match(shell, /contexts\.length > 1/);
-  assert.match(shell, /BrandLockup compact/);
+  assert.doesNotMatch(shell, /BrandLockup|CLUB OPERATIONS/);
   assert.doesNotMatch(shell, />12<|className=\{styles\.mark\}/);
 });
 

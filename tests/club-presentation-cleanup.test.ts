@@ -13,7 +13,7 @@ test("Club overview uses tenant artwork without changing the Member app", () => 
 test("Club shell constrains identity and preserves venue navigation", () => {
   const shell = readFileSync(new URL("../components/club-shell.module.css", import.meta.url), "utf8");
   const nav = readFileSync(new URL("../components/club-shell.tsx", import.meta.url), "utf8");
-  assert.match(shell, /minmax\(145px,190px\)/);
+  assert.match(shell, /minmax\(180px, 245px\)/);
   assert.match(nav, /Choose operational venue/);
 });
 
