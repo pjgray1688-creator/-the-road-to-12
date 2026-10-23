@@ -15,12 +15,12 @@ export default async function ClubLaunchReadinessPage({ searchParams }: { search
   const { data: { user } } = await client.auth.getUser();
   if (!user) redirect("/account?mode=signIn&next=%2Fclub%2Flaunch-readiness");
   const context = await resolveClubOrganisationContext(client, user.id, (await searchParams)?.org);
-  if (!context || !["owner", "gym_admin"].includes(context.role)) return <AppShell className="module-page club-page"><PageHeader eyebrow="R12 CLUB" title="Launch readiness"/><EmptyState title="Admin access required">Only authorised Club administrators can inspect deployment configuration status.</EmptyState><AppNav/></AppShell>;
+  if (!context || !["owner", "gym_admin"].includes(context.role)) return <AppShell className="module-page club-page"><PageHeader title="Launch readiness"/><EmptyState title="Admin access required">Only authorised Club administrators can inspect deployment configuration status.</EmptyState><AppNav/></AppShell>;
   const checks = launchReadiness();
   const q = `?org=${encodeURIComponent(context.organisation.id)}`;
   const appOrigin = siteUrl();
   return <AppShell className="module-page club-page">
-    <PageHeader eyebrow="R12 CLUB · ADMIN" title="Launch readiness" description="Configuration presence and format only. Secret values and live connectivity are never shown or tested."/>
+    <PageHeader title="Launch readiness" description="Configuration presence and format only. Secret values and live connectivity are never shown or tested."/>
     <ClubSectionNav organisation={context.organisation} role={context.role} contexts={context.availableContexts}/>
     <Surface><span className="eyebrow">SERVER CONFIGURATION</span><div className="club-list">{checks.map(check=><article className="club-detail-row" key={check.key}><span><strong>{check.label}</strong><small>{check.detail}</small></span><b aria-label={`${check.label}: ${stateLabel[check.state]}`}>{stateLabel[check.state]}</b></article>)}</div><Link className="member-hub-link" href={`/club/launch-readiness/stripe${q}`}>Run read-only Stripe merchant verification</Link></Surface>
     <Surface><span className="eyebrow">PROVIDER DESTINATIONS</span><div className="club-list">

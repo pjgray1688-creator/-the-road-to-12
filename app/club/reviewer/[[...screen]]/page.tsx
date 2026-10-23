@@ -112,5 +112,5 @@ export default async function ClubReviewerPage({ params }: { params: Promise<{ s
     content = <RestrictedDemo screen={key}/>;
   }
 
-  return <AppShell className="module-page club-page club-reviewer-page"><PageHeader eyebrow="R12 CLUB · GOOGLE PLAY REVIEW" title={title} description="Production Club interface with isolated synthetic review data."/><ReviewNotice/><ClubSectionNav organisation={organisation} role={reviewerClubRole} locations={locations} roleLabelOverride="Review only"/>{content}<BackButton href="/club">Back to Club dashboard</BackButton><AppNav/></AppShell>;
+  return <AppShell className="module-page club-page club-reviewer-page"><PageHeader title={title} description="Production Club interface with isolated synthetic review data."/><ReviewNotice/><ClubSectionNav organisation={organisation} role={reviewerClubRole} locations={locations} roleLabelOverride="Review only"/>{content}<BackButton href="/club">Back to Club dashboard</BackButton><AppNav/></AppShell>;
 }
