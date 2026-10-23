@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { collectibleMembershipOutstanding, filterCashAwaitingVerification } from "@/lib/club-reconciliation";
+import { collectibleMembershipOutstanding, collectibleMembershipRows, filterCashAwaitingVerification, summariseRecordedCollections } from "@/lib/club-reconciliation";
 import { londonDateKey, londonMidnightUtc, resolveClubFinancePeriod } from "@/lib/club-finance-period";
 
 test("finance date boundaries follow Europe/London through winter and British Summer Time", () => {
@@ -40,4 +40,27 @@ test("outstanding deduplicates collectible membership dues and excludes future o
     { id: "cancelled", state: "cancelled", next_due_at: "2026-10-20T00:00:00Z", amount_minor: 5000 },
   ];
   assert.equal(collectibleMembershipOutstanding(rows, new Date("2026-10-23T00:00:00Z")), 4000);
+  assert.equal(collectibleMembershipRows(rows, new Date("2026-10-23T00:00:00Z")).length, 1);
+});
+
+test("payment receipts exclude stored-value spending and pending or duplicate payment rows", () => {
+  const result = summariseRecordedCollections([
+    { id: "card", status: "paid", method: "card", amount_minor: 1000 },
+    { id: "cash", status: "paid", method: "cash", amount_minor: 500 },
+    { id: "balance", status: "paid", method: "balance", amount_minor: 750 },
+    { id: "pending", status: "pending", method: "card", amount_minor: 900 },
+    { id: "card", status: "paid", method: "card", amount_minor: 1000 },
+  ]);
+  assert.deepEqual(result, { receivedMinor: 1500, balanceMinor: 750, cashMinor: 500, otherMinor: 1000 });
+});
+
+test("finance headline tiles show the agreed four metrics and scope the receipts label", async () => {
+  const { readFileSync } = await import("node:fs");
+  const source = readFileSync("app/club/payments/page.tsx", "utf8");
+  assert.match(source, /\[\["Net sales", netSales\], \["Payments received", paymentsReceived\], \["Cash to verify", cashToVerify\], \["Madhouse Balance spending", balanceSpending\]\]/);
+  assert.doesNotMatch(source, /\["Outstanding",/);
+  assert.match(source, /Recorded Club cash\/card collections only/);
+  assert.match(source, /not total income/);
+  assert.match(source, /collectibleMembershipRows\(allBillingRows\)/);
+  assert.match(source, /Recoverable membership charge/);
 });
