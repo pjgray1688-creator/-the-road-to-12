@@ -258,7 +258,7 @@
 .club-page .table-wrap{max-width:100%;overflow-x:auto;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch}
 .club-page :where(button,a,select,input,textarea){scroll-margin-block:12px}
 @media(max-width:760px){
-  body:has(.club-page){max-width:100%;overflow-x:clip}
+  html:has(.club-page),body:has(.club-page){max-width:100%;overflow-x:clip}
   .club-page{padding-inline:clamp(12px,4vw,18px)}
   .club-page .page-header{gap:7px;margin-bottom:12px;padding:1px 0 6px}
   .club-page .page-header-identity{flex-basis:100%}
@@ -291,4 +291,49 @@
   .club-page form.club-detail-row{grid-template-columns:minmax(0,1fr)}
   .club-page .club-detail-row>span:last-child{max-width:100%;text-align:left}
   .club-page .page-header h1{font-size:clamp(24px,7.5vw,29px)}
+}
+
+/* Club mobile polish: shared compact rhythm across operational pages. */
+.club-page{overflow-x:clip}
+.club-page .page-header{margin-bottom:14px}
+.club-page .page-header h1{font-size:clamp(25px,3vw,35px);line-height:1.12}
+.club-page .page-header-description{max-width:58ch;margin-top:5px;font-size:13px;line-height:1.4}
+.club-page .surface{border-radius:14px}
+.club-page .section-header h2,.club-page .section-heading h2,.club-page .section-heading-row h2{font-size:clamp(17px,2vw,21px);line-height:1.2}
+.club-page .section-header .eyebrow,.club-page .section-heading .eyebrow{font-size:10px}
+.club-page .club-shop-tabs{max-width:100%;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:thin;-webkit-overflow-scrolling:touch}
+.club-page .club-shop-tabs a{flex:0 0 auto;padding-inline:13px}
+.glow-hours summary{display:flex;align-items:center;justify-content:space-between;gap:14px;min-height:48px;cursor:pointer;list-style:none}
+.glow-hours summary::-webkit-details-marker{display:none}
+.glow-hours summary>span:first-child{display:grid;gap:3px;min-width:0}
+.glow-hours summary strong{font-size:15px}
+.glow-hours summary small{color:var(--muted);font-size:11px}
+.glow-hours summary>span:last-child{display:grid;place-items:center;width:34px;height:34px;flex:0 0 auto;border:1px solid var(--club-border);border-radius:9px;color:#d9c3f4;font-size:20px}
+.glow-hours[open] summary>span:last-child{transform:rotate(45deg)}
+.glow-hours>div{display:grid;gap:0;margin-top:8px;border-top:1px solid var(--club-border)}
+.glow-hours>div>p{display:flex;justify-content:space-between;gap:12px;margin:0;padding:9px 0;border-bottom:1px solid #292532;font-size:13px}
+.glow-hours>div>p:last-child{display:block;border:0;font-size:11px}
+.glow-hours>div>p strong{font-weight:700}
+.glow-operations>h2{margin:0;font-size:18px;line-height:1.2}
+.glow-operations>p{margin:4px 0 10px;font-size:12px}
+.glow-operations>input{box-sizing:border-box;width:100%;min-width:0;min-height:48px;padding:10px 12px;border:1px solid var(--club-border);border-radius:10px;background:#09090e;color:#fff;font-size:16px}
+.glow-operations>.club-detail-row{width:100%;text-align:left}
+@media(max-width:760px){
+  .club-page .page-header h1{font-size:clamp(24px,6vw,31px)}
+  .club-page .section-header,.club-page .section-heading,.club-page .section-heading-row{margin-bottom:8px}
+  .club-page .club-profile-grid{gap:9px}
+  .club-page .club-profile-grid h2{font-size:20px}
+  .club-page .club-shop-tabs{margin-bottom:12px;padding:3px}
+  .club-page .club-shop-tabs a{min-height:42px;padding-inline:11px;font-size:12px}
+  .glow-hours>div>p{font-size:12px}
+  .glow-operations>details,.glow-operations>.surface-card{margin-top:10px}
+  .club-page .club-detail-row>div{overflow-wrap:anywhere}
+  .club-page :where(img,video,canvas){max-width:100%}
+}
+@media(max-width:380px){
+  .club-page .page-header h1{font-size:24px}
+  .club-page .page-header-description{font-size:12px}
+  .club-page .surface{padding:11px}
+  .club-page .club-profile-grid h2{font-size:18px}
+  .glow-hours>div>p{gap:7px;font-size:11px}
 }

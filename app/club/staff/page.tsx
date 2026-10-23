@@ -78,7 +78,7 @@ export default async function ClubStaffPage({ searchParams }: { searchParams?: P
   const suspendedStaff = staff.filter(person => !person.active);
 
   return <AppShell className="module-page club-page staff-management-page">
-    <PageHeader eyebrow="R12 CLUB · PEOPLE" title="Staff" description="Manage staff access, roles and permissions." />
+    <PageHeader title="Staff" description="Manage staff access, roles and permissions." />
     <ClubSectionNav organisation={context.organisation} role={context.role} contexts={context.availableContexts} />
     <div className="staff-page-actions"><ClubStaffAccessForm organisationId={context.organisation.id} locations={locations} /><Link className="secondary staff-email-link" href={`/club/staff/email-preview?org=${encodeURIComponent(context.organisation.id)}`}>Email preview / test</Link></div>
 
