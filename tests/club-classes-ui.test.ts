@@ -3,21 +3,24 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import { presentClassAvailability } from "../lib/class-availability";
 
-const availability = (spacesRemaining: number, waitlistedCount = 0) => ({ sessionId: "session", capacity: 20, confirmedCount: 20 - spacesRemaining, spacesRemaining, waitlistedCount, isFull: spacesRemaining === 0 });
+const availability = (spacesRemaining: number, waitlistedCount = 0, capacity = 20) => ({ sessionId: "session", capacity, confirmedCount: capacity - spacesRemaining, spacesRemaining, waitlistedCount, isFull: spacesRemaining === 0 });
 const page = readFileSync(new URL("../app/club/classes/page.tsx", import.meta.url), "utf8");
 const actions = readFileSync(new URL("../app/club/classes/actions.ts", import.meta.url), "utf8");
 const components = readFileSync(new URL("../components/club-classes.tsx", import.meta.url), "utf8");
 const migration = readFileSync(new URL("../supabase/migrations/2026-09-07-club-classes-bookings-services.sql", import.meta.url), "utf8");
 
-test("class availability wording uses factual reusable thresholds", () => {
+test("class availability wording reflects booked and remaining capacity without false urgency", () => {
   assert.deepEqual(presentClassAvailability(availability(10)), { summary: "20 spaces · 10 booked", status: "10 spaces available", tone: "neutral", fillPercent: 50 });
-  assert.equal(presentClassAvailability(availability(9)).status, "Filling up");
-  assert.equal(presentClassAvailability(availability(5)).status, "Filling up");
+  assert.equal(presentClassAvailability(availability(9)).status, "9 spaces available");
+  assert.equal(presentClassAvailability(availability(5)).status, "5 spaces available");
   assert.equal(presentClassAvailability(availability(4)).status, "Only 4 spaces left");
   assert.equal(presentClassAvailability(availability(2)).status, "Only 2 spaces left");
   assert.equal(presentClassAvailability(availability(1)).status, "Last space");
   assert.equal(presentClassAvailability(availability(0)).status, "Full");
   assert.equal(presentClassAvailability(availability(0, 3)).status, "Full · 3 waiting");
+  assert.equal(presentClassAvailability(availability(6, 0, 6)).status, "6 spaces available");
+  assert.equal(presentClassAvailability(availability(4, 0, 6)).status, "Only 4 spaces left");
+  assert.equal(presentClassAvailability(availability(0, 0, 6)).status, "Full");
 });
 
 test("unlimited capacity has no fabricated remaining-space value", () => {
@@ -59,6 +62,15 @@ test("classes route has intentional empty, loading and safe error states", () =>
   assert.match(loading, /Loading classes…/);
   assert.match(page + error, /Classes couldn’t be loaded\./);
   assert.doesNotMatch(page + error + components, /Postgres|permission denied|42501/);
+});
+
+test("finance filters stack with bounded full-width controls on mobile while retaining desktop grid", () => {
+  const globals = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
+  assert.match(globals, /\.club-finance-filters\{display:grid;grid-template-columns:1fr 1fr 1fr 1\.2fr auto/);
+  const mobileFilterIndex = globals.indexOf(".club-finance-filters{grid-template-columns:minmax(0,1fr)}");
+  assert.notEqual(mobileFilterIndex, -1);
+  assert.ok(globals.lastIndexOf("@media(max-width:760px)", mobileFilterIndex) !== -1);
+  assert.match(globals.slice(mobileFilterIndex, mobileFilterIndex + 300), /\.club-finance-filters>label\{width:100%;min-width:0\}\.club-finance-filters>label :is\(input,select\)\{box-sizing:border-box;width:100%;min-width:0;max-width:100%\}/);
 });
 
 test("booking privacy and future community boundary remain unchanged", () => {

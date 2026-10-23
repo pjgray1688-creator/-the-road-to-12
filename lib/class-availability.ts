@@ -9,6 +9,5 @@ export function presentClassAvailability(availability: ClubClassAvailability): C
   if (availability.spacesRemaining === 0) return { summary, status: `Full${availability.waitlistedCount > 0 ? ` · ${availability.waitlistedCount} waiting` : ""}`, tone: "full", fillPercent };
   if (availability.spacesRemaining === 1) return { summary, status: "Last space", tone: "low", fillPercent };
   if (availability.spacesRemaining <= 4) return { summary, status: `Only ${availability.spacesRemaining} spaces left`, tone: "low", fillPercent };
-  if (availability.spacesRemaining <= 9) return { summary, status: "Filling up", tone: "watch", fillPercent };
   return { summary, status: `${availability.spacesRemaining} spaces available`, tone: "neutral", fillPercent };
 }
