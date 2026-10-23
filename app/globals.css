@@ -244,3 +244,51 @@
 .manual-day-controls button{min-height:36px;padding:6px;font-size:11px}
 @media(max-width:430px){.manage-programme-card>summary{min-height:70px;padding:13px}.manage-programme-card>summary strong{font-size:16px}.manage-programme-actions{padding:0 9px 9px}.training-setup-page{gap:11px}.training-choice-surface{padding:8px!important}.training-choice{grid-template-columns:29px minmax(0,1fr) 18px;gap:9px;min-height:72px;padding:11px}.training-choice-number{width:27px;height:27px;font-size:10px}.training-choice strong{font-size:14px}.training-choice small{font-size:11px}.manual-programme-page>.surface{padding:10px}.manual-day-controls{gap:5px;padding:8px}}
 @media(max-width:360px){.training-setup-page .page-header h1{font-size:29px}.training-choice{grid-template-columns:26px minmax(0,1fr) 16px;gap:7px;padding:10px}.training-choice-number{width:25px;height:25px}.manual-programme-page .page-header h1{font-size:26px}.manual-day-controls button{font-size:10px}}
+
+/* Responsive Club shell and common operations surfaces */
+.club-page{box-sizing:border-box;width:100%;min-width:0;overflow-x:clip;padding-top:calc(10px + env(safe-area-inset-top));padding-bottom:calc(24px + env(safe-area-inset-bottom))}
+.club-page .page-header{display:flex;flex-wrap:wrap;align-items:flex-start;gap:10px;min-width:0;margin:0 0 16px;padding:4px 0 8px;overflow:visible}
+.club-page .page-header-identity{flex:1 1 220px;min-width:0;max-width:100%;align-items:flex-start}
+.club-page .page-header-identity>div{min-width:0;max-width:100%}
+.club-page .page-header h1{max-width:100%;margin:0;font-size:clamp(27px,5vw,39px);line-height:1.12;letter-spacing:-.035em;overflow-wrap:anywhere}
+.club-page .page-header-description{max-width:65ch;margin-top:6px;font-size:14px;line-height:1.45;overflow-wrap:anywhere}
+.club-page .club-detail-row>span:last-child{min-width:0;white-space:normal;text-align:right;overflow-wrap:anywhere}
+.club-page .section-header,.club-page .section-heading,.club-page .section-heading-row{min-width:0;flex-wrap:wrap;align-items:flex-start;gap:10px}
+.club-page .club-detail-row,.club-page .club-list,.club-page .club-detail-list,.club-page .surface,.club-page .card,.club-page form{min-width:0;max-width:100%}
+.club-page .table-wrap{max-width:100%;overflow-x:auto;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch}
+.club-page :where(button,a,select,input,textarea){scroll-margin-block:12px}
+@media(max-width:760px){
+  body:has(.club-page){max-width:100%;overflow-x:clip}
+  .club-page{padding-inline:clamp(12px,4vw,18px)}
+  .club-page .page-header{gap:7px;margin-bottom:12px;padding:1px 0 6px}
+  .club-page .page-header-identity{flex-basis:100%}
+  .club-page .page-header h1{font-size:clamp(25px,7.2vw,34px);line-height:1.14;letter-spacing:-.03em}
+  .club-page .page-header-description{font-size:13px;line-height:1.4}
+  .club-page .surface{padding:14px}
+  .club-page .club-detail-row{gap:9px;padding:11px 9px}
+  .club-page .club-detail-row>span:last-child{text-align:right}
+  .club-page .club-profile-grid,.club-page .club-form-grid,.club-page .form-grid,.club-page .quick-grid{grid-template-columns:minmax(0,1fr)}
+  .club-page .club-profile-grid>section:last-child,.club-page .club-form-grid .wide,.club-page .form-grid .wide{grid-column:auto}
+  .club-page .quick-grid a,.club-page .club-form-grid label,.club-page .form-grid label{min-width:0;overflow-wrap:anywhere}
+  .club-page .toolbar,.club-page .filters,.club-page .filter-row,.club-page .section-header{display:flex;flex-wrap:wrap;align-items:stretch;gap:9px}
+  .club-page .toolbar>*,.club-page .filters>*,.club-page .filter-row>*{min-width:min(100%,140px);max-width:100%;flex:1 1 140px}
+  .club-page form.club-detail-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:end;gap:8px}
+  .club-page form.club-detail-row>label{min-width:0}
+  .club-page form.club-detail-row>button{grid-column:1/-1}
+  .club-page .catalogue-lookup{flex-wrap:wrap;align-items:stretch}
+  .club-page .catalogue-lookup label{min-width:0}
+  .club-page :where(button,.primary,.secondary,.danger){min-height:44px}
+  .club-page :where(select,input:not([type=checkbox]):not([type=radio]),textarea){min-height:44px;min-width:0;max-width:100%;font-size:16px}
+  .club-page .club-stock-row,.club-page .club-catalogue-row{grid-template-columns:minmax(0,1fr);gap:8px}
+  .club-page .club-stock-row>* ,.club-page .club-catalogue-row>*{min-width:0;grid-column:auto}
+  .club-page .club-detail-row>span:last-child{max-width:55%}
+  .club-page .table-wrap table{min-width:620px}
+}
+@media(max-width:380px){
+  .club-page{padding-inline:12px}
+  .club-page .surface{padding:12px}
+  .club-page .club-detail-row{display:grid;grid-template-columns:minmax(0,1fr);gap:5px}
+  .club-page form.club-detail-row{grid-template-columns:minmax(0,1fr)}
+  .club-page .club-detail-row>span:last-child{max-width:100%;text-align:left}
+  .club-page .page-header h1{font-size:clamp(24px,7.5vw,29px)}
+}

@@ -140,7 +140,7 @@ test("staff checkout presents a real physical location context", () => {
   const shell = readFileSync(new URL("../components/club-shell.module.css", import.meta.url), "utf8");
   assert.match(checkout, /checkout-location-status/);
   assert.match(checkout, /Establish a physical venue in Club navigation/);
-  assert.match(shell, /\.links\{overflow:visible\}/);
+  assert.match(shell, /\.links\s*\{[^}]*overflow-x:\s*auto/);
 });
 
 test("POS and family picker use exact product media without inventing imagery", () => {

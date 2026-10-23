@@ -5,7 +5,7 @@ import test from "node:test";
 test("Club uses canonical R12 branding and constrained tenant context", () => {
   const shell = readFileSync("components/club-shell.tsx", "utf8");
   const globals = readFileSync("app/globals.css", "utf8");
-  assert.match(shell, /BrandLockup/);
+  assert.doesNotMatch(shell, /BrandLockup|CLUB OPERATIONS/);
   assert.doesNotMatch(shell, />12</);
   assert.match(shell, /org=\$\{encodeURIComponent\(organisation\.id\)\}/);
   assert.match(globals, /--r12-purple/);
