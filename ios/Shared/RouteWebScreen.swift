@@ -318,7 +318,6 @@ struct R12MemberShell: View {
                             .accessibilityLabel("Go back").frame(minWidth: 44, minHeight: 44)
                     }
                 }
-                ToolbarItem(placement: .principal) { Text("R12").font(.headline).foregroundStyle(configuration.tint) }
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
                         Button("Reload page", systemImage: "arrow.clockwise", action: state.reload)

@@ -9,6 +9,8 @@ final class R12NavigationUITests: XCTestCase {
             springboard.alerts.buttons["Cancel"].tap()
         }
         app.launch()
+        XCTAssertFalse(app.navigationBars.staticTexts["R12"].exists)
+        XCTAssertTrue(app.buttons["Page options"].exists)
         let tabs = app.tabBars
         XCTAssertTrue(tabs.buttons["Home"].waitForExistence(timeout: 30))
         XCTAssertEqual(tabs.buttons.count, 4)
