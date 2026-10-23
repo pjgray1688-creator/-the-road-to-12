@@ -18,8 +18,7 @@
     "active-sports:dry-run": "tsx scripts/active-sports-dry-run.ts",
     "active-sports:images": "tsx scripts/active-sports-image-enrichment.ts",
     "android:validate": "node android/scripts/validate-config.mjs",
-    "android:build": "node android/scripts/build.mjs",
-    "db:init:hosted-stripe-test": "bash scripts/initialize-hosted-stripe-test-db.sh"
+    "android:build": "node android/scripts/build.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.5",
