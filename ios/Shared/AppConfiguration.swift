@@ -28,6 +28,7 @@ struct NativeAppConfiguration {
         privacyPath: "/privacy",
         scope: { _ in true },
         destinations: [
+            AppDestination(title: "Home", path: "/", symbol: "house"),
             AppDestination(title: "Training", path: "/training", symbol: "figure.strengthtraining.traditional"),
             AppDestination(title: "Progress", path: "/progress", symbol: "chart.xyaxis.line"),
             AppDestination(title: "Account", path: "/account?privacyApp=training", symbol: "person.crop.circle")

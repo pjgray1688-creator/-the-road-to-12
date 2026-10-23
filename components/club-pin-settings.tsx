@@ -1,4 +1,5 @@
 "use client";
+import { PasswordInput } from "@/components/password-input";
 
 import { useEffect, useState } from "react";
 import { browserSupabase } from "@/lib/supabase-browser";
@@ -49,10 +50,10 @@ export function ClubPinSettings({ organisationId }: { organisationId: string }) 
     <p className="muted">Your PIN is securely hashed and unlocks only your staff identity. It does not replace your R12 password.</p>
     {enabled && !editing ? <div className="club-pin-actions">
       <button className="secondary" type="button" onClick={() => { setEditing(true); setMessage(""); }}>Change PIN</button>
-      <label>Confirm your R12 password<input type="password" autoComplete="current-password" value={password} onChange={event => setPassword(event.target.value)} /></label>
+      <label>Confirm your R12 password<PasswordInput autoComplete="current-password" value={password} onChange={event => setPassword(event.target.value)} /></label>
       <button className="secondary" type="button" disabled={busy || !password} onClick={() => void save(true)}>Disable PIN</button>
     </div> : <>
-      <label>Confirm your R12 password<input type="password" autoComplete="current-password" value={password} onChange={event => setPassword(event.target.value)} /></label>
+      <label>Confirm your R12 password<PasswordInput autoComplete="current-password" value={password} onChange={event => setPassword(event.target.value)} /></label>
       <label>New PIN (4–6 digits)<input inputMode="numeric" autoComplete="new-password" type="password" pattern="[0-9]{4,6}" maxLength={6} value={pin} onChange={event => setPin(event.target.value.replace(/\D/g, "").slice(0, 6))} /></label>
       <div className="club-pin-actions">
         <button className="primary" type="button" disabled={busy || !password || pin.length < 4} onClick={() => void save(false)}>{busy ? "Confirming…" : enabled ? "Save new PIN" : "Save PIN"}</button>

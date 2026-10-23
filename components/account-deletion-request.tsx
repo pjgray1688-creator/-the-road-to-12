@@ -1,4 +1,5 @@
 "use client";
+import { PasswordInput } from "@/components/password-input";
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -63,7 +64,7 @@ export function AccountDeletionRequest() {
     <p>Your account stays active while the request is reviewed. Transaction, payment, safety and audit records may be retained or anonymised where required by law or for legitimate business records.</p>
     <p>We will review your request and respond within one calendar month. If a lawful extension is needed, we will explain why within that month.</p>
     <label>Confirm your account email<input type="email" value={email} readOnly autoComplete="username" /></label>
-    <label>Current password<input type="password" value={password} onChange={event => setPassword(event.target.value)} autoComplete="current-password" /></label>
+    <label>Current password<PasswordInput value={password} onChange={event => setPassword(event.target.value)} autoComplete="current-password" /></label>
     <label>Type DELETE to confirm<input value={confirmation} onChange={event => setConfirmation(event.target.value)} autoComplete="off" /></label>
     <button className="primary" type="button" disabled={saving || !password || confirmation !== "DELETE"} onClick={() => void submit()}>{saving ? "Verifying and submitting…" : "Request account deletion"}</button>
     {message ? <p role="status">{message}</p> : null}

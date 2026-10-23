@@ -1,4 +1,5 @@
 "use client";
+import { PasswordInput } from "@/components/password-input";
 
 import { useCallback, useEffect, useState } from "react";
 
@@ -64,7 +65,7 @@ export function PrivacyDeletionQueue() {
       <label>Outcome<select value={status} onChange={event => setStatus(event.target.value as typeof status)}><option value="in_progress">Keep in review</option><option value="completed">Confirm processing completed</option><option value="unable_to_complete">Needs further review</option></select></label>
       <label>User-facing response<textarea value={responseMessage} maxLength={600} onChange={event => setResponseMessage(event.target.value)} /></label>
       {status === "completed" ? <div className="privacy-deletion-attestations"><label><input type="checkbox" checked={retentionReviewed} onChange={event => setRetentionReviewed(event.target.checked)} /> I reviewed the applicable retention requirements and restricted records that must remain.</label><label><input type="checkbox" checked={eligibleDataProcessed} onChange={event => setEligibleDataProcessed(event.target.checked)} /> I processed the eligible data for erasure or anonymisation through approved systems, including the account identity as appropriate.</label></div> : null}
-      <label>Current password<input type="password" autoComplete="current-password" value={password} onChange={event => setPassword(event.target.value)} /></label>
+      <label>Current password<PasswordInput autoComplete="current-password" value={password} onChange={event => setPassword(event.target.value)} /></label>
       <label>Type PROCESS to confirm<input value={confirmation} autoComplete="off" onChange={event => setConfirmation(event.target.value)} /></label>
       <div><button type="button" className="secondary" disabled={busy} onClick={() => setSelected(null)}>Cancel</button> <button type="button" className="primary" disabled={busy || !password || confirmation !== "PROCESS" || !responseMessage.trim() || (status === "completed" && (!retentionReviewed || !eligibleDataProcessed))} onClick={() => void updateRequest()}>{busy ? "Saving…" : "Save audited update"}</button></div>
     </div> : null}

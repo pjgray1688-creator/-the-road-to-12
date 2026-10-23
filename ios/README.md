@@ -8,7 +8,7 @@ The native tab bar, route-level navigation, back/reload/share controls, loading/
 
 | App | Bundle ID | First route | Native destinations |
 | --- | --- | --- | --- |
-| R12 | `live.r12.training` | `/training` | Training, Progress, Account |
+| R12 | `live.r12.training` | `/` | Home, Training, Progress, Account |
 | R12 Club | `live.r12.club` | `/club/reception` → `/club/access` | Reception, Daily checks, Inductions, Overview, More |
 | R12 Coach | `live.r12.coach` | `/coach` | Workspace, Diary, Programmes, Account |
 | Glow Zone | `live.r12.glowzone` | `/glow-zone` | Glow Zone, R12 Account |
@@ -24,7 +24,7 @@ cd ios
 ./scripts/build-simulators.sh
 ```
 
-For signed release archives, sign in to the organisation's Apple Developer account in Xcode and set its real Team ID. Automatic signing may then create/use the matching profiles; this repository contains no certificate, profile, API key or Team ID:
+For signed release archives, sign in to the organisation's Apple Developer account in Xcode and set its real Team ID. Automatic signing may then create/use the matching profiles; this repository contains no certificate, profile or API key. R12 preserves the configured organisation Team ID:
 
 ```sh
 cd ios
@@ -45,7 +45,7 @@ Repeat with `R12Club`, `R12Coach` and `GlowZone`. Upload each exported IPA using
 
 ## External release inputs
 
-- Full Xcode and iOS SDK selected in `xcode-select`; this environment currently has only Command Line Tools selected.
+- Full Xcode and iOS SDK selected in `xcode-select`. Xcode 26.1.1 and the iOS 26.1 simulator are installed on the owner’s iMac.
 - The organisation's Apple Developer Program membership, real Team ID, and account holder/admin access for signing and provisioning.
 - Four App Store Connect app records for these bundle IDs, owner-chosen SKUs, verified copyright, listing copy, screenshots, age ratings, privacy labels and review notes. R12 Club and R12 Coach need reviewer credentials with staff/coach access to demonstrate their restricted workflows; do not use customer data.
 - The listing draft now leaves `supportUrl` unset rather than presenting the app home as support. The owner must supply a monitored public support URL/contact and per-app copyright holder before submission. Per-app privacy-policy URLs are drafted separately; the privacy disclosures and policy content still require owner/vendor verification.
@@ -59,3 +59,5 @@ node ios/scripts/validate.mjs
 ```
 
 The validator checks project identities, entry routes, scopes, icons, Store Connect draft metadata and absence of signing secrets. Run the Simulator build command after full Xcode is installed.
+
+R12 first simulator changes and their validation limitations: [FirstSimulatorFixes.md](AppStoreConnect/FirstSimulatorFixes.md).

@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const appSpecs = [
-  { folder: "R12", project: "R12", displayName: "R12", config: "r12", bundle: "live.r12.training", route: "/training", privacy: "/privacy", scheme: "r12-training" },
+  { folder: "R12", project: "R12", displayName: "R12", config: "r12", bundle: "live.r12.training", route: "/", privacy: "/privacy", scheme: "r12-training" },
   { folder: "R12Club", project: "R12Club", displayName: "R12 Club", config: "club", bundle: "live.r12.club", route: "/club/reception", privacy: "/club/privacy", scheme: "r12-club" },
   { folder: "R12Coach", project: "R12Coach", displayName: "R12 Coach", config: "coach", bundle: "live.r12.coach", route: "/coach", privacy: "/coach/privacy", scheme: "r12-coach" },
   { folder: "GlowZone", project: "GlowZone", displayName: "Glow Zone", config: "glowZone", bundle: "live.r12.glowzone", route: "/glow-zone", privacy: "/glow-zone/privacy", scheme: "r12-glowzone" },
@@ -38,13 +38,13 @@ for (const app of appSpecs) {
   const contents = JSON.parse(readFileSync(resolve(dirname(appIcon), "Contents.json"), "utf8"));
   const appConfiguration = configuration.match(new RegExp(`static let ${app.config} = NativeAppConfiguration\\(([\\s\\S]*?)\\n    \\)`))?.[1] ?? "";
   const firstRoute = appConfiguration.match(/destinations:\s*\[\s*AppDestination\([^]*?path: "([^"]+)"/)?.[1];
-  const routeFile = resolve(root, `../app${app.route}/page.tsx`);
+  const routeFile = resolve(root, `../app${app.route === "/" ? "" : app.route}/page.tsx`);
   check(project.includes(`PRODUCT_BUNDLE_IDENTIFIER = ${app.bundle};`), `${app.folder} has its own bundle ID`);
   check(project.includes("IPHONEOS_DEPLOYMENT_TARGET = 17.0;"), `${app.folder} targets supported iOS 17+ devices`);
   check(["AppConfiguration.swift", "NativeAppShell.swift", "RouteWebScreen.swift"].every(file => project.includes(`../Shared/${file}`)), `${app.folder} includes the shared app navigation and authenticated web shell`);
   check(info.includes(`<string>${app.scheme}</string>`), `${app.folder} registers its own deep-link scheme`);
   check(info.includes(`<string>${app.displayName}</string>`), `${app.folder} declares its app-specific display name`);
-  check(launch.includes(`text="${app.displayName}"`), `${app.folder} launch screen uses its app name`);
+  check(app.config === "r12" ? launch.includes('image="LaunchLogo"') : launch.includes(`text="${app.displayName}"`), `${app.folder} launch screen uses its app name`);
   check(info.includes(`<string>https://app.r12.live${app.privacy}</string>`), `${app.folder} points to its app-specific privacy policy`);
   check(appConfiguration.includes(`privacyPath: "${app.privacy}"`), `${app.folder} has an app-specific native privacy shortcut`);
   check(info.includes("<key>NSAllowsArbitraryLoads</key>\n\t\t<false/>"), `${app.folder} keeps arbitrary cleartext loads disabled`);
@@ -81,7 +81,12 @@ const glowCustomerView = readFileSync(resolve(root, "../components/glow-zone-cus
 check(clubAccount.includes("/account/delete") && coachAccount.includes("/account/delete"), "Club and Coach expose account deletion navigation");
 check(clubAccount.includes("/club/privacy") && coachAccount.includes("/coach/privacy") && glowCustomerView.includes("/glow-zone/privacy"), "Club, Coach and Glow Zone account views link to their own privacy notices");
 check(sharedAccount.includes("privacyApp") && sharedAccount.includes("/coach/privacy") && sharedAccount.includes("/glow-zone/privacy"), "shared account view selects the correct policy for native app context");
-check(!/DEVELOPMENT_TEAM\s*=/.test(appSpecs.map(app => readFileSync(resolve(root, app.folder, `${app.project}.xcodeproj/project.pbxproj`), "utf8")).join("\n")), "no Team ID or signing identity is embedded in project settings");
+check(appSpecs.every(app => readFileSync(resolve(root, app.folder, `${app.project}.xcodeproj/project.pbxproj`), "utf8").includes("CODE_SIGN_STYLE = Automatic;")), "all apps preserve automatic signing");
+const memberProject = readFileSync(resolve(root, "R12/R12.xcodeproj/project.pbxproj"), "utf8");
+check(memberProject.includes('TARGETED_DEVICE_FAMILY = "1";') && !memberProject.includes('TARGETED_DEVICE_FAMILY = "1,2";'), "R12 targets iPhone only");
+const memberConfig = configuration.match(/static let r12 = NativeAppConfiguration\(([\s\S]*?)\n    \)/)?.[1] ?? "";
+check((memberConfig.match(/AppDestination\(/g) ?? []).length === 4 && memberConfig.includes('title: "Home", path: "/"'), "R12 has exactly four tabs and starts at Home");
+check(source.includes("if memberShell") && source.includes("forMainFrameOnly: true"), "shell marker is injected only into the main R12 web view");
 
 const store = JSON.parse(readFileSync(resolve(root, "AppStoreConnect/apps.json"), "utf8"));
 check(store.apps.length === 4 && store.apps.every((app, index) => app.bundleId === appSpecs[index].bundle), "App Store Connect draft lists all four distinct apps");
