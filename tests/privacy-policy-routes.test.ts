@@ -31,9 +31,33 @@ test("privacy policy preserves verified operator facts and identifies unresolved
   assert.match(source, /contact@madhousegym\.online/);
 });
 
-test("policies do not promise an account-deletion route absent from the production base", () => {
-  const source = readFileSync("components/privacy-policy.tsx", "utf8");
-  assert.doesNotMatch(source, /href="\/account\/delete"/);
-  assert.match(source, /does not provide an in-app or web account-deletion request route/);
-  assert.match(source, /working request channel before publication/);
+test("R12 notice describes the implemented request process without promising automatic erasure", () => {
+  const source = readFileSync("components/r12-privacy-policy.tsx", "utf8");
+  const shared = readFileSync("components/privacy-policy.tsx", "utf8");
+  assert.match(shared, /if \(app === "training"\) return <R12PrivacyPolicy/);
+  assert.match(source, /href="\/account\/delete"/);
+  assert.match(source, /rather than automatically erasing your account/);
+  assert.match(source, /one calendar month/);
+  assert.match(source, /does not itself cancel a gym membership/);
+  assert.match(source, /retention requirements/);
+  assert.doesNotMatch(source, /repository|pending confirmation|before publication|no verified public|does not provide an in-app/i);
+});
+
+test("public support provides the approved mailbox and privacy, terms and deletion routes", () => {
+  const support = readFileSync("app/support/page.tsx", "utf8");
+  const legal = readFileSync("lib/legal.ts", "utf8");
+  assert.match(legal, /"peter@r12\.live"/);
+  assert.match(support, /mailto:\$\{privacyContactEmail\}/);
+  for (const path of ["/privacy", "/terms", "/account/delete"]) assert.ok(support.includes(`href="${path}"`));
+  assert.doesNotMatch(support, /serverSupabase|browserSupabase|<form|fetch\(/);
+  assert.match(support, /If you cannot sign in/);
+  assert.ok(readFileSync("components/site-footer.tsx", "utf8").includes('href="/support"'));
+});
+
+test("R12 distinguishes service responsibility without asserting unverified processor contracts", () => {
+  const source = readFileSync("components/r12-privacy-policy.tsx", "utf8");
+  assert.match(source, /R12 Digital Ltd operates R12/);
+  assert.match(source, /A participating gym or coach is responsible for the membership, services and records it manages/);
+  assert.match(source, /Access to shared records depends on your connection/);
+  assert.doesNotMatch(source, /on the organisation&apos;s behalf|joint controller|executed.*agreement/i);
 });
