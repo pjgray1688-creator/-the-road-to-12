@@ -3,9 +3,12 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 const read = (path: string) => readFileSync(path, "utf8");
-test("Club launch reuses the exact official asset with a white aspect-fit image and no copy", () => {
+test("Club launch reuses the exact established Club artwork with a white aspect-fit image and no copy", () => {
   const hash = (path: string) => createHash("sha256").update(readFileSync(path)).digest("hex");
-  assert.equal(hash("ios/R12Club/App/Assets.xcassets/LaunchLogo.imageset/logo.png"), hash("public/r12-app-assets/icon-512.png"));
+  // Native Club artwork introduced by 2d05bda; do not substitute the main R12 logo.
+  const clubHash = "b05e3c68caadca9fd8a3b97ca58eede30348b3f1f1ad7c718262fa12ea15b85c";
+  assert.equal(hash("ios/R12Club/App/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png"), clubHash);
+  assert.equal(hash("ios/R12Club/App/Assets.xcassets/LaunchLogo.imageset/logo.png"), clubHash);
   const xml = read("ios/R12Club/App/LaunchScreen.storyboard");
   assert.match(xml, /contentMode="scaleAspectFit" image="LaunchLogo"/);
   assert.match(xml, /backgroundColor" red="1" green="1" blue="1"/);

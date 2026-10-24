@@ -1,6 +1,22 @@
 import XCTest
 
 final class ClubNavigationUITests: XCTestCase {
+    func testClubInstalledHomeScreenIcon() {
+        let app = XCUIApplication(); app.launch()
+        XCUIDevice.shared.press(.home)
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        let icon = springboard.icons["R12 Club"].firstMatch
+        for _ in 0..<5 {
+            if icon.exists && icon.isHittable { break }
+            springboard.swipeLeft()
+        }
+        XCTAssertTrue(icon.exists && icon.isHittable, "Installed R12 Club icon must be visible")
+        let shot = XCTAttachment(screenshot: springboard.screenshot())
+        shot.name = "Club-installed-icon"; shot.lifetime = .keepAlways; add(shot)
+        if icon.exists && icon.isHittable { icon.tap() }
+        XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 20))
+    }
+
     func testFivePersistentTabsAndBackToReception() {
         let app = XCUIApplication()
         app.launch()
