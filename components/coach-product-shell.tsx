@@ -17,6 +17,9 @@ export function CoachProductShell({ children }: { children: ReactNode }) {
       <Link href="/" className={styles.switcher} data-r12-coach-open-r12>Open R12 <span aria-hidden="true">↗</span></Link>
     </header>
     <CoachNavigation />
+    <div className={styles.nativeBrand} data-r12-coach-native-brand aria-label="R12 Coach">
+      <Image src="/brand/r12-coach-emblem.png" alt="R12 Coach" width={72} height={72} priority />
+    </div>
     <div className={styles.content}>{children}</div>
   </div>;
 }

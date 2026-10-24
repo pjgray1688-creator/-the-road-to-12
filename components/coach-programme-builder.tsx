@@ -16,6 +16,7 @@ type Props = {
   assignmentId: string;
   relationshipId?: string;
   blockId?: string;
+  demoMode?: boolean;
   onSaved: (programme: BuilderProgramme) => void;
   onRunSession?: (session: PlannedSession) => void;
 };
@@ -62,7 +63,7 @@ function CoachGuidePreview({ exerciseId }: { exerciseId: string }) {
   return <>{open ? <ExerciseGuideSheet exercise={exercise} audience="coach" onClose={() => setOpen(false)} /> : null}<button type="button" className="text-button guide-preview-button" onClick={() => setOpen(true)}>How to</button></>;
 }
 
-export function CoachProgrammeBuilder({ programme, canManage, clientUserId, organisationId, assignmentId, relationshipId, blockId, onSaved, onRunSession }: Props) {
+export function CoachProgrammeBuilder({ programme, canManage, clientUserId, organisationId, assignmentId, relationshipId, blockId, demoMode = false, onSaved, onRunSession }: Props) {
   const [working, setWorking] = useState(() => cloneProgramme(programme));
   const [selectedSessionId, setSelectedSessionId] = useState(working.week[0]?.id ?? "");
   const [openExercise, setOpenExercise] = useState<string | null>(null);
@@ -98,6 +99,11 @@ export function CoachProgrammeBuilder({ programme, canManage, clientUserId, orga
     try {
       const validationIssues = validateBuilderProgramme(working);
       if (validationIssues.length) { setMessage(validationIssues[0]); return; }
+      if (demoMode) {
+        const saved = cloneProgramme(working);
+        setWorking(saved); setDirty(false); setMessage("Synthetic draft saved in this browser session. No member data changed."); onSaved(saved);
+        return;
+      }
       const response = await fetch("/api/coach/programme", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ clientUserId, organisationId, assignmentId, relationshipId, blockId, programme: working }) });
       const result = await response.json().catch(() => null);
       if (!response.ok || !result?.definition && !result?.generated_programme) throw new Error(result?.error ?? "Programme could not be saved");
