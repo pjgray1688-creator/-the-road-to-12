@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { R12PrivacyPolicy } from "@/components/r12-privacy-policy";
 import { brand } from "@/lib/brand";
 
 export type PolicyApp = "training" | "club" | "coach" | "glow";
@@ -51,6 +52,7 @@ function ControllerAndBasis({ app }: { app: PolicyApp }) {
 }
 
 export function PrivacyPolicy({ app }: { app: PolicyApp }) {
+  if (app === "training") return <R12PrivacyPolicy />;
   const name = appNames[app];
   const detail = policies[app];
   const isGlow = app === "glow";
@@ -59,7 +61,6 @@ export function PrivacyPolicy({ app }: { app: PolicyApp }) {
     <h2>Information used</h2><ul>{detail.data.map((item) => <li key={item}>{item}</li>)}</ul>
     <h2>What it is used for</h2><ul>{detail.uses.map((item) => <li key={item}>{item}</li>)}</ul>
     <ControllerAndBasis app={app} />
-    {app === "training" && <><h2>WHOOP and health connections</h2><p>R12 contains an optional WHOOP OAuth integration. When it is enabled and you connect it, R12 requests the recovery, sleep, cycle and workout scopes used by the app and may store returned recovery, sleep, strain, HRV, resting heart rate, workout and timestamp information. Disconnecting in R12 stops further syncing; you can also revoke access in WHOOP. Existing R12 records are not automatically erased when disconnected. The repository says Apple Health requires a future native bridge; the current app does not connect to Apple HealthKit. No other health provider is verified as active.</p></>}
     {app === "coach" && <><h2>Coaching access</h2><p>Client information is available only through an authorised coach relationship and the app&apos;s role and organisation permissions. A coach or organisation should explain its own coaching notes, retention rules and sharing practices to clients.</p></>}
     {app === "club" && <><h2>Payments and memberships</h2><p>The app code supports membership and transaction flows using Stripe and GoCardless; PayPal is present for specific joining/payment flows. Purchases may also use club balances and cash operations. The relevant merchant receives information needed to complete a transaction; the app stores transaction status, amounts, refunds and provider references for reconciliation. Repository launch configuration identifies the Stripe membership merchant as Madhouse Franchise Limited (company number 17383077) and the products/services merchant as Madhouse Products and Services Limited (company number 17383213). These merchant identities do not by themselves establish who is controller for all Club records or the legal roles of payment providers.</p></>}
     {isGlow && <><h2>Glow Zone balances, transactions and operation</h2><p>The customer app reads the existing Glow Zone customer link, minute balance and activity. Staff operations record eligibility/age checks, sales and minute deductions, with transaction and audit history. It does not create a gym membership or gym access entitlement. The source identifies Stripe as the configured products/services merchant for relevant purchases, but does not verify that every Glow Zone purchase is currently enabled. Glow Zone&apos;s public website identifies Madhouse Products and Services Limited (company number 17383213) as the legal operator. Its role as controller or processor for each R12 app activity still requires confirmation.</p></>}
