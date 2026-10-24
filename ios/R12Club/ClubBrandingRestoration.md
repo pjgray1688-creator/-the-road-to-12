@@ -5,40 +5,42 @@ Worktree: `/private/tmp/r12-club-branding-restoration`.
 Xcode project: `/private/tmp/r12-club-branding-restoration/ios/R12Club/R12Club.xcodeproj`.
 Base: `668983f15e4217cffef804ff54e287f1ebbc65e6`, retaining all approved native/header/navigation/local screenshot work and both reviewer-label string corrections.
 
-## Actual history and correction
+## Approved source and correction
 
-The first native Club project in 3e2566d used the generic R12 image. Commit `2d05bda3c98ca1f0ca58e4cafa7f3525f9c2bc0b` deliberately replaced the Club app icon with the established **R12 × Madhouse** artwork. Its native PNG blob is `cb991327e6013c08e77898e5bfdeffa6366e2144`, SHA256 `b05e3c68caadca9fd8a3b97ca58eede30348b3f1f1ad7c718262fa12ea15b85c`.
+The previous restoration selected historical R12 × Madhouse artwork. That tenant-specific image is not the standalone R12 Club product brand and has been removed from both native asset slots.
 
-The 668983f presentation pass did not change that app icon, but mistakenly used the main R12 image for the new launch image. That was the branding regression. Both the installed icon and launch now use the exact historical Club PNG, 1024×1024 with no alpha. The app icon was already byte-identical to the correct historical source; it was retained/reinstalled and visually verified rather than substituted with another design. The launch image is replaced byte for byte from the historical native Club asset, and storyboard image metadata now correctly says 1024×1024. No new artwork, generation, image recreation, crop, recolour or resizing.
+The owner supplied the approved source at `/Users/r12/Downloads/Glossy R12 Club Emblem(1).png`. It is a 1254×1254 PNG containing the standalone purple-and-silver R12 emblem with CLUB, no Madhouse wording and no customer-specific brand. Source SHA256: `c3260ddbad15a09d540b3e4e6bf0c4dbe3c69c4893ab18cd79274b25358d08ab`.
 
-Git history does not contain a pre-668 image-based Club launch layout: earlier Club launch storyboards were text-based. The restoration therefore uses the established Club artwork in the completed white layout, rather than inventing a claimed earlier image-based launch implementation. White background, exact centring, aspect fit, no additional storyboard text and the whole-shell logo loading overlay with no bottom tabs remain unchanged. The native R12 Club title/options header remains removed, nested native Back and all five tabs remain intact.
+Apple requires a 1024×1024 opaque app icon. The source was scaled square to 1024×1024 and flattened onto pure white to remove the alpha channel. It was not redrawn, recoloured, cropped, generated or replaced. The resulting RGB PNG has SHA256 `2609f358a78362e470375bcabb8ec0a827a83e4580e60a0aa06a360d9d8cfdd3` and is used byte-for-byte for both `AppIcon-1024.png` and `LaunchLogo.imageset/logo.png`.
 
-## Minimal changes from 668983f
+The launch layout remains pure white, centred and aspect-fit, with no copy or bottom navigation during launch/loading. The native title/options header remains removed; nested Back and all five tabs remain intact.
 
-- `ios/R12Club/App/Assets.xcassets/LaunchLogo.imageset/logo.png`: replace incorrect generic image with exact historical Club artwork.
-- `ios/R12Club/App/LaunchScreen.storyboard`: image resource dimensions 512→1024; no layout/background change.
-- `tests/club-final-presentation.test.ts`: guard both icon and launch against the historical Club asset fingerprint.
-- `ios/R12Club/Tests/ClubNavigationUITests.swift`: find/open the installed R12 Club home-screen icon and retain a visual attachment.
-- `ios/R12Club/FinalNativePresentation.md`: correct earlier logo provenance and point to this current handoff.
+## Focused branding changes
+
+- `ios/R12Club/App/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png`: replace tenant artwork with the approved standalone Club source conversion.
+- `ios/R12Club/App/Assets.xcassets/LaunchLogo.imageset/logo.png`: use the same approved standalone Club source conversion.
+- `ios/R12Club/App/LaunchScreen.storyboard`: update the image accessibility label to R12 Club; preserve layout and white background.
+- `tests/club-final-presentation.test.ts`: pin both packaged assets to the approved output fingerprint.
+- `ios/R12Club/FinalNativePresentation.md` and this report: record the corrected source and provenance.
 - This report.
 
-No NativeShell, signing/project settings, app icon source, main R12, Coach, Glow Zone, shared native, API, database, auth/security/provider/configuration change relative to the approved presentation base. No production data, Stripe or Supabase operation. No push, merge, deployment, archive replacement or Apple upload.
+No NativeShell, signing/project settings, main R12, Coach, Glow Zone, shared native, API, database, auth/security/provider/configuration change. No production data, Stripe or Supabase operation. No push, merge, deployment, archive replacement or Apple upload.
 
 ## Screenshots preserved
 
 The four approved files in `/private/tmp/r12-club-final-captures` are untouched: 01-Reception.png, 02-Daily-Checks.png, 03-Members.png, 04-Shop.png. SHA256 values were captured before work and compared after validation; all four remain byte-identical. There is no visible in-app defect requiring recapture, as only launch branding changed. The normal local-screenshot test was explicitly excluded from this correction's simulator run, so the four were not recaptured.
 
-New icon/launch verification evidence is separate under `/private/tmp/r12-club-branding-verification`, with original icon screenshot attachment in `/private/tmp/r12-club-branding-ui.xcresult`. The native icon was observed on the iPhone 17 Pro home screen and opened successfully. The launch recording uses the local synthetic fixture and never loads real member/staff/financial data.
+New icon/launch verification evidence is separate under `/private/tmp/r12-club-branding-corrected-evidence`. The native icon was observed on the iPhone 17 Pro home screen, opened successfully and retained by `/private/tmp/r12-club-branding-corrected-icon-2.xcresult`. The actual `live.r12.club` launch/loading view was held using only a loopback socket and never loaded real member, staff or financial data.
 
 ## Validation
 
 - Actual full npm test: **1,347 passed, 1 skipped, zero failures** (1,348 total).
-- Production web build, TypeScript, lint and iOS source validation passed. Lint retains the same 3 existing warnings in coach-account-actions, exercise-guide-sheet and training-app.
-- **Debug simulator build/tests passed on iPhone 17 Pro**: installed Club icon, normal reviewer synthetic member profile/back, Menu → Daily Checks native selection, and five persistent tabs. Four tests, zero failures. Local screenshot capture test excluded intentionally.
+- Production web build, lint and iOS source validation passed. Lint retains the same 3 existing warnings in coach-account-actions, exercise-guide-sheet and training-app.
+- Eight focused Club presentation/release/reviewer tests passed. **Debug simulator build and installed-icon UI test passed on iPhone 17 Pro**: the installed icon was found on SpringBoard, captured, tapped and the app's native tab bar appeared. The unchanged navigation source retains the approved five tabs and nested Back behavior.
 - **Unsigned Release device build passed**, generic iOS/iphoneos. Packaged bundle live.r12.club, version1.0.0/build1. Screenshot flag/loopback functionality and Debug local-network exception remain absent from the Release device app.
-- Historical artwork fingerprints, 1024px/no-alpha assets, white/aspect-fit launch source, retained header/navigation, preserved original screenshots and git diff --check verified.
+- Approved source/output fingerprints, 1024px/no-alpha assets, white/aspect-fit launch source, retained header/navigation, preserved original screenshots and git diff --check verified.
 
-Evidence: `/private/tmp/r12-club-branding-{tests,build,typescript,lint,validator,ui,release-build}.log`. Existing four screenshot evidence is unchanged; new verification does not replace it.
+Evidence: `/private/tmp/r12-club-branding-corrected-{tests,web-build,lint,build,release,icon-2}.log`, `/private/tmp/r12-club-branding-corrected-icon-2.xcresult`, and `/private/tmp/r12-club-branding-corrected-evidence`. Existing four screenshot evidence is unchanged; new verification does not replace it.
 
 ## Reviewer label and release integration
 
@@ -52,7 +54,6 @@ The unsigned Release device build succeeds and signing prerequisites are present
 
 ## Visual evidence
 
-- Installed icon, iPhone 17 Pro home screen: `/private/tmp/r12-club-branding-verification/installed-club-icon.png`.
-- Actual centred Club-logo launch frame, white background and no bottom navigation: `/private/tmp/r12-club-branding-verification/launch-club-logo.png`.
-- Original launch recording: `/private/tmp/r12-club-branding-launch-verified.mov`.
+- Installed icon, iPhone 17 Pro home screen: `/private/tmp/r12-club-branding-corrected-evidence/icon-attachments-2/A69962A6-A574-4F1D-BDCB-C0D4A5F0F40A.png`.
+- Actual `live.r12.club` centred Club-logo loading frame, pure white background and no bottom navigation: `/private/tmp/r12-club-branding-corrected-evidence/launch-loading-live-bundle.png`.
 - Existing approved four screenshot hash baseline: `/private/tmp/r12-club-branding-screenshots-before.json`; all four hashes still match.

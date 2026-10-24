@@ -3,15 +3,17 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 const read = (path: string) => readFileSync(path, "utf8");
-test("Club launch reuses the exact established Club artwork with a white aspect-fit image and no copy", () => {
+test("Club icon and launch use the owner-supplied standalone Club artwork", () => {
   const hash = (path: string) => createHash("sha256").update(readFileSync(path)).digest("hex");
-  // Native Club artwork introduced by 2d05bda; do not substitute the main R12 logo.
-  const clubHash = "b05e3c68caadca9fd8a3b97ca58eede30348b3f1f1ad7c718262fa12ea15b85c";
+  // Derived only by scaling the approved 1254px source to Apple's 1024px icon size
+  // and flattening its existing white background to remove the alpha channel.
+  const clubHash = "2609f358a78362e470375bcabb8ec0a827a83e4580e60a0aa06a360d9d8cfdd3";
   assert.equal(hash("ios/R12Club/App/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png"), clubHash);
   assert.equal(hash("ios/R12Club/App/Assets.xcassets/LaunchLogo.imageset/logo.png"), clubHash);
   const xml = read("ios/R12Club/App/LaunchScreen.storyboard");
   assert.match(xml, /contentMode="scaleAspectFit" image="LaunchLogo"/);
   assert.match(xml, /backgroundColor" red="1" green="1" blue="1"/);
+  assert.match(xml, /label="R12 Club"/);
   assert.doesNotMatch(xml, /<label/);
 });
 test("local presentation is compiled out of Release and device builds, with no production toggle", () => {
