@@ -66,3 +66,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) { .links a { transition: none; } }
+
+.menuPageLinks { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:8px; }
+.menuPageLinks a { display:flex; align-items:center; min-height:48px; padding:12px; border:1px solid #393044; border-radius:10px; color:#e5ddec; text-decoration:none; background:#15111d; }
+.menuPageLinks a:hover,.menuPageLinks a:focus-visible { background:#2a1f39; outline:2px solid #c39aff; }

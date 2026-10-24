@@ -39,7 +39,7 @@ test("reviewer screens authenticate before rendering production Club components 
   assert.match(page, /ClubChecks[\s\S]*readOnly/);
   assert.match(page, /ClubShop[\s\S]*demoMode/);
   assert.match(page, /GlowZoneOpeningHours/);
-  assert.match(page, /GOOGLE PLAY REVIEW · READ ONLY/);
+  assert.match(page, /DEMO ACCOUNT - READ ONLY/);
   assert.match(page, /notFound\(\)/);
   assert.match(page, /No production records were loaded or changed/);
 });
@@ -57,7 +57,7 @@ test("read-only Club checks and class register render no mutation controls in re
   assert.match(checks, /if \(readOnly\) return <>[\s\S]*?return <>/);
   assert.match(register, /!readOnly && canCollectCash/);
   assert.match(register, /!readOnly \? <div className="member-class-action"/);
-  assert.match(register, /Google Play review · synthetic roster · changes are disabled/);
+  assert.match(register, /App Review Demo · synthetic roster · changes are disabled/);
 });
 
 test("normal Club staff navigation and permission evaluation are not granted a reviewer role", () => {

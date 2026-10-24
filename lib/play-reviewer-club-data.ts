@@ -18,7 +18,7 @@ export const reviewerClubCustomers = [{ id: "demo-customer-unlinked", displayNam
 
 const typeNames = new Map<string, string>();
 for (const session of reviewerSessions) typeNames.set(session.classTypeId, session.title ?? "Class");
-export const reviewerClubClassTypes: ClubClassType[] = [...typeNames].map(([id, name]) => ({ id, organisationId: REVIEWER_ORG_ID, name, description: "Synthetic class listing for Google Play review.", defaultDurationMinutes: 60, defaultCapacity: 6, active: true, createdAt: "2026-10-01T00:00:00.000Z", updatedAt: "2026-10-01T00:00:00.000Z" }));
+export const reviewerClubClassTypes: ClubClassType[] = [...typeNames].map(([id, name]) => ({ id, organisationId: REVIEWER_ORG_ID, name, description: "Synthetic class listing for App Review Demo.", defaultDurationMinutes: 60, defaultCapacity: 6, active: true, createdAt: "2026-10-01T00:00:00.000Z", updatedAt: "2026-10-01T00:00:00.000Z" }));
 export const reviewerClubSessions: ClubClassSession[] = reviewerSessions.map(session => ({ ...session, instructorName: "Coach Morgan" }));
 export const reviewerClubAttendance = [
   { name: "Alex Morgan", time: "18:02", location: "Carlton", status: "Checked in" },
@@ -47,7 +47,11 @@ export const reviewerClubRoster = reviewerClubMembers.map((member, index) => ({
   paymentStatus: "paid", amountMinor: index === 0 ? 0 : 1000, cashStatus: null, cashDue: 0, cancelledAt: null,
 }));
 
-export const reviewerClubProducts = reviewerProducts;
+export const reviewerClubProducts = reviewerProducts.map(product => ({ ...product, salesChannels: ["pos", "online"] as Array<"pos" | "online"> }));
+export const reviewerClubStockBalances = reviewerClubProducts.map((product, index) => ({
+  id: `demo-stock-${index}`, organisationId: REVIEWER_ORG_ID, locationId: REVIEWER_CARLTON_LOCATION_ID,
+  productId: product.id, onHand: [12, 8, 24][index] ?? 6, reserved: 0, availableToSell: [12, 8, 24][index] ?? 6,
+}));
 export const reviewerClubProductLocations = [{ id: REVIEWER_LOCATION_ID, name: "Carlton · demo", active: true }];
 
 export function reviewerClubSession(sessionId?: string) {

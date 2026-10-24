@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { clubNavigationLinks, activeClubNavigationPath } from "../lib/club-navigation";
 
 const read = (path: string) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 
@@ -29,12 +30,10 @@ test("Locations management is protected at the route boundary", () => {
 });
 
 test("Club navigation keeps management areas away from member and trainer roles", () => {
-  const shell = read("components/club-shell.tsx");
-  assert.match(shell, /\["trainer", "gym_staff", "gym_admin", "owner"\]\.includes\(role\)/);
-  assert.match(shell, /admin \? \[\["Finance"/);
-  assert.match(shell, /\["Classes"/);
-  assert.doesNotMatch(shell, /role === "trainer"[^]*Finance/);
-  assert.doesNotMatch(shell, /role === "member"[^]*Members/);
+  for (const role of ["member", "guest", "trainer", "gym_staff"] as const) {
+    const labels = clubNavigationLinks(role, "org").map(link => link.label);
+    for (const restricted of ["Finance", "Staff", "Locations", "Shared stations"]) assert.ok(!labels.includes(restricted));
+  }
 });
 
 test("Club V2 surfaces are role-aware and organisation-scoped", () => {
@@ -89,33 +88,21 @@ test("Club venue context is explicit, role-aware and preserved in navigation", (
   assert.doesNotMatch(shell, /\["More"/);
 });
 
-test("owner Club navigation exposes the consolidated operational sections", () => {
-  const shell = read("components/club-shell.tsx");
-  for (const label of ["Daily checks", "Inductions", "Members", "Shop", "GLOW ZONE", "Classes", "Finance", "My Work"]) {
-    assert.match(shell, new RegExp(`\\[\\"${label}\\"`));
-  }
-  assert.doesNotMatch(shell, /\[\"Payments\"/);
-  assert.doesNotMatch(shell, /\[\"Locations\"/);
-  assert.doesNotMatch(shell, /\[\"Staff\"/);
-  assert.doesNotMatch(shell, /club\/more/);
+test("owner Club navigation exposes consolidated operations and administration", () => {
+  const labels = clubNavigationLinks("owner", "org").map(link => link.label);
+  for (const name of ["Reception", "Daily checks", "Members", "Shop", "Glow Zone", "Classes", "Staff & PT schedule", "Inductions", "Finance", "Staff", "Locations"]) assert.ok(labels.includes(name));
 });
 
-test("Club navigation maps lifecycle and administration routes to one primary section", () => {
-  const shell = read("components/club-shell.tsx");
-  assert.ok(shell.includes('pathname.startsWith("/club/induction")') && shell.includes('? "Inductions"'));
-  assert.doesNotMatch(shell, /pathname.startsWith\("\/club\/(locations|staff)\"\)/);
-  assert.ok(shell.includes('pathname.startsWith("/club/payments")') && shell.includes('? "Finance"'));
-  assert.ok(shell.includes("Boolean(link && link[0] === activeSection)"));
+test("Club navigation maps product details to Shop and preserves lifecycle sections", () => {
+  assert.equal(activeClubNavigationPath("/club/products/123"), "/club/shop");
+  assert.equal(activeClubNavigationPath("/club/induction"), "/club/induction");
+  assert.equal(activeClubNavigationPath("/club/payments"), "/club/payments");
 });
 
-test("More and Members expose lower-frequency and lifecycle destinations", () => {
-  const more = read("app/club/more/page.tsx");
-  const members = read("app/club/members/page.tsx");
-  assert.ok(more.includes("/club/locations"));
-  assert.ok(more.includes("/club/staff"));
-  assert.ok(more.includes("Manage venues and operational location settings"));
-  assert.ok(more.includes("Manage staff access and Club roles"));
-  assert.ok(members.includes("redirect"));
+test("More and the organisation Menu share role-filtered navigation", () => {
+  assert.match(read("app/club/more/page.tsx"), /ClubMenuLinks/);
+  assert.match(read("components/club-shell.tsx"), /ClubMenuLinks/);
+  assert.match(read("app/club/members/page.tsx"), /redirect/);
 });
 
 test("Overview and Finance expose operational drill-downs without duplicating systems", () => {

@@ -1,8 +1,10 @@
 import Link from "next/link";
+import { ClubReviewerMember } from "@/components/club-reviewer-member";
 import type { ReactNode } from "react";
 import { notFound, redirect } from "next/navigation";
 import { AppNav } from "@/components/app-nav";
 import { AppShell, BackButton, PageHeader, Surface } from "@/components/ui";
+import { ClubMenuLinks } from "@/components/club-menu-links";
 import { ClubSectionNav } from "@/components/club-shell";
 import { ClubMembersDirectory } from "@/components/club-members-directory";
 import { ClubClassesWorkspace } from "@/components/club-classes";
@@ -16,7 +18,7 @@ import { reviewerGlowHours } from "@/lib/play-reviewer-member-data";
 import {
   reviewerClubAttendance, reviewerClubCheckData, reviewerClubClassTypes, reviewerClubCustomers,
   reviewerClubLocations, reviewerClubMembers, reviewerClubOrganisation, reviewerClubProducts,
-  reviewerClubRole, reviewerClubRoster, reviewerClubSession, reviewerClubSessions, reviewerClubStaff,
+  reviewerClubStockBalances, reviewerClubRole, reviewerClubRoster, reviewerClubSession, reviewerClubSessions, reviewerClubStaff,
   reviewerClubUserId,
 } from "@/lib/play-reviewer-club-data";
 import styles from "@/components/club-operations.module.css";
@@ -25,17 +27,13 @@ const londonToday = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/London"
 const syntheticCheckData = reviewerClubCheckData as unknown as Parameters<typeof ClubChecks>[0]["data"];
 
 function ReviewNotice() {
-  return <Surface className="play-reviewer-notice"><span className="eyebrow">GOOGLE PLAY REVIEW · READ ONLY</span><p>All people, memberships, attendance, shifts, classes, checks and products on these screens are synthetic examples. Club changes, payments, refunds and door access are disabled.</p></Surface>;
+  return <p className={styles.demoNotice} role="note"><strong>DEMO ACCOUNT - READ ONLY</strong><span>Synthetic examples · No payments, stock changes or physical access.</span></p>;
 }
 
 function AttendanceDemo() {
   return <Surface><div className="section-header"><div><span className="eyebrow">SAMPLE ATTENDANCE</span><h2>Recent arrivals</h2><p className="muted">Example register only. This is not connected to a physical station or live attendance.</p></div></div>{reviewerClubAttendance.map((row, index) => <div className="club-detail-row" key={`${row.name}-${index}`}><div><strong>{row.name}</strong><span className="muted">{row.location} · {row.time}</span></div><span className="status-pill">{row.status}</span></div>)}</Surface>;
 }
 
-function MemberDemo({ memberId, unlinked = false }: { memberId?: string; unlinked?: boolean }) {
-  const member = reviewerClubMembers.find(item => item.userId === memberId) ?? reviewerClubMembers[0];
-  return <Surface><span className="eyebrow">SYNTHETIC {unlinked ? "CUSTOMER" : "MEMBER"} RECORD</span><h2>{unlinked ? "Jamie Parker" : member.displayName}</h2><div className="club-detail-list"><div className="club-detail-row"><span>Membership</span><strong>{unlinked ? "No membership linked" : member.membershipName}</strong></div><div className="club-detail-row"><span>Status</span><strong>{unlinked ? "Account not linked · demo" : member.membershipStatus === "active" ? "Active · demo" : "Needs attention · demo"}</strong></div><div className="club-detail-row"><span>Home venue</span><strong>{unlinked ? "Not set" : member.homeLocation?.name}</strong></div><div className="club-detail-row"><span>Gym access</span><strong>{unlinked ? "Not available" : member.accessState === "active" ? "Example active state" : "Example review state"}</strong></div></div><p className="muted">This synthetic record cannot be edited and does not grant gym access.</p></Surface>;
-}
 
 function StaffOperations() {
   return <Surface><div className="section-header"><div><span className="eyebrow">SYNTHETIC STAFF ROSTER</span><h2>Today’s operations</h2></div></div>{reviewerClubStaff.map(row => <div className="club-detail-row" key={row.name}><div><strong>{row.name}</strong><span className="muted">{row.role} · {row.location}</span></div><span className="status-pill">{row.status} · example</span></div>)}</Surface>;
@@ -55,7 +53,7 @@ function ScheduleDemo() {
 
 function RestrictedDemo({ screen }: { screen: string }) {
   const labels: Record<string, string> = { access: "Physical door access", stations: "Door stations", lock: "Station lock", staff: "Staff account and permission management", payments: "Finance and payment records", "membership-billing": "Membership billing", "shop/balance": "Stored value and balance", "shop/collections": "Member order collections", "staff/email-preview": "Staff invitation and email administration", privacy: "Club privacy administration", reports: "Operational reports", "members/import": "Member data import" };
-  return <Surface><span className="eyebrow">NOT INCLUDED IN REVIEW ACCESS</span><h2>{labels[screen] ?? "Restricted Club operation"}</h2><p className="muted">This area can expose live personal, financial, staff-permission or physical-access controls. It is not available to the read-only Google Play reviewer.</p><p className="muted">No production records were loaded or changed.</p></Surface>;
+  return <Surface><span className="eyebrow">NOT INCLUDED IN REVIEW ACCESS</span><h2>{labels[screen] ?? "Restricted Club operation"}</h2><p className="muted">This area can expose live personal, financial, staff-permission or physical-access controls. It is not available to the read-only App Review Demo account.</p><p className="muted">No production records were loaded or changed.</p></Surface>;
 }
 
 export default async function ClubReviewerPage({ params }: { params: Promise<{ screen?: string[] }> }) {
@@ -71,13 +69,19 @@ export default async function ClubReviewerPage({ params }: { params: Promise<{ s
   let title = "Club dashboard";
   let content: ReactNode;
 
-  if (screen === "overview" || screen === "members" && !path[1]) {
-    title = screen === "members" ? "Member management" : "Club dashboard";
+  if (screen === "overview") {
+    title = "Club dashboard";
     content = <>
       <Surface><span className="eyebrow">OPERATIONS OVERVIEW</span><h2>Madhouse Gym · example workspace</h2><div className={styles.quickGrid}><Link href="/club/checks"><strong>Daily checks</strong><small>Review a synthetic venue checklist</small></Link><Link href="/club/classes"><strong>Classes</strong><small>View the sample timetable and register</small></Link><Link href="/club/check-in"><strong>Check-in and attendance</strong><small>Read-only example arrival list</small></Link><Link href="/club/shop"><strong>Shop operations</strong><small>Browse the synthetic catalogue</small></Link><Link href="/club/induction"><strong>Inductions</strong><small>Review an example induction flow</small></Link><Link href="/club/work"><strong>Staff operations</strong><small>View sample rota and work logs</small></Link></div></Surface>
       <Surface><span className="eyebrow">MEMBER MANAGEMENT</span><h2>Members</h2><p className="muted">Search and filter sample membership records using the production Club directory.</p><ClubMembersDirectory members={reviewerClubMembers} customers={reviewerClubCustomers} organisationId={organisation.id}/></Surface>
       <Surface><span className="eyebrow">UP NEXT</span><h2>Classes at Madhouse Gym</h2><ClubClassesWorkspace classTypes={reviewerClubClassTypes} sessions={reviewerClubSessions} locations={locations} members={[]} availability={Object.fromEntries(reviewerClubSessions.map(session => [session.id, { sessionId: session.id, capacity: 6, confirmedCount: 2, spacesRemaining: 4, waitlistedCount: 0, isFull: false }]))} role={reviewerClubRole} currentUserId={reviewerClubUserId} today={londonToday} accent="#a855f7" organisationId={organisation.id} readOnly/></Surface>
     </>;
+  } else if (screen === "members" && !path[1]) {
+    title = "Members";
+    content = <Surface><ClubMembersDirectory members={reviewerClubMembers} customers={reviewerClubCustomers} organisationId={organisation.id}/></Surface>;
+  } else if (screen === "more") {
+    title = "More";
+    content = <Surface><ClubMenuLinks role={reviewerClubRole} organisationId={organisation.id}/></Surface>;
   } else if (screen === "check-in" || screen === "reception") {
     title = "Check-in and attendance";
     content = <AttendanceDemo/>;
@@ -90,7 +94,7 @@ export default async function ClubReviewerPage({ params }: { params: Promise<{ s
     content = session ? <><Surface><span className="eyebrow">SAMPLE CLASS REGISTER</span><h2>{session.title} · {locations.find(location => location.id === session.locationId)?.name}</h2><p className="muted">{new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London", dateStyle: "full", timeStyle: "short" }).format(new Date(session.startsAt))} · Coach Morgan · six places</p></Surface><ClubClassRegister sessionId={session.id} capacity={6} reserved={reviewerClubRoster.length} roster={reviewerClubRoster} members={[]} canCollectCash={false} canReconcileCash={false} readOnly/></> : path[1] === "reports" ? <Surface><span className="eyebrow">CLASS REPORTS · EXAMPLE</span><h2>Bookings and cancellations</h2><p className="muted">Synthetic report preview. Includes sample attendance and funding states only; no member booking history or financial records are loaded.</p><div className="club-detail-row"><strong>Upcoming sessions</strong><span>{reviewerClubSessions.length} · sample</span></div><div className="club-detail-row"><strong>Repeat cancellations</strong><span>1 · sample, no automatic penalty</span></div></Surface> : <ClubClassesWorkspace classTypes={reviewerClubClassTypes} sessions={reviewerClubSessions} locations={locations} members={[]} availability={Object.fromEntries(reviewerClubSessions.map(item => [item.id, { sessionId: item.id, capacity: 6, confirmedCount: 2, spacesRemaining: 4, waitlistedCount: 0, isFull: false }]))} role={reviewerClubRole} currentUserId={reviewerClubUserId} today={londonToday} accent="#a855f7" organisationId={organisation.id} readOnly/>;
   } else if (screen === "shop" || screen === "products") {
     title = screen === "products" ? "Products and catalogue" : "Shop operations";
-    content = <ClubShop organisationId={organisation.id} userId={reviewerClubUserId} products={reviewerClubProducts} locations={locations} balance={{ id: "demo-balance", organisationId: organisation.id, customerId: "demo-customer", currency: "GBP", status: "active", balanceMinor: 1250 }} orders={[]} declarations={[]} staff={false} canReconcile={false} accent="#a855f7" currentLocationId={locations[1].id} stockBalances={[]} promotions={[]} demoMode/>;
+    content = <ClubShop organisationId={organisation.id} userId={reviewerClubUserId} products={reviewerClubProducts} locations={locations} balance={{ id: "demo-balance", organisationId: organisation.id, customerId: "demo-customer", currency: "GBP", status: "active", balanceMinor: 1250 }} orders={[]} declarations={[]} staff={true} canReconcile={false} accent="#a855f7" currentLocationId={locations[1].id} stockBalances={reviewerClubStockBalances} promotions={[]} demoMode/>;
   } else if (screen === "induction") {
     title = "Inductions";
     content = <InductionDemo/>;
@@ -98,19 +102,19 @@ export default async function ClubReviewerPage({ params }: { params: Promise<{ s
     title = "Staff operations";
     content = <WorkDemo/>;
   } else if (screen === "schedule") {
-    title = "Schedule";
+    title = "Staff & PT schedule";
     content = <ScheduleDemo/>;
   } else if (screen === "sunbeds") {
     title = "Glow Zone operations";
     content = <><Surface><span className="eyebrow">GLOW ZONE · CARLTON</span><h2>Example sunbed service</h2><p className="muted">The gym remains open 24 hours. These are Glow Zone service hours only.</p></Surface><GlowZoneOpeningHours hours={reviewerGlowHours}/></>;
   } else if (screen === "members" && path[1]) {
     title = "Member record";
-    content = <MemberDemo memberId={path[1] === "customer" ? undefined : path[1]} unlinked={path[1] === "customer"}/>;
+    content = <ClubReviewerMember memberId={path[1] === "customer" ? undefined : path[1]} unlinked={path[1] === "customer"}/>;
   } else {
     const key = path.join("/");
     title = key.split("/").at(-1)?.replaceAll("-", " ").replace(/\b\w/g, letter => letter.toUpperCase()) ?? "Club";
     content = <RestrictedDemo screen={key}/>;
   }
 
-  return <AppShell className="module-page club-page club-reviewer-page"><PageHeader title={title} description="Production Club interface with isolated synthetic review data."/><ReviewNotice/><ClubSectionNav organisation={organisation} role={reviewerClubRole} locations={locations} roleLabelOverride="Review only"/>{content}<BackButton href="/club">Back to Club dashboard</BackButton><AppNav/></AppShell>;
+  return <AppShell className="module-page club-page club-reviewer-page"><PageHeader title={title} description="App Review Demo"/><ReviewNotice/><ClubSectionNav organisation={organisation} role={reviewerClubRole} locations={locations} roleLabelOverride="Demo"/>{content}<BackButton href="/club">Back to Club dashboard</BackButton><AppNav/></AppShell>;
 }

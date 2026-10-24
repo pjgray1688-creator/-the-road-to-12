@@ -14,9 +14,11 @@ test("Club bundles its required-reason declaration for measured navigation durat
   assert.doesNotMatch(manifest, /NSPrivacyCollectedDataTypes/);
 });
 
-test("Club release remains build 1 with automatic organisation signing and a valid dark launch", () => {
+test("Club release remains build 1 with the established organisation signing and a valid dark launch", () => {
   const project = readFileSync("ios/R12Club/R12Club.xcodeproj/project.pbxproj", "utf8");
-  assert.equal((project.match(/DEVELOPMENT_TEAM = 79ZP9U47SK/g) ?? []).length, 2);
+  assert.ok((project.match(/DEVELOPMENT_TEAM = 79ZP9U47SK/g) ?? []).length >= 2);
+  assert.match(project, /CODE_SIGN_STYLE = Manual/);
+  assert.match(project, /R12 Club App Store Distribution/);
   assert.match(project, /PRODUCT_BUNDLE_IDENTIFIER = live\.r12\.club/);
   const launch = readFileSync("ios/R12Club/App/LaunchScreen.storyboard", "utf8");
   for (const value of launch.matchAll(/(?:red|green|blue)="([^"]+)"/g)) {

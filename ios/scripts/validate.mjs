@@ -81,7 +81,7 @@ const glowCustomerView = readFileSync(resolve(root, "../components/glow-zone-cus
 check(clubAccount.includes("/account/delete") && coachAccount.includes("/account/delete"), "Club and Coach expose account deletion navigation");
 check(clubAccount.includes("/club/privacy") && coachAccount.includes("/coach/privacy") && glowCustomerView.includes("/glow-zone/privacy"), "Club, Coach and Glow Zone account views link to their own privacy notices");
 check(sharedAccount.includes("privacyApp") && sharedAccount.includes("/coach/privacy") && sharedAccount.includes("/glow-zone/privacy"), "shared account view selects the correct policy for native app context");
-check(appSpecs.every(app => readFileSync(resolve(root, app.folder, `${app.project}.xcodeproj/project.pbxproj`), "utf8").includes("CODE_SIGN_STYLE = Automatic;")), "all apps preserve automatic signing");
+check(appSpecs.every(app => readFileSync(resolve(root, app.folder, `${app.project}.xcodeproj/project.pbxproj`), "utf8").includes("CODE_SIGN_STYLE = Automatic;")), "all app projects retain signing configuration");
 const memberProject = readFileSync(resolve(root, "R12/R12.xcodeproj/project.pbxproj"), "utf8");
 check(memberProject.includes('TARGETED_DEVICE_FAMILY = "1";') && !memberProject.includes('TARGETED_DEVICE_FAMILY = "1,2";'), "R12 targets iPhone only");
 const memberConfig = configuration.match(/static let r12 = NativeAppConfiguration\(([\s\S]*?)\n    \)/)?.[1] ?? "";
@@ -103,5 +103,11 @@ check(checksAction.includes("club_record_checklist_item") && checksAction.includ
 const checksPage = readFileSync(resolve(root, "../app/club/checks/page.tsx"), "utf8");
 check(checksPage.includes("next=%2Fclub%2Fchecks"), "Club sign-in returns reviewers and staff to Daily checks");
 const clubShell = readFileSync(resolve(root, "../components/club-shell.tsx"), "utf8");
-check(clubShell.includes("[\"Inductions\", `/club/induction") && clubShell.includes("[\"Daily checks\", `/club/checks"), "mobile Club navigation surfaces checks and inductions first");
+const clubLinks = readFileSync(resolve(root, "../lib/club-navigation.ts"), "utf8");
+check(clubShell.includes("ClubMenuLinks") && clubLinks.includes('["Inductions", "/club/induction"]') && clubLinks.includes('["Daily checks", "/club/checks"]'), "Club shared menu retains checks and inductions");
 console.log("iOS source configuration validation passed.");
+
+const clubNative = readFileSync(resolve(root, "R12Club/App/ClubNativeShell.swift"), "utf8");
+const clubTabs = readFileSync(resolve(root, "R12Club/App/ClubNavigation.swift"), "utf8");
+check(["Reception", "Daily Checks", "Members", "Shop", "More"].every(title => clubTabs.includes(`title: "${title}"`)), "Club native shell has the five approved tabs");
+check(clubNative.includes("clubRoute") && clubNative.includes("pushState") && clubNative.includes("popstate"), "Club selected tab follows web history and nested navigation");
