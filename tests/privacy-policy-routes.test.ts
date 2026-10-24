@@ -4,7 +4,7 @@ import test from "node:test";
 
 const routes = [
   ["app/privacy/page.tsx", 'app="training"', 'canonical: "/privacy"', "/privacy"],
-  ["app/club/privacy/page.tsx", 'app="club"', 'canonical: "/club/privacy"', "/club/privacy"],
+  ["app/(public-club)/club/privacy/page.tsx", "<ClubPrivacyPolicy", 'canonical: "/club/privacy"', "/club/privacy"],
   ["app/coach/privacy/page.tsx", 'app="coach"', 'canonical: "/coach/privacy"', "/coach/privacy"],
   ["app/glow-zone/privacy/page.tsx", 'app="glow"', 'canonical: "/glow-zone/privacy"', "/glow-zone/privacy"],
 ] as const;

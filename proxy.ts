@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { CLUB_STATION_COOKIE, CLUB_STATION_USER_COOKIE, stationCookieValue, verifyClubStationSession } from "@/lib/club-station";
-import { playReviewerClubRequestPolicy } from "@/lib/play-reviewer";
+import { isPublicClubPrivacyRequest, playReviewerClubRequestPolicy } from "@/lib/play-reviewer";
 
 function authClaims(request: NextRequest) {
   const values = request.cookies.getAll();
@@ -19,6 +19,7 @@ function authClaims(request: NextRequest) {
 
 export function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
+  if (isPublicClubPrivacyRequest(pathname, request.method)) return NextResponse.next();
   const claims = authClaims(request);
   const reviewerPolicy = playReviewerClubRequestPolicy(claims?.email, pathname, request.method);
   if (reviewerPolicy === "deny" && (pathname === "/api/club" || pathname.startsWith("/api/club/"))) {
