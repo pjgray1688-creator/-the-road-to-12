@@ -78,7 +78,7 @@ test("unexpected Coach list failures are not shown as fake permission failures",
 
 test("zero-client Coach state has a useful Add client action", () => {
   assert.match(dashboard, /No active clients yet|Your clients/);
-  assert.match(workspace, /Madhouse member/);
+  assert.match(workspace, /Club member/);
   assert.match(workspace, /Private client/);
   assert.equal((workspace.match(/coach-header-action"/g) ?? []).length, 1);
   assert.doesNotMatch(workspace, /Replay Coach tutorial/);

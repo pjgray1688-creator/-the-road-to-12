@@ -21,6 +21,14 @@ export function playReviewerClubRequestPolicy(email: string | null | undefined, 
   return "allow";
 }
 
+/** Coach review pages are synthetic; the review identity cannot invoke Coach APIs or mutations. */
+export function playReviewerCoachRequestPolicy(email: string | null | undefined, pathname: string, method: string): "allow" | "deny" {
+  if (!isPlayReviewerEmail(email)) return "allow";
+  if (pathname === "/api/coach" || pathname.startsWith("/api/coach/")) return "deny";
+  if ((pathname === "/coach" || pathname.startsWith("/coach/")) && method !== "GET" && method !== "HEAD") return "deny";
+  return "allow";
+}
+
 /** The Play reviewer is an app-only demo identity, never a Club role. */
 export function hasPlayReviewerEntitlement(user: { email?: string | null; email_confirmed_at?: string | null } | null | undefined): boolean {
   return isPlayReviewerEmail(user?.email) && Boolean(user?.email_confirmed_at);

@@ -3,10 +3,13 @@ import { serverSupabase } from "@/lib/supabase-server";
 import { CoachNutrition } from "@/components/coach-nutrition";
 import { CoachClientDestinations } from "@/components/coach-client-destinations";
 import Link from "next/link";
+import { CoachReviewerDemo } from "@/components/coach-reviewer-demo";
+import { hasPlayReviewerEntitlement } from "@/lib/play-reviewer";
 
 export default async function CoachNutritionPage({ searchParams }: { searchParams: Promise<{ client?: string }> }) {
   const params = await searchParams;
   const supabase = await serverSupabase(); const { data: { user } } = await supabase.auth.getUser(); if (!user) redirect(params.client ? `/account?mode=signIn&next=${encodeURIComponent(`/coach/nutrition?client=${params.client}`)}` : "/account?mode=signIn&next=%2Fcoach%2Fnutrition");
+  if (hasPlayReviewerEntitlement(user)) return <CoachReviewerDemo screen="nutrition"/>;
   if (!params.client) {
     const [{ data: allowed, error: accessError }, { data: clients, error: clientsError }] = await Promise.all([
       supabase.rpc("coach_has_access", { p_client_user_id: null }),

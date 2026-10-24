@@ -62,7 +62,8 @@ test("reviewer access does not create privileged Club roles or weaken training d
   const trainingProfile = readFileSync("app/api/training-profile/route.ts", "utf8");
   const workouts = readFileSync("app/api/workouts/route.ts", "utf8");
   const workoutRepository = readFileSync("lib/workout-repository.ts", "utf8");
-  assert.doesNotMatch(source, /gym_staff|coach|owner|admin|club_members|service_role/i);
+  assert.doesNotMatch(source, /gym_staff|owner|admin|club_members|service_role/i);
+  assert.doesNotMatch(source, /insert\(|update\(|upsert\(|delete\(/i);
   assert.match(trainingProfile, /\.eq\("id", user\.id\)/);
   assert.match(workouts, /listCompleteWorkouts\(client, user\.id\)/);
   assert.match(workoutRepository, /\.eq\("user_id", userId\)/);

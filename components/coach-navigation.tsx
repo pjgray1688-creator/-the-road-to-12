@@ -20,7 +20,7 @@ export function CoachNavigation() {
       : pathname.startsWith("/coach/programmes") ? "programmes"
         : pathname.startsWith("/coach/nutrition") ? "nutrition"
           : pathname.startsWith("/coach/account") ? "account" : "";
-  return <nav className={styles.nav} aria-label="R12 Coach">
+  return <nav className={styles.nav} aria-label="R12 Coach" data-r12-coach-navigation>
     {destinations.map(item => <Link key={item.key} href={item.href} aria-current={active === item.key ? "page" : undefined} className={active === item.key ? styles.selected : ""}>{item.label}</Link>)}
   </nav>;
 }
