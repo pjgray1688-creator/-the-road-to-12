@@ -46,15 +46,6 @@ struct ClubNativeShell: View {
                 }
             }
             .toolbar(.hidden, for: .navigationBar)
-            .safeAreaInset(edge: .top, spacing: 0) {
-                if !state.authRoute && state.canGoBack && state.nestedRoute {
-                    HStack {
-                        Button { state.webView?.goBack() } label: { Label("Back", systemImage: "chevron.left") }
-                            .accessibilityLabel("Go back").frame(minWidth: 44, minHeight: 44)
-                        Spacer()
-                    }.padding(.horizontal, 16).background(Color(red: 0.035, green: 0.04, blue: 0.055))
-                }
-            }
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 if !state.authRoute {
                     ClubTabBar(selection: state.selectedIndex, select: state.select).frame(height: 49)
