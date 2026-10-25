@@ -1,2 +1,35 @@
-import Link from "next/link";import { AppShell,PageHeader,Surface } from "@/components/ui";import { AppNav } from "@/components/app-nav";import { GlowZoneActivity } from "@/components/glow-zone-activity";import { GlowZoneNav } from "@/components/glow-zone-nav";import { GlowZoneOpeningHours,type GlowZoneHourRow } from "@/components/glow-zone-opening-hours";import { GLOW_ZONE_LOCATION } from "@/lib/glow-zone";import { getGlowBalanceAction } from "@/app/club/sunbeds/actions";import { serverSupabase } from "@/lib/supabase-server";
-export async function GlowZoneCustomerView(props:{organisationId:string;userId:string;activeGymMembership:boolean;memberNavigation?:boolean}){const{organisationId,userId}=props;const client=await serverSupabase();const[balance,hoursResult]=await Promise.all([getGlowBalanceAction({organisationId,userId}),client.from("club_location_service_hours").select("weekday,opens_local,closes_local,confirmation_state,time_zone").eq("organisation_id",organisationId).eq("location_name","Carlton").eq("service_key","sunbeds").order("weekday")]);const hours=(hoursResult.data??[]) as GlowZoneHourRow[];return <AppShell className="module-page member-area-page glow-zone-page"><div className="glow-zone-atmosphere" aria-hidden="true"/><PageHeader eyebrow="GLOW ZONE · CARLTON" title="Your glow, on your time" description={GLOW_ZONE_LOCATION}/><Surface><span className="eyebrow glow-green">AVAILABLE NOW</span>{balance.ok?<><h2 className="glow-balance"><strong>{balance.balance.minutes}</strong><small>minutes</small></h2>{balance.balance.next_expiry?<p className="muted">Next expiry {new Intl.DateTimeFormat("en-GB",{timeZone:"Europe/London",dateStyle:"medium"}).format(new Date(balance.balance.next_expiry))}</p>:<p className="muted">No current expiry date</p>}<p className="muted">Only unexpired minutes are shown as available.</p><div className="glow-home-actions"><Link className="primary" href="/glow-zone/use">Use Sunbed</Link><Link className="secondary" href="/glow-zone/buy">Buy Minutes</Link></div></>:<><h2>Balance temporarily unavailable</h2><p className="muted">Please try again shortly or ask reception.</p></>}</Surface><GlowZoneActivity organisationId={organisationId} userId={userId}/><GlowZoneOpeningHours hours={hours}/>{props.memberNavigation?<AppNav/>:<GlowZoneNav current="home"/>}</AppShell>;}
+import Link from "next/link";
+import { getGlowBalanceAction } from "@/app/club/sunbeds/actions";
+import { AppNav } from "@/components/app-nav";
+import { GlowZoneActivity } from "@/components/glow-zone-activity";
+import { GlowZoneHeader } from "@/components/glow-zone-header";
+import { GlowZoneNav } from "@/components/glow-zone-nav";
+import { GlowZoneOpeningHours, type GlowZoneHourRow } from "@/components/glow-zone-opening-hours";
+import { AppShell, Surface } from "@/components/ui";
+import { GLOW_ZONE_LOCATION } from "@/lib/glow-zone";
+import { serverSupabase } from "@/lib/supabase-server";
+
+export async function GlowZoneCustomerView(props: { organisationId: string; userId: string; activeGymMembership: boolean; memberNavigation?: boolean }) {
+  const { organisationId, userId } = props;
+  const client = await serverSupabase();
+  const [balance, hoursResult] = await Promise.all([
+    getGlowBalanceAction({ organisationId, userId }),
+    client.from("club_location_service_hours").select("weekday,opens_local,closes_local,confirmation_state,time_zone").eq("organisation_id", organisationId).eq("location_name", "Carlton").eq("service_key", "sunbeds").order("weekday"),
+  ]);
+  const hours = (hoursResult.data ?? []) as GlowZoneHourRow[];
+  return <AppShell className="module-page member-area-page glow-zone-page">
+    <GlowZoneHeader title="Your glow, on your time" description={GLOW_ZONE_LOCATION} />
+    <Surface>
+      <span className="eyebrow glow-green">AVAILABLE NOW</span>
+      {balance.ok ? <>
+        <h2 className="glow-balance"><strong>{balance.balance.minutes}</strong><small>minutes</small></h2>
+        {balance.balance.next_expiry ? <p className="muted">Next expiry {new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London", dateStyle: "medium" }).format(new Date(balance.balance.next_expiry))}</p> : <p className="muted">No current expiry date</p>}
+        <p className="muted">Only unexpired minutes are shown as available.</p>
+        <div className="glow-home-actions"><Link className="primary" href="/glow-zone/use">Use Sunbed</Link><Link className="secondary" href="/glow-zone/buy">Buy Minutes</Link></div>
+      </> : <><h2>Balance temporarily unavailable</h2><p className="muted">Please try again shortly or ask reception.</p></>}
+    </Surface>
+    <GlowZoneActivity organisationId={organisationId} userId={userId} />
+    <GlowZoneOpeningHours hours={hours} />
+    {props.memberNavigation ? <AppNav /> : <GlowZoneNav current="home" />}
+  </AppShell>;
+}

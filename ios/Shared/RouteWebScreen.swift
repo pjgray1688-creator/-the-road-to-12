@@ -27,7 +27,7 @@ struct RouteWebScreen: View {
 
     var body: some View {
         ZStack {
-            R12WebView(url: configuration.url(for: destination.path), state: state) { url in
+            R12WebView(url: configuration.url(for: destination.path), state: state, isGlowZone: configuration.scheme == "r12-glowzone") { url in
                 safariURL = url
             }
             .overlay(alignment: .top) {
@@ -106,6 +106,7 @@ private struct SafariView: UIViewControllerRepresentable {
 private struct R12WebView: UIViewRepresentable {
     let url: URL
     @ObservedObject var state: RouteWebState
+    let isGlowZone: Bool
     let openExternal: (URL) -> Void
 
     func makeCoordinator() -> Coordinator { Coordinator(state: state, openExternal: openExternal) }
@@ -113,8 +114,16 @@ private struct R12WebView: UIViewRepresentable {
     func makeUIView(context: Context) -> WKWebView {
         let webConfiguration = WKWebViewConfiguration()
         webConfiguration.websiteDataStore = .default()
+        if isGlowZone {
+            let nativeStyle = WKUserScript(
+                source: "document.documentElement.classList.add('r12-glow-native')",
+                injectionTime: .atDocumentStart,
+                forMainFrameOnly: false
+            )
+            webConfiguration.userContentController.addUserScript(nativeStyle)
+        }
         let webView = WKWebView(frame: .zero, configuration: webConfiguration)
-        if configuration.scheme == "r12-glowzone" {
+        if isGlowZone {
             webView.customUserAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1 R12GlowZoneIOS"
         }
         webView.navigationDelegate = context.coordinator

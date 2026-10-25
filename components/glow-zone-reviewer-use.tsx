@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { AppShell, PageHeader, Surface } from "@/components/ui";
+import { AppShell, Surface } from "@/components/ui";
+import { GlowZoneHeader } from "@/components/glow-zone-header";
 import { GlowZoneNav } from "@/components/glow-zone-nav";
 
 export function GlowZoneReviewerUse() {
@@ -11,8 +12,7 @@ export function GlowZoneReviewerUse() {
 
   return (
     <AppShell className="module-page glow-zone-page">
-      <div className="glow-zone-atmosphere" aria-hidden="true" />
-      <PageHeader eyebrow="GLOW ZONE · CARLTON" title="Use Sunbed" />
+      <GlowZoneHeader title="Use a sunbed" description="Choose your session, then let reception approve it." demo />
       <Surface>
         <span className="eyebrow glow-green">45 EXAMPLE MINUTES</span>
         <h2>Choose your session</h2>
@@ -47,7 +47,7 @@ export function GlowZoneReviewerUse() {
       </Surface>
       {preview && (
         <Surface>
-          <span className="eyebrow glow-pink">SESSION PREVIEW · DEMO</span>
+          <span className="eyebrow">SESSION PREVIEW</span>
           <h2>Ready to scan</h2>
           <p>Show your session QR code to reception.</p>
           <div className="glow-reviewer-qr-placeholder" role="img"

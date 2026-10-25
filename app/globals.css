@@ -318,3 +318,91 @@
 .glow-account-section p { margin: 10px 0; }
 .glow-account-links { display: grid; gap: 18px; }
 .glow-account-standalone .account-signout { min-height: 46px; }
+
+/* Standalone Glow Zone product surface */
+.glow-zone-page {
+  --glow-accent: #c7f36b;
+  --glow-panel: #121411;
+  --glow-border: rgba(221, 238, 194, .14);
+  width: min(100%, 680px);
+  gap: 14px;
+  padding-top: calc(14px + env(safe-area-inset-top));
+  background:
+    radial-gradient(circle at 92% 2%, rgba(199,243,107,.07), transparent 25rem),
+    #090a09 !important;
+  color: #f3f4ef;
+}
+.glow-zone-page .glow-zone-atmosphere { display: none; }
+.glow-zone-header { display: grid; gap: 7px; margin: 0 0 3px; }
+.glow-zone-brand-row { min-height: 58px; display: flex; align-items: flex-start; justify-content: space-between; }
+.glow-zone-brand-row img { width: 58px; height: 58px; border-radius: 13px; object-fit: cover; }
+.glow-demo-badge { margin-top: 4px; padding: 5px 8px; border: 1px solid var(--glow-border); border-radius: 999px; color: #a9ad9f; font-size: 10px; font-weight: 750; letter-spacing: .12em; text-transform: uppercase; }
+.glow-zone-header h1 { margin: 5px 0 0; max-width: 580px; font-family: Georgia, "Times New Roman", serif; font-size: clamp(28px, 7vw, 43px); font-weight: 500; line-height: 1.02; letter-spacing: -.035em; }
+.glow-zone-header p { max-width: 520px; margin: 0; color: #999e91; font-size: 13px; line-height: 1.45; }
+.glow-zone-page .surface-card,
+.glow-zone-page > section { padding: 17px; border: 1px solid var(--glow-border); border-radius: 14px; background: rgba(18,20,17,.94); box-shadow: none; }
+.glow-zone-page .surface-card h2,
+.glow-zone-page section h2 { margin: 3px 0 8px; font-family: Georgia, "Times New Roman", serif; font-weight: 500; letter-spacing: -.02em; }
+.glow-zone-page .eyebrow { color: #9ea393; font-size: 9px; letter-spacing: .16em; }
+.glow-zone-page .glow-green,
+.glow-zone-page .glow-pink { color: var(--glow-accent); }
+.glow-balance { color: #f5f6f1; font-family: Georgia, "Times New Roman", serif; font-weight: 400; }
+.glow-balance strong { font-weight: 400; }
+.glow-zone-page .primary { border-color: var(--glow-accent); background: var(--glow-accent); color: #14180e; }
+.glow-zone-page .secondary { border-color: #3d4337; background: #161914; color: #eff1e9; }
+.glow-zone-page .glow-package-row { border-color: var(--glow-border); }
+.glow-zone-page .glow-package-row > strong { color: #d7ddce; }
+.glow-zone-page .glow-price { color: var(--glow-accent); }
+.glow-zone-page .glow-bed-picker button { min-height: 76px; border-color: #353a32; border-radius: 10px; background: #0d0f0c; }
+.glow-zone-page .glow-bed-picker button.selected { border-color: var(--glow-accent); background: #171b12; box-shadow: none; }
+.glow-zone-page .glow-duration button { border-color: #58604e; background: #0d0f0c; color: var(--glow-accent); }
+.glow-zone-page .glow-duration input { accent-color: var(--glow-accent); }
+.glow-zone-page .glow-selection { border-color: var(--glow-border); background: #0d0f0c; }
+.glow-zone-nav { gap: 5px; margin-top: 4px; padding-bottom: env(safe-area-inset-bottom); }
+.glow-zone-nav a { min-height: 44px; border-color: #31362e; border-radius: 9px; background: #0e100d; color: #b9bdaf; font-size: 11px; font-weight: 650; }
+.glow-zone-nav a[aria-current=page] { border-color: #63734a; background: #171b13; color: var(--glow-accent); }
+.r12-glow-native .glow-zone-nav,
+.glow-zone-nav[data-native-hidden="true"] { display: none !important; }
+.glow-section-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.glow-section-heading > span { color: #8e9486; font-size: 11px; }
+.glow-package-options { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 7px; margin: 12px 0; }
+.glow-package-options button { min-height: 66px; display: grid; place-content: center; gap: 4px; padding: 8px 5px; border: 1px solid #343930; border-radius: 10px; background: #0d0f0c; color: #f3f4ef; text-align: center; }
+.glow-package-options button.selected { border-color: var(--glow-accent); background: #192012; }
+.glow-package-options button strong { font-size: 17px; }
+.glow-package-options button strong small,
+.glow-package-options button span { color: #a8ad9f; font-size: 10px; }
+.glow-payg-input { display: grid; grid-template-columns: 1fr 92px; align-items: center; gap: 12px; margin: 0 0 12px; color: #c7cbbf; font-size: 13px; }
+.glow-payg-input input { min-height: 44px; padding: 8px 10px; border: 1px solid #3a4035; border-radius: 9px; background: #090a09; color: #fff; }
+.glow-basket-line { display: grid; grid-template-columns: 1fr auto; gap: 8px 14px; padding: 14px 0; border-bottom: 1px solid var(--glow-border); }
+.glow-basket-line > div:first-child { display: grid; gap: 3px; }
+.glow-basket-line small { color: #919789; }
+.glow-quantity-control { grid-column: 1/-1; display: flex; align-items: center; gap: 7px; }
+.glow-quantity-control button { min-width: 44px; min-height: 44px; border: 1px solid #3a4035; border-radius: 8px; background: #0c0e0b; color: #e9ebe4; font-size: 18px; }
+.glow-quantity-control span { min-width: 28px; text-align: center; }
+.glow-quantity-control .glow-remove { min-width: 72px; margin-left: auto; border: 0; color: #aeb3a5; font-size: 11px; text-decoration: underline; }
+.glow-basket-total { display: flex; justify-content: space-between; padding: 16px 0 7px; font-size: 18px; }
+.glow-basket-total strong { font-family: Georgia, "Times New Roman", serif; font-size: 23px; font-weight: 500; }
+.glow-zone-page .glow-checkout-soon { min-height: 46px; border-color: #444a3e; background: #151713; color: #8e9386; opacity: 1; }
+.glow-reviewer-qr-placeholder { border-color: #3d4337 !important; background: #0d0f0c !important; color: #cbd0c2 !important; }
+.glow-auth,
+.glow-account-standalone { background: #090a09; color: #f3f4ef; }
+.glow-auth .glow-auth-brand { margin-bottom: 12px; }
+.glow-auth .glow-auth-brand img,
+.glow-account-standalone .glow-auth-brand img { width: 64px; height: 64px; border-radius: 14px; object-fit: cover; }
+.glow-auth h1,
+.glow-account-standalone h1 { font-family: Georgia, "Times New Roman", serif; font-weight: 500; letter-spacing: -.03em; }
+.glow-account-standalone { width: min(calc(100% - 28px), 680px); gap: 12px; padding-top: calc(14px + env(safe-area-inset-top)); }
+.glow-account-section { border-color: rgba(221,238,194,.14); border-radius: 14px; background: #121411; }
+.glow-age-state { font-weight: 750; }
+.glow-age-verified { color: var(--glow-accent, #c7f36b); }
+.glow-age-under_18 { color: #f2b1a7; }
+.glow-auth-splash { background: #090a09; color: #f3f4ef; }
+.r12-glow-native .auth-splash .brand-lockup { display: none; }
+.r12-glow-native .auth-splash:has(.brand-lockup)::before { content: ""; width: 72px; height: 72px; border-radius: 14px; background: url("/r12-app-assets/glow-zone-brand.png") center/cover no-repeat; }
+.r12-glow-native .auth-splash:has(.brand-lockup) p { font-size: 0; }
+.r12-glow-native .auth-splash:has(.brand-lockup) p::after { content: "Loading Glow Zone…"; font-size: 14px; }
+@media(max-width:520px){
+  .glow-zone-page { padding-inline: 14px; }
+  .glow-package-options { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .glow-zone-header h1 { font-size: 31px; }
+}

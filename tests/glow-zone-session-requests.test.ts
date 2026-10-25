@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { GLOW_SESSION_MINUTES, glowBedLabel, isGlowBedType, isGlowSessionDuration } from "../lib/glow-zone";
 
-const migration=readFileSync(new URL("../supabase/migrations/2027-01-20-glow-zone-session-requests.sql",import.meta.url),"utf8");
+const migration=readFileSync(new URL("../supabase/migrations/2026-10-25-glow-zone-session-requests.sql",import.meta.url),"utf8");
 const actions=readFileSync(new URL("../app/club/sunbeds/actions.ts",import.meta.url),"utf8");
 const reception=readFileSync(new URL("../components/glow-zone-reception-scanner.tsx",import.meta.url),"utf8");
 const manual=readFileSync(new URL("../components/club-sunbed-operations.tsx",import.meta.url),"utf8");

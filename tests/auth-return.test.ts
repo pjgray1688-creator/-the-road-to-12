@@ -15,5 +15,5 @@ test("account sign-in consumes a validated next path and uses the routed member 
   const source = readFileSync("app/account/page.tsx", "utf8");
   assert.match(source, /safeInternalReturnTo/);
   assert.match(source, /router\.push\(next \?\? \(window\.location\.hostname === "r12\.live" \? "\/member-hub" : "\/"\)\)/);
-  assert.match(source, /if \(next\) \{ router\.replace\(next\); return; \}/);
+  assert.match(source, /if \(next && !glowAccount\) \{ router\.replace\(next\); return; \}/);
 });
