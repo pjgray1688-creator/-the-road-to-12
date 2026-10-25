@@ -33,7 +33,7 @@ struct ClubNativeShell: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                (state.authRoute ? Color.white : Color(red: 0.035, green: 0.04, blue: 0.055))
+                Color.white
                     .ignoresSafeArea()
                 ClubWebView(state: state) { externalURL = $0 }
                 if state.loading && state.firstPageLoaded { ProgressView().tint(.purple).accessibilityLabel("Loading Club") }
@@ -54,7 +54,7 @@ struct ClubNativeShell: View {
         }
         .overlay { if !state.firstPageLoaded && !state.failed { ClubLaunchPresentation() } }
         .tint(Color(red: 0.62, green: 0.38, blue: 0.96))
-        .preferredColorScheme(state.authRoute ? .light : .dark)
+        .preferredColorScheme(.light)
         .sheet(isPresented: Binding(get: { externalURL != nil }, set: { if !$0 { externalURL = nil } })) {
             if let externalURL { ClubExternalPage(url: externalURL).ignoresSafeArea() }
         }
@@ -89,7 +89,7 @@ private struct ClubWebView: UIViewRepresentable {
           const ready = () => {
             document.documentElement.dataset.r12Shell = 'club-ios';
             const style = document.createElement('style');
-            style.textContent = 'html[data-r12-shell="club-ios"] [data-r12-web-navigation="member"]{display:none!important} html[data-r12-shell="club-ios"] .club-native-station-action{display:none!important} html[data-r12-shell="club-ios"] a[href^="/club/locations"],html[data-r12-shell="club-ios"] a[href^="/club/stations"],html[data-r12-shell="club-ios"] a[href^="/club/launch-readiness"]{display:none!important} html[data-r12-shell="club-ios"] main.club-page{padding-bottom:24px!important;min-height:0!important}';
+            style.textContent = 'html[data-r12-shell="club-ios"] [data-r12-web-navigation="member"]{display:none!important} html[data-r12-shell="club-ios"] .club-native-station-action{display:none!important} html[data-r12-shell="club-ios"] [class*="club-identity-control_host"]{display:none!important} html[data-r12-shell="club-ios"] main.club-page>.page-header{display:none!important} html[data-r12-shell="club-ios"] a[href^="/club/locations"],html[data-r12-shell="club-ios"] a[href^="/club/stations"],html[data-r12-shell="club-ios"] a[href^="/club/launch-readiness"]{display:none!important} html[data-r12-shell="club-ios"] main.club-page{padding-bottom:24px!important;min-height:0!important}';
             (document.head || document.documentElement).appendChild(style); notify();
           };
           if (document.readyState === 'loading') addEventListener('DOMContentLoaded', ready, {once:true}); else ready();
@@ -157,9 +157,11 @@ private struct ClubTabBar: UIViewRepresentable {
     func makeUIView(context: Context) -> UITabBar {
         let bar = UITabBar(); bar.delegate = context.coordinator
         let appearance = UITabBarAppearance(); appearance.configureWithOpaqueBackground()
-        appearance.backgroundColor = UIColor(red: 0.035, green: 0.04, blue: 0.055, alpha: 1)
+        appearance.backgroundColor = .white
+        appearance.shadowColor = UIColor(white: 0.88, alpha: 1)
         bar.standardAppearance = appearance; bar.scrollEdgeAppearance = appearance
-        bar.tintColor = UIColor(red: 0.62, green: 0.38, blue: 0.96, alpha: 1)
+        bar.tintColor = UIColor(red: 0.55, green: 0.27, blue: 0.88, alpha: 1)
+        bar.unselectedItemTintColor = UIColor(red: 0.22, green: 0.20, blue: 0.24, alpha: 1)
         bar.items = ClubNavigation.tabs.enumerated().map { UITabBarItem(title: $0.element.title, image: UIImage(systemName: $0.element.symbol), tag: $0.offset) }
         return bar
     }
