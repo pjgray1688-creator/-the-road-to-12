@@ -146,9 +146,12 @@ private struct R12WebView: UIViewRepresentable {
         func load(_ url: URL, into webView: WKWebView) {
             guard lastURL != url else { return }
             lastURL = url
-            state.errorMessage = nil
-            state.isLoading = true
-            state.shareURL = nil
+            DispatchQueue.main.async { [weak self] in
+                guard let self, self.lastURL == url else { return }
+                self.state.errorMessage = nil
+                self.state.isLoading = true
+                self.state.shareURL = nil
+            }
             webView.load(URLRequest(url: url, cachePolicy: .useProtocolCachePolicy, timeoutInterval: 30))
         }
 

@@ -6,3 +6,55 @@
 .recovery-review{margin-top:20px;background:#0d1317}.recovery-review h3{margin:8px 0;font-size:18px}.recovery-review p{font-size:13px}.recovery-comparison{display:grid;gap:8px;margin:14px 0}.recovery-comparison span{display:flex;justify-content:space-between;gap:10px;padding:10px;border-bottom:1px solid var(--line)}.recovery-comparison b,.recovery-comparison small,.recovery-preview small{display:block}.recovery-comparison b{font-size:10px;color:var(--muted)}.recovery-preview{display:grid;gap:7px;padding:12px;background:#0a0f12;border-radius:8px}.recovery-preview small{color:var(--muted);line-height:1.35}
 .verification-page{max-width:520px;justify-content:center;text-align:center;gap:16px}.verification-page .brand-lockup{margin:0 auto}.verification-brand{color:#d8b4fe;font-size:12px;font-weight:900;letter-spacing:1.5px}.verification-page h1{font-size:clamp(32px,9vw,46px);line-height:1.02;letter-spacing:-1.5px;text-transform:uppercase}.verification-copy{font-size:15px!important;line-height:1.55!important}.verification-email{display:block;padding:15px;border:1px solid #44335a;border-radius:12px;background:#171321;color:#fff;font-size:16px;overflow-wrap:anywhere}.verification-page .primary{width:100%;margin-top:4px}.verification-status{font-size:13px!important}.verification-back{display:inline-block;min-height:44px;padding:12px}.verification-footer{margin-top:20px;color:#aeb9b7;font-size:12px!important;letter-spacing:.4px}
 .staff-claim-summary{display:grid;gap:0;margin:18px 0;padding:0;border:1px solid var(--club-border,#34303e);border-radius:12px;background:rgba(18,15,25,.7)}.staff-claim-summary>div{display:flex;justify-content:space-between;gap:18px;padding:14px;border-bottom:1px solid var(--club-border,#34303e)}.staff-claim-summary>div:last-child{border-bottom:0}.staff-claim-summary dt{color:var(--muted);font-size:13px}.staff-claim-summary dd{margin:0;text-align:right;font-weight:800}.staff-claim-page .primary,.staff-claim-page .secondary{display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:0 18px;text-decoration:none}.staff-claim-page form{margin-top:18px}.staff-claim-actions{display:grid;gap:10px;margin-top:20px}.staff-claim-actions .text-button{display:block;text-align:center;padding:12px;min-height:44px}
+
+/* Glow Zone authentication only — shared R12 authentication remains unchanged. */
+.glow-auth {
+  background: radial-gradient(ellipse at top, #1b1123 0%, #08090b 43%, #060809 100%);
+  color: #f7f7f8;
+  min-height: 100svh;
+}
+.glow-auth-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  margin: 22px auto 38px;
+  text-align: center;
+}
+.glow-auth-symbol {
+  color: #c9ff57;
+  font-size: 56px;
+  line-height: 1;
+}
+.glow-auth-brand strong {
+  font-size: clamp(30px, 9vw, 44px);
+  letter-spacing: .13em;
+  font-weight: 900;
+  color: #c9ff57;
+}
+.glow-auth-brand strong span { color: #f4f4f5; }
+.glow-auth-brand small {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .26em;
+  color: #c88bf0;
+}
+.glow-auth h1 { font-size: clamp(30px, 8vw, 42px); }
+.glow-auth .primary {
+  background: #c9ff57;
+  color: #10120b;
+  border-color: #c9ff57;
+  font-weight: 800;
+}
+.glow-auth .text-button,
+.glow-auth a { color: #eaa0f9; }
+.glow-auth-powered {
+  text-align: center;
+  color: #a9adb0;
+  font-size: 12px;
+  margin-top: 28px;
+}
+.glow-account .account-signout {
+  border-color: #c9ff57;
+  color: #c9ff57;
+}
