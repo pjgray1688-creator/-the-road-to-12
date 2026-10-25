@@ -33,6 +33,8 @@ struct ClubNativeShell: View {
     var body: some View {
         NavigationStack {
             ZStack {
+                (state.authRoute ? Color.white : Color(red: 0.035, green: 0.04, blue: 0.055))
+                    .ignoresSafeArea()
                 ClubWebView(state: state) { externalURL = $0 }
                 if state.loading && state.firstPageLoaded { ProgressView().tint(.purple).accessibilityLabel("Loading Club") }
                 if state.failed {
@@ -60,7 +62,8 @@ struct ClubNativeShell: View {
             }
         }
         .overlay { if !state.firstPageLoaded && !state.failed { ClubLaunchPresentation() } }
-        .tint(Color(red: 0.62, green: 0.38, blue: 0.96)).preferredColorScheme(.dark)
+        .tint(Color(red: 0.62, green: 0.38, blue: 0.96))
+        .preferredColorScheme(state.authRoute ? .light : .dark)
         .sheet(isPresented: Binding(get: { externalURL != nil }, set: { if !$0 { externalURL = nil } })) {
             if let externalURL { ClubExternalPage(url: externalURL).ignoresSafeArea() }
         }
@@ -95,7 +98,7 @@ private struct ClubWebView: UIViewRepresentable {
           const ready = () => {
             document.documentElement.dataset.r12Shell = 'club-ios';
             const style = document.createElement('style');
-            style.textContent = 'html[data-r12-shell="club-ios"] [data-r12-web-navigation="member"]{display:none!important} html[data-r12-shell="club-ios"] .club-native-station-action{display:none!important} html[data-r12-shell="club-ios"] main.club-page{padding-bottom:24px!important;min-height:0!important}';
+            style.textContent = 'html[data-r12-shell="club-ios"] [data-r12-web-navigation="member"]{display:none!important} html[data-r12-shell="club-ios"] .club-native-station-action{display:none!important} html[data-r12-shell="club-ios"] a[href^="/club/locations"],html[data-r12-shell="club-ios"] a[href^="/club/stations"],html[data-r12-shell="club-ios"] a[href^="/club/launch-readiness"]{display:none!important} html[data-r12-shell="club-ios"] main.club-page{padding-bottom:24px!important;min-height:0!important}';
             (document.head || document.documentElement).appendChild(style); notify();
           };
           if (document.readyState === 'loading') addEventListener('DOMContentLoaded', ready, {once:true}); else ready();
