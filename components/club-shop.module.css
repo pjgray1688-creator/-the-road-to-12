@@ -10,3 +10,54 @@
 @media(min-width:761px){.categoryRail,.brandRail{flex-wrap:wrap;overflow:visible}.filterChip{min-height:42px}.brandRail{justify-content:flex-start}.brandWordmark{min-width:calc((100% - 48px)/7);flex:1 1 108px}}
 @media(max-width:560px){.memberShop .discovery{gap:9px;padding:10px!important}.memberShopTop h2{font-size:20px}.categoryRail,.brandRail{margin-inline:-2px}.filterChip{min-height:44px;padding-inline:13px;font-size:12px}.brandWordmark{min-width:104px}.memberShop .memberResults .sectionHead{align-items:flex-end;gap:10px}.shopLocation{min-width:130px;max-width:45%}.activeFilters{align-items:flex-start}.memberShop .productGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.memberShop .product{min-height:132px}}
 .memberShop .brandRail{flex-wrap:nowrap!important;overflow-x:auto!important;overflow-y:hidden;justify-content:flex-start;scrollbar-width:thin}.memberShop .brandWordmark{display:flex;flex:0 0 auto;align-items:center;justify-content:center;min-width:132px;min-height:48px;padding:0 14px}.memberBrandSelect{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:12px;max-width:420px;color:#cbb9df;font-size:13px;font-weight:750}.memberBrandSelect select{width:100%;min-height:44px;padding:8px 12px;border:1px solid #393047;border-radius:10px;background:#111019;color:#f5f1f8;font:inherit}.memberBrandSelect select:focus-visible{outline:2px solid #a56bff;outline-offset:2px}
+@media(max-width:380px){.memberShop .productGrid{grid-template-columns:minmax(0,1fr);gap:8px}.memberShop .product{min-height:0;padding:11px}.memberShop .productSelect{min-width:0}.memberShop .productSelect strong{font-size:14px;overflow-wrap:anywhere}.memberShop .productSelect img,.memberShop .productSelect .club-product-media-image{max-width:100%;object-fit:contain}.memberShop .memberResults .sectionHead{display:grid;grid-template-columns:minmax(0,1fr);align-items:stretch}.shopLocation{min-width:0;max-width:100%}}
+
+/* Reviewer / Club light-theme presentation */
+:global(.club-reviewer-page) .shop section{
+  background:#fff;
+  border-color:#e3dce9;
+  color:#17131d;
+}
+
+:global(.club-reviewer-page) .balance{
+  background:linear-gradient(120deg,#f1e5fb,#ffffff 58%);
+  border-color:#cda7eb;
+  color:#17131d;
+}
+
+:global(.club-reviewer-page) .balance span,
+:global(.club-reviewer-page) .productCategory{
+  color:#6e32a7;
+}
+
+:global(.club-reviewer-page) .product{
+  background:#fff;
+  color:#17131d;
+  border-color:#dfd6e7;
+  box-shadow:0 8px 22px rgba(40,27,49,.06);
+}
+
+:global(.club-reviewer-page) .product strong{
+  color:#47205f;
+}
+
+:global(.club-reviewer-page) .product>span:last-child{
+  color:#6e32a7;
+}
+
+:global(.club-reviewer-page) .order,
+:global(.club-reviewer-page) .declaration{
+  background:#fff;
+  border-color:#e2dce7;
+  color:#17131d;
+}
+
+:global(.club-reviewer-page) .order span,
+:global(.club-reviewer-page) .declaration span{
+  color:#706976;
+}
+
+:global(.club-reviewer-page) .message{
+  background:#f3ebfb;
+  color:#4f4357;
+}

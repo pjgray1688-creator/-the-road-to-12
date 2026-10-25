@@ -4,3 +4,115 @@
 .locationFilter{justify-self:end;display:flex;align-items:center;gap:8px;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.5px}.locationFilter select{min-height:40px;padding:8px 10px;border:1px solid #34404a;border-radius:8px;background:#090e12;color:#fff;font:inherit;text-transform:none}@media(max-width:720px){.locationFilter{justify-self:stretch;justify-content:space-between}}.sessionEditor:focus-within{border-color:color-mix(in srgb,var(--club-accent) 42%,#333b45)}
 .emptyIntro + .workspace .toolbarActions,.emptyIntro + .workspace .typesSection .sectionTitle button,.emptyIntro + .workspace .empty button{display:none}
 .workspaceIntro{display:grid;gap:5px;margin-bottom:10px}.emptyIntro{padding:14px 16px;border:1px solid var(--club-border,#2b263a);border-radius:12px;background:rgba(168,85,247,.07)}.workspaceIntro p{margin:0;color:var(--muted,#9da7af);font-size:13px}
+
+/* R12 Club reviewer light-theme cleanup */
+
+:global(.club-reviewer-page) .sessionCard{
+  background:#ffffff;
+  border-color:#ded7e7;
+  color:#17131d;
+  box-shadow:0 10px 26px rgba(42,28,51,.06);
+}
+
+:global(.club-reviewer-page) .timeRail{
+  background:#f4eff8;
+  border-color:#ddd4e6;
+  color:#17131d;
+}
+
+:global(.club-reviewer-page) .timeRail strong{
+  color:#4f266c;
+}
+
+:global(.club-reviewer-page) .timeRail span{
+  color:#7a7181;
+}
+
+:global(.club-reviewer-page) .sessionBody{
+  background:#ffffff;
+  color:#17131d;
+}
+
+:global(.club-reviewer-page) .sessionHeading h3,
+:global(.club-reviewer-page) .typeCard h3{
+  color:#4f266c;
+}
+
+:global(.club-reviewer-page) .sessionMeta,
+:global(.club-reviewer-page) .classTypeName,
+:global(.club-reviewer-page) .typeCard p{
+  color:#746d7a;
+}
+
+:global(.club-reviewer-page) .statusPill{
+  background:#f2e8fb;
+  border-color:#a66fd1;
+  color:#653193;
+}
+
+:global(.club-reviewer-page) .availability{
+  background:#faf8fc;
+  border-color:#dfd8e5;
+  color:#17131d;
+}
+
+:global(.club-reviewer-page) .availabilityCopy span{
+  color:#716978;
+}
+
+:global(.club-reviewer-page) .availabilityCopy strong{
+  color:#7b4a17;
+}
+
+:global(.club-reviewer-page) .capacityTrack{
+  background:#e5e0e9;
+}
+
+:global(.club-reviewer-page) .sessionActions{
+  border-color:#e3dce8;
+}
+
+:global(.club-reviewer-page) .sessionActions summary{
+  color:#653193;
+}
+
+:global(.club-reviewer-page) .viewSwitch button{
+  background:#ffffff;
+  border-color:#dcd4e3;
+  color:#4b4052;
+}
+
+:global(.club-reviewer-page) .viewSwitch .viewActive{
+  background:#eee2f8;
+  border-color:#9b4dff;
+  color:#653193;
+}
+
+:global(.club-reviewer-page) .dayHeader{
+  border-color:#9b4dff;
+}
+
+:global(.club-reviewer-page) .dayHeader span{
+  color:#17131d;
+}
+
+:global(.club-reviewer-page) .dayHeader small{
+  color:#706977;
+}
+
+:global(.club-reviewer-page) .typeCard{
+  background:#ffffff;
+  border-color:#ded7e7;
+  color:#17131d;
+  box-shadow:0 8px 22px rgba(42,28,51,.05);
+}
+
+:global(.club-reviewer-page) .typeCard footer span{
+  background:#f4eff8;
+  color:#4d4353;
+  border-color:#e0d9e6;
+}
+
+:global(.club-reviewer-page) .activeDot{
+  color:#4c8b2f;
+}
