@@ -2,5 +2,5 @@
 .nav::-webkit-scrollbar{display:none}
 .nav a{display:inline-flex;flex:1 0 auto;align-items:center;justify-content:center;min-height:44px;padding:0 17px;border:1px solid transparent;border-radius:10px;color:var(--text-secondary,#a9abb8);text-decoration:none;font-size:.86rem;font-weight:650;white-space:nowrap;transition:background .16s ease,color .16s ease,border-color .16s ease}
 .nav a:hover{color:var(--text-primary,#f7f7fb);background:rgba(255,255,255,.04)}
-.nav a.selected{color:var(--text-primary,#fff);background:rgba(168,85,247,.14);border-color:rgba(168,85,247,.34);box-shadow:0 5px 18px #0004}
+.nav a.selected{color:var(--text-primary,#fff);background:rgba(76,255,124,.13);border-color:rgba(76,255,124,.42);box-shadow:0 5px 18px #0004}
 @media(max-width:540px){.nav{width:100%;margin-bottom:18px}.nav a{flex:0 0 auto;min-height:44px;padding-inline:13px}}
