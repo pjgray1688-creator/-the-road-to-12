@@ -9,6 +9,7 @@ private final class ClubWebState: ObservableObject {
     @Published var failed = false
     @Published var firstPageLoaded = false
     @Published var nestedRoute = false
+    @Published var authRoute = false
     weak var webView: WKWebView?
     func select(_ index: Int) {
         guard ClubNavigation.tabs.indices.contains(index) else { return }
@@ -17,9 +18,11 @@ private final class ClubWebState: ObservableObject {
         if webView?.url != target { failed = false; webView?.load(URLRequest(url: target)) }
     }
     func updateRoute(_ path: String) {
+        authRoute = path == "/account" || path.hasPrefix("/account/")
         selectedIndex = ClubNavigation.selectedIndex(path: path, fallback: selectedIndex)
         let route = path.replacingOccurrences(of: "/club/reviewer", with: "/club")
-        nestedRoute = !ClubNavigation.tabs.map(\.path).contains(route) && !["/club", "/club/access", "/club/check-in"].contains(route)
+        nestedRoute = !authRoute && !ClubNavigation.tabs.map(\.path).contains(route) && !["/club", "/club/access", "/club/check-in"].contains(route)
+        webView?.allowsBackForwardNavigationGestures = !authRoute
     }
     func reload() { failed = false; webView?.reload() }
 }
@@ -42,7 +45,7 @@ struct ClubNativeShell: View {
             }
             .toolbar(.hidden, for: .navigationBar)
             .safeAreaInset(edge: .top, spacing: 0) {
-                if state.canGoBack && state.nestedRoute {
+                if !state.authRoute && state.canGoBack && state.nestedRoute {
                     HStack {
                         Button { state.webView?.goBack() } label: { Label("Back", systemImage: "chevron.left") }
                             .accessibilityLabel("Go back").frame(minWidth: 44, minHeight: 44)
@@ -51,7 +54,9 @@ struct ClubNativeShell: View {
                 }
             }
             .safeAreaInset(edge: .bottom, spacing: 0) {
-                ClubTabBar(selection: state.selectedIndex, select: state.select).frame(height: 49)
+                if !state.authRoute {
+                    ClubTabBar(selection: state.selectedIndex, select: state.select).frame(height: 49)
+                }
             }
         }
         .overlay { if !state.firstPageLoaded && !state.failed { ClubLaunchPresentation() } }
@@ -90,7 +95,7 @@ private struct ClubWebView: UIViewRepresentable {
           const ready = () => {
             document.documentElement.dataset.r12Shell = 'club-ios';
             const style = document.createElement('style');
-            style.textContent = 'html[data-r12-shell="club-ios"] [data-r12-web-navigation="member"]{display:none!important} html[data-r12-shell="club-ios"] main.club-page{padding-bottom:24px!important;min-height:0!important}';
+            style.textContent = 'html[data-r12-shell="club-ios"] [data-r12-web-navigation="member"]{display:none!important} html[data-r12-shell="club-ios"] .club-native-station-action{display:none!important} html[data-r12-shell="club-ios"] main.club-page{padding-bottom:24px!important;min-height:0!important}';
             (document.head || document.documentElement).appendChild(style); notify();
           };
           if (document.readyState === 'loading') addEventListener('DOMContentLoaded', ready, {once:true}); else ready();
