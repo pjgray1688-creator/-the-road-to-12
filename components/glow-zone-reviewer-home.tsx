@@ -5,7 +5,7 @@ import { GlowZoneNav } from "@/components/glow-zone-nav";
 
 export function GlowZoneReviewerHome() {
   return <AppShell className="module-page glow-zone-page">
-    <GlowZoneHeader title="Your minutes" description="Carlton tanning, made simple." demo />
+    <GlowZoneHeader title="Your minutes" description="Your glow starts here." demo />
     <Surface>
       <span className="eyebrow glow-green">AVAILABLE NOW</span>
       <h2 className="glow-balance"><strong>45</strong><small>minutes</small></h2>

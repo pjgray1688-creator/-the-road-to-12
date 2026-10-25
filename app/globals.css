@@ -406,3 +406,23 @@
   .glow-package-options { grid-template-columns: repeat(2,minmax(0,1fr)); }
   .glow-zone-header h1 { font-size: 31px; }
 }
+
+/* Glow Zone final iOS polish */
+.glow-zone-page .glow-bed-picker {
+  margin-bottom: 22px;
+}
+.glow-zone-page .glow-duration {
+  margin-top: 10px;
+}
+.glow-account-standalone,
+.glow-auth,
+.glow-auth-splash {
+  background: #090a09 !important;
+  background-image: none !important;
+}
+.glow-account-standalone .glow-account-links a,
+.glow-account-standalone a,
+.glow-auth a,
+.glow-auth .text-button {
+  color: #c7f36b !important;
+}

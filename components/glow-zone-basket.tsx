@@ -62,7 +62,7 @@ export function GlowZoneBasket({ packages, demo = false }: { packages: GlowPacka
       </div>)}
       <div className="glow-basket-total"><span>Total</span><strong>{money.format(total / 100)}</strong></div>
       <button className="glow-checkout-soon" type="button" disabled>Pay by card — Coming soon</button>
-      <p className="muted">{demo ? "This demonstration cannot take payment or add minutes." : "Cash payments are available at Carlton reception. Minutes are added only after staff confirm payment."}</p>
+      <p className="muted">{demo ? "Demo checkout only — no payment or minutes will be processed. You can pay cash at Carlton reception." : "Cash payments are available at Carlton reception. Minutes are added only after staff confirm payment."}</p>
     </section>
   </>;
 }
