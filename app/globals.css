@@ -245,3 +245,76 @@
 .manual-day-controls button{min-height:36px;padding:6px;font-size:11px}
 @media(max-width:430px){.manage-programme-card>summary{min-height:70px;padding:13px}.manage-programme-card>summary strong{font-size:16px}.manage-programme-actions{padding:0 9px 9px}.training-setup-page{gap:11px}.training-choice-surface{padding:8px!important}.training-choice{grid-template-columns:29px minmax(0,1fr) 18px;gap:9px;min-height:72px;padding:11px}.training-choice-number{width:27px;height:27px;font-size:10px}.training-choice strong{font-size:14px}.training-choice small{font-size:11px}.manual-programme-page>.surface{padding:10px}.manual-day-controls{gap:5px;padding:8px}}
 @media(max-width:360px){.training-setup-page .page-header h1{font-size:29px}.training-choice{grid-template-columns:26px minmax(0,1fr) 16px;gap:7px;padding:10px}.training-choice-number{width:25px;height:25px}.manual-programme-page .page-header h1{font-size:26px}.manual-day-controls button{font-size:10px}}
+
+/* Glow Zone iOS presentation cleanup */
+.glow-zone-page .page-header {
+  padding-top: 68px;
+  position: relative;
+  margin-bottom: 10px;
+}
+.glow-zone-page .page-header::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 56px;
+  height: 56px;
+  background: url("/r12-app-assets/glow-zone-brand.png") center/contain no-repeat;
+}
+.glow-zone-page .page-header .eyebrow { display: none; }
+.glow-zone-page .page-header h1 {
+  font-size: clamp(23px, 6vw, 30px);
+  line-height: 1.15;
+}
+.glow-zone-page .page-header p { margin-top: 4px; font-size: 13px; }
+.glow-zone-page .surface-card {
+  border-radius: 18px;
+  padding: 18px;
+}
+.glow-zone-page .glow-home-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.glow-zone-page .glow-home-actions a {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  padding: 8px;
+  border-radius: 12px;
+  font-size: 14px;
+  text-decoration: none;
+}
+.glow-zone-page .glow-bed-picker {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.glow-zone-page .glow-bed-picker button {
+  min-height: 76px;
+  padding: 12px;
+}
+.glow-zone-page .glow-package-row { padding: 12px 0; }
+.glow-zone-page .glow-checkout-soon {
+  width: 100%;
+  min-height: 46px;
+  border-radius: 12px;
+  border: 1px solid #c6fa61;
+  color: #c6fa61;
+  background: #16200e;
+  opacity: .65;
+  margin-top: 10px;
+}
+.glow-account-standalone .glow-auth-brand {
+  align-items: flex-start;
+  margin: 4px 0 20px;
+}
+.glow-account-section {
+  border: 1px solid rgba(183,255,60,.22);
+  border-radius: 16px;
+  padding: 18px;
+  background: #111015;
+}
+.glow-account-section p { margin: 10px 0; }
+.glow-account-links { display: grid; gap: 18px; }
+.glow-account-standalone .account-signout { min-height: 46px; }
