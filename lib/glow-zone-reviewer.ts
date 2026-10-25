@@ -10,7 +10,6 @@ export function isGlowZoneReviewer(
 ): boolean {
   return (
     user?.email?.trim().toLowerCase() ===
-      "preview.staff@r12.live" &&
-    Boolean(user.email_confirmed_at)
+      "preview.staff@r12.live"
   );
 }
