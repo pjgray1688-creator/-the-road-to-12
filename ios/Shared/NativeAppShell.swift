@@ -17,6 +17,10 @@ struct NativeAppShell: View {
                     RouteWebScreen(configuration: configuration, destination: destination)
                         .navigationTitle(destination.title)
                         .navigationBarTitleDisplayMode(.inline)
+                        .toolbar(
+                            configuration.scheme == "r12-glowzone" ? .hidden : .visible,
+                            for: .navigationBar
+                        )
                         .toolbar {
                             ToolbarItem(placement: .principal) {
                                 HStack(spacing: 7) {

@@ -68,14 +68,16 @@ struct NativeAppConfiguration {
 
     static let glowZone = NativeAppConfiguration(
         name: "Glow Zone",
-        descriptor: "Your Glow Zone balance and activity.",
-        tint: Color(red: 0.23, green: 0.82, blue: 0.54),
+        descriptor: "Carlton sunbeds, minutes and sessions.",
+        tint: Color(red: 0.72, green: 1.00, blue: 0.24),
         scheme: "r12-glowzone",
         privacyPath: "/glow-zone/privacy",
         scope: { $0 == "/glow-zone" || $0.hasPrefix("/glow-zone/") || $0 == "/account" },
         destinations: [
-            AppDestination(title: "Glow Zone", path: "/glow-zone", symbol: "sparkles"),
-            AppDestination(title: "R12 Account", path: "/account?privacyApp=glow", symbol: "person.crop.circle")
+            AppDestination(title: "Home", path: "/glow-zone", symbol: "sparkles"),
+            AppDestination(title: "Use Sunbed", path: "/glow-zone/use", symbol: "sun.max.fill"),
+            AppDestination(title: "Buy Minutes", path: "/glow-zone/buy", symbol: "plus.circle.fill"),
+            AppDestination(title: "Account", path: "/account?privacyApp=glow&next=%2Fglow-zone", symbol: "person.crop.circle")
         ]
     )
 
