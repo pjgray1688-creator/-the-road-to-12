@@ -31,9 +31,13 @@ test("deletion requests require same-origin password reauthentication and explic
 });
 
 test("account deletion copy separates service cancellation and explains retained records", () => {
-  assert.match(component, /does not cancel a gym membership, Direct Debit, Stripe subscription or other service/);
+  assert.match(page, /Delete your R12 account/);
+  assert.match(component, /may affect access to every connected R12 application/);
+  assert.match(component, /does not automatically cancel it/);
+  assert.match(component, /If you have a linked gym membership, recurring payment agreement or other service/);
+  assert.doesNotMatch(component, /Madhouse|Direct Debit|Stripe/i);
   assert.match(component, /retained or anonymised/);
-  assert.match(component, /Your account remains active until processing is completed/);
+  assert.match(component, /Your R12 account remains active until processing is completed/);
 });
 
 test("deletion operators are server allowlisted and completion is retention-attested", () => {

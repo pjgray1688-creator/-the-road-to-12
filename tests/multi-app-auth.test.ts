@@ -19,11 +19,15 @@ test("callback and account links preserve app and safe internal continuation", (
 });
 
 test("confirmation is server verified and templates are product branded", () => {
-  const route = readFileSync("app/auth/confirm/route.ts", "utf8");
+  const route = readFileSync("app/auth/verify/route.ts", "utf8");
+  const confirmationPage = readFileSync("app/auth/confirm/page.tsx", "utf8");
   const account = readFileSync("app/account/page.tsx", "utf8");
   const template = readFileSync("docs/supabase/supabase-confirm-signup.html", "utf8");
   assert.match(route, /verifyOtp/);
+  assert.match(route, /export async function POST/);
+  assert.doesNotMatch(route, /export async function GET/);
   assert.match(route, /allowedTypes/);
+  assert.match(confirmationPage, /action="\/auth\/verify" method="post"/);
   for (const brand of ["Glow Zone", "R12 Club", "R12 Coach", "R12 Training"]) assert.ok(template.includes(brand));
   assert.match(template, /TokenHash/);
   assert.doesNotMatch(template, /R12 × Madhouse/i);
@@ -33,11 +37,14 @@ test("confirmation is server verified and templates are product branded", () => 
 test("Glow Zone setup preserves records and grants no membership or credit", () => {
   const action = readFileSync("app/glow-zone/actions.ts", "utf8");
   const migration = readFileSync("supabase/migrations/2027-01-21-glow-customer-self-registration.sql", "utf8");
+  const runner = readFileSync("scripts/apply-madhouse-schema.sh", "utf8");
   assert.match(migration, /email_confirmed_at/);
   assert.match(migration, /lower\(btrim\(email\)\)=v_email/);
   assert.match(migration, /user_id=v_user_id/);
   assert.match(migration, /glow\.customer_(self_linked|created)/);
   assert.doesNotMatch(migration, /insert into public\.(club_members|club_memberships|club_entitlement_grants|club_service_credit)/i);
+  assert.match(migration, /from public,anon,authenticated/);
+  assert.match(runner, /2027-01-21-glow-customer-self-registration\.sql/);
   assert.match(action, /resolveGlowZoneCustomerContext/);
   assert.doesNotMatch(action, /ensureGlowZoneCustomerAction\(organisationId/);
 });

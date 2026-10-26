@@ -44,5 +44,5 @@ begin
     values(p_organisation_id,v_user_id,'customer','glow.customer_created','customer',v_customer.id,jsonb_build_object('source','verified_account'));
   return jsonb_build_object('customer_id',v_customer.id,'status','created');
 end; $$;
-revoke all on function public.club_glow_ensure_customer(uuid) from public,anon;
+revoke all on function public.club_glow_ensure_customer(uuid) from public,anon,authenticated;
 grant execute on function public.club_glow_ensure_customer(uuid) to authenticated;

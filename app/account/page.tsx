@@ -50,7 +50,7 @@ export default function AccountPage() {
       <section className="glow-account-section glow-account-links">
         <Link href="/glow-zone/privacy">Privacy</Link>
         <Link href="/terms">Terms</Link>
-        <Link href="/account/delete?app=glow">Delete account</Link>
+        <Link href="/account/delete?app=glow">Delete your R12 account</Link>
       </section>
       <button className="secondary account-signout" type="button"
         onClick={() => void supabase?.auth.signOut().then(() => {
@@ -66,7 +66,7 @@ export default function AccountPage() {
     <Surface><span className="eyebrow">MY GYM</span><NavigationRow href="/member-hub" label="My Gym" detail="Your membership, classes, balance and shop" /></Surface>
     <Surface><span className="eyebrow">TRAINING</span><NavigationRow href="/onboarding" label="Training setup" detail="Create, build, or change your programme choice" /></Surface>
     <Surface><span className="eyebrow">CONNECTIONS</span><div className="settings-row"><span>WHOOP<small>{whoop.connected ? `Connected${whoop.lastSyncAt ? ` · Last synced ${new Date(whoop.lastSyncAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}` : "Not connected"}</small></span>{whoop.connected ? <button className="text-button" type="button" onClick={() => void disconnectWhoop()}>Disconnect</button> : <b aria-hidden="true">›</b>}</div><div className="settings-row"><span>Apple Health<small>Not connected</small></span></div></Surface>
-    <Surface><span className="eyebrow">HELP &amp; SUPPORT</span><NavigationRow href="/tutorial/member" label="Replay Member tutorial" detail="Today, workouts, RIR and progress" /><NavigationRow href="/tutorial/coach" label="Replay Coach tutorial" detail="Available to authorised Coaches" /><NavigationRow href={authApps[authApp].privacyPath} label="Privacy" /><NavigationRow href="/terms" label="Terms" /><NavigationRow href={`/account/delete?app=${authApp}`} label="Delete account" detail="Request account and personal-data deletion" /></Surface>
+    <Surface><span className="eyebrow">HELP &amp; SUPPORT</span><NavigationRow href="/tutorial/member" label="Replay Member tutorial" detail="Today, workouts, RIR and progress" /><NavigationRow href="/tutorial/coach" label="Replay Coach tutorial" detail="Available to authorised Coaches" /><NavigationRow href={authApps[authApp].privacyPath} label="Privacy" /><NavigationRow href="/terms" label="Terms" /><NavigationRow href={`/account/delete?app=${authApp}`} label="Delete your R12 account" detail="Request account and personal-data deletion" /></Surface>
     {message && <p role="status">{message}</p>}<button className="secondary account-signout" onClick={() => void supabase?.auth.signOut()}>Sign out</button><AppNav />
   </AppShell>;
 }
