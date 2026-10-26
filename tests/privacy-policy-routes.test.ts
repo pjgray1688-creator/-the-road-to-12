@@ -31,9 +31,13 @@ test("privacy policy preserves verified operator facts and identifies unresolved
   assert.match(source, /contact@madhousegym\.online/);
 });
 
-test("policies do not promise an account-deletion route absent from the production base", () => {
+test("privacy policy describes the account-deletion request route without promising automatic deletion", () => {
   const source = readFileSync("components/privacy-policy.tsx", "utf8");
-  assert.doesNotMatch(source, /href="\/account\/delete"/);
-  assert.match(source, /does not provide an in-app or web account-deletion request route/);
-  assert.match(source, /working request channel before publication/);
+  const route = readFileSync("app/account/delete/page.tsx", "utf8");
+
+  assert.match(source, /account-deletion page/);
+  assert.match(source, /\/account\/delete\?app=/);
+  assert.match(source, /Requests are reviewed before eligible personal data/);
+  assert.match(source, /account deletion does not automatically cancel it/);
+  assert.ok(route.includes("AccountDeletion"), "account-deletion route must render its request flow");
 });
