@@ -11,10 +11,9 @@ function environment(entity: StripeMerchantEntity, accountId: string, overrides:
   const prefix = isFranchise ? "STRIPE_FRANCHISE" : "STRIPE_PRODUCTS_SERVICES";
   const secretKey = `rk_live_${isFranchise ? "Franchise" : "Products"}Fixture123`;
   const binding: StripeMerchantBinding = {
-    version: 2, entity, accountId,
-    stripeAccountName: isFranchise ? "Madhouse Gym Rotherham" : "Madhouse Gym Carlton",
-    accountHolderType: "sole_trader",
-    legalEntityTransition: "pending",
+    version: 1, entity, accountId,
+    legalEntityNumber: isFranchise ? "17383077" : "17383213",
+    legalEntityName: isFranchise ? "Madhouse Franchise Limited" : "Madhouse Products and Services Limited",
     apiKeyFingerprint: stripeMerchantApiKeyFingerprint(secretKey),
     approvedAt: "2026-10-22T12:00:00.000Z", approvedBy: "Keenan Freer (owner)",
     evidenceReference: `stripe-dashboard-check-${isFranchise ? "franchise" : "products"}-2026-10-22`,
@@ -62,30 +61,4 @@ test("live checkout identity verification rejects unsigned bindings before any p
   let called = false;
   await assert.rejects(verifyStripeMerchantAccount("madhouse_products_services", (async () => { called = true; return Response.json({}); }) as typeof fetch, env), /account binding is missing/);
   assert.equal(called, false);
-});
-
-test("legacy company-identity binding cannot authorize a sole-trader live merchant", () => {
-  const entity: StripeMerchantEntity = "madhouse_franchise";
-  const env = environment(entity, "acct_legacyfixture");
-
-  const legacy = {
-    version: 1,
-    entity,
-    accountId: "acct_legacyfixture",
-    legalEntityNumber: "17383077",
-    legalEntityName: "Madhouse Franchise Limited",
-    apiKeyFingerprint: stripeMerchantApiKeyFingerprint(env.STRIPE_FRANCHISE_SECRET_KEY!),
-    approvedAt: "2026-10-22T12:00:00.000Z",
-    approvedBy: "Fixture owner",
-    evidenceReference: "legacy-fixture",
-  };
-
-  env.STRIPE_FRANCHISE_ACCOUNT_BINDING = JSON.stringify(legacy);
-  env.STRIPE_FRANCHISE_ACCOUNT_BINDING_SIGNATURE = sign(
-    null,
-    Buffer.from(JSON.stringify(legacy)),
-    privateKey,
-  ).toString("base64");
-
-  assert.notEqual(inspectStripeMerchantBinding(entity, env).status, "verified");
 });

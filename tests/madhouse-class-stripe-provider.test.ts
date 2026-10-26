@@ -17,9 +17,8 @@ const configure = () => Object.assign(process.env, {
 const bindingKeyPair = generateKeyPairSync("ed25519");
 const configureLiveBinding = () => {
   const binding: StripeMerchantBinding = {
-    version: 2, entity: "madhouse_products_services", accountId: process.env.STRIPE_PRODUCTS_SERVICES_ACCOUNT_ID!,
-    stripeAccountName: "Madhouse Gym Carlton",
-    accountHolderType: "sole_trader", legalEntityTransition: "pending",
+    version: 1, entity: "madhouse_products_services", accountId: process.env.STRIPE_PRODUCTS_SERVICES_ACCOUNT_ID!,
+    legalEntityNumber: "17383213", legalEntityName: "Madhouse Products and Services Ltd",
     apiKeyFingerprint: stripeMerchantApiKeyFingerprint(process.env.STRIPE_PRODUCTS_SERVICES_SECRET_KEY!),
     approvedAt: "2026-10-22T12:00:00.000Z", approvedBy: "Fixture owner", evidenceReference: "class-test-evidence-1",
   };
