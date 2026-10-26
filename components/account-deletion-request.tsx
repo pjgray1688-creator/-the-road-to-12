@@ -3,10 +3,11 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { browserSupabase } from "@/lib/supabase-browser";
+import { authAccountHref, authApps, type AuthApp } from "@/lib/auth-app";
 
 type RequestState = { status: "none" | "requested" | "in_progress" | "completed" | "unable_to_complete"; requested_at?: string; response_due_at?: string; response_message?: string; completed_at?: string };
 
-export function AccountDeletionRequest() {
+export function AccountDeletionRequest({ app }: { app: AuthApp }) {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(true);
   const [password, setPassword] = useState("");
@@ -53,13 +54,13 @@ export function AccountDeletionRequest() {
   };
 
   if (loading) return <p role="status">Checking your account…</p>;
-  if (!email) return <><p>Sign in to the R12 account you want to delete. Account deletion is separate from cancelling a gym membership or recurring payment agreement.</p><Link className="primary" href="/account?mode=signIn&amp;next=%2Faccount%2Fdelete">Sign in to continue</Link></>;
+  if (!email) return <><p>Sign in to the shared R12 account you want to delete. Account deletion is separate from cancelling a gym membership or recurring payment agreement.</p><Link className="primary" href={authAccountHref(app, "signIn", `/account/delete?app=${app}`)}>Sign in to continue</Link></>;
   if (requestState.status === "requested" || requestState.status === "in_progress") return <section aria-live="polite"><p className="eyebrow">REQUEST {requestState.status === "requested" ? "RECORDED" : "IN REVIEW"}</p><p>Your request was recorded on {requestState.requested_at ? new Date(requestState.requested_at).toLocaleDateString("en-GB") : "your account"}. We will review it and respond by {requestState.response_due_at ? new Date(requestState.response_due_at).toLocaleDateString("en-GB") : "within one calendar month"}. If a lawful extension is needed, we will explain why within that first month. Your account remains active until processing is completed. This request does not cancel a gym membership, Direct Debit, Stripe subscription or other service; manage those separately.</p><p>Some transaction, payment, safety and audit records may need to be retained or anonymised under applicable legal requirements.</p>{requestState.response_message ? <p>{requestState.response_message}</p> : null}{message ? <p role="status">{message}</p> : null}</section>;
   if (requestState.status === "completed") return <section aria-live="polite"><p className="eyebrow">REQUEST COMPLETED</p><p>{requestState.response_message ?? "Your account deletion request was completed"}{requestState.completed_at ? ` on ${new Date(requestState.completed_at).toLocaleDateString("en-GB")}` : ""}. Records required for legal or business purposes may remain access-controlled.</p></section>;
   if (requestState.status === "unable_to_complete") return <section aria-live="polite"><p className="eyebrow">REVIEW REQUIRED</p><p>{requestState.response_message ?? "Your request needs further review by the organisation. Your account remains active."}</p></section>;
 
   return <section className="account-deletion-request" aria-labelledby="account-deletion-title">
-    <p>The request applies to your R12 account and associated personal data. It does not cancel a Madhouse membership, recurring payment agreement or other service. Handle cancellations separately with the relevant provider.</p>
+    <p>The request applies to the shared R12 account you use for {authApps[app].name} and its associated personal data. It does not cancel a gym membership, recurring payment agreement, active subscription or other service. Handle cancellations separately with the relevant provider.</p>
     <p>Your account stays active while the request is reviewed. Transaction, payment, safety and audit records may be retained or anonymised where required by law or for legitimate business records.</p>
     <p>We will review your request and respond within one calendar month. If a lawful extension is needed, we will explain why within that month.</p>
     <label>Confirm your account email<input type="email" value={email} readOnly autoComplete="username" /></label>

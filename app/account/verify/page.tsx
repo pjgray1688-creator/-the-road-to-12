@@ -1,7 +1,8 @@
 import VerifyAccountClient from "@/components/verify-account-client";
-import { safeInternalReturnTo } from "@/lib/auth-return";
+import { authDestination } from "@/lib/auth-return";
 
-export default async function VerifyAccountPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
+export default async function VerifyAccountPage({ searchParams }: { searchParams: Promise<{ app?: string; privacyApp?: string; next?: string }> }) {
   const params = await searchParams;
-  return <VerifyAccountClient next={safeInternalReturnTo(params.next) ?? "/"} />;
+  const context = authDestination(params, true);
+  return <VerifyAccountClient app={context.app} next={context.next} />;
 }

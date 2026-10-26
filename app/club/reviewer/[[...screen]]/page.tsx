@@ -61,7 +61,7 @@ function RestrictedDemo({ screen }: { screen: string }) {
 export default async function ClubReviewerPage({ params }: { params: Promise<{ screen?: string[] }> }) {
   const client = await serverSupabase();
   const { data: { user } } = await client.auth.getUser();
-  if (!user) redirect("/account?mode=signIn&next=%2Fclub");
+  if (!user) redirect("/account?app=club&mode=signIn&next=%2Fclub");
   if (!hasPlayReviewerEntitlement(user)) notFound();
   const path = (await params).screen ?? [];
   const screen = path[0] ?? "overview";

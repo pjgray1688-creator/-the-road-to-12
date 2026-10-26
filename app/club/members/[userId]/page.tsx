@@ -22,7 +22,7 @@ const money = (minor: number, currency = "GBP") => new Intl.NumberFormat("en-GB"
 export default async function ClubMemberProfilePage({ params, searchParams }: { params: Promise<{ userId: string }>; searchParams?: Promise<{ org?: string }> }) {
   const supabase = await serverSupabase();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/account?mode=signIn");
+  if (!user) redirect("/account?app=club&mode=signIn");
   const { userId } = await params;
   const context = await resolveClubOrganisationContext(supabase, user.id, (await searchParams)?.org);
   if (!context || !isClubStaffRole(context.role)) return <AppShell className="module-page club-page"><PageHeader title="Member" description="This profile is available to authorised Club staff." /><EmptyState title="Club access required">Ask an organisation owner to confirm your operational role.</EmptyState><AppNav /></AppShell>;

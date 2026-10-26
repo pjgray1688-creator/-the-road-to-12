@@ -11,7 +11,7 @@ const staffPage = read("app/club/staff/page.tsx");
 const staffEditor = read("components/club-staff-manage-access.tsx");
 const claimPage = read("app/club/staff/claim/page.tsx");
 const accountPage = read("app/account/page.tsx");
-const resetPage = read("app/account/reset/page.tsx");
+const resetPage = read("components/reset-password-client.tsx");
 const bootstrap = read("docs/manual-sql/madhouse-first-organisation-bootstrap.sql");
 
 test("manager prepares PT and operational invitations with server-derived packages", () => {

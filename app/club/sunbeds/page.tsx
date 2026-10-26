@@ -10,7 +10,7 @@ import type { GlowZoneHourRow } from "@/components/glow-zone-opening-hours";
 import { GlowZoneReceptionScanner } from "@/components/glow-zone-reception-scanner";
 
 export default async function ClubSunbeds({ searchParams }: { searchParams?: Promise<{ org?: string }> }) {
-  const client = await serverSupabase(); const { data: { user } } = await client.auth.getUser(); if (!user) redirect("/account?mode=signIn");
+  const client = await serverSupabase(); const { data: { user } } = await client.auth.getUser(); if (!user) redirect("/account?app=club&mode=signIn");
   const context = await resolveClubOperationalContext(client, user.id, (await searchParams)?.org);
   if (!context) return <AppShell><PageHeader title="Sunbeds"/><EmptyState title="Club access required">Choose an authorised Club organisation.</EmptyState><AppNav/></AppShell>;
   if (!["owner", "gym_admin", "gym_staff"].includes(context.role)) return <AppShell><PageHeader title="Sunbeds"/><EmptyState title="Staff access required">Sunbed operations are limited to Club staff.</EmptyState><AppNav/></AppShell>;

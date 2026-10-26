@@ -40,7 +40,7 @@ export default async function StaffClaimPage({ searchParams }: { searchParams: P
   const returnTo = staffClaimReturnTo(grantId);
   const client = await serverSupabase();
   const { data: { user } } = await client.auth.getUser();
-  if (!user) redirect(`/account?mode=signIn&next=${encodeURIComponent(returnTo)}`);
+  if (!user) redirect(`/account?app=club&mode=signIn&next=${encodeURIComponent(returnTo)}`);
 
   if (grantId) {
     const { data } = await client.rpc("club_get_my_staff_claim_context", { p_grant_id: grantId });

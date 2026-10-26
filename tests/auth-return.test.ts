@@ -11,9 +11,9 @@ test("auth return paths preserve internal Club URLs and reject open redirects", 
   assert.equal(safeInternalReturnTo("javascript:alert(1)"), undefined);
 });
 
-test("account sign-in consumes a validated next path and uses the routed member home fallback", () => {
+test("account sign-in consumes a validated app destination and performs one full navigation", () => {
   const source = readFileSync("app/account/page.tsx", "utf8");
-  assert.match(source, /safeInternalReturnTo/);
-  assert.match(source, /router\.push\(next \?\? \(window\.location\.hostname === "r12\.live" \? "\/member-hub" : "\/"\)\)/);
-  assert.match(source, /if \(next && !glowAccount\) \{ router\.replace\(next\); return; \}/);
+  assert.match(source, /authDestination/);
+  assert.match(source, /window\.location\.replace\(context\.next\)/);
+  assert.match(source, /if \(params\.get\("next"\) && !glowAccount\)/);
 });

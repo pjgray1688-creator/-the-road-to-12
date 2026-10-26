@@ -204,6 +204,11 @@ private struct R12WebView: UIViewRepresentable {
         }
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+            // Track the page the tab actually reached. If an unauthenticated
+            // destination was redirected to Account, selecting the tab after
+            // sign-in must load its configured destination instead of retaining
+            // obsolete verification content.
+            lastURL = webView.url
             state.isLoading = false
             state.canGoBack = webView.canGoBack
             webView.scrollView.refreshControl?.endRefreshing()

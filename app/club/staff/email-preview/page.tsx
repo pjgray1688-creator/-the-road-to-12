@@ -11,7 +11,7 @@ import { renderNotification } from "@/lib/notification-templates";
 export default async function ClubEmailPreviewPage({ searchParams }: { searchParams?: Promise<{ org?: string }> }) {
   const supabase = await serverSupabase();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/account?mode=signIn&next=%2Fclub%2Fstaff%2Femail-preview");
+  if (!user) redirect("/account?app=club&mode=signIn&next=%2Fclub%2Fstaff%2Femail-preview");
   const context = await resolveClubOperationalContext(supabase, user.id, (await searchParams)?.org);
   if (!context || !(await context.repository.hasCapability(context.organisation.id, user.id, "staff.permissions_manage"))) return <AppShell className="module-page club-page"><PageHeader title="Email preview"/><EmptyState title="Management access required">Only authorised staff managers may preview or send allowlisted test emails.</EmptyState><AppNav /></AppShell>;
   const samples = {

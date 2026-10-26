@@ -9,7 +9,7 @@ import { ClubCollections } from "@/components/club-collections";
 export default async function CollectionsPage({ searchParams }: { searchParams?: Promise<{ org?: string; location?: string }> }) {
   const client = await serverSupabase();
   const { data: { user } } = await client.auth.getUser();
-  if (!user) redirect("/account?mode=signIn");
+  if (!user) redirect("/account?app=club&mode=signIn");
   const params = await searchParams;
   const context = await resolveClubOrganisationContext(client, user.id, params?.org);
   if (!context || !(await context.repository.hasCapability(context.organisation.id, user.id, "supplier.receive"))) {

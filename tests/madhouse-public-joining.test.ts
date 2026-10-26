@@ -51,8 +51,8 @@ test("join page has scoped premium desktop/mobile actions and readable form cont
 test("existing-member route authenticates and returns directly to the claim flow",()=>{
   assert.match(memberLink,/redirect\("\/account\?mode=signIn&next=%2Fmember-hub%2Flink"\)/);
   assert.match(memberLink,/club_preview_existing_member_claim/);
-  assert.match(account,/authCallbackUrl\(appBaseUrl, next\)/);
-  assert.match(account,/safeInternalReturnTo/);
+  assert.match(account,/authCallbackUrl\(appBaseUrl, context\.next, context\.app\)/);
+  assert.match(account,/authDestination/);
 });
 
 test("legacy Madhouse member-link path redirects instead of duplicating activation",()=>{

@@ -11,7 +11,7 @@ import { serverSupabase } from "@/lib/supabase-server";
 export default async function GlowZoneBuyPage() {
   const client = await serverSupabase();
   const { data: { user } } = await client.auth.getUser();
-  if (!user) redirect("/account?privacyApp=glow&mode=signIn&next=%2Fglow-zone%2Fbuy");
+  if (!user) redirect("/account?app=glow&mode=signIn&next=%2Fglow-zone%2Fbuy");
   const reviewer = isGlowZoneReviewer(user);
   let memberPricing = false;
   if (!reviewer) {

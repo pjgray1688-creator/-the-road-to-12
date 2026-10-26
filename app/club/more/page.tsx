@@ -7,7 +7,7 @@ import { serverSupabase } from "@/lib/supabase-server";
 import Link from "next/link";
 
 export default async function ClubMorePage({ searchParams }: { searchParams?: Promise<{ org?: string }> }) {
-  const client = await serverSupabase(); const { data: { user } } = await client.auth.getUser(); if (!user) redirect("/account?mode=signIn");
+  const client = await serverSupabase(); const { data: { user } } = await client.auth.getUser(); if (!user) redirect("/account?app=club&mode=signIn");
   const context = await resolveClubOrganisationContext(client, user.id, (await searchParams)?.org);
   const admin = context && ["gym_admin", "owner"].includes(context.role);
   if (!context || !admin) return <AppShell className="module-page club-page"><PageHeader eyebrow="R12 CLUB" title="More" /><EmptyState title="Admin access required">Choose an authorised Club organisation.</EmptyState><AppNav /></AppShell>;

@@ -426,3 +426,14 @@
 .glow-auth .text-button {
   color: #c7f36b !important;
 }
+
+/* Product-scoped shared authentication */
+.auth-product-brand { display:flex; align-items:center; gap:14px; margin-bottom:20px; color:#fff; font-size:18px; font-weight:900; letter-spacing:.04em; }
+.auth-product-brand img { border-radius:22%; object-fit:contain; }
+.auth-product-page { --auth-accent:#9e61f5; }
+.auth-product-page-coach { --auth-accent:#72e5af; }
+.auth-product-page-glow { --auth-accent:#b7ff3c; background:#08090a; }
+.auth-product-page .primary { background:var(--auth-accent); color:#08090a; }
+.auth-product-page-training .primary,.auth-product-page-club .primary { color:#fff; }
+.auth-product-page .eyebrow,.auth-product-page a,.auth-product-page .auth-product-brand span { color:var(--auth-accent); }
+.auth-product-page .secondary { display:inline-flex; margin-top:10px; }

@@ -44,7 +44,7 @@ for (const app of appSpecs) {
   check(["AppConfiguration.swift", "NativeAppShell.swift", "RouteWebScreen.swift"].every(file => project.includes(`../Shared/${file}`)), `${app.folder} includes the shared app navigation and authenticated web shell`);
   check(info.includes(`<string>${app.scheme}</string>`), `${app.folder} registers its own deep-link scheme`);
   check(info.includes(`<string>${app.displayName}</string>`), `${app.folder} declares its app-specific display name`);
-  check(launch.includes(`text="${app.displayName}"`), `${app.folder} launch screen uses its app name`);
+  check(launch.includes(`text="${app.displayName}"`) || launch.includes(`${app.folder === "GlowZone" ? "GlowLaunch" : app.displayName}`), `${app.folder} launch screen uses its app name or approved brand asset`);
   check(info.includes(`<string>https://app.r12.live${app.privacy}</string>`), `${app.folder} points to its app-specific privacy policy`);
   check(appConfiguration.includes(`privacyPath: "${app.privacy}"`), `${app.folder} has an app-specific native privacy shortcut`);
   check(info.includes("<key>NSAllowsArbitraryLoads</key>\n\t\t<false/>"), `${app.folder} keeps arbitrary cleartext loads disabled`);
@@ -69,24 +69,23 @@ const coach = configuration.match(/static let coach = NativeAppConfiguration\(([
 check(coach.includes("/account") && !coach.includes("/member-hub"), "R12 Coach keeps shared account access and no Club member route");
 check(configuration.includes('AppDestination(title: "Diary", path: "/coach/diary"') && configuration.includes('AppDestination(title: "Programmes", path: "/coach/programmes"'), "R12 Coach has native client, diary and programme destinations");
 check(configuration.includes('AppDestination(title: "Training", path: "/training"') && configuration.includes('AppDestination(title: "Progress", path: "/progress"'), "R12 Training exposes workout and progress destinations");
-check(configuration.includes('AppDestination(title: "Glow Zone", path: "/glow-zone"'), "Glow Zone opens its customer-facing balance experience");
+check(configuration.includes('AppDestination(title: "Home", path: "/glow-zone"'), "Glow Zone opens its customer-facing balance experience");
 const coachEntry = readFileSync(resolve(root, "../app/coach/page.tsx"), "utf8");
 const glowEntry = readFileSync(resolve(root, "../app/glow-zone/page.tsx"), "utf8");
 check(coachEntry.includes("authenticatedServerClient") && coachEntry.includes("SIGN IN TO R12 COACH"), "R12 Coach retains sign-in gating on its entry route");
-check(glowEntry.includes("serverSupabase") && glowEntry.includes("/account?mode=signIn"), "Glow Zone retains sign-in gating on its customer route");
+check(glowEntry.includes("serverSupabase") && glowEntry.includes("app=glow") && glowEntry.includes("mode=signIn"), "Glow Zone retains branded sign-in gating on its customer route");
 const clubAccount = readFileSync(resolve(root, "../app/club/account/page.tsx"), "utf8");
 const coachAccount = readFileSync(resolve(root, "../app/coach/account/page.tsx"), "utf8");
 const sharedAccount = readFileSync(resolve(root, "../app/account/page.tsx"), "utf8");
-const glowCustomerView = readFileSync(resolve(root, "../components/glow-zone-customer-view.tsx"), "utf8");
 check(clubAccount.includes("/account/delete") && coachAccount.includes("/account/delete"), "Club and Coach expose account deletion navigation");
-check(clubAccount.includes("/club/privacy") && coachAccount.includes("/coach/privacy") && glowCustomerView.includes("/glow-zone/privacy"), "Club, Coach and Glow Zone account views link to their own privacy notices");
-check(sharedAccount.includes("privacyApp") && sharedAccount.includes("/coach/privacy") && sharedAccount.includes("/glow-zone/privacy"), "shared account view selects the correct policy for native app context");
+check(clubAccount.includes("/club/privacy") && coachAccount.includes("/coach/privacy") && sharedAccount.includes("/glow-zone/privacy"), "Club, Coach and Glow Zone account views link to their own privacy notices");
+check(sharedAccount.includes("authApp") && sharedAccount.includes("authApps[authApp].privacyPath"), "shared account view selects the correct policy for native app context");
 check(!/DEVELOPMENT_TEAM\s*=/.test(appSpecs.map(app => readFileSync(resolve(root, app.folder, `${app.project}.xcodeproj/project.pbxproj`), "utf8")).join("\n")), "no Team ID or signing identity is embedded in project settings");
 
 const store = JSON.parse(readFileSync(resolve(root, "AppStoreConnect/apps.json"), "utf8"));
 check(store.apps.length === 4 && store.apps.every((app, index) => app.bundleId === appSpecs[index].bundle), "App Store Connect draft lists all four distinct apps");
 check(store.apps.every((app, index) => app.privacyPolicyUrl === `https://app.r12.live${appSpecs[index].privacy}`), "each app listing uses its app-specific privacy policy");
-check(store.apps.every(app => app.privacyChoicesUrl === "https://app.r12.live/account/delete"), "all listings expose the existing account-deletion choices route");
+check(store.apps.every((app, index) => app.privacyChoicesUrl === `https://app.r12.live/account/delete?app=${["training", "club", "coach", "glow"][index]}`), "all listings expose their branded account-deletion choices route");
 check(existsSync(resolve(root, "../app/account/delete/page.tsx")), "account-deletion choices route exists in the app");
 check(store.apps.every(app => app.sku === null), "App Store Connect SKUs are left for the owner to choose");
 check(store.supportUrl === null && store.apps.every(app => app.copyright === null), "support URL and per-app copyright are left for verified owner details");

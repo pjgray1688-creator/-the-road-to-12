@@ -30,7 +30,7 @@ struct NativeAppConfiguration {
         destinations: [
             AppDestination(title: "Training", path: "/training", symbol: "figure.strengthtraining.traditional"),
             AppDestination(title: "Progress", path: "/progress", symbol: "chart.xyaxis.line"),
-            AppDestination(title: "Account", path: "/account?privacyApp=training", symbol: "person.crop.circle")
+            AppDestination(title: "Account", path: "/account?app=training", symbol: "person.crop.circle")
         ]
     )
 
@@ -62,7 +62,7 @@ struct NativeAppConfiguration {
             AppDestination(title: "Diary", path: "/coach/diary", symbol: "calendar"),
             AppDestination(title: "Programmes", path: "/coach/programmes", symbol: "list.clipboard"),
             AppDestination(title: "Coach account", path: "/coach/account", symbol: "person.crop.circle"),
-            AppDestination(title: "R12 account", path: "/account?privacyApp=coach", symbol: "person.text.rectangle")
+            AppDestination(title: "R12 account", path: "/account?app=coach&next=%2Fcoach", symbol: "person.text.rectangle")
         ]
     )
 
@@ -77,7 +77,7 @@ struct NativeAppConfiguration {
             AppDestination(title: "Home", path: "/glow-zone", symbol: "sparkles"),
             AppDestination(title: "Use Sunbed", path: "/glow-zone/use", symbol: "sun.max.fill"),
             AppDestination(title: "Buy Minutes", path: "/glow-zone/buy", symbol: "plus.circle.fill"),
-            AppDestination(title: "Account", path: "/account?privacyApp=glow&next=%2Fglow-zone", symbol: "person.crop.circle")
+            AppDestination(title: "Account", path: "/account?app=glow&next=%2Fglow-zone", symbol: "person.crop.circle")
         ]
     )
 

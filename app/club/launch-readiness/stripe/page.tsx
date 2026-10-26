@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
 export default async function StripeReadinessPage({ searchParams }: { searchParams?: Promise<{ org?: string }> }) {
   const client = await serverSupabase();
   const { data: { user } } = await client.auth.getUser();
-  if (!user) redirect("/account?mode=signIn&next=%2Fclub%2Flaunch-readiness%2Fstripe");
+  if (!user) redirect("/account?app=club&mode=signIn&next=%2Fclub%2Flaunch-readiness%2Fstripe");
   if (hasPlayReviewerEntitlement(user)) return <AppShell className="module-page club-page"><PageHeader title="Stripe verification"/><EmptyState title="Admin access required">Payment diagnostics are not available to reviewer accounts.</EmptyState><AppNav/></AppShell>;
   const context = await resolveClubOrganisationContext(client, user.id, (await searchParams)?.org);
   if (!context || !["owner", "gym_admin"].includes(context.role)) return <AppShell className="module-page club-page"><PageHeader title="Stripe verification"/><EmptyState title="Admin access required">Only authorised Club administrators can run read-only merchant verification.</EmptyState><AppNav/></AppShell>;

@@ -32,7 +32,7 @@ test("member app can enter Coach, while Coach keeps a deliberate return to membe
 test("unauthenticated Coach home offers the required sign-in CTA and authorised users get a distinct denial", () => {
   const page = source("app/coach/page.tsx");
   assert.match(page, /SIGN IN TO R12 COACH/);
-  assert.match(page, /href="\/account\?next=%2Fcoach"/);
+  assert.match(page, /href="\/account\?app=coach&next=%2Fcoach"/);
   assert.match(page, /Coach access not enabled/);
   assert.match(page, /This account is not authorised for Coach yet\.|does not currently have Coach access/);
 });
@@ -65,14 +65,14 @@ test("sign-in errors distinguish credentials, unverified email, stale session, a
 
 test("account login preserves the safe Coach return and clears only known-invalid local sessions", () => {
   const account = source("app/account/page.tsx");
-  assert.match(account, /safeInternalReturnTo\(new URLSearchParams\(window\.location\.search\)\.get\("next"\)\)/);
+  assert.match(account, /authDestination/);
   assert.match(account, /signInWithPassword/);
   assert.match(account, /signOut\(\{ scope: "local" \}\)/);
   assert.match(account, /isStaleAuthSessionError/);
   assert.equal(safeInternalReturnTo("/coach"), "/coach");
   assert.equal(safeInternalReturnTo("https://evil.test/coach"), undefined);
   assert.equal(safeInternalReturnTo("//evil.test/coach"), undefined);
-  assert.equal(authCallbackUrl("https://r12.live", "/coach"), "https://r12.live/auth/callback?next=%2Fcoach");
+  assert.equal(authCallbackUrl("https://r12.live", "/coach"), "https://r12.live/auth/callback?app=coach&next=%2Fcoach");
 });
 
 test("the member shell and Club context remain separate from Coach routes", () => {

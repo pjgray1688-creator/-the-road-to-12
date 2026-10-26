@@ -6,7 +6,7 @@ import { resolveClubOrganisationContext } from "@/lib/club-server-context";
 import { serverSupabase } from "@/lib/supabase-server";
 
 export default async function MemberBillingPage({ searchParams }: { searchParams?: Promise<{ org?: string }> }) {
-  const client = await serverSupabase(); const { data: { user } } = await client.auth.getUser(); if (!user) redirect("/account?mode=signIn");
+  const client = await serverSupabase(); const { data: { user } } = await client.auth.getUser(); if (!user) redirect("/account?app=club&mode=signIn");
   const context = await resolveClubOrganisationContext(client, user.id, (await searchParams)?.org);
   if (!context) return <AppShell><EmptyState title="Club membership unavailable">Your account is not linked to an active Club organisation.</EmptyState><AppNav /></AppShell>;
   const { data } = await client.rpc("club_get_member_billing", { p_organisation_id: context.organisation.id, p_user_id: user.id });

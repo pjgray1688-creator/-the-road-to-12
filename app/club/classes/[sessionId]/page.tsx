@@ -11,7 +11,7 @@ type MemberChoice = { id: string; name: string };
 
 export default async function ClassRegisterPage({ params, searchParams }: { params: Promise<{ sessionId: string }>; searchParams?: Promise<{ org?: string }> }) {
   const supabase = await serverSupabase(); const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/account?mode=signIn");
+  if (!user) redirect("/account?app=club&mode=signIn");
   const route = await params; const query = await searchParams;
   const context = await resolveClubOrganisationContext(supabase, user.id, query?.org);
   if (!context) return <AppShell className="module-page"><PageHeader eyebrow="R12 CLUB · CLASSES" title="Class register" /><EmptyState title="Class register unavailable">Choose the correct Club organisation or ask a manager to check your access.</EmptyState><AppNav /></AppShell>;

@@ -1,11 +1,26 @@
+import { authApps, resolveAuthApp, returnToForApp, type AuthApp } from "@/lib/auth-app";
+
 export function safeInternalReturnTo(value: string | null | undefined) {
   if (!value || !value.startsWith("/") || value.startsWith("//") || value.includes("\\") || /^[a-z][a-z0-9+.-]*:/i.test(value)) return undefined;
   return value;
 }
 
-export function authCallbackUrl(origin: string, next: string | null | undefined) {
-  const destination = safeInternalReturnTo(next) ?? "/onboarding";
-  return `${origin}/auth/callback?next=${encodeURIComponent(destination)}`;
+export function authCallbackUrl(origin: string, next: string | null | undefined, requestedApp?: string | null) {
+  const safeNext = safeInternalReturnTo(next);
+  const app = resolveAuthApp({ app: requestedApp, next: safeNext });
+  const destination = returnToForApp(app, safeNext, true);
+  const params = new URLSearchParams({ app, next: destination });
+  return `${origin}/auth/callback?${params.toString()}`;
+}
+
+export function authDestination(input: { app?: string | null; privacyApp?: string | null; next?: string | null }, registration = false): { app: AuthApp; next: string } {
+  const safeNext = safeInternalReturnTo(input.next);
+  const app = resolveAuthApp({ app: input.app, privacyApp: input.privacyApp, next: safeNext });
+  return { app, next: returnToForApp(app, safeNext, registration) };
+}
+
+export function authFallbackFor(app: AuthApp, registration = false) {
+  return registration ? authApps[app].registrationReturnTo : authApps[app].defaultReturnTo;
 }
 
 export function staffClaimReturnTo(grant: string | null | undefined) {

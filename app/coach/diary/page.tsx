@@ -10,7 +10,7 @@ import { serverSupabase } from "@/lib/supabase-server";
 export default async function CoachDiaryPage({ searchParams }: { searchParams?: Promise<{ org?: string; date?: string }> }) {
   const supabase = await serverSupabase();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/account?mode=signIn&next=%2Fcoach%2Fdiary");
+  if (!user) redirect("/account?app=coach&mode=signIn&next=%2Fcoach%2Fdiary");
   const { data: coachAccess, error: coachAccessError } = await supabase.rpc("coach_has_access", { p_client_user_id: null });
   if (coachAccessError || !coachAccess) redirect("/coach");
   const params = await searchParams;

@@ -31,7 +31,7 @@ export async function generateMetadata({ searchParams }: { searchParams?: Promis
 export default async function ClubPage({ searchParams }: { searchParams?: Promise<{ org?: string; location?: string }> }) {
   const supabase = await serverSupabase();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) { const params = await searchParams; const next = `/club${params?.org ? `?org=${encodeURIComponent(params.org)}` : ""}`; redirect(`/account?mode=signIn&next=${encodeURIComponent(next)}`); }
+  if (!user) { const params = await searchParams; const next = `/club${params?.org ? `?org=${encodeURIComponent(params.org)}` : ""}`; redirect(`/account?app=club&mode=signIn&next=${encodeURIComponent(next)}`); }
   if (hasPlayReviewerEntitlement(user)) redirect("/club/reviewer");
   try {
     const contexts = await listClubOrganisationContexts(supabase, user.id);

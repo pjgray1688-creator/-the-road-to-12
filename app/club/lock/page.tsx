@@ -25,5 +25,5 @@ export default async function ClubLockPage() {
     }
     return <ClubStationChooser recovery={recovery}/>;
   }
-  return <main className="app-shell module-page club-page"><h1>Shared station not configured</h1><p>Sign in with an authorised Club account to set up this device.</p><Link className="primary" href={user?"/club/stations":"/account?mode=signIn&next=%2Fclub%2Fstations"}>{user?"Configure this station":"Sign in to Club"}</Link></main>;
+  return <main className="app-shell module-page club-page"><h1>Shared station not configured</h1><p>Sign in with an authorised Club account to set up this device.</p><Link className="primary" href={user?"/club/stations":"/account?app=club&mode=signIn&next=%2Fclub%2Fstations"}>{user?"Configure this station":"Sign in to Club"}</Link></main>;
 }

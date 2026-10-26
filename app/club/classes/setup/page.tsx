@@ -9,7 +9,7 @@ import { ClubSectionNav } from "@/components/club-shell";
 export default async function MadhouseClassSetupPage({ searchParams }: { searchParams?: Promise<{ org?: string }> }) {
   const supabase = await serverSupabase();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/account?mode=signIn");
+  if (!user) redirect("/account?app=club&mode=signIn");
   const context = await resolveClubOrganisationContext(supabase, user.id, (await searchParams)?.org);
   if (!context || !["gym_admin", "owner"].includes(context.role)) {
     return <AppShell className="module-page club-page club-classes-page"><PageHeader eyebrow="R12 CLUB · CLASSES" title="Operational setup" description="This setup is restricted to Club management."/><EmptyState title="Management access required">Ask an organisation owner to confirm your operational role.</EmptyState><BackButton href="/club/classes">Back to classes</BackButton><AppNav /></AppShell>;

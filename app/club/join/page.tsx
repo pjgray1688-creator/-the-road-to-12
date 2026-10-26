@@ -9,7 +9,7 @@ import { ClubJoiningForm } from "@/components/club-joining-form";
 import { listPayPalCheckoutReadyProductIds } from "@/lib/paypal-pay-in-3-server";
 
 export default async function ClubJoinPage({ searchParams }: { searchParams?: Promise<{ org?: string }> }) {
-  const supabase = await serverSupabase(); const { data: { user } } = await supabase.auth.getUser(); if (!user) redirect("/account?mode=signIn&next=%2Fclub%2Fjoin");
+  const supabase = await serverSupabase(); const { data: { user } } = await supabase.auth.getUser(); if (!user) redirect("/account?app=club&mode=signIn&next=%2Fclub%2Fjoin");
   const [{ data: orgData }, contexts] = await Promise.all([supabase.rpc("club_list_joinable_organisations"), listClubOrganisationContexts(supabase, user.id)]);
   const organisations = Array.isArray(orgData) ? orgData as Array<{ id: string; name: string; slug: string }> : [];
   const requestedId = (await searchParams)?.org; const organisation = organisations.find(item => item.id === requestedId) ?? (organisations.length === 1 ? organisations[0] : undefined);

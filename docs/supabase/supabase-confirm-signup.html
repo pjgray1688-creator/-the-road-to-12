@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+  <body style="margin:0;background:#09090c;color:#f7f5fb;font-family:Arial,sans-serif">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#09090c;padding:32px 16px">
+      <tr><td align="center">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#15131a;border:1px solid #332a43;border-radius:18px;padding:32px">
+          <tr><td>
+            <p style="margin:0 0 10px;color:{{ if eq .Data.origin_app "glow" }}#b7ff3c{{ else if eq .Data.origin_app "coach" }}#72e5af{{ else }}#b783ff{{ end }};font-weight:800;letter-spacing:.12em;text-transform:uppercase">
+              {{ if eq .Data.origin_app "glow" }}Glow Zone{{ else if eq .Data.origin_app "club" }}R12 Club{{ else if eq .Data.origin_app "coach" }}R12 Coach{{ else }}R12 Training{{ end }}
+            </p>
+            <h1 style="margin:0 0 18px;font-size:30px">Confirm your email</h1>
+            <p style="line-height:1.6;color:#d8d2df">Hello {{ if .Data.first_name }}{{ .Data.first_name }}{{ else }}there{{ end }}, confirm this email address to finish creating your account.</p>
+            <p style="margin:28px 0">
+              <a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&amp;type=email&amp;app={{ .Data.origin_app }}&amp;next={{ .Data.auth_return_to | urlquery }}" style="display:inline-block;background:{{ if eq .Data.origin_app "glow" }}#b7ff3c{{ else if eq .Data.origin_app "coach" }}#72e5af{{ else }}#8f52e6{{ end }};color:#09090c;text-decoration:none;font-weight:800;padding:14px 20px;border-radius:10px">Verify email</a>
+            </p>
+            <p style="line-height:1.6;color:#a9a3b1;font-size:14px">If you did not create this account, you can safely ignore this email. This link expires for your security.</p>
+          </td></tr>
+        </table>
+      </td></tr>
+    </table>
+  </body>
+</html>
