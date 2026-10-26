@@ -12,11 +12,12 @@ export type StripeMerchantConfig = {
 };
 
 export type StripeMerchantBinding = {
-  version: 1;
+  version: 2;
   entity: StripeMerchantEntity;
   accountId: string;
-  legalEntityNumber: "17383077" | "17383213";
-  legalEntityName: string;
+  stripeAccountName: string;
+  accountHolderType: "sole_trader";
+  legalEntityTransition: "pending";
   apiKeyFingerprint: string;
   approvedAt: string;
   approvedBy: string;
@@ -101,10 +102,10 @@ const contracts = {
   },
 } as const;
 
-const bindingFields = ["version", "entity", "accountId", "legalEntityNumber", "legalEntityName", "apiKeyFingerprint", "approvedAt", "approvedBy", "evidenceReference"] as const;
-const expectedLegalNames: Record<StripeMerchantEntity, string> = {
-  madhouse_franchise: "Madhouse Franchise Limited",
-  madhouse_products_services: "Madhouse Products and Services Limited",
+const bindingFields = ["version", "entity", "accountId", "stripeAccountName", "accountHolderType", "legalEntityTransition", "apiKeyFingerprint", "approvedAt", "approvedBy", "evidenceReference"] as const;
+const expectedStripeAccountNames: Record<StripeMerchantEntity, string> = {
+  madhouse_franchise: "Madhouse Gym Rotherham",
+  madhouse_products_services: "Madhouse Gym Carlton",
 };
 const liveTestApprovals = {
   madhouse_franchise: { record: "STRIPE_FRANCHISE_LIVE_TEST_APPROVAL", signature: "STRIPE_FRANCHISE_LIVE_TEST_APPROVAL_SIGNATURE", dashboardName: "Madhouse Gym Rotherham" },
@@ -179,10 +180,11 @@ export function inspectStripeMerchantBinding(
   const value = parsed as Record<string, unknown>;
   if (Object.keys(value).sort().join(",") !== [...bindingFields].sort().join(",")) return { status: "invalid" };
   const binding = value as unknown as StripeMerchantBinding;
-  if (binding.version !== 1 || binding.entity !== entity
+  if (binding.version !== 2 || binding.entity !== entity
     || !/^acct_[A-Za-z0-9]+$/.test(binding.accountId)
-    || !/^\d{8}$/.test(binding.legalEntityNumber)
-    || typeof binding.legalEntityName !== "string"
+    || typeof binding.stripeAccountName !== "string"
+    || binding.accountHolderType !== "sole_trader"
+    || binding.legalEntityTransition !== "pending"
     || typeof binding.apiKeyFingerprint !== "string" || !/^[a-f0-9]{64}$/.test(binding.apiKeyFingerprint)
     || typeof binding.approvedAt !== "string" || !Number.isFinite(Date.parse(binding.approvedAt))
     || typeof binding.approvedBy !== "string" || !/^[^\r\n]{3,160}$/.test(binding.approvedBy.trim())
@@ -190,11 +192,10 @@ export function inspectStripeMerchantBinding(
     return { status: "invalid" };
   }
   const configAccountId = env[contract.account]?.trim();
-  const expectedNumber = contracts[entity].legalEntityNumber;
   const configuredKey = env[contract.key]?.trim() ?? "";
-  if (binding.accountId !== configAccountId || binding.legalEntityNumber !== expectedNumber
+  if (binding.accountId !== configAccountId
     || binding.apiKeyFingerprint !== stripeMerchantApiKeyFingerprint(configuredKey)
-    || canonicalLegalName(binding.legalEntityName) !== canonicalLegalName(expectedLegalNames[entity])) {
+    || canonicalLegalName(binding.stripeAccountName) !== canonicalLegalName(expectedStripeAccountNames[entity])) {
     return { status: "mismatch", binding };
   }
   try {
