@@ -79,11 +79,14 @@ function safeHeader(value: string) { return value.replace(/[\r\n]/g, " ").trim()
 function encodeHeader(value: string) { return `=?UTF-8?B?${Buffer.from(safeHeader(value), "utf8").toString("base64")}?=`; }
 function encodeBody(value: string) { return Buffer.from(value.replace(/\r?\n/g, "\r\n"), "utf8").toString("base64").match(/.{1,76}/g)?.join("\r\n") ?? ""; }
 function formatAddress(name: string, address: string) { return `${encodeHeader(name)} <${address}>`; }
+function smtpSender(config: SmtpConfiguration, sender: NotificationEnvelope["sender"]) {
+  return config.from[sender] ?? { address: "privacy@r12.live", name: "R12" };
+}
 
 function buildMessage(config: SmtpConfiguration, envelope: NotificationEnvelope) {
   const recipient = envelope.recipientEmail.trim().toLowerCase();
   if (!/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(recipient)) throw smtpError("Recipient email address is invalid");
-  const from = config.from[envelope.sender];
+  const from = smtpSender(config, envelope.sender);
   const boundary = `r12-${randomUUID()}`;
   let host = "the-road-to-12.vercel.app";
   try { if (process.env.R12_APP_BASE_URL) host = new URL(process.env.R12_APP_BASE_URL).hostname; } catch { /* use stable fallback; never let a malformed display URL block delivery */ }
@@ -175,7 +178,7 @@ export async function sendSmtpMessage(envelope: NotificationEnvelope, configurat
     } else {
       throw smtpError("SMTP server does not advertise a supported AUTH mechanism");
     }
-    await command(socket, reader, `MAIL FROM:<${config.from[envelope.sender].address}>`, [250]);
+    await command(socket, reader, `MAIL FROM:<${smtpSender(config, envelope.sender).address}>`, [250]);
     await command(socket, reader, `RCPT TO:<${recipient}>`, [250, 251]);
     await command(socket, reader, "DATA", [354]);
     const message = buildMessage(config, envelope).replace(/\n\./g, "\n..");
