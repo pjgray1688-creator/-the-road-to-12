@@ -118,7 +118,7 @@ insert into public.account_deletion_relation_policies(schema_name,table_name,col
  ('public','coach_client_assignments','client_user_id','delete','coaching','Assignments about the deleting client are removed',280),
  ('public','coach_client_assignments','coach_user_id','block','Coach assignments affecting clients require review',20),
  ('public','club_members','user_id','delete','access','Club application role access is revoked separately from memberships',400),
- ('public','club_membership_holders','user_id','delete','membership','Remove only the Auth linkage; preserve the membership record',410),
+ ('public','club_membership_holders','user_id','unlink','membership','Remove only the Auth linkage; preserve the membership record',410),
  ('public','club_customers','user_id','anonymize_customer','membership','Unlink and de-identify the customer while preserving business records',420),
  ('public','club_glow_age_verifications','user_id','archive_glow_age','safety','Retain a de-identified age-verification audit and erase date of birth',430),
  ('public','club_glow_session_requests','user_id','unlink','transactions_refunds','Preserve the operational request while removing the Auth link',440),
@@ -349,7 +349,7 @@ declare r public.account_deletion_requests%rowtype;
 begin
  perform public.r12_deletion_service_guard(); select * into r from public.account_deletion_requests where id=p_request_id for update;
  if not found or p_operator_id is distinct from r.approved_by or r.execution_state<>'notification_sending' or r.notification_delivery_token is distinct from p_delivery_token or r.auth_deleted_at is null or length(coalesce(p_delivery_reference,''))<1 then raise exception 'Completion requirements are not satisfied' using errcode='22023'; end if;
- update public.account_deletion_requests set status='completed',execution_state='completed',completed_at=now(),notification_sent_at=now(),notification_ciphertext=null,notification_expires_at=null,
+ update public.account_deletion_requests set user_id=gen_random_uuid(),status='completed',execution_state='completed',completed_at=now(),notification_sent_at=now(),notification_ciphertext=null,notification_expires_at=null,
   notification_delivery_token=null,response_message='Your shared R12 account has been deleted. Separately managed services and retained restricted records are not automatically cancelled.',updated_at=now() where id=r.id;
  insert into public.account_deletion_execution_events(request_id,actor_user_id,actor_name,event_type,from_state,to_state,plan_hash,evidence)
  values(r.id,p_operator_id,coalesce(r.approver_name,'Approved operator'),'completion_notified',r.execution_state,'completed',r.plan_hash,jsonb_build_object('delivery_reference',p_delivery_reference));

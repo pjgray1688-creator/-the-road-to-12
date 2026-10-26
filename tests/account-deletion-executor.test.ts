@@ -123,3 +123,25 @@ test("operations runbook requires disposable-project cross-account and member\/s
   assert.match(runbook, /does not cancel gym memberships/);
 });
 
+
+test("deletion migration preserves membership-holder records by unlinking Auth identity", () => {
+  const sql = readFileSync("supabase/migrations/2027-01-22-account-deletion-executor.sql", "utf8");
+
+  assert.match(
+    sql,
+    /\('public','club_membership_holders','user_id','unlink','membership'/
+  );
+  assert.doesNotMatch(
+    sql,
+    /\('public','club_membership_holders','user_id','delete','membership'/
+  );
+});
+
+test("completed deletion requests replace the original Auth UUID", () => {
+  const sql = readFileSync("supabase/migrations/2027-01-22-account-deletion-executor.sql", "utf8");
+
+  assert.match(
+    sql,
+    /update public\.account_deletion_requests set user_id=gen_random_uuid\(\),status='completed'/
+  );
+});
