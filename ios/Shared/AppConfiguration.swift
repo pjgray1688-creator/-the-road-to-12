@@ -72,7 +72,7 @@ struct NativeAppConfiguration {
         tint: Color(red: 0.72, green: 1.00, blue: 0.24),
         scheme: "r12-glowzone",
         privacyPath: "/glow-zone/privacy",
-        scope: { $0 == "/glow-zone" || $0.hasPrefix("/glow-zone/") || $0 == "/account" },
+        scope: { $0 == "/glow-zone" || $0.hasPrefix("/glow-zone/") },
         destinations: [
             AppDestination(title: "Home", path: "/glow-zone", symbol: "sparkles"),
             AppDestination(title: "Use Sunbed", path: "/glow-zone/use", symbol: "sun.max.fill"),
@@ -90,5 +90,22 @@ struct NativeAppConfiguration {
             components.percentEncodedQuery = String(query)
         }
         return components.url ?? URL(string: "https://app.r12.live/")!
+    }
+
+    func allowsEmbeddedNavigation(to url: URL) -> Bool {
+        guard url.scheme == "https", url.host == "app.r12.live", url.user == nil,
+              url.password == nil, url.port == nil || url.port == 443 else { return false }
+        guard scheme == "r12-glowzone" else { return true }
+        if scope(url.path) || url.path == "/terms" || url.path == "/auth/verify" { return true }
+        let sharedAuthPaths: Set<String> = ["/account", "/account/verify", "/account/reset", "/account/delete", "/auth/callback", "/auth/confirm"]
+        guard sharedAuthPaths.contains(url.path), let components = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return false }
+        let queryItems = components.queryItems ?? []
+        let appValues = queryItems.filter { $0.name == "app" || $0.name == "privacyApp" }.compactMap(\.value)
+        guard appValues.isEmpty || appValues.allSatisfy({ $0 == "glow" }) else { return false }
+        let nextValues = queryItems.filter { $0.name == "next" }.compactMap(\.value)
+        if let next = nextValues.first {
+            guard nextValues.count == 1, next == "/glow-zone" || next.hasPrefix("/glow-zone/") else { return false }
+        }
+        return !appValues.isEmpty || !nextValues.isEmpty
     }
 }

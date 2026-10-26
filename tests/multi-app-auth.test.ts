@@ -49,7 +49,42 @@ test("Glow Zone setup preserves records and grants no membership or credit", () 
   assert.doesNotMatch(action, /ensureGlowZoneCustomerAction\(organisationId/);
 });
 
-test("native web tabs remember redirects so intended destinations can restore", () => {
+test("Glow native navigation is route scoped and restores each selected tab", () => {
+  const configuration = readFileSync("ios/Shared/AppConfiguration.swift", "utf8");
+  const nativeShell = readFileSync("ios/Shared/NativeAppShell.swift", "utf8");
   const shell = readFileSync("ios/Shared/RouteWebScreen.swift", "utf8");
+  assert.match(configuration, /func allowsEmbeddedNavigation/);
+  assert.match(configuration, /sharedAuthPaths/);
+  assert.match(configuration, /scheme == "r12-glowzone"/);
+  const glowConfiguration = configuration.slice(configuration.indexOf("static let glowZone"));
+  assert.doesNotMatch(glowConfiguration, /scope: \{ _ in true \}/);
+  assert.match(nativeShell, /activationByDestination/);
+  assert.match(shell, /configuration\.allowsEmbeddedNavigation/);
+  assert.match(shell, /force: true/);
   assert.match(shell, /lastURL = webView\.url/);
+});
+
+test("password recovery exchanges PKCE exactly on the branded return route", () => {
+  const account = readFileSync("app/account/page.tsx", "utf8");
+  const reset = readFileSync("components/reset-password-client.tsx", "utf8");
+  const resetPage = readFileSync("app/account/reset/page.tsx", "utf8");
+  assert.match(account, /resetParams = new URLSearchParams\(\{ app: context\.app, next: context\.next \}\)/);
+  assert.match(reset, /exchangeCodeForSession\(code\)/);
+  assert.match(reset, /"checking"\|"ready"\|"invalid"/);
+  assert.match(reset, /event === "PASSWORD_RECOVERY"/);
+  assert.match(resetPage, /next=\{context\.next\}/);
+});
+
+test("verification success requires a confirmed server-authenticated user", () => {
+  const callback = readFileSync("components/auth-callback-client.tsx", "utf8");
+  assert.match(callback, /supabase\.auth\.getUser\(\)/);
+  assert.match(callback, /email_confirmed_at/);
+  assert.doesNotMatch(callback, /onAuthStateChange\(\(_event, session\) => \{ if \(session\?\.user\) finish\(\)/);
+});
+
+test("Glow metadata overrides the shared R12 browser identity", () => {
+  const layout = readFileSync("app/glow-zone/layout.tsx", "utf8");
+  assert.match(layout, /applicationName:"Glow Zone"/);
+  assert.match(layout, /glow-zone-icon\.svg/);
+  assert.match(layout, /appleWebApp:\{capable:true,statusBarStyle:"black-translucent",title:"Glow Zone"\}/);
 });

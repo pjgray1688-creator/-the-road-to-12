@@ -22,12 +22,13 @@ private final class RouteWebState: ObservableObject {
 struct RouteWebScreen: View {
     let configuration: NativeAppConfiguration
     let destination: AppDestination
+    let activation: Int
     @StateObject private var state = RouteWebState()
     @State private var safariURL: URL?
 
     var body: some View {
         ZStack {
-            R12WebView(url: configuration.url(for: destination.path), state: state, isGlowZone: configuration.scheme == "r12-glowzone") { url in
+            R12WebView(url: configuration.url(for: destination.path), state: state, configuration: configuration, activation: activation) { url in
                 safariURL = url
             }
             .overlay(alignment: .top) {
@@ -106,15 +107,16 @@ private struct SafariView: UIViewControllerRepresentable {
 private struct R12WebView: UIViewRepresentable {
     let url: URL
     @ObservedObject var state: RouteWebState
-    let isGlowZone: Bool
+    let configuration: NativeAppConfiguration
+    let activation: Int
     let openExternal: (URL) -> Void
 
-    func makeCoordinator() -> Coordinator { Coordinator(state: state, openExternal: openExternal) }
+    func makeCoordinator() -> Coordinator { Coordinator(state: state, configuration: configuration, destinationURL: url, openExternal: openExternal) }
 
     func makeUIView(context: Context) -> WKWebView {
         let webConfiguration = WKWebViewConfiguration()
         webConfiguration.websiteDataStore = .default()
-        if isGlowZone {
+        if configuration.scheme == "r12-glowzone" {
             let nativeStyle = WKUserScript(
                 source: "document.documentElement.classList.add('r12-glow-native')",
                 injectionTime: .atDocumentStart,
@@ -123,7 +125,7 @@ private struct R12WebView: UIViewRepresentable {
             webConfiguration.userContentController.addUserScript(nativeStyle)
         }
         let webView = WKWebView(frame: .zero, configuration: webConfiguration)
-        if isGlowZone {
+        if configuration.scheme == "r12-glowzone" {
             webView.customUserAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1 R12GlowZoneIOS"
         }
         webView.navigationDelegate = context.coordinator
@@ -137,26 +139,33 @@ private struct R12WebView: UIViewRepresentable {
         refreshControl.addTarget(context.coordinator, action: #selector(Coordinator.refresh), for: .valueChanged)
         webView.scrollView.refreshControl = refreshControl
         state.webView = webView
-        context.coordinator.load(url, into: webView)
+        context.coordinator.load(url, activation: activation, into: webView)
         return webView
     }
 
     func updateUIView(_ webView: WKWebView, context: Context) {
-        context.coordinator.load(url, into: webView)
+        context.coordinator.load(url, activation: activation, into: webView)
     }
 
     final class Coordinator: NSObject, WKNavigationDelegate {
         private let state: RouteWebState
+        private let configuration: NativeAppConfiguration
+        private let destinationURL: URL
         private let openExternal: (URL) -> Void
         private var lastURL: URL?
+        private var lastActivation: Int?
 
-        init(state: RouteWebState, openExternal: @escaping (URL) -> Void) {
+        init(state: RouteWebState, configuration: NativeAppConfiguration, destinationURL: URL, openExternal: @escaping (URL) -> Void) {
             self.state = state
+            self.configuration = configuration
+            self.destinationURL = destinationURL
             self.openExternal = openExternal
         }
 
-        func load(_ url: URL, into webView: WKWebView) {
-            guard lastURL != url else { return }
+        func load(_ url: URL, activation: Int, into webView: WKWebView, force: Bool = false) {
+            let activatedAgain = lastActivation != nil && lastActivation != activation
+            guard force || activatedAgain || lastURL != url else { return }
+            lastActivation = activation
             lastURL = url
             DispatchQueue.main.async { [weak self] in
                 guard let self, self.lastURL == url else { return }
@@ -174,9 +183,13 @@ private struct R12WebView: UIViewRepresentable {
         func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction,
                      decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
             guard let url = action.request.url else { decisionHandler(.cancel); return }
-            if url.scheme == "https", url.host == "app.r12.live",
-               url.user == nil, url.password == nil, url.port == nil || url.port == 443 {
+            if configuration.allowsEmbeddedNavigation(to: url) {
                 decisionHandler(.allow)
+                return
+            }
+            if url.scheme == "https", url.host == "app.r12.live", configuration.scheme == "r12-glowzone" {
+                decisionHandler(.cancel)
+                load(destinationURL, activation: lastActivation ?? 0, into: webView, force: true)
                 return
             }
             if action.targetFrame == nil, url.scheme == "https" {

@@ -14,22 +14,32 @@ export function AuthCallbackClient({ app, next }: { app: AuthApp; next: string }
     const params = new URLSearchParams(window.location.search);
     const supabase = browserSupabase();
     let finished = false;
-    const finish = () => {
-      if (finished) return;
+    let validating = false;
+    const finish = async () => {
+      if (finished || validating) return;
+      validating = true;
+      const { data, error } = await supabase.auth.getUser();
+      if (error || !data.user?.email_confirmed_at) {
+        validating = false;
+        setMessage("This verification link is invalid or has expired. Request a fresh email or sign in if you already verified.");
+        return;
+      }
       finished = true;
       try { window.sessionStorage.removeItem("r12.pending-auth-email"); } catch {}
       setVerified(true);
       setMessage(`Your email is verified. Continue to ${authApps[app].name}.`);
       window.setTimeout(() => window.location.replace(next), 900);
     };
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => { if (session?.user) finish(); });
     const code = params.get("code");
+    const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!code && !hash.get("error") && (event === "SIGNED_IN" || event === "USER_UPDATED") && session?.user) void finish();
+    });
     const exchange = code ? supabase.auth.exchangeCodeForSession(code) : supabase.auth.getSession();
     void exchange.then(({ data, error }) => {
       const session = "session" in data ? data.session : null;
-      if (session?.user) finish();
+      if (session?.user && !error && !hash.get("error")) void finish();
       else {
-        const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
         setMessage(error || hash.get("error") ? "This verification link is invalid or has expired. Request a fresh email or sign in if you already verified." : "Your email may already be verified. Return to the app and sign in to continue.");
       }
     });

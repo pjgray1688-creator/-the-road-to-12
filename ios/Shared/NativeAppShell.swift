@@ -4,6 +4,7 @@ struct NativeAppShell: View {
     let configuration: NativeAppConfiguration
     @State private var selection: String
     @State private var openedDeepLink: String?
+    @State private var activationByDestination: [String: Int] = [:]
 
     init(configuration: NativeAppConfiguration) {
         self.configuration = configuration
@@ -14,7 +15,11 @@ struct NativeAppShell: View {
         TabView(selection: $selection) {
             ForEach(configuration.destinations) { destination in
                 NavigationStack {
-                    RouteWebScreen(configuration: configuration, destination: destination)
+                    RouteWebScreen(
+                        configuration: configuration,
+                        destination: destination,
+                        activation: activationByDestination[destination.id, default: 0]
+                    )
                         .navigationTitle(destination.title)
                         .navigationBarTitleDisplayMode(.inline)
                         .toolbar(
@@ -38,6 +43,11 @@ struct NativeAppShell: View {
         }
         .tint(configuration.tint)
         .preferredColorScheme(.dark)
+        .onChange(of: selection) { _, selected in
+            if configuration.scheme == "r12-glowzone" {
+                activationByDestination[selected, default: 0] += 1
+            }
+        }
         .onOpenURL(perform: handleDeepLink)
         .alert("Link not available", isPresented: Binding(
             get: { openedDeepLink == "invalid" },
@@ -57,6 +67,10 @@ struct NativeAppShell: View {
             openedDeepLink = "invalid"
             return
         }
-        selection = destination.id
+        if selection == destination.id, configuration.scheme == "r12-glowzone" {
+            activationByDestination[destination.id, default: 0] += 1
+        } else {
+            selection = destination.id
+        }
     }
 }

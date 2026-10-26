@@ -19,7 +19,7 @@ export default async function GlowZoneStandalonePage() {
   if (context.state === "ready") return <GlowZoneCustomerView organisationId={context.organisation.id} userId={user.id} activeGymMembership={context.activeGymMembership} />;
   return <AppShell className="module-page glow-zone-page">
     <GlowZoneHeader title="Welcome to Glow Zone" description="Use your shared R12 account for Glow Zone without changing your gym membership." />
-    <Surface>{context.state === "unavailable" ? <><h2>Glow Zone is temporarily unavailable</h2><p className="muted">The Carlton service could not be resolved. Please contact reception before purchasing or using minutes.</p></> : <GlowZoneAccountSetup />}<Link className="secondary" href="/account?app=glow&next=%2Fglow-zone">Account</Link></Surface>
+    <Surface>{context.state === "unavailable" ? <><h2>Glow Zone is temporarily unavailable</h2><p className="muted">We couldn’t load your Glow Zone account just now. Please try again or contact reception before purchasing or using minutes.</p></> : <GlowZoneAccountSetup />}<Link className="secondary" href="/account?app=glow&next=%2Fglow-zone">Account</Link></Surface>
     <GlowZoneNav current="home" />
   </AppShell>;
 }
