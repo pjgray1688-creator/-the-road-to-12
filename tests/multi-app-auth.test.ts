@@ -68,16 +68,22 @@ test("password recovery exchanges PKCE exactly on the branded return route", () 
   const account = readFileSync("app/account/page.tsx", "utf8");
   const reset = readFileSync("components/reset-password-client.tsx", "utf8");
   const resetPage = readFileSync("app/account/reset/page.tsx", "utf8");
+  const browserClient = readFileSync("lib/supabase-browser.ts", "utf8");
   assert.match(account, /resetParams = new URLSearchParams\(\{ app: context\.app, next: context\.next \}\)/);
-  assert.match(reset, /exchangeCodeForSession\(code\)/);
+  assert.match(reset, /exchangePasswordRecoverySession/);
+  assert.match(reset, /recoveryAttemptRef/);
   assert.match(reset, /"checking"\|"ready"\|"invalid"/);
-  assert.match(reset, /event === "PASSWORD_RECOVERY"/);
+  assert.match(browserClient, /authRedirectSupabase/);
+  assert.match(browserClient, /detectSessionInUrl: false/);
+  assert.match(browserClient, /isSingleton: false/);
   assert.match(resetPage, /next=\{context\.next\}/);
 });
 
 test("verification success requires a confirmed server-authenticated user", () => {
   const callback = readFileSync("components/auth-callback-client.tsx", "utf8");
-  assert.match(callback, /supabase\.auth\.getUser\(\)/);
+  const exchange = readFileSync("lib/auth-url-session.ts", "utf8");
+  assert.match(callback, /exchangeAuthCodeSession/);
+  assert.match(exchange, /client\.auth\.getUser\(\)/);
   assert.match(callback, /email_confirmed_at/);
   assert.doesNotMatch(callback, /onAuthStateChange\(\(_event, session\) => \{ if \(session\?\.user\) finish\(\)/);
 });
