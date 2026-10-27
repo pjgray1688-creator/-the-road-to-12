@@ -4,12 +4,14 @@ import { AppNav } from "@/components/app-nav";
 import { GlowZoneActivity } from "@/components/glow-zone-activity";
 import { GlowZoneHeader } from "@/components/glow-zone-header";
 import { GlowZoneNav } from "@/components/glow-zone-nav";
+import { GlowZoneCustomerDetailsPanel } from "@/components/glow-zone-customer-details";
 import { GlowZoneOpeningHours, type GlowZoneHourRow } from "@/components/glow-zone-opening-hours";
 import { AppShell, Surface } from "@/components/ui";
 import { GLOW_ZONE_LOCATION } from "@/lib/glow-zone";
+import type { GlowZoneCustomerDetails, GlowZoneCustomerField } from "@/lib/glow-zone-customer-details";
 import { serverSupabase } from "@/lib/supabase-server";
 
-export async function GlowZoneCustomerView(props: { organisationId: string; userId: string; activeGymMembership: boolean; memberNavigation?: boolean }) {
+export async function GlowZoneCustomerView(props: { organisationId: string; userId: string; activeGymMembership: boolean; details?: GlowZoneCustomerDetails; missingDetails?: GlowZoneCustomerField[]; declaredUnder18?: boolean; memberNavigation?: boolean }) {
   const { organisationId, userId } = props;
   const client = await serverSupabase();
   const [balance, hoursResult] = await Promise.all([
@@ -19,6 +21,7 @@ export async function GlowZoneCustomerView(props: { organisationId: string; user
   const hours = (hoursResult.data ?? []) as GlowZoneHourRow[];
   return <AppShell className="module-page member-area-page glow-zone-page">
     <GlowZoneHeader title="Your glow, on your time" description={GLOW_ZONE_LOCATION} />
+    {props.details ? <GlowZoneCustomerDetailsPanel details={props.details} missing={props.missingDetails ?? []} declaredUnder18={props.declaredUnder18} /> : null}
     <Surface>
       <span className="eyebrow glow-green">AVAILABLE NOW</span>
       {balance.ok ? <>

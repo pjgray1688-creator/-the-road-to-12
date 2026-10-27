@@ -12,6 +12,6 @@ export default async function GlowZoneStandalonePage() {
   if (!user) redirect("/account?app=glow&mode=signIn&next=%2Fglow-zone");
   if (isGlowZoneReviewer(user)) return <GlowZoneReviewerHome />;
   const context = await resolveGlowZoneCustomerContext(client, user.id);
-  if (context.state === "ready") return <GlowZoneCustomerView organisationId={context.organisation.id} userId={user.id} activeGymMembership={context.activeGymMembership} />;
+  if (context.state === "ready") return <GlowZoneCustomerView organisationId={context.organisation.id} userId={user.id} activeGymMembership={context.activeGymMembership} details={context.details} missingDetails={context.missingDetails} declaredUnder18={context.declaredUnder18} />;
   return <GlowZoneCustomerGate current="home" unavailable={context.state === "unavailable"} />;
 }

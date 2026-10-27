@@ -17,6 +17,6 @@ export async function GET() {
     .eq("user_id", user.id)
     .maybeSingle();
   if (error) return privateJson({ customerState: "ready", ageStatus: "unavailable" }, { status: 503 });
-  const ageStatus = data?.status === "verified" ? "verified" : data?.status === "under_18" ? "under_18" : "required";
-  return privateJson({ customerState: "ready", ageStatus });
+  const ageStatus = context.declaredUnder18 ? "under_18" : data?.status === "verified" ? "verified" : data?.status === "under_18" ? "under_18" : "required";
+  return privateJson({ customerState: "ready", ageStatus, details: context.details, missingDetails: context.missingDetails });
 }
