@@ -59,9 +59,14 @@ test("Glow native navigation is route scoped and restores each selected tab", ()
   const glowConfiguration = configuration.slice(configuration.indexOf("static let glowZone"));
   assert.doesNotMatch(glowConfiguration, /scope: \{ _ in true \}/);
   assert.match(nativeShell, /activationByDestination/);
+  assert.match(nativeShell, /selectDestination/);
   assert.match(shell, /configuration\.allowsEmbeddedNavigation/);
+  assert.match(shell, /navigationType == \.linkActivated/);
+  assert.match(shell, /configuration\.destination\(for: url\)/);
   assert.match(shell, /force: true/);
   assert.match(shell, /lastURL = webView\.url/);
+  assert.match(configuration, /func destination\(for url: URL\)/);
+  assert.match(configuration, /configuredQuery == candidateQuery/);
 });
 
 test("password recovery supports click-gated OTP and one-time PKCE on the branded return route", () => {
@@ -83,7 +88,23 @@ test("password recovery supports click-gated OTP and one-time PKCE on the brande
   assert.match(recoveryTemplate, /\.TokenHash/);
   assert.match(recoveryTemplate, /type=recovery/);
   assert.match(recoveryTemplate, /\.RedirectTo \| urlquery/);
+  assert.match(recoveryTemplate, /https:\/\/app\.r12\.live\/account\/reset/);
+  assert.doesNotMatch(recoveryTemplate, /\.SiteURL/);
   assert.doesNotMatch(recoveryTemplate, /\.ConfirmationURL/);
+});
+
+test("all Glow destinations retain their own setup state instead of redirecting to Home", () => {
+  const home = readFileSync("app/glow-zone/page.tsx", "utf8");
+  const use = readFileSync("app/glow-zone/use/page.tsx", "utf8");
+  const buy = readFileSync("app/glow-zone/buy/page.tsx", "utf8");
+  const accountApi = readFileSync("app/api/glow-zone/account/route.ts", "utf8");
+  assert.match(home, /GlowZoneCustomerGate current="home"/);
+  assert.match(use, /GlowZoneCustomerGate current="use"/);
+  assert.match(buy, /GlowZoneCustomerGate current="buy"/);
+  assert.doesNotMatch(use, /context\.state!=="ready"\)redirect\("\/glow-zone"\)/);
+  assert.doesNotMatch(buy, /context\.state !== "ready"\) redirect\("\/glow-zone"\)/);
+  assert.match(accountApi, /customerState: "unlinked"/);
+  assert.match(accountApi, /customerState: "unavailable"/);
 });
 
 test("verification success requires a confirmed server-authenticated user", () => {

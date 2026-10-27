@@ -23,14 +23,20 @@ struct RouteWebScreen: View {
     let configuration: NativeAppConfiguration
     let destination: AppDestination
     let activation: Int
+    let selectDestination: (AppDestination) -> Void
     @StateObject private var state = RouteWebState()
     @State private var safariURL: URL?
 
     var body: some View {
         ZStack {
-            R12WebView(url: configuration.url(for: destination.path), state: state, configuration: configuration, activation: activation) { url in
-                safariURL = url
-            }
+            R12WebView(
+                url: configuration.url(for: destination.path),
+                state: state,
+                configuration: configuration,
+                activation: activation,
+                selectDestination: selectDestination,
+                openExternal: { url in safariURL = url }
+            )
             .overlay(alignment: .top) {
                 if state.isLoading && state.errorMessage == nil {
                     ProgressView()
@@ -109,9 +115,10 @@ private struct R12WebView: UIViewRepresentable {
     @ObservedObject var state: RouteWebState
     let configuration: NativeAppConfiguration
     let activation: Int
+    let selectDestination: (AppDestination) -> Void
     let openExternal: (URL) -> Void
 
-    func makeCoordinator() -> Coordinator { Coordinator(state: state, configuration: configuration, destinationURL: url, openExternal: openExternal) }
+    func makeCoordinator() -> Coordinator { Coordinator(state: state, configuration: configuration, destinationURL: url, selectDestination: selectDestination, openExternal: openExternal) }
 
     func makeUIView(context: Context) -> WKWebView {
         let webConfiguration = WKWebViewConfiguration()
@@ -151,14 +158,16 @@ private struct R12WebView: UIViewRepresentable {
         private let state: RouteWebState
         private let configuration: NativeAppConfiguration
         private let destinationURL: URL
+        private let selectDestination: (AppDestination) -> Void
         private let openExternal: (URL) -> Void
         private var lastURL: URL?
         private var lastActivation: Int?
 
-        init(state: RouteWebState, configuration: NativeAppConfiguration, destinationURL: URL, openExternal: @escaping (URL) -> Void) {
+        init(state: RouteWebState, configuration: NativeAppConfiguration, destinationURL: URL, selectDestination: @escaping (AppDestination) -> Void, openExternal: @escaping (URL) -> Void) {
             self.state = state
             self.configuration = configuration
             self.destinationURL = destinationURL
+            self.selectDestination = selectDestination
             self.openExternal = openExternal
         }
 
@@ -184,6 +193,13 @@ private struct R12WebView: UIViewRepresentable {
                      decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
             guard let url = action.request.url else { decisionHandler(.cancel); return }
             if configuration.allowsEmbeddedNavigation(to: url) {
+                if action.navigationType == .linkActivated,
+                   let selected = configuration.destination(for: url),
+                   configuration.url(for: selected.path) != destinationURL {
+                    decisionHandler(.cancel)
+                    DispatchQueue.main.async { [selectDestination] in selectDestination(selected) }
+                    return
+                }
                 decisionHandler(.allow)
                 return
             }

@@ -15,6 +15,6 @@ export async function ensureGlowZoneCustomerAction() {
     console.warn("glow_customer_setup_failed", { code: error?.code });
     return { ok: false as const, error: error?.code === "23505" ? "We found customer details that need a quick identity check. Please ask Glow Zone reception for help; no existing data has been changed." : "We couldn’t finish setup just now. Please try again or ask Glow Zone reception for help." };
   }
-  revalidatePath("/glow-zone"); revalidatePath("/glow-zone/buy");
+  revalidatePath("/glow-zone"); revalidatePath("/glow-zone/use"); revalidatePath("/glow-zone/buy"); revalidatePath("/account");
   return { ok: true as const };
 }

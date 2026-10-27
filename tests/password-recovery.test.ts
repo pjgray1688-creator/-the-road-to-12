@@ -118,3 +118,13 @@ test("password update remains gated behind the validated recovery state", () => 
   assert.match(component, /Continue to reset password/);
   assert.match(component, /verifyPasswordRecoveryToken/);
 });
+
+test("reset requests and hosted template use the canonical production origin", () => {
+  const account = readFileSync("app/account/page.tsx", "utf8");
+  const template = readFileSync("docs/supabase/supabase-reset-password.html", "utf8");
+  assert.match(account, /R12_CANONICAL_AUTH_ORIGIN/);
+  assert.match(template, /https:\/\/app\.r12\.live\/account\/reset\?token_hash=/);
+  assert.doesNotMatch(template, /the-road-to-12\.vercel\.app|\.SiteURL/);
+  assert.match(template, /color:#111318!important/);
+  assert.match(template, /bgcolor="#ffffff"/);
+});

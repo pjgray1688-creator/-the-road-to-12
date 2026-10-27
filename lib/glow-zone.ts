@@ -1,5 +1,6 @@
 export const GLOW_ZONE_LEGAL_ENTITY = "MADHOUSE PRODUCTS AND SERVICES LIMITED";
 export const GLOW_ZONE_LOCATION = "Madhouse Gym Carlton";
+export const GLOW_ZONE_ORGANISATION_ID = "fa44592a-1593-4ad3-a621-63a4a4bcbceb";
 export const GLOW_SESSION_MINUTES = { min: 1, max: 15 } as const;
 export const GLOW_SESSION_TTL_MINUTES = 5;
 export const glowBedTypes = ["stand_up", "lying_down"] as const;

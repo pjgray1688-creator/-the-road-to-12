@@ -18,7 +18,11 @@ struct NativeAppShell: View {
                     RouteWebScreen(
                         configuration: configuration,
                         destination: destination,
-                        activation: activationByDestination[destination.id, default: 0]
+                        activation: activationByDestination[destination.id, default: 0],
+                        selectDestination: { selected in
+                            guard configuration.scheme == "r12-glowzone", selection != selected.id else { return }
+                            selection = selected.id
+                        }
                     )
                         .navigationTitle(destination.title)
                         .navigationBarTitleDisplayMode(.inline)

@@ -1,5 +1,7 @@
 import { authApps, resolveAuthApp, returnToForApp, type AuthApp } from "@/lib/auth-app";
 
+export const R12_CANONICAL_AUTH_ORIGIN = "https://app.r12.live";
+
 export function safeInternalReturnTo(value: string | null | undefined) {
   if (!value || !value.startsWith("/") || value.startsWith("//") || value.includes("\\") || /^[a-z][a-z0-9+.-]*:/i.test(value)) return undefined;
   return value;

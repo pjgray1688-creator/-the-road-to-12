@@ -108,4 +108,19 @@ struct NativeAppConfiguration {
         }
         return !appValues.isEmpty || !nextValues.isEmpty
     }
+
+    /// Returns a native tab only for an exact configured destination. Auth
+    /// redirects may share a pathname but include different query intent and
+    /// must remain inside the tab that initiated them.
+    func destination(for url: URL) -> AppDestination? {
+        guard scheme == "r12-glowzone", url.scheme == "https", url.host == "app.r12.live" else { return nil }
+        return destinations.first { destination in
+            guard let configured = URLComponents(url: self.url(for: destination.path), resolvingAgainstBaseURL: false),
+                  let candidate = URLComponents(url: url, resolvingAgainstBaseURL: false),
+                  configured.path == candidate.path else { return false }
+            let configuredQuery = (configured.queryItems ?? []).map { "\($0.name)=\($0.value ?? "")" }.sorted()
+            let candidateQuery = (candidate.queryItems ?? []).map { "\($0.name)=\($0.value ?? "")" }.sorted()
+            return configuredQuery == candidateQuery
+        }
+    }
 }
