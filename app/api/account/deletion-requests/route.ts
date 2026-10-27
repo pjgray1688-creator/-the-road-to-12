@@ -2,6 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 import { encryptDeletionAddress } from "@/lib/account-deletion-crypto";
 import { executeAccountDeletion } from "@/lib/account-deletion-executor";
+import { authorizeDeletionExecution, disposableTestNotificationSink } from "@/lib/account-deletion-test-scope";
 import { privacyOperatorFromUser } from "@/lib/privacy-operator";
 import { adminSupabase } from "@/lib/supabase-admin";
 import { serverSupabase } from "@/lib/supabase-server";
@@ -82,9 +83,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(approved.data, { headers: noStore });
     }
 
-    if (process.env.R12_ACCOUNT_DELETION_EXECUTION_ENABLED !== "true") return fail("Account deletion execution is disabled until the disposable-project verification is approved.", 503);
     if (body?.confirmation !== "EXECUTE") return fail("Type EXECUTE to run the approved deletion.", 400);
-    const result = await executeAccountDeletion(admin, requestId, operator.id);
+    const authorization = await authorizeDeletionExecution(admin, requestId, operator.id);
+    if (!authorization) return fail("Account deletion execution is disabled for this account.", 503);
+    const result = await executeAccountDeletion(admin, requestId, operator.id,
+      authorization.mode === "disposable_test"
+        ? { deliver: disposableTestNotificationSink(authorization), expectedUserId: authorization.userId }
+        : {});
     if ((result as { state?: string }).state === "held") return NextResponse.json({ error: "Execution is held by unresolved retention or dependency review.", ...result }, { status: 409, headers: noStore });
     return NextResponse.json(result, { headers: noStore });
   } catch (error) {
@@ -94,6 +99,7 @@ export async function POST(request: NextRequest) {
       storage_removal_failed: "A reviewed Storage object could not be removed. Execution stopped before Auth deletion.",
       auth_identity_deletion_failed: "Eligible data was processed, but Auth identity deletion failed. The request remains incomplete.",
       auth_identity_still_present: "Auth identity removal could not be confirmed. The request remains incomplete.",
+      execution_target_changed: "The approved deletion target changed. Execution stopped before data preparation.",
     };
     return fail(safe[code] ?? "The deletion operation stopped safely and was not marked complete.", 503);
   }

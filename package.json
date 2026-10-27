@@ -13,6 +13,8 @@
     "start": "next start",
     "lint": "eslint .",
     "test": "tsx --test tests/**/*.test.ts",
+    "account-deletion:test-user:check": "node --import tsx scripts/provision-account-deletion-test-user.ts --check",
+    "account-deletion:test-user:provision": "node --import tsx scripts/provision-account-deletion-test-user.ts --provision",
     "exercise-library:validate": "node --import tsx scripts/validate-exercise-library.ts",
     "exercise-guides:validate": "node --import tsx scripts/validate-exercise-guides.ts",
     "active-sports:dry-run": "tsx scripts/active-sports-dry-run.ts",

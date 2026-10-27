@@ -12,7 +12,7 @@ service. Provider and service cancellation remains in its authorised workflow.
 3. Configure a stable 32-byte base64 `R12_PRIVACY_NOTIFICATION_ENCRYPTION_KEY`. Store and rotate it as a production secret; an unplanned rotation makes pending addresses unreadable.
 4. Configure authenticated TLS SMTP and the platform-neutral privacy sender. Verify delivery out of band without logging recipient addresses.
 5. Keep service-role credentials server-only. The browser never receives deletion RPC grants, Storage credentials, or Auth Admin access.
-6. Keep `R12_ACCOUNT_DELETION_EXECUTION_ENABLED=false` until the disposable-project test evidence is approved. Set it to `true` only in the separately authorised production release step.
+6. Keep `R12_ACCOUNT_DELETION_EXECUTION_ENABLED=false` until the complete evidence is approved. A production disposable-account exercise may use only the exact UUID/run-ID scope documented in `account-deletion-disposable-test.md`; this does not enable any other account. Set the global flag to `true` only in a separately authorised release step.
 
 ## Operator procedure
 
@@ -30,10 +30,11 @@ reauthenticated operator action. If ciphertext expires before delivery, stop and
 use the approved privacy incident/recovery process rather than copying an address
 from logs or inferring identity from email.
 
-## Mandatory pre-production verification
+## Mandatory verification
 
-Use a disposable Supabase project restored to the production migration ledger.
-Test unlinked and linked Glow customers, an ordinary member, a staff identity
+First use a disposable Supabase project restored to the production migration ledger.
+Then use the separately authorised, exact-UUID production disposable procedure
+without enabling general execution. Test unlinked and linked Glow customers, an ordinary member, a staff identity
 with retained audit references, an account with Storage objects, and two unrelated
 control users. Confirm exact-UUID deletion, control-user digests/counts unchanged,
 membership/payment records preserved, Auth sessions invalidated, failure recovery,
@@ -41,6 +42,7 @@ idempotent explicit retry, and receipt of the completion message. Record operato
 names, plan hash, request/event IDs, timestamps, and the SMTP provider reference;
 never record the recipient address or credentials.
 
-The executor must remain disabled in production until the production dependency
+The executor must remain globally disabled until the production dependency
 inventory has been reviewed, all legitimate `hold` decisions have owners, two
-operators and SMTP are configured, and this disposable-project exercise passes.
+operators and SMTP are configured, and the disposable exercises pass. The
+reserved-address test sink is durable test evidence, not proof of live SMTP.

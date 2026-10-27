@@ -11,11 +11,12 @@ export async function executeAccountDeletion(
   admin: SupabaseClient,
   requestId: string,
   operatorId: string,
-  dependencies: { deliver?: typeof deliverNotification } = {},
+  dependencies: { deliver?: typeof deliverNotification; expectedUserId?: string } = {},
 ) {
   const secretResult = await admin.rpc("r12_get_account_deletion_execution_secret", { p_request_id: requestId, p_operator_id: operatorId });
   if (secretResult.error || !secretResult.data) throw new Error("execution_secret_unavailable");
   const secret = secretResult.data as ExecutionSecret;
+  if (dependencies.expectedUserId && secret.user_id !== dependencies.expectedUserId) throw new Error("execution_target_changed");
   if (new Date(secret.notification_expires_at).getTime() <= Date.now()) throw new Error("notification_address_expired");
   const notificationAddress = decryptDeletionAddress(secret.notification_ciphertext);
 

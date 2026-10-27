@@ -53,6 +53,13 @@ test("approved execution removes reviewed storage, Auth identity, validates, not
   assert.ok(calls.indexOf("r12_claim_account_deletion_notification") < calls.indexOf("r12_complete_account_deletion"));
 });
 
+test("a scoped execution stops before preparation if the approved target changes", async () => {
+  const { admin, calls } = fakeAdmin();
+  await assert.rejects(() => executeAccountDeletion(admin, requestId, operatorId, { expectedUserId: "99999999-9999-4999-8999-999999999999" }), /execution_target_changed/);
+  assert.equal(calls.includes("r12_prepare_account_deletion"), false);
+  assert.equal(calls.some(call => call.startsWith("auth.delete")), false);
+});
+
 test("a dependency hold performs no Storage or Auth deletion", async () => {
   const { admin, calls } = fakeAdmin({ held: true });
   const result = await executeAccountDeletion(admin, requestId, operatorId);
@@ -111,11 +118,13 @@ test("operator route requires server allowlist, fresh password and independent R
   assert.match(route, /r12_approve_account_deletion/);
   assert.match(route, /email_confirmed_at/);
   assert.match(route, /executeAccountDeletion/);
-  assert.match(route, /R12_ACCOUNT_DELETION_EXECUTION_ENABLED !== "true"/);
+  assert.match(route, /authorizeDeletionExecution/);
+  assert.match(route, /disposableTestNotificationSink/);
+  assert.match(route, /expectedUserId: authorization\.userId/);
   assert.doesNotMatch(route, /body.*role/i);
 });
 
-test("operations runbook requires disposable-project cross-account and member\/staff verification", () => {
+test("operations runbook requires disposable cross-account and member\/staff verification", () => {
   assert.match(runbook, /disposable Supabase project/);
   assert.match(runbook, /linked Glow customers/);
   assert.match(runbook, /staff identity/);
