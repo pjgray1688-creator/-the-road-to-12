@@ -199,7 +199,6 @@ private struct R12WebView: UIViewRepresentable {
             let rejectionReason = configuration.embeddedNavigationRejectionReason(for: url)
             if rejectionReason == nil {
                 if action.targetFrame?.isMainFrame != false,
-                   action.navigationType == .linkActivated,
                    let selected = configuration.destination(for: url),
                    configuration.url(for: selected.path) != destinationURL {
                     decisionHandler(.cancel)

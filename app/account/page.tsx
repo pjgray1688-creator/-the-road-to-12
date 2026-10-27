@@ -43,7 +43,7 @@ export default function AccountPage() {
         <p><strong>Name</strong></p>
         <p>{[account.profile?.first_name, account.profile?.last_name].filter(Boolean).join(" ") || "Not provided"}</p>
       </section>
-      {glowCustomerState === "unlinked" ? <section className="glow-account-section"><GlowZoneAccountSetup continueTo="/account?app=glow&next=%2Fglow-zone" onReady={refresh} /></section> : glowCustomerState === "unavailable" ? <section className="glow-account-section"><h2>Glow Zone temporarily unavailable</h2><p className="muted">We couldn’t load your Glow Zone customer details. No account, membership or minutes have been changed.</p></section> : <section className="glow-account-section">
+      {glowCustomerState === "unlinked" || glowCustomerState === "unavailable" ? <section className="glow-account-section"><GlowZoneAccountSetup /></section> : <section className="glow-account-section">
         <span className="eyebrow">AGE VERIFICATION</span>
         <p className={`glow-age-state glow-age-${ageStatus}`}>{ageStatus === "verified" ? "Verified — 18 or over" : ageStatus === "under_18" ? "Not eligible for sunbed use" : ageStatus === "unavailable" ? "Status temporarily unavailable" : "Verification required at reception"}</p>
         <p className="muted">Sunbed use is restricted to customers aged 18 or over. Staff verify eligibility before approving a session.</p>

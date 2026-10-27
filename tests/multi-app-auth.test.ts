@@ -36,6 +36,7 @@ test("confirmation is server verified and templates are product branded", () => 
 
 test("Glow Zone setup preserves records and grants no membership or credit", () => {
   const action = readFileSync("app/glow-zone/actions.ts", "utf8");
+  const setup = readFileSync("components/glow-zone-account-setup.tsx", "utf8");
   const migration = readFileSync("supabase/migrations/2027-01-21-glow-customer-self-registration.sql", "utf8");
   const runner = readFileSync("scripts/apply-madhouse-schema.sh", "utf8");
   assert.match(migration, /email_confirmed_at/);
@@ -46,7 +47,14 @@ test("Glow Zone setup preserves records and grants no membership or credit", () 
   assert.match(migration, /from public,anon,authenticated/);
   assert.match(runner, /2027-01-21-glow-customer-self-registration\.sql/);
   assert.match(action, /resolveGlowZoneCustomerContext/);
+  assert.match(action, /user\?\.email_confirmed_at/);
+  assert.ok(action.indexOf('context.state === "ready"') < action.indexOf('client.rpc("club_glow_ensure_customer"'));
   assert.doesNotMatch(action, /ensureGlowZoneCustomerAction\(organisationId/);
+  assert.match(setup, /useEffect/);
+  assert.match(setup, /ensureGlowZoneCustomerAction\(\)/);
+  assert.match(setup, /window\.location\.replace\("\/glow-zone"\)/);
+  assert.match(setup, />Try again</);
+  assert.doesNotMatch(setup, /Set up Glow Zone|Finish setting up Glow Zone/);
 });
 
 test("Glow native navigation is route scoped and restores each selected tab", () => {
@@ -61,7 +69,7 @@ test("Glow native navigation is route scoped and restores each selected tab", ()
   assert.match(nativeShell, /activationByDestination/);
   assert.match(nativeShell, /selectDestination/);
   assert.match(shell, /configuration\.embeddedNavigationRejectionReason/);
-  assert.match(shell, /navigationType == \.linkActivated/);
+  assert.doesNotMatch(shell, /navigationType == \.linkActivated[\s\S]*configuration\.destination\(for: url\)/);
   assert.match(shell, /configuration\.destination\(for: url\)/);
   assert.match(shell, /lastRequestedURL != url/);
   assert.doesNotMatch(shell, /lastRequestedURL = webView\.url/);
@@ -121,7 +129,7 @@ test("password recovery supports click-gated OTP and one-time PKCE on the brande
   assert.doesNotMatch(recoveryTemplate, /\.ConfirmationURL/);
 });
 
-test("all Glow destinations retain their own setup state instead of redirecting to Home", () => {
+test("all Glow destinations retain a retry state until automatic setup can return Home", () => {
   const home = readFileSync("app/glow-zone/page.tsx", "utf8");
   const use = readFileSync("app/glow-zone/use/page.tsx", "utf8");
   const buy = readFileSync("app/glow-zone/buy/page.tsx", "utf8");
@@ -133,6 +141,31 @@ test("all Glow destinations retain their own setup state instead of redirecting 
   assert.doesNotMatch(buy, /context\.state !== "ready"\) redirect\("\/glow-zone"\)/);
   assert.match(accountApi, /customerState: "unlinked"/);
   assert.match(accountApi, /customerState: "unavailable"/);
+});
+
+test("Glow first login auto-links, returns Home, and later Account navigation stays Account", () => {
+  const account = readFileSync("app/account/page.tsx", "utf8");
+  const setup = readFileSync("components/glow-zone-account-setup.tsx", "utf8");
+  const nav = readFileSync("components/glow-zone-nav.tsx", "utf8");
+  const configuration = readFileSync("ios/Shared/AppConfiguration.swift", "utf8");
+  const shell = readFileSync("ios/Shared/RouteWebScreen.swift", "utf8");
+  assert.match(account, /glowCustomerState === "unlinked" \|\| glowCustomerState === "unavailable"/);
+  assert.match(setup, /started\.current/);
+  assert.match(setup, /Existing minutes, loyalty and purchase history will be preserved/);
+  assert.match(setup, /window\.location\.replace\("\/glow-zone"\)/);
+  assert.match(nav, /<a key=\{item\.id\} href=\{item\.href\}/);
+  assert.match(configuration, /AppDestination\(title: "Account", path: "\/account\?app=glow&next=%2Fglow-zone"/);
+  assert.match(shell, /action\.targetFrame\?\.isMainFrame != false,[\s\S]*configuration\.destination\(for: url\)/);
+});
+
+test("account deletion confirmation is constrained to the iPhone viewport", () => {
+  const page = readFileSync("app/account/delete/page.tsx", "utf8");
+  const css = readFileSync("app/globals.css", "utf8");
+  assert.match(page, /account-deletion-page/);
+  assert.match(css, /\.account-deletion-page\{[^}]*width:100%;[^}]*min-width:0;[^}]*overflow-x:hidden/);
+  assert.match(css, /\.account-deletion-page :where\(p,a,label,\.eyebrow,h1\)\{overflow-wrap:anywhere\}/);
+  assert.match(css, /\.account-deletion-request input\{[^}]*min-width:0;[^}]*max-width:100%/);
+  assert.match(css, /\.account-deletion-request button\{[^}]*width:100%;[^}]*white-space:normal/);
 });
 
 test("verification success requires a confirmed server-authenticated user", () => {
