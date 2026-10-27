@@ -8,7 +8,7 @@ import { londonDateKey, type ScheduleEvent } from "@/lib/club-scheduling";
 
 export default async function CoachPage({ searchParams }: { searchParams?: Promise<{ client?: string; section?: string }> }) {
   const { client, user } = await authenticatedServerClient();
-  if (!user) return <main className="shell"><section className="card"><span className="eyebrow">R12 COACH</span><h1>SIGN IN TO R12 COACH</h1><p>Use your R12 account to open your Coach workspace.</p><Link className="primary" href="/account?next=%2Fcoach">Sign in</Link></section></main>;
+  if (!user) return <main className="shell"><section className="card"><span className="eyebrow">R12 COACH</span><h1>SIGN IN TO R12 COACH</h1><p>Use your R12 account to open your Coach workspace.</p><Link className="primary" href="/account?app=coach&next=%2Fcoach">Sign in</Link></section></main>;
   const [{ data, error }, { data: pending, error: pendingError }, { data: contexts, error: contextError }, clubContexts] = await Promise.all([
     client.rpc("coach_list_clients"),
     client.rpc("coach_list_pending_relationships"),

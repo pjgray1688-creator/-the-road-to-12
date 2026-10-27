@@ -9,7 +9,7 @@ import { serverSupabase } from "@/lib/supabase-server";
 import { resolveClubOrganisationContext } from "@/lib/club-server-context";
 
 export default async function ClubMemberImportPage({ searchParams }: { searchParams?: Promise<{ org?: string }> }) {
-  const supabase=await serverSupabase(); const {data:{user}}=await supabase.auth.getUser(); if(!user) redirect("/account?mode=signIn"); const context=await resolveClubOrganisationContext(supabase,user.id,(await searchParams)?.org);
+  const supabase=await serverSupabase(); const {data:{user}}=await supabase.auth.getUser(); if(!user) redirect("/account?app=club&mode=signIn"); const context=await resolveClubOrganisationContext(supabase,user.id,(await searchParams)?.org);
   if(!context || !(await context.repository.hasCapability(context.organisation.id,user.id,"members.import"))) return <AppShell className="module-page club-page"><PageHeader eyebrow="R12 CLUB · MEMBERS" title="Member import" description="Owner-authorised ClubManager migration." /><EmptyState title="Import access required">Only authorised owners or managers can stage a member migration.</EmptyState><AppNav/></AppShell>;
   const products = await context.repository.listProducts(context.organisation.id, true);
   const membershipProducts = products.filter(product => product.kind === "membership" && !product.archivedAt).map(product => ({ id: product.id, name: product.name, isLifetime: product.isLifetime === true }));

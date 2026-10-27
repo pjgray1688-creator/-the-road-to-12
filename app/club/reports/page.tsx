@@ -9,7 +9,7 @@ import { summariseReconciliation, type ReconciliationOrder, type ReconciliationP
 export default async function ClubReportsPage({ searchParams }: { searchParams?: Promise<{ org?: string }> }) {
   const client = await serverSupabase();
   const { data: { user } } = await client.auth.getUser();
-  if (!user) redirect("/account?mode=signIn");
+  if (!user) redirect("/account?app=club&mode=signIn");
   const context = await resolveClubOrganisationContext(client, user.id, (await searchParams)?.org);
   if (!context || !["owner", "gym_admin"].includes(context.role) || !(await context.repository.hasCapability(context.organisation.id, user.id, "cash.reconcile"))) {
     return <AppShell className="module-page club-page"><PageHeader eyebrow="R12 CLUB · FINANCE" title="Reports" /><EmptyState title="Reporting access required">Reports are limited to authorised Club managers.</EmptyState><AppNav /></AppShell>;

@@ -22,14 +22,21 @@ private final class RouteWebState: ObservableObject {
 struct RouteWebScreen: View {
     let configuration: NativeAppConfiguration
     let destination: AppDestination
+    let activation: Int
+    let selectDestination: (AppDestination) -> Void
     @StateObject private var state = RouteWebState()
     @State private var safariURL: URL?
 
     var body: some View {
         ZStack {
-            R12WebView(url: configuration.url(for: destination.path), state: state) { url in
-                safariURL = url
-            }
+            R12WebView(
+                url: configuration.url(for: destination.path),
+                state: state,
+                configuration: configuration,
+                activation: activation,
+                selectDestination: selectDestination,
+                openExternal: { url in safariURL = url }
+            )
             .overlay(alignment: .top) {
                 if state.isLoading && state.errorMessage == nil {
                     ProgressView()
@@ -106,14 +113,28 @@ private struct SafariView: UIViewControllerRepresentable {
 private struct R12WebView: UIViewRepresentable {
     let url: URL
     @ObservedObject var state: RouteWebState
+    let configuration: NativeAppConfiguration
+    let activation: Int
+    let selectDestination: (AppDestination) -> Void
     let openExternal: (URL) -> Void
 
-    func makeCoordinator() -> Coordinator { Coordinator(state: state, openExternal: openExternal) }
+    func makeCoordinator() -> Coordinator { Coordinator(state: state, configuration: configuration, destinationURL: url, selectDestination: selectDestination, openExternal: openExternal) }
 
     func makeUIView(context: Context) -> WKWebView {
         let webConfiguration = WKWebViewConfiguration()
         webConfiguration.websiteDataStore = .default()
+        if configuration.scheme == "r12-glowzone" {
+            let nativeStyle = WKUserScript(
+                source: "document.documentElement.classList.add('r12-glow-native')",
+                injectionTime: .atDocumentStart,
+                forMainFrameOnly: false
+            )
+            webConfiguration.userContentController.addUserScript(nativeStyle)
+        }
         let webView = WKWebView(frame: .zero, configuration: webConfiguration)
+        if configuration.scheme == "r12-glowzone" {
+            webView.customUserAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1 R12GlowZoneIOS"
+        }
         webView.navigationDelegate = context.coordinator
         webView.allowsBackForwardNavigationGestures = true
         webView.isOpaque = false
@@ -125,30 +146,46 @@ private struct R12WebView: UIViewRepresentable {
         refreshControl.addTarget(context.coordinator, action: #selector(Coordinator.refresh), for: .valueChanged)
         webView.scrollView.refreshControl = refreshControl
         state.webView = webView
-        context.coordinator.load(url, into: webView)
+        context.coordinator.load(url, activation: activation, into: webView)
         return webView
     }
 
     func updateUIView(_ webView: WKWebView, context: Context) {
-        context.coordinator.load(url, into: webView)
+        context.coordinator.load(url, activation: activation, into: webView)
     }
 
     final class Coordinator: NSObject, WKNavigationDelegate {
         private let state: RouteWebState
+        private let configuration: NativeAppConfiguration
+        private let destinationURL: URL
+        private let selectDestination: (AppDestination) -> Void
         private let openExternal: (URL) -> Void
-        private var lastURL: URL?
+        // This tracks only requests issued by SwiftUI. It must not be replaced
+        // with webView.url after a redirect: published navigation state causes
+        // updateUIView to run again, and comparing the redirected URL with the
+        // tab destination would otherwise restart the request indefinitely.
+        private var lastRequestedURL: URL?
+        private var lastActivation: Int?
 
-        init(state: RouteWebState, openExternal: @escaping (URL) -> Void) {
+        init(state: RouteWebState, configuration: NativeAppConfiguration, destinationURL: URL, selectDestination: @escaping (AppDestination) -> Void, openExternal: @escaping (URL) -> Void) {
             self.state = state
+            self.configuration = configuration
+            self.destinationURL = destinationURL
+            self.selectDestination = selectDestination
             self.openExternal = openExternal
         }
 
-        func load(_ url: URL, into webView: WKWebView) {
-            guard lastURL != url else { return }
-            lastURL = url
-            state.errorMessage = nil
-            state.isLoading = true
-            state.shareURL = nil
+        func load(_ url: URL, activation: Int, into webView: WKWebView) {
+            let activatedAgain = lastActivation != nil && lastActivation != activation
+            guard activatedAgain || lastRequestedURL != url else { return }
+            lastActivation = activation
+            lastRequestedURL = url
+            DispatchQueue.main.async { [weak self] in
+                guard let self, self.lastRequestedURL == url else { return }
+                self.state.errorMessage = nil
+                self.state.isLoading = true
+                self.state.shareURL = nil
+            }
             webView.load(URLRequest(url: url, cachePolicy: .useProtocolCachePolicy, timeoutInterval: 30))
         }
 
@@ -159,9 +196,34 @@ private struct R12WebView: UIViewRepresentable {
         func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction,
                      decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
             guard let url = action.request.url else { decisionHandler(.cancel); return }
-            if url.scheme == "https", url.host == "app.r12.live",
-               url.user == nil, url.password == nil, url.port == nil || url.port == 443 {
+            let rejectionReason = configuration.embeddedNavigationRejectionReason(for: url)
+            if rejectionReason == nil {
+                if action.targetFrame?.isMainFrame != false,
+                   let selected = configuration.destination(for: url),
+                   configuration.url(for: selected.path) != destinationURL {
+                    decisionHandler(.cancel)
+                    DispatchQueue.main.async { [selectDestination] in selectDestination(selected) }
+                    return
+                }
                 decisionHandler(.allow)
+                return
+            }
+            if url.scheme == "https", url.host?.lowercased() == "app.r12.live", configuration.scheme == "r12-glowzone" {
+#if DEBUG
+                Self.logRejectedGlowNavigation(url: url, action: action, reason: rejectionReason ?? "unknown")
+#endif
+                decisionHandler(.cancel)
+                // Never replace the main page because a disallowed iframe was
+                // rejected, and never force-reload a rejected redirect into a
+                // cancellation loop. A tab reactivation remains the explicit
+                // way to restore its configured destination.
+                if action.targetFrame?.isMainFrame != false {
+                    state.isLoading = false
+                    webView.scrollView.refreshControl?.endRefreshing()
+                    if webView.url == nil {
+                        state.errorMessage = "This page isn’t available in Glow Zone. Select the tab again to retry."
+                    }
+                }
                 return
             }
             if action.targetFrame == nil, url.scheme == "https" {
@@ -181,6 +243,28 @@ private struct R12WebView: UIViewRepresentable {
             }
             decisionHandler(.cancel)
         }
+
+#if DEBUG
+        private static func logRejectedGlowNavigation(url: URL, action: WKNavigationAction, reason: String) {
+            let path = diagnosticPath(url.path)
+            let mainFrame = action.targetFrame?.isMainFrame != false
+            print("[GlowZoneNavigation] rejected path=\(path) navigationType=\(action.navigationType.rawValue) mainFrame=\(mainFrame) reason=\(reason)")
+        }
+
+        private static func diagnosticPath(_ path: String) -> String {
+            let safePaths: Set<String> = [
+                "/", "/account", "/account/verify", "/account/reset", "/account/delete",
+                "/auth/callback", "/auth/confirm", "/auth/verify", "/terms",
+                "/glow-zone", "/glow-zone/use", "/glow-zone/buy", "/glow-zone/privacy",
+                "/training", "/club", "/coach"
+            ]
+            if safePaths.contains(path) { return path }
+            if path.hasPrefix("/training/") { return "/training/<redacted>" }
+            if path.hasPrefix("/club/") { return "/club/<redacted>" }
+            if path.hasPrefix("/coach/") { return "/coach/<redacted>" }
+            return "/<redacted>"
+        }
+#endif
 
         func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
             state.isLoading = true
@@ -211,7 +295,15 @@ private struct R12WebView: UIViewRepresentable {
 
         private func fail(_ error: Error, in webView: WKWebView) {
             let nsError = error as NSError
-            guard nsError.code != NSURLErrorCancelled else { return }
+            if nsError.code == NSURLErrorCancelled {
+                // A superseding request keeps WebKit loading. A cancellation
+                // with no replacement must still clear the native spinner.
+                if !webView.isLoading {
+                    state.isLoading = false
+                    webView.scrollView.refreshControl?.endRefreshing()
+                }
+                return
+            }
             state.isLoading = false
             state.errorMessage = "Check your connection and try again."
             state.canGoBack = webView.canGoBack

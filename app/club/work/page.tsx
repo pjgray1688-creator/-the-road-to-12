@@ -8,7 +8,7 @@ import { submitShiftAction, submitWorkAction, reviewWorkAction } from "./actions
 import { MEMBER_PT_TYPES } from "@/lib/club-work-types";
 
 export default async function ClubWorkPage({ searchParams }: { searchParams?: Promise<{ org?: string }> }) {
-  const client = await serverSupabase(); const { data: { user } } = await client.auth.getUser(); if (!user) redirect("/account?mode=signIn"); const context = await resolveClubOperationalContext(client, user.id, (await searchParams)?.org);
+  const client = await serverSupabase(); const { data: { user } } = await client.auth.getUser(); if (!user) redirect("/account?app=club&mode=signIn"); const context = await resolveClubOperationalContext(client, user.id, (await searchParams)?.org);
   if (!context) return <AppShell className="module-page club-page"><PageHeader eyebrow="R12 CLUB" title="My Work" /><EmptyState title="Club staff access required">Your own work submissions are available to authorised Club staff.</EmptyState><AppNav /></AppShell>;
   const { data } = await client.rpc("club_finance_list_work", { p_organisation_id: context.organisation.id, p_staff_user_id: context.role === "gym_admin" || context.role === "owner" ? null : user.id }); const rows = Array.isArray(data) ? data as Array<Record<string, unknown>> : []; const manager = context.role === "gym_admin" || context.role === "owner";
   const hidden = <input type="hidden" name="organisationId" value={context.organisation.id}/>;

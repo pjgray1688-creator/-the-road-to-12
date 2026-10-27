@@ -8,7 +8,7 @@ import { serverSupabase } from "@/lib/supabase-server";
 import { londonDateKey, type ScheduleEvent, type WeeklyWorkingHours } from "@/lib/club-scheduling";
 
 export default async function ClubSchedulePage({ searchParams }: { searchParams?: Promise<{ org?: string; date?: string }> }) {
-  const supabase=await serverSupabase();const {data:{user}}=await supabase.auth.getUser();if(!user)redirect("/account?mode=signIn");
+  const supabase=await serverSupabase();const {data:{user}}=await supabase.auth.getUser();if(!user)redirect("/account?app=club&mode=signIn");
   const params=await searchParams;const context=await resolveClubOrganisationContext(supabase,user.id,params?.org);
   if(!context||!["trainer","gym_staff","gym_admin","owner"].includes(context.role))return <AppShell className="module-page"><PageHeader eyebrow="R12 CLUB" title="Schedule"/><EmptyState title="Schedule access required">Choose an organisation where you have an active Club role.</EmptyState><BackButton href="/club">Back to Club</BackButton><AppNav/></AppShell>;
   const requestedDate=params?.date&&/^\d{4}-\d{2}-\d{2}$/.test(params.date)?params.date:londonDateKey(new Date());const anchor=new Date(`${requestedDate}T12:00:00Z`);const from=new Date(anchor.getTime()-28*86400000).toISOString();const to=new Date(anchor.getTime()+28*86400000).toISOString();

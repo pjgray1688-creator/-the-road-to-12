@@ -51,7 +51,7 @@ async function loadClasses(supabase: Awaited<ReturnType<typeof serverSupabase>>,
 
 export default async function ClubClassesPage({ searchParams }: { searchParams?: Promise<{ org?: string }> }) {
   const supabase = await serverSupabase(); const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/account?mode=signIn");
+  if (!user) redirect("/account?app=club&mode=signIn");
   let loaded: Awaited<ReturnType<typeof loadClasses>> | undefined;
   let failed = false;
   try {

@@ -43,7 +43,7 @@ test("account and Member Area are direct destinations while programme setup is e
 test("Home and Back to R12 return to Training, never the Gym Member Area", () => {
   assert.match(read("components/app-nav.tsx"), /href: "\/", label: "Home"/);
   assert.match(read("components/ui.tsx"), /member-hub-page[\s\S]*href=\"\/\"/);
-  assert.match(read("app/auth/callback/page.tsx"), /\) \?\? "\/"/);
+  assert.match(read("app/auth/callback/page.tsx"), /authDestination\(await searchParams, true\)/);
 });
 
 test("flexible availability remains unspecific and duplicate flexible questionnaire answers are removed", () => {

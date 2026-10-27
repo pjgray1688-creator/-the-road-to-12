@@ -65,7 +65,7 @@ export default async function ClubShopPage({ searchParams }: { searchParams?: Pr
     if (params?.view) query.set("view", params.view);
     if (params?.supplierDebug) query.set("supplierDebug", params.supplierDebug);
     const returnTo = `/club/shop${query.toString() ? `?${query.toString()}` : ""}`;
-    redirect(`/account?mode=signIn&next=${encodeURIComponent(returnTo)}`);
+    redirect(`/account?app=club&mode=signIn&next=${encodeURIComponent(returnTo)}`);
   }
   let loaded; try { loaded = await loadShop(client, user.id, params?.org, params?.location); } catch { loaded = "error" as const; }
   if (loaded === "error") return <AppShell className="module-page club-shop-page"><PageHeader eyebrow="R12 CLUB" title="Shop" description="Commerce is temporarily unavailable." /><EmptyState title="Shop couldn’t be loaded.">Try again shortly.</EmptyState><BackButton href="/club">Back to Club</BackButton><AppNav /></AppShell>;

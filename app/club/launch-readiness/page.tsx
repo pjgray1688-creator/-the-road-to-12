@@ -13,7 +13,7 @@ const stateLabel = { configured: "Configured", missing: "Missing", invalid: "Inv
 export default async function ClubLaunchReadinessPage({ searchParams }: { searchParams?: Promise<{ org?: string }> }) {
   const client = await serverSupabase();
   const { data: { user } } = await client.auth.getUser();
-  if (!user) redirect("/account?mode=signIn&next=%2Fclub%2Flaunch-readiness");
+  if (!user) redirect("/account?app=club&mode=signIn&next=%2Fclub%2Flaunch-readiness");
   const context = await resolveClubOrganisationContext(client, user.id, (await searchParams)?.org);
   if (!context || !["owner", "gym_admin"].includes(context.role)) return <AppShell className="module-page club-page"><PageHeader eyebrow="R12 CLUB" title="Launch readiness"/><EmptyState title="Admin access required">Only authorised Club administrators can inspect deployment configuration status.</EmptyState><AppNav/></AppShell>;
   const checks = launchReadiness();

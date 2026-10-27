@@ -7,7 +7,7 @@ import { serverSupabase } from "@/lib/supabase-server";
 import { resolveClubOperationalContext } from "@/lib/club-server-context";
 
 export default async function ClubChecksPage({ searchParams }: { searchParams?: Promise<{ org?: string; location?: string }> }) {
-  const client = await serverSupabase(); const { data: { user } } = await client.auth.getUser(); if (!user) redirect("/account?mode=signIn&next=%2Fclub%2Fchecks");
+  const client = await serverSupabase(); const { data: { user } } = await client.auth.getUser(); if (!user) redirect("/account?app=club&mode=signIn&next=%2Fclub%2Fchecks");
   const params = await searchParams; const context = await resolveClubOperationalContext(client, user.id, params?.org);
   if (!context) return <AppShell className="module-page club-page"><PageHeader eyebrow="R12 CLUB" title="Daily checks" /><EmptyState title="Club staff access required">Daily venue checks are available to authorised staff only.</EmptyState><AppNav /></AppShell>;
   const [locations, canSubmit, canReview] = await Promise.all([context.repository.listLocations(context.organisation.id), context.repository.hasCapability(context.organisation.id, user.id, "staff.work_submit"), context.repository.hasCapability(context.organisation.id, user.id, "staff.work_review")]);

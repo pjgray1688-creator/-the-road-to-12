@@ -7,7 +7,7 @@ const read = (path: string) => readFileSync(path, "utf8");
 const account = read("app/account/page.tsx");
 const verify = read("components/verify-account-client.tsx");
 const verifyPage = read("app/account/verify/page.tsx");
-const callback = read("app/auth/callback/page.tsx");
+const callback = read("components/auth-callback-client.tsx");
 const claim = read("app/club/staff/claim/page.tsx");
 const memberLink = read("app/member-hub/link/page.tsx");
 const claimMigration = read("supabase/migrations/2026-12-27-staff-claim-context.sql");
@@ -16,28 +16,28 @@ test("staff claim destination preserves the exact grant through signup and the S
   const grant = "a1234567-1234-4234-8234-123456789abc";
   const destination = `/club/staff/claim?grant=${grant}`;
   assert.equal(staffClaimReturnTo(grant), destination);
-  assert.equal(authCallbackUrl("https://r12.live", destination), `https://r12.live/auth/callback?next=${encodeURIComponent(destination)}`);
+  assert.equal(authCallbackUrl("https://r12.live", destination), `https://r12.live/auth/callback?app=club&next=${encodeURIComponent(destination)}`);
   assert.match(claim, /staffClaimReturnTo\(grantId\)/);
   assert.match(claim, /mode=signIn&next=/);
-  assert.match(account, /emailRedirectTo: authCallbackUrl\(appBaseUrl, next\)/);
-  assert.match(callback, /safeInternalReturnTo/);
-  assert.match(callback, /router\.replace\(next\)/);
+  assert.match(account, /emailRedirectTo: authCallbackUrl\(appBaseUrl, context\.next, context\.app\)/);
+  assert.match(read("app/auth/callback/page.tsx"), /authDestination/);
+  assert.match(callback, /window\.location\.replace\(next\)/);
   assert.equal(safeInternalReturnTo("https://evil.example/"), undefined);
 });
 
 test("new-account verification is explicit, resend keeps the original safe destination", () => {
-  assert.match(account, /router\.replace\(`\/account\/verify\?next=/);
+  assert.match(account, /router\.replace\(`\/account\/verify\?app=\$\{context\.app\}&next=/);
   assert.match(verify, /Check your email/i);
-  assert.match(verify, /Your Madhouse staff access is waiting/);
+  assert.match(verify, /Your Club staff access is waiting/);
   assert.match(verify, /auth\.resend\(\{ type: "signup"/);
-  assert.match(verify, /authCallbackUrl\(window\.location\.origin, next\)/);
+  assert.match(verify, /authCallbackUrl\(window\.location\.origin, next, app\)/);
   assert.match(verify, /Use a different email/);
   assert.match(verify, /junk or spam/);
-  assert.match(verifyPage, /safeInternalReturnTo\(params\.next\)/);
+  assert.match(verifyPage, /authDestination\(params, true\)/);
 });
 
 test("sign-in returns to its requested destination without forcing optional programme onboarding", () => {
-  assert.match(account, /else router\.push\(next \?\? \(window\.location\.hostname === "r12\.live" \? "\/member-hub" : "\/"\)\)/);
+  assert.match(account, /else window\.location\.replace\(context\.next\)/);
   assert.doesNotMatch(account, /authMode === "signIn"[^;]*router\.replace\("\/onboarding"\)/);
 });
 
@@ -58,6 +58,6 @@ test("staff claim shows verified-email activation and a role-aware success state
 test("member activation keeps its member-link return destination and normal signups retain onboarding", () => {
   assert.match(memberLink, /mode=signIn/);
   assert.match(memberLink, /%2Fmember-hub%2Flink/);
-  assert.match(account, /authCallbackUrl\(appBaseUrl, next\)/);
-  assert.match(account, /next \?\? "\/onboarding"/);
+  assert.match(account, /authCallbackUrl\(appBaseUrl, context\.next, context\.app\)/);
+  assert.match(account, /authDestination\([^;]+mode === "signUp"\)/);
 });

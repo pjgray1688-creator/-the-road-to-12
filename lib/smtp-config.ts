@@ -8,7 +8,7 @@ export type SmtpConfiguration = {
   requireTLS: boolean;
   username: string;
   password: string;
-  from: Record<"members" | "staff" | "billing", { address: string; name: string }>;
+  from: Record<"members" | "staff" | "billing", { address: string; name: string }> & Partial<Record<"privacy", { address: string; name: string }>>;
 };
 
 const validAddress = (value: string) => value.length <= 254 && /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(value) && !/[\r\n]/.test(value);
@@ -52,6 +52,7 @@ export function inspectSmtpConfiguration(env: NodeJS.ProcessEnv = process.env) {
     members: { address: env.R12_EMAIL_FROM_MEMBERS?.trim() || "members@r12.live", name: env.R12_EMAIL_FROM_NAME_MEMBERS?.trim() || "R12 · Madhouse" },
     staff: { address: env.R12_EMAIL_FROM_STAFF?.trim() || "staff@r12.live", name: env.R12_EMAIL_FROM_NAME_STAFF?.trim() || "R12 · Madhouse Staff" },
     billing: { address: env.R12_EMAIL_FROM_BILLING?.trim() || "madhouse.accounts@r12.live", name: env.R12_EMAIL_FROM_NAME_BILLING?.trim() || "Madhouse Accounts · R12" },
+    privacy: { address: env.R12_EMAIL_FROM_PRIVACY?.trim() || "privacy@r12.live", name: env.R12_EMAIL_FROM_NAME_PRIVACY?.trim() || "R12" },
   };
   const senders = Object.entries(senderInputs).map(([key, sender]) => field(
     `smtpSender${key[0].toUpperCase()}${key.slice(1)}`,

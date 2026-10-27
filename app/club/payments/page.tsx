@@ -10,7 +10,7 @@ import { ClubVoidOrder } from "@/components/club-void-order";
 export default async function ClubPaymentsPage({ searchParams }: { searchParams?: Promise<{ org?: string; from?: string; to?: string; location?: string }> }) {
   const client = await serverSupabase();
   const { data: { user } } = await client.auth.getUser();
-  if (!user) redirect("/account?mode=signIn");
+  if (!user) redirect("/account?app=club&mode=signIn");
   const context = await resolveClubOrganisationContext(client, user.id, (await searchParams)?.org);
   if (!context || !["owner", "gym_admin"].includes(context.role) || !(await context.repository.hasCapability(context.organisation.id, user.id, "cash.reconcile"))) {
     return <AppShell className="module-page club-page"><PageHeader eyebrow="R12 CLUB · BILLING" title="Payments" /><EmptyState title="Billing access required">Payment recovery is limited to authorised Club staff.</EmptyState><AppNav /></AppShell>;

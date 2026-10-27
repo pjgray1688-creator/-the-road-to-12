@@ -71,6 +71,7 @@ supabase/migrations/2026-10-16-member-catalogue-enrichment-read.sql
 supabase/migrations/2026-10-17-active-sports-complete.sql
 supabase/migrations/2026-10-18-active-sports-duplicate-diagnostics.sql
 supabase/migrations/2026-10-19-active-sports-identity-uniqueness.sql
+supabase/migrations/2026-10-20-account-deletion-requests.sql
 supabase/migrations/2026-10-20-active-sports-publish-performance.sql
 supabase/migrations/2026-10-21-active-sports-reconcile-profiling.sql
 supabase/migrations/2026-10-22-supplier-import-jobs.sql
@@ -159,3 +160,7 @@ supabase/migrations/2027-01-16-stripe-merchant-category-guards.sql
 supabase/migrations/2027-01-17-member-training-setup-and-coach-plan-read.sql
 supabase/migrations/2027-01-18-controlled-stripe-live-tests.sql
 supabase/migrations/2027-01-19-controlled-stripe-live-test-admins.sql
+supabase/migrations/2027-01-20-glow-zone-pricing-and-account-read.sql
+supabase/migrations/2027-01-21-glow-customer-self-registration.sql
+supabase/migrations/2027-01-22-account-deletion-executor.sql
+supabase/migrations/2027-01-23-glow-customer-details-and-age-safety.sql

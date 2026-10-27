@@ -2,7 +2,7 @@ import { siteUrl } from "./site-url";
 import { inspectSmtpConfiguration } from "./smtp-config";
 import { sendSmtpMessage } from "./smtp-transport";
 
-export type NotificationSender = "members" | "billing" | "staff";
+export type NotificationSender = "members" | "billing" | "staff" | "privacy";
 
 export type NotificationEnvelope = {
   id: string;
@@ -25,11 +25,13 @@ export function notificationConfig() {
       members: process.env.R12_EMAIL_FROM_MEMBERS ?? "members@r12.live",
       billing: process.env.R12_EMAIL_FROM_BILLING ?? "madhouse.accounts@r12.live",
       staff: process.env.R12_EMAIL_FROM_STAFF ?? "staff@r12.live",
+      privacy: process.env.R12_EMAIL_FROM_PRIVACY ?? "privacy@r12.live",
     },
     fromNames: {
       members: process.env.R12_EMAIL_FROM_NAME_MEMBERS ?? "R12 · Madhouse",
       billing: process.env.R12_EMAIL_FROM_NAME_BILLING ?? "Madhouse Accounts · R12",
       staff: process.env.R12_EMAIL_FROM_NAME_STAFF ?? "R12 · Madhouse Staff",
+      privacy: process.env.R12_EMAIL_FROM_NAME_PRIVACY ?? "R12",
     },
   } as const;
 }

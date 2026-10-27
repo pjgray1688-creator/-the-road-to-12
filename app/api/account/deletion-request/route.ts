@@ -12,9 +12,10 @@ export async function GET() {
     const { data: { user } } = await client.auth.getUser();
     if (!user) return failure("Sign in to view your account deletion request.", 401);
     const { data, error } = await client.rpc("r12_get_own_account_deletion_request");
-    if (error) return failure("Account deletion requests are temporarily unavailable.", 503);
+    if (error) { console.error("account_deletion_status_failed", { code: error.code, details: error.details }); return failure("Account deletion requests are temporarily unavailable.", 503); }
     return NextResponse.json(data ?? { status: "none" }, { headers: noStore });
-  } catch {
+  } catch (error) {
+    console.error("account_deletion_status_exception", { error: error instanceof Error ? error.message : "unknown" });
     return failure("Account deletion requests are temporarily unavailable.", 503);
   }
 }
@@ -41,9 +42,10 @@ export async function POST(request: NextRequest) {
     if (verified.error || verified.data.user?.id !== user.id) return failure("Password confirmation failed. Check your password and try again.", 401);
 
     const result = await adminSupabase().rpc("r12_submit_account_deletion_request", { p_user_id: user.id });
-    if (result.error || !result.data) return failure("Account deletion requests are temporarily unavailable.", 503);
+    if (result.error || !result.data) { console.error("account_deletion_submit_failed", { code: result.error?.code, details: result.error?.details }); return failure("Account deletion requests are temporarily unavailable.", 503); }
     return NextResponse.json(result.data, { status: 202, headers: noStore });
-  } catch {
+  } catch (error) {
+    console.error("account_deletion_submit_exception", { error: error instanceof Error ? error.message : "unknown" });
     return failure("Account deletion requests are temporarily unavailable.", 503);
   }
 }

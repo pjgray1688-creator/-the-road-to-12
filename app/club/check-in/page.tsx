@@ -6,7 +6,7 @@ import { CLUB_STATION_COOKIE, CLUB_STATION_USER_COOKIE, stationCookieValue, veri
 
 export default async function ClubCheckInPage() {
   const client=await serverSupabase();const {data:{user}}=await client.auth.getUser();
-  if(!user)redirect("/account?mode=signIn&next=%2Fclub%2Fcheck-in");
+  if(!user)redirect("/account?app=club&mode=signIn&next=%2Fclub%2Fcheck-in");
   const jar=await cookies();const station=stationCookieValue(jar.get(CLUB_STATION_COOKIE)?.value);
   if(!station||!verifyClubStationSession(jar.get(CLUB_STATION_USER_COOKIE)?.value,user.id,station.id))redirect("/club/station");
   const {data,error}=await client.rpc("club_shared_station_identity",{p_station_id:station.id,p_station_token:station.token});

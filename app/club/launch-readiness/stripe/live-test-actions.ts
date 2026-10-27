@@ -15,7 +15,7 @@ async function startOwnerTest(entity: StripeMerchantEntity) {
   const failPath = "/club/launch-readiness/stripe/live-test?result=blocked";
   const client = await serverSupabase();
   const { data: { user } } = await client.auth.getUser();
-  if (!user || hasPlayReviewerEntitlement(user)) redirect("/account?mode=signIn");
+  if (!user || hasPlayReviewerEntitlement(user)) redirect("/account?app=club&mode=signIn");
   const context = await resolveClubOrganisationContext(client, user.id, MADHOUSE_ORGANISATION_ID);
   if (!context || !["owner", "gym_admin"].includes(context.role) || context.organisation.id !== MADHOUSE_ORGANISATION_ID) redirect(failPath);
 

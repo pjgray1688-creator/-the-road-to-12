@@ -13,7 +13,7 @@ import { isLegacyDemoCommerceProduct, sortCommerceProductsForOperations } from "
 export default async function ClubProductsPage({ searchParams }: { searchParams?: Promise<{ org?: string }> }) {
   const client = await serverSupabase();
   const { data: { user } } = await client.auth.getUser();
-  if (!user) redirect("/account?mode=signIn");
+  if (!user) redirect("/account?app=club&mode=signIn");
   const context = await resolveClubOrganisationContext(client, user.id, (await searchParams)?.org);
   if (!context || !(await context.repository.hasCapability(context.organisation.id, user.id, "commerce.pricing_manage"))) {
     return <AppShell className="module-page club-page"><PageHeader eyebrow="R12 CLUB" title="Products & Pricing" /><EmptyState title="Management access required">Product economics and pricing are limited to authorised Club managers.</EmptyState><AppNav /></AppShell>;

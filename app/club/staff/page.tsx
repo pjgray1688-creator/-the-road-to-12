@@ -38,7 +38,7 @@ type StaffAccountRow = {
 export default async function ClubStaffPage({ searchParams }: { searchParams?: Promise<{ org?: string }> }) {
   const supabase = await serverSupabase();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/account?mode=signIn");
+  if (!user) redirect("/account?app=club&mode=signIn");
   const context = await resolveClubOperationalContext(supabase, user.id, (await searchParams)?.org);
   const canManageStaff = context ? await context.repository.hasCapability(context.organisation.id, user.id, "staff.permissions_manage") : false;
   if (!context || !canManageStaff) return <AppShell className="module-page club-page"><PageHeader title="Staff" description="Staff management is restricted to organisation managers." /><EmptyState title="Management access required">Ask an owner or manager to review your Club permissions.</EmptyState><AppNav /></AppShell>;

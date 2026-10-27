@@ -6,7 +6,7 @@ import Link from "next/link";
 
 export default async function CoachNutritionPage({ searchParams }: { searchParams: Promise<{ client?: string }> }) {
   const params = await searchParams;
-  const supabase = await serverSupabase(); const { data: { user } } = await supabase.auth.getUser(); if (!user) redirect(params.client ? `/account?mode=signIn&next=${encodeURIComponent(`/coach/nutrition?client=${params.client}`)}` : "/account?mode=signIn&next=%2Fcoach%2Fnutrition");
+  const supabase = await serverSupabase(); const { data: { user } } = await supabase.auth.getUser(); if (!user) redirect(params.client ? `/account?app=coach&mode=signIn&next=${encodeURIComponent(`/coach/nutrition?client=${params.client}`)}` : "/account?app=coach&mode=signIn&next=%2Fcoach%2Fnutrition");
   if (!params.client) {
     const [{ data: allowed, error: accessError }, { data: clients, error: clientsError }] = await Promise.all([
       supabase.rpc("coach_has_access", { p_client_user_id: null }),

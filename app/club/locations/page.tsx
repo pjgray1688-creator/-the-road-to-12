@@ -10,7 +10,7 @@ import styles from "@/components/club-operations.module.css";
 export default async function ClubLocationsPage({ searchParams }: { searchParams?: Promise<{ org?: string }> }) {
   const client = await serverSupabase();
   const { data: { user } } = await client.auth.getUser();
-  if (!user) redirect("/account?mode=signIn");
+  if (!user) redirect("/account?app=club&mode=signIn");
   try {
     const context = await resolveClubOperationalContext(client, user.id, (await searchParams)?.org);
     if (!context || !isClubStaffRole(context.role)) return <AppShell className="module-page club-page"><PageHeader eyebrow="R12 CLUB" title="Locations" description="Location management is restricted to Club operations staff." /><EmptyState title="Club access required">Choose an authorised organisation.</EmptyState><BackButton href="/club">Back to Club</BackButton><AppNav /></AppShell>;

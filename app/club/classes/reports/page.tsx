@@ -8,7 +8,7 @@ import { resolveClubOrganisationContext } from "@/lib/club-server-context";
 
 export default async function ClassReportsPage({ searchParams }: { searchParams?: Promise<{ org?: string }> }) {
   const supabase = await serverSupabase(); const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/account?mode=signIn");
+  if (!user) redirect("/account?app=club&mode=signIn");
   const context = await resolveClubOrganisationContext(supabase, user.id, (await searchParams)?.org);
   if (!context) return <AppShell className="module-page"><PageHeader eyebrow="R12 CLUB · CLASSES" title="Class reports" /><EmptyState title="Reports unavailable">Select the organisation that owns the class records.</EmptyState><AppNav /></AppShell>;
   const [canManageClasses, canRecordCash, canReconcileCash] = await Promise.all([context.repository.hasCapability(context.organisation.id, user.id, "classes.manage"), context.repository.hasCapability(context.organisation.id, user.id, "payments.record_cash"), context.repository.hasCapability(context.organisation.id, user.id, "cash.reconcile")]);

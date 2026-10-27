@@ -50,9 +50,8 @@ test("the forward hotfix manifest does not replay earlier Madhouse migrations", 
   const lines = manifest.split(/\r?\n/).filter(Boolean);
   assert.ok(lines.includes("supabase/migrations/2027-01-14-madhouse-operations-generator-hotfix.sql"));
   assert.ok(lines.includes(hotfixPath));
-  assert.equal(lines.at(-3), "supabase/migrations/2027-01-17-member-training-setup-and-coach-plan-read.sql");
-  assert.equal(lines.at(-2), "supabase/migrations/2027-01-18-controlled-stripe-live-tests.sql");
-  assert.equal(lines.at(-1), "supabase/migrations/2027-01-19-controlled-stripe-live-test-admins.sql");
+  assert.ok(lines.indexOf("supabase/migrations/2027-01-17-member-training-setup-and-coach-plan-read.sql") < lines.indexOf("supabase/migrations/2027-01-18-controlled-stripe-live-tests.sql"));
+  assert.ok(lines.indexOf("supabase/migrations/2027-01-20-glow-zone-pricing-and-account-read.sql") < lines.indexOf("supabase/migrations/2027-01-21-glow-customer-self-registration.sql"));
   assert.equal(lines.filter(line => /2027-01-(?:08|10)-/.test(line)).length, 2,
     "prior migrations remain in the manifest for ledger-based skip, and the hotfix is appended separately");
   assert.match(hotfix, /revoke all on function public\.club_madhouse_seed_daily_checks\(uuid\)/i);

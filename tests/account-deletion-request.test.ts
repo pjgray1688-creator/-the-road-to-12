@@ -7,7 +7,7 @@ const route = readFileSync("app/api/account/deletion-request/route.ts", "utf8");
 const component = readFileSync("components/account-deletion-request.tsx", "utf8");
 const page = readFileSync("app/account/delete/page.tsx", "utf8");
 
-test("account deletion records a private request and does not delete identity or business data", () => {
+test("account deletion records a private request before separately approved execution", () => {
   assert.match(migration, /create table if not exists public\.account_deletion_requests/);
   assert.match(migration, /alter table public\.account_deletion_requests enable row level security/);
   assert.match(migration, /revoke all on table public\.account_deletion_requests from public, anon, authenticated/);
@@ -31,16 +31,21 @@ test("deletion requests require same-origin password reauthentication and explic
 });
 
 test("account deletion copy separates service cancellation and explains retained records", () => {
-  assert.match(component, /does not cancel a gym membership, Direct Debit, Stripe subscription or other service/);
+  assert.match(page, /Delete your R12 account/);
+  assert.match(component, /may affect access to every connected R12 application/);
+  assert.match(component, /does not automatically cancel it/);
+  assert.match(component, /If you have a linked gym membership, recurring payment agreement or other service/);
+  assert.doesNotMatch(component, /Madhouse|Direct Debit|Stripe/i);
   assert.match(component, /retained or anonymised/);
-  assert.match(component, /Your account remains active until processing is completed/);
+  assert.match(component, /Your R12 account remains active until Auth identity removal is confirmed/);
 });
 
-test("deletion operators are server allowlisted and completion is retention-attested", () => {
+test("deletion operators are named, server allowlisted and cannot attest completion manually", () => {
   const route = readFileSync("app/api/account/deletion-requests/route.ts", "utf8");
-  assert.match(route, /R12_PRIVACY_OPERATOR_USER_IDS/);
-  assert.match(route, /r12_process_account_deletion_request/);
-  assert.match(migration, /Complete the retention review and eligible-data processing before confirmation/);
+  const executorMigration = readFileSync("supabase/migrations/2027-01-22-account-deletion-executor.sql", "utf8");
+  assert.match(readFileSync("lib/privacy-operator.ts", "utf8"), /R12_PRIVACY_OPERATOR_ALLOWLIST/);
+  assert.match(route, /r12_approve_account_deletion/);
+  assert.match(executorMigration, /Use the reviewed two-person account deletion workflow/);
 });
 
 
@@ -49,4 +54,5 @@ test("launch manifest schedules account deletion before November and Club stage 
   assert.ok(manifest.indexOf("2026-10-20-account-deletion-requests.sql") < manifest.indexOf("2026-11-01-reconcile-statement-timings.sql"));
   assert.ok(manifest.indexOf("2026-12-13-member-age-induction-access-eligibility.sql") < manifest.indexOf("2026-12-14-club-induction-stage-progress.sql"));
   assert.doesNotMatch(manifest, /2027-01-05-account-deletion-and-induction-stage-progress/);
+  assert.ok(manifest.indexOf("2027-01-21-glow-customer-self-registration.sql") < manifest.indexOf("2027-01-22-account-deletion-executor.sql"));
 });

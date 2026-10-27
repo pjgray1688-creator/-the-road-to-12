@@ -13,7 +13,7 @@ const claim = read("components/club-member-claim.tsx");
 const staffAction = read("app/club/members/actions.ts");
 const staffLink = read("components/club-customer-link.tsx");
 const account = read("app/account/page.tsx");
-const reset = read("app/account/reset/page.tsx");
+const reset = read("components/reset-password-client.tsx");
 const memberHub = read("components/member-hub.tsx");
 
 test("new members choose live venues and products before starting a durable join", () => {
@@ -29,7 +29,7 @@ test("account creation and verification return to the browser join flow", () => 
   assert.match(joinPage, /mode=signUp&next=/);
   assert.match(joinPage, /email_confirmed_at/);
   assert.match(account, /emailRedirectTo:[\s\S]*next=/);
-  assert.match(account, /router\.replace\(next\)/);
+  assert.match(account, /window\.location\.replace\(context\.next\)/);
 });
 
 test("launch member details and separate consents are persisted on the existing customer model", () => {

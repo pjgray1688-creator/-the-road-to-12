@@ -19,6 +19,14 @@ function authClaims(request: NextRequest) {
 
 export function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
+  if (pathname === "/account/reset" && request.nextUrl.searchParams.get("type") === "recovery" && request.nextUrl.searchParams.has("token_hash")) {
+    const url = request.nextUrl.clone();
+    const fragment = new URLSearchParams({ token_hash: url.searchParams.get("token_hash")!, type: "recovery" });
+    url.searchParams.delete("token_hash"); url.searchParams.delete("type"); url.hash = fragment.toString();
+    const response = NextResponse.redirect(url);
+    response.headers.set("Cache-Control", "private, no-store"); response.headers.set("Referrer-Policy", "no-referrer");
+    return response;
+  }
   const claims = authClaims(request);
   const reviewerPolicy = playReviewerClubRequestPolicy(claims?.email, pathname, request.method);
   if (reviewerPolicy === "deny" && (pathname === "/api/club" || pathname.startsWith("/api/club/"))) {
@@ -45,4 +53,4 @@ export function proxy(request: NextRequest) {
   return response;
 }
 
-export const config = { matcher: ["/club/:path*", "/api/club/:path*"] };
+export const config = { matcher: ["/account/reset", "/club/:path*", "/api/club/:path*"] };
