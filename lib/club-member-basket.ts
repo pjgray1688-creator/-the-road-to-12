@@ -1,8 +1,8 @@
 export type MemberBasketIntent = Record<string, number>;
 
 /** Read the already-authoritative promotion evidence for basket presentation. */
-export function winterBundleSavingMinor(applied: unknown[]) {
-  return applied.reduce((total, value) => {
+export function winterBundleSavingMinor(applied: unknown[]): number {
+  return applied.reduce<number>((total, value) => {
     if (!value || typeof value !== "object" || Array.isArray(value)) return total;
     const promotion = value as Record<string, unknown>;
     if (promotion.promotion_name !== "Madhouse Winter Hoodie + T-Shirt") return total;
