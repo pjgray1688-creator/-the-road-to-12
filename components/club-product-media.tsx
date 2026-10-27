@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import type { ClubCommerceProduct } from "@/lib/club-commerce";
 import { productImageUrl } from "@/lib/club-product-image";
 export { productImageUrl } from "@/lib/club-product-image";
@@ -23,15 +23,18 @@ export function productGalleryUrls(product: ClubCommerceProduct) {
 
 export function ClubProductGallery({ product, resetKey }: { product: ClubCommerceProduct; resetKey?: string }) {
   const urls = productGalleryUrls(product);
+  if (!urls.length) return null;
+  return <ProductGallerySlides key={`${product.id}:${resetKey ?? ""}`} product={product} urls={urls} />;
+}
+
+function ProductGallerySlides({ product, urls }: { product: ClubCommerceProduct; urls: string[] }) {
   const [index, setIndex] = useState(0);
   const touchStart = useRef<number | undefined>(undefined);
-  useEffect(() => setIndex(0), [resetKey, product.id]);
-  if (!urls.length) return null;
   const selected = Math.min(index, urls.length - 1);
   const move = (step: number) => setIndex(current => (current + step + urls.length) % urls.length);
   return <div className="club-product-gallery" onTouchStart={event => { touchStart.current = event.touches[0]?.clientX; }} onTouchEnd={event => { const start = touchStart.current; const end = event.changedTouches[0]?.clientX; if (start !== undefined && end !== undefined && Math.abs(end - start) > 44) move(end < start ? 1 : -1); touchStart.current = undefined; }}>
     <ProductImageWithFallback product={product} src={urls[selected]} className="club-product-large" />
-    {urls.length > 1 ? <><button type="button" className="club-product-gallery-arrow previous" aria-label="Previous product image" onClick={() => move(-1)}>‹</button><button type="button" className="club-product-gallery-arrow next" aria-label="Next product image" onClick={() => move(1)}>›</button><span className="club-product-gallery-count" aria-live="polite">{selected + 1} / {urls.length}</span></> : null}
+    {urls.length > 1 ? <><button type="button" className="club-product-gallery-arrow previous" aria-label="Previous product image" onClick={() => move(-1)}><span aria-hidden="true">‹</span></button><button type="button" className="club-product-gallery-arrow next" aria-label="Next product image" onClick={() => move(1)}><span aria-hidden="true">›</span></button><span className="club-product-gallery-count" aria-live="polite">{selected + 1} / {urls.length}</span></> : null}
   </div>;
 }
 

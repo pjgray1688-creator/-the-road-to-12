@@ -4,6 +4,16 @@ import { canonicalMemberBrandName } from "./club-product-taxonomy";
 export type ClubProductFamily = { id: string; organisationId: string; name: string; brand?: string; description?: string; category?: string; active: boolean; archivedAt?: string; sortPosition: number };
 export type FamilyCard = { family?: ClubProductFamily; variants: ClubCommerceProduct[]; label: string; priceLabel: string };
 
+const madhouseApparelTitles = ["Heavy Oversized T-Shirt", "Crewneck Sweatshirt", "Pullover Hoodie"] as const;
+const madhouseApparelSizeOrder = ["S", "M", "L", "XL", "2XL", "3XL", "4XL", "5XL"] as const;
+
+/** Keep catalogue identity in the variant while presenting the parent apparel name. */
+export function memberProductFamilyTitle(value: string, product?: Pick<ClubCommerceProduct, "brand">) {
+  if (product?.brand?.trim().toLocaleLowerCase() !== "madhouse apparel") return value;
+  const title = madhouseApparelTitles.find(candidate => value.toLocaleLowerCase().includes(candidate.toLocaleLowerCase()));
+  return title ?? value;
+}
+
 /** Cards are renderable only when at least one active, priced variant can be
  * offered in the current shop context. Use this exact predicate for both tile
  * rendering and pagination totals. */
@@ -105,6 +115,7 @@ export function money(minor: number) { return minor > 0 ? `£${(minor / 100).toF
  * while changing an earlier choice clears dependent choices in the caller. */
 export function memberVariantChoices(variants: ClubCommerceProduct[], selection: Record<string, string>, canOrder: (product: ClubCommerceProduct) => boolean) {
   const colourComplete = variants.every(variant => Boolean(variant.variantOptions?.colour ?? variant.variantOptions?.color));
+  const madhouseApparel = variants.some(variant => variant.brand?.trim().toLocaleLowerCase() === "madhouse apparel");
   const keys = [...new Set(variants.flatMap(variant => Object.keys(variant.variantOptions ?? {})))].sort((a, b) => {
     const order = colourComplete ? ["colour", "color", "size", "orderUnit", "packQuantity", "flavour"] : ["size", "orderUnit", "packQuantity", "flavour", "colour", "color"];
     const rank = (key: string) => order.includes(key) ? order.indexOf(key) : order.length;
@@ -114,7 +125,12 @@ export function memberVariantChoices(variants: ClubCommerceProduct[], selection:
   const controls: Array<{ key: string; values: Array<{ value: string; disabled: boolean }> }> = [];
   let matching = variants.filter(variant => variant.active);
   for (const key of keys) {
-    const values = [...new Set(matching.filter(canOrder).map(variant => variant.variantOptions?.[key]).filter((value): value is string => Boolean(value)))].sort();
+    const values = [...new Set(matching.filter(canOrder).map(variant => variant.variantOptions?.[key]).filter((value): value is string => Boolean(value)))].sort((a, b) => {
+      if (!madhouseApparel || key !== "size") return a.localeCompare(b);
+      const aRank = madhouseApparelSizeOrder.indexOf(a as typeof madhouseApparelSizeOrder[number]);
+      const bRank = madhouseApparelSizeOrder.indexOf(b as typeof madhouseApparelSizeOrder[number]);
+      return (aRank < 0 ? madhouseApparelSizeOrder.length : aRank) - (bRank < 0 ? madhouseApparelSizeOrder.length : bRank) || a.localeCompare(b);
+    });
     if (!values.length) continue;
     controls.push({ key, values: values.map(value => ({ value, disabled: !matching.some(variant => variant.variantOptions?.[key] === value && canOrder(variant)) })) });
     const chosen = values.includes(selection[key]) ? selection[key] : values.length === 1 ? values[0] : undefined;

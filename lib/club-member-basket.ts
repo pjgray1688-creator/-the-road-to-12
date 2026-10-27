@@ -1,5 +1,16 @@
 export type MemberBasketIntent = Record<string, number>;
 
+/** Read the already-authoritative promotion evidence for basket presentation. */
+export function winterBundleSavingMinor(applied: unknown[]) {
+  return applied.reduce((total, value) => {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return total;
+    const promotion = value as Record<string, unknown>;
+    if (promotion.promotion_name !== "Madhouse Winter Hoodie + T-Shirt") return total;
+    const saving = Number(promotion.applied_saving_minor ?? promotion.saving_minor ?? 0);
+    return total + (Number.isSafeInteger(saving) && saving > 0 ? saving : 0);
+  }, 0);
+}
+
 /** Basket persistence stores only the member's product/quantity intent. */
 export function memberBasketStorageKey(organisationId: string, userId: string) {
   return `r12:member-basket:${organisationId}:${userId}`;
