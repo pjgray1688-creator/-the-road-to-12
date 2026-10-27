@@ -1,14 +1,19 @@
 import SwiftUI
 
+private func normalizedRoutePath(_ value: String) -> String {
+    let rawPath = String(value.split(separator: "?", maxSplits: 1).first ?? "")
+    var path = rawPath.hasPrefix("/") ? rawPath : "/" + rawPath
+    while path.count > 1 && path.hasSuffix("/") { path.removeLast() }
+    return path
+}
+
 struct AppDestination: Identifiable, Hashable {
     let title: String
     let path: String
     let symbol: String
 
     var id: String { path }
-    var route: String {
-        path.split(separator: "?", maxSplits: 1).first.map { "/" + $0 } ?? "/"
-    }
+    var route: String { normalizedRoutePath(path) }
 }
 
 struct NativeAppConfiguration {
@@ -85,28 +90,44 @@ struct NativeAppConfiguration {
         var components = URLComponents()
         components.scheme = "https"
         components.host = "app.r12.live"
-        components.path = path.split(separator: "?", maxSplits: 1).first.map { "/" + $0 } ?? "/"
+        components.path = normalizedRoutePath(path)
         if let query = path.split(separator: "?", maxSplits: 1).dropFirst().first {
             components.percentEncodedQuery = String(query)
         }
         return components.url ?? URL(string: "https://app.r12.live/")!
     }
 
-    func allowsEmbeddedNavigation(to url: URL) -> Bool {
-        guard url.scheme == "https", url.host == "app.r12.live", url.user == nil,
-              url.password == nil, url.port == nil || url.port == 443 else { return false }
-        guard scheme == "r12-glowzone" else { return true }
-        if scope(url.path) || url.path == "/terms" || url.path == "/auth/verify" { return true }
+    func embeddedNavigationRejectionReason(for url: URL) -> String? {
+        guard url.scheme == "https" else { return "non_https_scheme" }
+        guard url.host?.lowercased() == "app.r12.live", url.user == nil, url.password == nil,
+              url.port == nil || url.port == 443 else { return "non_canonical_origin" }
+        guard scheme == "r12-glowzone" else { return nil }
+        let path = normalizedRoutePath(url.path)
+        if scope(path) || path == "/terms" || path == "/auth/verify" { return nil }
         let sharedAuthPaths: Set<String> = ["/account", "/account/verify", "/account/reset", "/account/delete", "/auth/callback", "/auth/confirm"]
-        guard sharedAuthPaths.contains(url.path), let components = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return false }
-        let queryItems = components.queryItems ?? []
+        guard sharedAuthPaths.contains(path) else { return "outside_glow_route_scope" }
+        guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return "invalid_url" }
+        var queryItems = components.queryItems ?? []
+        let nestedRedirects = queryItems.filter { $0.name == "redirect_to" }.compactMap(\.value)
+        if nestedRedirects.count > 1 { return "ambiguous_auth_context" }
+        if let nestedValue = nestedRedirects.first,
+           let nestedURL = URL(string: nestedValue),
+           nestedURL.scheme == "https", nestedURL.host?.lowercased() == "app.r12.live",
+           normalizedRoutePath(nestedURL.path) == "/account/reset",
+           let nestedComponents = URLComponents(url: nestedURL, resolvingAgainstBaseURL: false) {
+            queryItems.append(contentsOf: nestedComponents.queryItems ?? [])
+        }
         let appValues = queryItems.filter { $0.name == "app" || $0.name == "privacyApp" }.compactMap(\.value)
-        guard appValues.isEmpty || appValues.allSatisfy({ $0 == "glow" }) else { return false }
+        guard appValues.isEmpty || appValues.allSatisfy({ $0 == "glow" }) else { return "non_glow_auth_context" }
         let nextValues = queryItems.filter { $0.name == "next" }.compactMap(\.value)
         if let next = nextValues.first {
-            guard nextValues.count == 1, next == "/glow-zone" || next.hasPrefix("/glow-zone/") else { return false }
+            guard nextValues.count == 1, next == "/glow-zone" || next.hasPrefix("/glow-zone/") else { return "non_glow_return_destination" }
         }
-        return !appValues.isEmpty || !nextValues.isEmpty
+        return appValues.isEmpty && nextValues.isEmpty ? "missing_glow_auth_context" : nil
+    }
+
+    func allowsEmbeddedNavigation(to url: URL) -> Bool {
+        embeddedNavigationRejectionReason(for: url) == nil
     }
 
     /// Returns a native tab only for an exact configured destination. Auth
@@ -117,7 +138,7 @@ struct NativeAppConfiguration {
         return destinations.first { destination in
             guard let configured = URLComponents(url: self.url(for: destination.path), resolvingAgainstBaseURL: false),
                   let candidate = URLComponents(url: url, resolvingAgainstBaseURL: false),
-                  configured.path == candidate.path else { return false }
+                  normalizedRoutePath(configured.path) == normalizedRoutePath(candidate.path) else { return false }
             let configuredQuery = (configured.queryItems ?? []).map { "\($0.name)=\($0.value ?? "")" }.sorted()
             let candidateQuery = (candidate.queryItems ?? []).map { "\($0.name)=\($0.value ?? "")" }.sorted()
             return configuredQuery == candidateQuery

@@ -60,7 +60,7 @@ test("Glow native navigation is route scoped and restores each selected tab", ()
   assert.doesNotMatch(glowConfiguration, /scope: \{ _ in true \}/);
   assert.match(nativeShell, /activationByDestination/);
   assert.match(nativeShell, /selectDestination/);
-  assert.match(shell, /configuration\.allowsEmbeddedNavigation/);
+  assert.match(shell, /configuration\.embeddedNavigationRejectionReason/);
   assert.match(shell, /navigationType == \.linkActivated/);
   assert.match(shell, /configuration\.destination\(for: url\)/);
   assert.match(shell, /lastRequestedURL != url/);
@@ -70,6 +70,20 @@ test("Glow native navigation is route scoped and restores each selected tab", ()
   assert.match(shell, /if !webView\.isLoading/);
   assert.match(configuration, /func destination\(for url: URL\)/);
   assert.match(configuration, /configuredQuery == candidateQuery/);
+});
+
+test("Glow native URLs are canonical and shared auth policy keeps Glow context", () => {
+  const configuration = readFileSync("ios/Shared/AppConfiguration.swift", "utf8");
+  const shell = readFileSync("ios/Shared/RouteWebScreen.swift", "utf8");
+  assert.match(configuration, /components\.path = normalizedRoutePath\(path\)/);
+  assert.doesNotMatch(configuration, /map \{ "\/" \+ \$0 \}/);
+  assert.match(configuration, /while path\.count > 1 && path\.hasSuffix\("\/"\)/);
+  assert.match(configuration, /nestedURL\.host\?\.lowercased\(\) == "app\.r12\.live"/);
+  assert.match(configuration, /normalizedRoutePath\(nestedURL\.path\) == "\/account\/reset"/);
+  assert.match(configuration, /return "outside_glow_route_scope"/);
+  assert.match(shell, /#if DEBUG[\s\S]*GlowZoneNavigation/);
+  assert.match(shell, /diagnosticPath\(url\.path\)/);
+  assert.doesNotMatch(shell, /rejected.*absoluteString/);
 });
 
 test("Glow redirects do not cause updateUIView to reload the configured tab destination", () => {

@@ -196,7 +196,8 @@ private struct R12WebView: UIViewRepresentable {
         func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction,
                      decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
             guard let url = action.request.url else { decisionHandler(.cancel); return }
-            if configuration.allowsEmbeddedNavigation(to: url) {
+            let rejectionReason = configuration.embeddedNavigationRejectionReason(for: url)
+            if rejectionReason == nil {
                 if action.targetFrame?.isMainFrame != false,
                    action.navigationType == .linkActivated,
                    let selected = configuration.destination(for: url),
@@ -208,7 +209,10 @@ private struct R12WebView: UIViewRepresentable {
                 decisionHandler(.allow)
                 return
             }
-            if url.scheme == "https", url.host == "app.r12.live", configuration.scheme == "r12-glowzone" {
+            if url.scheme == "https", url.host?.lowercased() == "app.r12.live", configuration.scheme == "r12-glowzone" {
+#if DEBUG
+                Self.logRejectedGlowNavigation(url: url, action: action, reason: rejectionReason ?? "unknown")
+#endif
                 decisionHandler(.cancel)
                 // Never replace the main page because a disallowed iframe was
                 // rejected, and never force-reload a rejected redirect into a
@@ -240,6 +244,28 @@ private struct R12WebView: UIViewRepresentable {
             }
             decisionHandler(.cancel)
         }
+
+#if DEBUG
+        private static func logRejectedGlowNavigation(url: URL, action: WKNavigationAction, reason: String) {
+            let path = diagnosticPath(url.path)
+            let mainFrame = action.targetFrame?.isMainFrame != false
+            print("[GlowZoneNavigation] rejected path=\(path) navigationType=\(action.navigationType.rawValue) mainFrame=\(mainFrame) reason=\(reason)")
+        }
+
+        private static func diagnosticPath(_ path: String) -> String {
+            let safePaths: Set<String> = [
+                "/", "/account", "/account/verify", "/account/reset", "/account/delete",
+                "/auth/callback", "/auth/confirm", "/auth/verify", "/terms",
+                "/glow-zone", "/glow-zone/use", "/glow-zone/buy", "/glow-zone/privacy",
+                "/training", "/club", "/coach"
+            ]
+            if safePaths.contains(path) { return path }
+            if path.hasPrefix("/training/") { return "/training/<redacted>" }
+            if path.hasPrefix("/club/") { return "/club/<redacted>" }
+            if path.hasPrefix("/coach/") { return "/coach/<redacted>" }
+            return "/<redacted>"
+        }
+#endif
 
         func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
             state.isLoading = true
