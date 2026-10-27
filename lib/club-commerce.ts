@@ -61,7 +61,7 @@ export function mergeSupplierPresentation(product: ClubCommerceProduct, supplier
     supplierAvailabilityStatus: supplier.supplierAvailabilityStatus,
     supplierReference: product.supplierReference ?? supplier.supplierReference,
     variantImageReference: supplierManaged && supplier.variantImageReference ? supplier.variantImageReference : product.variantImageReference ?? supplier.variantImageReference,
-    ...(supplierManaged && supplierUrl ? { media: { url: supplierUrl } } : localUrl ? { media: { url: localUrl } } : supplierUrl ? { media: { url: supplierUrl } } : {}),
+    ...(supplierManaged && supplierUrl ? { media: { ...supplier.media, url: supplierUrl } } : localUrl ? { media: { ...product.media, url: localUrl } } : supplierUrl ? { media: { ...supplier.media, url: supplierUrl } } : {}),
     // A confidently matched supplier row owns the parent/family identity for
     // supplier-managed products.  Local commerce rows can carry a stale or
     // generic family id from an earlier link; retaining it would merge

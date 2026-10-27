@@ -69,6 +69,24 @@ export function resolvePromotionStacking(promotions: AppliedPromotion[]) {
   }
   return applied;
 }
+export type QuantityAppliedPromotion = Omit<AppliedPromotion, "consumedLineIds"> & { consumed: Array<{ lineId: string; quantity: number; unitPriceMinor?: number }>; percentageBasisPoints?: number };
+/** Quantity-aware counterpart used when one basket line is only partly consumed
+ * by a higher-priority bundle. Lower-priority percentage offers can use the
+ * remaining units without touching the bundled units. */
+export function resolveQuantityPromotionStacking(promotions: QuantityAppliedPromotion[], lineQuantities: Record<string, number>) {
+  const consumed = new Map<string, number>(); const applied: Array<QuantityAppliedPromotion & { consumed: Array<{ lineId: string; quantity: number }>; savingMinor: number }> = [];
+  for (const promotion of [...promotions].sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0) || a.id.localeCompare(b.id))) {
+    const selected = promotion.consumed.flatMap(item => { const available = Math.max(0, (lineQuantities[item.lineId] ?? 0) - (consumed.get(item.lineId) ?? 0)); const quantity = promotion.combinable ? Math.min(item.quantity, lineQuantities[item.lineId] ?? 0) : Math.min(item.quantity, available); return quantity > 0 ? [{ ...item, quantity }] : []; });
+    const requested = promotion.consumed.reduce((sum, item) => sum + item.quantity, 0); const selectedCount = selected.reduce((sum, item) => sum + item.quantity, 0);
+    if (!selectedCount) continue;
+    const selectedBase = selected.reduce((sum, item) => sum + item.quantity * (item.unitPriceMinor ?? 0), 0);
+    const savingMinor = promotion.percentageBasisPoints !== undefined && selected.every(item => item.unitPriceMinor !== undefined) ? Math.floor(selectedBase * promotion.percentageBasisPoints / 10000) : promotion.percentageBasisPoints === undefined || requested === selectedCount ? promotion.savingMinor : Math.floor(promotion.savingMinor * selectedCount / requested);
+    if (savingMinor <= 0) continue;
+    applied.push({ ...promotion, consumed: selected, savingMinor });
+    if (!promotion.combinable) for (const item of selected) consumed.set(item.lineId, (consumed.get(item.lineId) ?? 0) + item.quantity);
+  }
+  return applied;
+}
 export function goldenTicketEligible(hasQualifyingEntitlement: boolean, redeemedThisMonth: boolean) { return hasQualifyingEntitlement && !redeemedThisMonth; }
 export type BalanceTopUpOffer = { id: string; organisationId: string; payMinor: number; spendableMinor: number; title?: string; active: boolean; startsAt: string; endsAt?: string; position?: number };
 export function activeBalanceTopUpOffers(offers: BalanceTopUpOffer[], organisationId: string, now = new Date()) { return offers.filter(offer => offer.organisationId === organisationId && offer.active && offer.payMinor > 0 && offer.spendableMinor >= offer.payMinor && new Date(offer.startsAt) <= now && (!offer.endsAt || now < new Date(offer.endsAt))).sort((a, b) => (a.position ?? 0) - (b.position ?? 0) || a.payMinor - b.payMinor || a.id.localeCompare(b.id)); }

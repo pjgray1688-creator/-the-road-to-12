@@ -30,7 +30,7 @@ test("member and staff family cards share the same image component and stable sq
 });
 
 test("shared product detail image is bounded on desktop and compact on mobile without cropping", () => {
-  assert.match(familySelector, /club-product-detail-image"><ClubProductMedia product=\{image\} className="club-product-large"/);
+  assert.match(familySelector, /club-product-detail-image"><ClubProductGallery product=\{image\}/);
   assert.match(css, /\.club-product-detail-image\{[^}]*width:min\(100%,340px\)[^}]*height:clamp\(128px,25svh,210px\)/);
   assert.match(css, /\.club-product-detail-image \.club-product-large,\.club-product-detail-image \.club-product-placeholder\{[^}]*height:100%[^}]*object-fit:contain[^}]*object-position:center/);
   assert.match(css, /@media\(max-width:640px\)\{\.club-product-detail-image\{width:min\(100%,260px\);height:clamp\(118px,20svh,160px\)\}\}/);
@@ -38,7 +38,7 @@ test("shared product detail image is bounded on desktop and compact on mobile wi
 
 test("family image selection and variant checkout path remain unchanged", () => {
   assert.match(familySelector, /card\.variants\.find\(variant => productImageUrl\(variant\)\) \?\? card\.variants\[0\]/);
-  assert.match(familySelector, /const image = resolved\?\.variantImageReference/);
+  assert.match(familySelector, /const image = preview\?\.variantImageReference/);
   assert.match(familySelector, /onAdd\(resolved\)/);
 });
 

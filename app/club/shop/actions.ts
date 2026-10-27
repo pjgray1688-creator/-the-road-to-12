@@ -70,7 +70,7 @@ export async function beginExternalPaymentAttemptAction(input: { organisationId:
     const linesRaw = Array.isArray(payload.lines) ? payload.lines as Array<Record<string, unknown>> : [];
     const totalMinor = Number(order?.total_minor); const currency = String(order?.currency ?? "").toUpperCase();
     if (!attemptId || !orderId || !Number.isSafeInteger(totalMinor) || totalMinor <= 0 || !linesRaw.length) throw new Error("Stripe order details are incomplete");
-    const lines = linesRaw.map(line => ({ productId: String(line.product_id), stripeProductId: String(line.stripe_product_id), stripePriceId: String(line.stripe_price_id), quantity: Number(line.quantity), unitPriceMinor: Number(line.unit_price_minor), currency: String(line.currency).toUpperCase() }));
+    const lines = linesRaw.map(line => ({ productId: String(line.product_id), productName: String(line.product_name ?? "Club product"), stripeProductId: typeof line.stripe_product_id === "string" ? line.stripe_product_id : undefined, stripePriceId: typeof line.stripe_price_id === "string" ? line.stripe_price_id : undefined, quantity: Number(line.quantity), unitPriceMinor: Number(line.unit_price_minor), currency: String(line.currency).toUpperCase() }));
     const session = await createStripeCommerceCheckoutSession({ attemptId, orderId, userId: user.id, customerEmail: user.email, totalMinor, currency,
       successUrl: `${siteUrl()}/member-hub/shop?org=${encodeURIComponent(value.organisation.id)}&payment=processing&attempt_id=${encodeURIComponent(attemptId)}`,
       cancelUrl: `${siteUrl()}/member-hub/shop?org=${encodeURIComponent(value.organisation.id)}&payment=cancelled&attempt_id=${encodeURIComponent(attemptId)}`, lines });

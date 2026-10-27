@@ -104,8 +104,9 @@ export function money(minor: number) { return minor > 0 ? `£${(minor / 100).toF
 /** Choose size/order unit before flavour. Real unavailable siblings remain visible,
  * while changing an earlier choice clears dependent choices in the caller. */
 export function memberVariantChoices(variants: ClubCommerceProduct[], selection: Record<string, string>, canOrder: (product: ClubCommerceProduct) => boolean) {
+  const colourComplete = variants.every(variant => Boolean(variant.variantOptions?.colour ?? variant.variantOptions?.color));
   const keys = [...new Set(variants.flatMap(variant => Object.keys(variant.variantOptions ?? {})))].sort((a, b) => {
-    const order = ["size", "orderUnit", "packQuantity", "flavour"];
+    const order = colourComplete ? ["colour", "color", "size", "orderUnit", "packQuantity", "flavour"] : ["size", "orderUnit", "packQuantity", "flavour", "colour", "color"];
     const rank = (key: string) => order.includes(key) ? order.indexOf(key) : order.length;
     return rank(a) - rank(b) || a.localeCompare(b);
   });

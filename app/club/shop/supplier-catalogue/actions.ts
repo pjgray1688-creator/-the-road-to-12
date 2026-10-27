@@ -40,6 +40,16 @@ export async function setParentRetailPriceAction(input: { organisationId: string
   }
   revalidatePath("/club/products"); revalidatePath("/club/shop/supplier-catalogue"); revalidatePath("/member-hub/shop"); return { ok: true, updated: input.variantIds.length };
 }
+export async function setMadhouseApparelEnabledAction(input: { organisationId: string; variantIds: string[]; enabled: boolean }) {
+  const value = await authorised(input.organisationId, false);
+  if (!value || !input.variantIds.length || input.variantIds.some(id => !/^[0-9a-f-]{36}$/i.test(id))) return { ok: false, error: "Catalogue access required." };
+  for (const variantId of input.variantIds) {
+    const { error } = await value.client.rpc("club_set_madhouse_apparel_enabled", { p_organisation_id: input.organisationId, p_supplier_product_id: variantId, p_enabled: input.enabled });
+    if (error) return { ok: false, error: "One or more apparel variants could not be updated." };
+  }
+  revalidatePath("/club/shop/supplier-catalogue"); revalidatePath("/member-hub/shop");
+  return { ok: true, updated: input.variantIds.length };
+}
 export async function commitRetailPriceCsvAction(input: { organisationId: string; rows: Array<{ variantId?: string; retailPriceMinor?: number }> }) {
   const value = await authorised(input.organisationId); if (!value) return { ok: false, error: "Pricing access required." };
   let updated = 0; for (const row of input.rows) { if (!row.variantId || row.retailPriceMinor === undefined) continue; if (!Number.isInteger(row.retailPriceMinor) || row.retailPriceMinor < 0) return { ok: false, error: "Invalid retail price." }; const { error } = await value.client.rpc("club_set_supplier_variant_retail_price", { p_organisation_id: input.organisationId, p_supplier_product_id: row.variantId, p_retail_price_minor: row.retailPriceMinor, p_active: true }); if (error) return { ok: false, error: "Pricing import could not be applied." }; updated++; }

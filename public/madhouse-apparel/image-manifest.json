@@ -1,0 +1,62 @@
+{
+  "status": "reviewed-from-supplied-downloads",
+  "reviewedAt": "2026-10-27",
+  "families": {
+    "madhouse-heavy-oversized-t-shirt": {
+      "Blue": ["tshirt-blue-front.jpg", "tshirt-blue-rear.jpg"],
+      "Black/Grey": ["tshirt-black-grey-front.jpg", "tshirt-black-grey-rear.jpg"],
+      "Pink": ["tshirt-pink-front.jpg", "tshirt-pink-rear.jpg"],
+      "Purple": ["tshirt-purple-front.jpg", "tshirt-purple-rear.jpg"],
+      "Brown": ["tshirt-brown-front.jpg", "tshirt-brown-rear.jpg"],
+      "Green": ["tshirt-green-front.jpg", "tshirt-green-rear.jpg"]
+    },
+    "madhouse-crewneck-sweatshirt": {
+      "Cream": ["sweatshirt-cream.jpg"],
+      "Brown": ["sweatshirt-brown.jpg"],
+      "White": ["sweatshirt-white.jpg"],
+      "Grey": ["sweatshirt-grey.jpg"],
+      "Black": ["sweatshirt-black.jpg"],
+      "Tan": ["sweatshirt-tan.jpg"]
+    },
+    "madhouse-pullover-hoodie": {
+      "Navy": ["hoodie-navy.jpg"],
+      "Light Blue": ["hoodie-light-blue.jpg"],
+      "White": ["hoodie-white.jpg"],
+      "Charcoal": ["hoodie-charcoal.jpg"],
+      "Red": ["hoodie-red.jpg"],
+      "Pink": ["hoodie-pink.jpg"],
+      "Green": ["hoodie-green.jpg"],
+      "Black": ["hoodie-black.jpg"],
+      "Cream": ["hoodie-cream.jpg"]
+    }
+  },
+  "sourceFiles": {
+    "tshirt-blue-front.jpg": "f5dde856-20b6-4f96-b93c-bf8c5216b334.JPG",
+    "tshirt-blue-rear.jpg": "bcd3baf3-96c3-4c11-b440-deb82947da34.JPG",
+    "tshirt-black-grey-front.jpg": "53db9107-7b29-4a92-811b-573779bb8bf6.JPG",
+    "tshirt-black-grey-rear.jpg": "cc03291e-9418-4d66-bb89-c9e86e658626.JPG",
+    "tshirt-pink-front.jpg": "e9c577b4-0d49-411b-88c0-c791c97afc00.JPG",
+    "tshirt-pink-rear.jpg": "ac9e01db-4d00-46ff-b84e-5f6c00fc668f.JPG",
+    "tshirt-purple-front.jpg": "521ab31d-5daf-441b-8c80-c9aaa2f40bfa.JPG",
+    "tshirt-purple-rear.jpg": "d0acaa80-8d7b-4236-b54a-691dc18b189b.JPG",
+    "tshirt-brown-front.jpg": "73234ee4-9cd8-401d-9855-a1c9563f5b18.JPG",
+    "tshirt-brown-rear.jpg": "437b35a6-9893-4f6f-9b2f-7a2833924fdb.JPG",
+    "tshirt-green-front.jpg": "978db15f-307a-460c-b767-f75d9ea84720.JPG",
+    "tshirt-green-rear.jpg": "f50fbb03-b1b6-41fc-94de-89c0a515b6d7.JPG",
+    "sweatshirt-cream.jpg": "a2b08c26-1a49-4050-90a6-24deeb26a156.JPG",
+    "sweatshirt-brown.jpg": "c5e96b59-286d-4553-a2cc-f3e431bd01dd.JPG",
+    "sweatshirt-white.jpg": "8a2a8cc7-57b1-4ade-b026-a73281c23153.JPG",
+    "sweatshirt-grey.jpg": "4626a8ca-5c9f-4ba4-b7d2-1447782e05f5.JPG",
+    "sweatshirt-black.jpg": "cf8e037c-b580-4cb9-9e4b-cce5bffcc3b0.JPG",
+    "sweatshirt-tan.jpg": "58b44fca-293c-42c8-88d8-5adefaada8a2.JPG",
+    "hoodie-navy.jpg": "31223c77-a079-4d76-b2e7-213381ae7cc3.JPG",
+    "hoodie-light-blue.jpg": "484705cc-1b82-4514-a809-8ee6791f5f1a.JPG",
+    "hoodie-white.jpg": "053d94b7-baa7-4dac-a0b4-6da6467d550f.JPG",
+    "hoodie-charcoal.jpg": "e1ac282b-a15e-4654-b426-0955aee415a7.JPG",
+    "hoodie-red.jpg": "57243287-73e1-433d-a54c-fd4a66637209.JPG",
+    "hoodie-pink.jpg": "95450a65-5c95-42c0-9bbc-28067a31203f.JPG",
+    "hoodie-green.jpg": "dad30b60-1180-4d1b-b6c8-c207077b2b0d.JPG",
+    "hoodie-black.jpg": "12d33968-7fe0-41f6-87ef-5297c075f639.JPG",
+    "hoodie-cream.jpg": "e2647e3c-9edb-4352-9266-0e12bc5f5d81.JPG"
+  }
+}
