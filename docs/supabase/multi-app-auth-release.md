@@ -24,6 +24,12 @@ Use the HTML in [`supabase-confirm-signup.html`](./supabase-confirm-signup.html)
 
 Send test messages for all four `origin_app` values after saving both the subject and body. Confirm the hosted dashboard renders, rather than prints, the conditional subject; if that project version does not template subjects, use the neutral subject `Confirm your R12 account` while retaining per-app branding in the supported HTML body. Configure a production custom SMTP provider, disable provider link tracking, and verify SPF, DKIM and DMARC before release; Supabase's default SMTP service is not suitable for customer delivery.
 
+## Reset-password email
+
+After the web revision containing the click-gated recovery route is deployed, replace the hosted **Reset Password** body with [`supabase-reset-password.html`](./supabase-reset-password.html). The template deliberately uses `.TokenHash` with `type=recovery`, not `.ConfirmationURL`. `.RedirectTo` carries the application's already validated `app` and `next` context and is URL-encoded as one parameter.
+
+The first request does not call Supabase Auth or consume the token. The reset route moves the hash out of the query string, sets private/no-store and no-referrer response headers, and shows the product-branded continuation page. Only the person's explicit **Continue to reset password** action calls `verifyOtp`; password fields remain unavailable until the returned session and server-validated user agree. Deploy the page before activating this template so issued links never target an older implementation.
+
 ## Database changes to review and apply
 
 Apply through the normal migration runner after review and preflight—never by pasting into production blindly:

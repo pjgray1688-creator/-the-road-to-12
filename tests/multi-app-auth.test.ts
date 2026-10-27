@@ -64,19 +64,26 @@ test("Glow native navigation is route scoped and restores each selected tab", ()
   assert.match(shell, /lastURL = webView\.url/);
 });
 
-test("password recovery exchanges PKCE exactly on the branded return route", () => {
+test("password recovery supports click-gated OTP and one-time PKCE on the branded return route", () => {
   const account = readFileSync("app/account/page.tsx", "utf8");
   const reset = readFileSync("components/reset-password-client.tsx", "utf8");
   const resetPage = readFileSync("app/account/reset/page.tsx", "utf8");
   const browserClient = readFileSync("lib/supabase-browser.ts", "utf8");
+  const recoveryTemplate = readFileSync("docs/supabase/supabase-reset-password.html", "utf8");
   assert.match(account, /resetParams = new URLSearchParams\(\{ app: context\.app, next: context\.next \}\)/);
   assert.match(reset, /exchangePasswordRecoverySession/);
+  assert.match(reset, /verifyPasswordRecoveryToken/);
+  assert.match(reset, /Continue to reset password/);
   assert.match(reset, /recoveryAttemptRef/);
-  assert.match(reset, /"checking"\|"ready"\|"invalid"/);
+  assert.match(reset, /"checking"\|"continue"\|"verifying"\|"ready"\|"invalid"/);
   assert.match(browserClient, /authRedirectSupabase/);
   assert.match(browserClient, /detectSessionInUrl: false/);
   assert.match(browserClient, /isSingleton: false/);
   assert.match(resetPage, /next=\{context\.next\}/);
+  assert.match(recoveryTemplate, /\.TokenHash/);
+  assert.match(recoveryTemplate, /type=recovery/);
+  assert.match(recoveryTemplate, /\.RedirectTo \| urlquery/);
+  assert.doesNotMatch(recoveryTemplate, /\.ConfirmationURL/);
 });
 
 test("verification success requires a confirmed server-authenticated user", () => {

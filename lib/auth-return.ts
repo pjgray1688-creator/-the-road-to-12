@@ -19,6 +19,19 @@ export function authDestination(input: { app?: string | null; privacyApp?: strin
   return { app, next: returnToForApp(app, safeNext, registration) };
 }
 
+export function passwordRecoveryDestination(input: { app?: string | null; next?: string | null; redirect_to?: string | null }) {
+  let nested: { app?: string | null; next?: string | null } = {};
+  if (input.redirect_to) {
+    try {
+      const redirect = new URL(input.redirect_to);
+      if (redirect.pathname === "/account/reset") nested = { app: redirect.searchParams.get("app"), next: redirect.searchParams.get("next") };
+    } catch {
+      // Malformed context is ignored; authDestination supplies safe defaults.
+    }
+  }
+  return authDestination({ app: input.app ?? nested.app, next: input.next ?? nested.next });
+}
+
 export function authFallbackFor(app: AuthApp, registration = false) {
   return registration ? authApps[app].registrationReturnTo : authApps[app].defaultReturnTo;
 }

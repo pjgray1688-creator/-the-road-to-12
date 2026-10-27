@@ -1,7 +1,10 @@
 import { ResetPasswordClient } from "@/components/reset-password-client";
-import { authDestination } from "@/lib/auth-return";
+import { passwordRecoveryDestination } from "@/lib/auth-return";
+import type { Metadata } from "next";
 
-export default async function ResetPasswordPage({ searchParams }: { searchParams: Promise<{ app?: string; next?: string }> }) {
-  const context = authDestination(await searchParams);
+export const metadata: Metadata = { title: "Reset password · R12", referrer: "no-referrer" };
+
+export default async function ResetPasswordPage({ searchParams }: { searchParams: Promise<{ app?: string; next?: string; redirect_to?: string }> }) {
+  const context = passwordRecoveryDestination(await searchParams);
   return <ResetPasswordClient app={context.app} next={context.next} />;
 }
