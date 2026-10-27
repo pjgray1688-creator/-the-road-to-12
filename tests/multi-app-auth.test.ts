@@ -63,10 +63,24 @@ test("Glow native navigation is route scoped and restores each selected tab", ()
   assert.match(shell, /configuration\.allowsEmbeddedNavigation/);
   assert.match(shell, /navigationType == \.linkActivated/);
   assert.match(shell, /configuration\.destination\(for: url\)/);
-  assert.match(shell, /force: true/);
-  assert.match(shell, /lastURL = webView\.url/);
+  assert.match(shell, /lastRequestedURL != url/);
+  assert.doesNotMatch(shell, /lastRequestedURL = webView\.url/);
+  assert.match(shell, /action\.targetFrame\?\.isMainFrame != false/);
+  assert.doesNotMatch(shell, /load\(destinationURL,[^\n]*force: true\)/);
+  assert.match(shell, /if !webView\.isLoading/);
   assert.match(configuration, /func destination\(for url: URL\)/);
   assert.match(configuration, /configuredQuery == candidateQuery/);
+});
+
+test("Glow redirects do not cause updateUIView to reload the configured tab destination", () => {
+  const shell = readFileSync("ios/Shared/RouteWebScreen.swift", "utf8");
+  const load = shell.slice(shell.indexOf("func load(_ url:"), shell.indexOf("@objc func refresh"));
+  const completion = shell.slice(shell.indexOf("didFinish navigation:"), shell.indexOf("didFailProvisionalNavigation"));
+  assert.equal([...shell.matchAll(/context\.coordinator\.load\(url, activation: activation, into: webView\)/g)].length, 2);
+  assert.match(load, /lastRequestedURL = url/);
+  assert.match(load, /lastActivation != activation/);
+  assert.doesNotMatch(completion, /lastRequestedURL|load\(/);
+  assert.match(completion, /state\.isLoading = false/);
 });
 
 test("password recovery supports click-gated OTP and one-time PKCE on the branded return route", () => {

@@ -160,7 +160,11 @@ private struct R12WebView: UIViewRepresentable {
         private let destinationURL: URL
         private let selectDestination: (AppDestination) -> Void
         private let openExternal: (URL) -> Void
-        private var lastURL: URL?
+        // This tracks only requests issued by SwiftUI. It must not be replaced
+        // with webView.url after a redirect: published navigation state causes
+        // updateUIView to run again, and comparing the redirected URL with the
+        // tab destination would otherwise restart the request indefinitely.
+        private var lastRequestedURL: URL?
         private var lastActivation: Int?
 
         init(state: RouteWebState, configuration: NativeAppConfiguration, destinationURL: URL, selectDestination: @escaping (AppDestination) -> Void, openExternal: @escaping (URL) -> Void) {
@@ -171,13 +175,13 @@ private struct R12WebView: UIViewRepresentable {
             self.openExternal = openExternal
         }
 
-        func load(_ url: URL, activation: Int, into webView: WKWebView, force: Bool = false) {
+        func load(_ url: URL, activation: Int, into webView: WKWebView) {
             let activatedAgain = lastActivation != nil && lastActivation != activation
-            guard force || activatedAgain || lastURL != url else { return }
+            guard activatedAgain || lastRequestedURL != url else { return }
             lastActivation = activation
-            lastURL = url
+            lastRequestedURL = url
             DispatchQueue.main.async { [weak self] in
-                guard let self, self.lastURL == url else { return }
+                guard let self, self.lastRequestedURL == url else { return }
                 self.state.errorMessage = nil
                 self.state.isLoading = true
                 self.state.shareURL = nil
@@ -193,7 +197,8 @@ private struct R12WebView: UIViewRepresentable {
                      decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
             guard let url = action.request.url else { decisionHandler(.cancel); return }
             if configuration.allowsEmbeddedNavigation(to: url) {
-                if action.navigationType == .linkActivated,
+                if action.targetFrame?.isMainFrame != false,
+                   action.navigationType == .linkActivated,
                    let selected = configuration.destination(for: url),
                    configuration.url(for: selected.path) != destinationURL {
                     decisionHandler(.cancel)
@@ -205,7 +210,17 @@ private struct R12WebView: UIViewRepresentable {
             }
             if url.scheme == "https", url.host == "app.r12.live", configuration.scheme == "r12-glowzone" {
                 decisionHandler(.cancel)
-                load(destinationURL, activation: lastActivation ?? 0, into: webView, force: true)
+                // Never replace the main page because a disallowed iframe was
+                // rejected, and never force-reload a rejected redirect into a
+                // cancellation loop. A tab reactivation remains the explicit
+                // way to restore its configured destination.
+                if action.targetFrame?.isMainFrame != false {
+                    state.isLoading = false
+                    webView.scrollView.refreshControl?.endRefreshing()
+                    if webView.url == nil {
+                        state.errorMessage = "This page isn’t available in Glow Zone. Select the tab again to retry."
+                    }
+                }
                 return
             }
             if action.targetFrame == nil, url.scheme == "https" {
@@ -233,11 +248,6 @@ private struct R12WebView: UIViewRepresentable {
         }
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-            // Track the page the tab actually reached. If an unauthenticated
-            // destination was redirected to Account, selecting the tab after
-            // sign-in must load its configured destination instead of retaining
-            // obsolete verification content.
-            lastURL = webView.url
             state.isLoading = false
             state.canGoBack = webView.canGoBack
             webView.scrollView.refreshControl?.endRefreshing()
@@ -260,7 +270,15 @@ private struct R12WebView: UIViewRepresentable {
 
         private func fail(_ error: Error, in webView: WKWebView) {
             let nsError = error as NSError
-            guard nsError.code != NSURLErrorCancelled else { return }
+            if nsError.code == NSURLErrorCancelled {
+                // A superseding request keeps WebKit loading. A cancellation
+                // with no replacement must still clear the native spinner.
+                if !webView.isLoading {
+                    state.isLoading = false
+                    webView.scrollView.refreshControl?.endRefreshing()
+                }
+                return
+            }
             state.isLoading = false
             state.errorMessage = "Check your connection and try again."
             state.canGoBack = webView.canGoBack
