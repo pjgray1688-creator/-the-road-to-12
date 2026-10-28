@@ -29,7 +29,7 @@ test("account creation and verification return to the browser join flow", () => 
   assert.match(joinPage, /mode=signUp&next=/);
   assert.match(joinPage, /email_confirmed_at/);
   assert.match(account, /emailRedirectTo:[\s\S]*next=/);
-  assert.match(account, /window\.location\.replace\(context\.next\)/);
+  assert.match(account, /continueToAuthDestination\(context\.next\)/);
 });
 
 test("launch member details and separate consents are persisted on the existing customer model", () => {

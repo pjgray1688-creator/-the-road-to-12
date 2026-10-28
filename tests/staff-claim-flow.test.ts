@@ -37,7 +37,7 @@ test("new-account verification is explicit, resend keeps the original safe desti
 });
 
 test("sign-in returns to its requested destination without forcing optional programme onboarding", () => {
-  assert.match(account, /else window\.location\.replace\(context\.next\)/);
+  assert.match(account, /else continueToAuthDestination\(context\.next\)/);
   assert.doesNotMatch(account, /authMode === "signIn"[^;]*router\.replace\("\/onboarding"\)/);
 });
 
@@ -59,5 +59,5 @@ test("member activation keeps its member-link return destination and normal sign
   assert.match(memberLink, /mode=signIn/);
   assert.match(memberLink, /%2Fmember-hub%2Flink/);
   assert.match(account, /authCallbackUrl\(appBaseUrl, context\.next, context\.app\)/);
-  assert.match(account, /authDestination\([^;]+mode === "signUp"\)/);
+  assert.match(account, /authRequestContext\(request, request\.mode === "signUp"\)/);
 });

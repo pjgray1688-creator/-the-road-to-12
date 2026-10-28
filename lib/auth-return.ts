@@ -21,6 +21,15 @@ export function authDestination(input: { app?: string | null; privacyApp?: strin
   return { app, next: returnToForApp(app, safeNext, registration) };
 }
 
+export type AuthRequestInput = { app?: string | null; privacyApp?: string | null; next?: string | null; mode?: string | null };
+
+export function authRequestContext(input: AuthRequestInput, registration = false) {
+  const destination = authDestination(input, registration);
+  const mode = input.mode === "signUp" || input.mode === "forgot" ? input.mode : "signIn";
+  const explicitAuthRequest = (input.mode === "signIn" || input.mode === "signUp") && Boolean(safeInternalReturnTo(input.next));
+  return { ...destination, mode, continueAuthenticatedSession: explicitAuthRequest } as const;
+}
+
 export function passwordRecoveryDestination(input: { app?: string | null; next?: string | null; redirect_to?: string | null }) {
   let nested: { app?: string | null; next?: string | null } = {};
   if (input.redirect_to) {

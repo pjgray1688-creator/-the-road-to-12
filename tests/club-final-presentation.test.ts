@@ -27,10 +27,12 @@ test("local presentation is compiled out of Release and device builds, with no p
   assert.match(read("ios/R12Club/R12Club.xcodeproj/project.pbxproj"), /INFOPLIST_FILE = App\/Info-Debug.plist/);
   assert.doesNotMatch(read("app/club/layout.tsx"), /Demoer/);
 });
-test("native root pages have no title/options toolbar and only nested routes reserve a back row", () => {
+test("native pages use the approved toolbar-free light presentation", () => {
   const source = read("ios/R12Club/App/ClubNativeShell.swift");
   assert.match(source, /toolbar\(\.hidden, for: \.navigationBar\)/);
-  assert.match(source, /state.canGoBack && state.nestedRoute/);
+  assert.doesNotMatch(source, /safeAreaInset\(edge: \.top/);
   assert.doesNotMatch(source, /navigationTitle\(|Page options/);
   assert.match(source, /safeAreaInset\(edge: \.bottom/);
+  assert.match(source, /preferredColorScheme\(\.light\)/);
+  assert.match(source, /appearance\.backgroundColor = \.white/);
 });

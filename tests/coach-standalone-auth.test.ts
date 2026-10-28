@@ -64,7 +64,7 @@ test("sign-in errors distinguish credentials, unverified email, stale session, a
 
 test("account login preserves the safe Coach return and clears only known-invalid local sessions", () => {
   const account = source("app/account/page.tsx");
-  assert.match(account, /authDestination/);
+  assert.match(account, /authRequestContext/);
   assert.match(account, /signInWithPassword/);
   assert.match(account, /signOut\(\{ scope: "local" \}\)/);
   assert.match(account, /isStaleAuthSessionError/);

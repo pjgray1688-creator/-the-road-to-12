@@ -62,7 +62,7 @@ test("training navigation returns to R12 Training, and Member Area stays explici
   assert.match(appNav, /href: "\/", label: "Home"/);
   assert.match(shell, /member-area-return" href="\/">Back to R12/);
   assert.match(account, /href="\/member-hub" label="My Gym"/);
-  assert.match(account, /window\.location\.replace\(context\.next\)/);
+  assert.match(account, /continueToAuthDestination\(context\.next\)/);
   assert.match(callback, /authDestination\(await searchParams, true\)/);
 });
 

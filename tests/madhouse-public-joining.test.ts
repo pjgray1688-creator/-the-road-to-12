@@ -52,7 +52,7 @@ test("existing-member route authenticates and returns directly to the claim flow
   assert.match(memberLink,/redirect\("\/account\?mode=signIn&next=%2Fmember-hub%2Flink"\)/);
   assert.match(memberLink,/club_preview_existing_member_claim/);
   assert.match(account,/authCallbackUrl\(appBaseUrl, context\.next, context\.app\)/);
-  assert.match(account,/authDestination/);
+  assert.match(account,/authRequestContext/);
 });
 
 test("legacy Madhouse member-link path redirects instead of duplicating activation",()=>{

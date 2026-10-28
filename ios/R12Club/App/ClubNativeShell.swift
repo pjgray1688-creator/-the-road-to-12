@@ -42,7 +42,7 @@ struct ClubNativeShell: View {
                         Label("Can’t load Club", systemImage: "wifi.exclamationmark")
                     } description: { Text("Check your connection and try again.") } actions: {
                         Button("Try again", action: state.reload).buttonStyle(.borderedProminent)
-                    }.background(Color(red: 0.035, green: 0.04, blue: 0.055))
+                    }.background(Color.white)
                 }
             }
             .toolbar(.hidden, for: .navigationBar)
@@ -99,7 +99,7 @@ private struct ClubWebView: UIViewRepresentable {
         let web = WKWebView(frame: .zero, configuration: config)
         web.navigationDelegate = context.coordinator
         web.allowsBackForwardNavigationGestures = true
-        web.isOpaque = false; web.backgroundColor = UIColor(red: 0.035, green: 0.04, blue: 0.055, alpha: 1)
+        web.isOpaque = false; web.backgroundColor = .white
         web.scrollView.keyboardDismissMode = .interactive
         web.scrollView.contentInsetAdjustmentBehavior = .automatic
         let refresh = UIRefreshControl(); refresh.addTarget(context.coordinator, action: #selector(Coordinator.refresh), for: .valueChanged)
