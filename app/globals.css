@@ -552,6 +552,59 @@ body:has(.club-auth-page),
   display:none!important;
 }
 
+/* Shared-auth Club entry uses the same approved light presentation as native Club. */
+html:has(.auth-product-page-club),
+body:has(.auth-product-page-club),
+.auth-product-page-club{
+  min-height:100dvh;
+  background:#fff!important;
+  color:#18181d!important;
+}
+.auth-product-page-club .auth-product-club{
+  justify-content:center;
+  margin:0 auto 1.25rem;
+}
+.auth-product-page-club .auth-product-club img{
+  border-radius:0;
+  filter:drop-shadow(0 10px 24px rgba(92,55,180,.14));
+}
+.auth-product-page-club header h1,
+.auth-product-page-club p,
+.auth-product-page-club label{
+  color:#18181d!important;
+}
+.auth-product-page-club input{
+  border:1px solid #c9c9d2!important;
+  background:#fff!important;
+  color:#18181d!important;
+}
+.auth-product-page-club input:focus{
+  border-color:#7b46d8!important;
+  box-shadow:0 0 0 3px rgba(123,70,216,.14)!important;
+}
+.auth-product-page-club .primary{
+  border-color:#7440d5!important;
+  background:#7440d5!important;
+  color:#fff!important;
+}
+.auth-product-page-club button.text-button{
+  width:100%;
+  min-height:48px;
+  margin-top:10px;
+  padding:11px 16px!important;
+  border:1px solid #ded5ef!important;
+  border-radius:14px!important;
+  background:#faf8ff!important;
+  color:#6938c6!important;
+  font-weight:750!important;
+}
+.auth-product-page-club a{color:#6535be!important}
+.auth-product-page-club :is(a,button,input):focus-visible{
+  outline:3px solid rgba(116,64,213,.42)!important;
+  outline-offset:3px;
+}
+.auth-product-page-club > p:last-child{display:none!important}
+
 /* R12 Club light theme */
 html:has(.club-page),
 body:has(.club-page){

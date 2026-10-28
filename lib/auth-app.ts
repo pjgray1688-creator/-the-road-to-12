@@ -15,7 +15,7 @@ export type AuthAppBrand = {
 
 export const authApps: Record<AuthApp, AuthAppBrand> = {
   training: { id: "training", name: "R12 Training", eyebrow: "R12 TRAINING", markSrc: "/r12-app-assets/icon-192.png", defaultReturnTo: "/", registrationReturnTo: "/onboarding", privacyPath: "/privacy", nativeScheme: "r12-training" },
-  club: { id: "club", name: "R12 Club", eyebrow: "R12 CLUB", markSrc: "/r12-app-assets/club-icon-192.png", defaultReturnTo: "/club", registrationReturnTo: "/club", privacyPath: "/club/privacy", nativeScheme: "r12-club" },
+  club: { id: "club", name: "R12 Club", eyebrow: "R12 CLUB", markSrc: "/brand/r12-club-emblem.png", defaultReturnTo: "/club", registrationReturnTo: "/club", privacyPath: "/club/privacy", nativeScheme: "r12-club" },
   coach: { id: "coach", name: "R12 Coach", eyebrow: "R12 COACH", markSrc: "/r12-app-assets/coach-icon-192.png", defaultReturnTo: "/coach", registrationReturnTo: "/coach", privacyPath: "/coach/privacy", nativeScheme: "r12-coach" },
   glow: { id: "glow", name: "Glow Zone", eyebrow: "GLOW ZONE", markSrc: "/r12-app-assets/glow-zone-brand.png", defaultReturnTo: "/glow-zone", registrationReturnTo: "/glow-zone", privacyPath: "/glow-zone/privacy", nativeScheme: "r12-glowzone" },
 };
