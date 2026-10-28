@@ -21,7 +21,7 @@ The app's Vercel project reports `app.r12.live` as a verified project domain. Co
 
 Stripe documents HTTP 403 as an authenticated key lacking permission, and HTTP 401 as no valid API key. The current `GET /v1/account` result therefore confirms key authentication but only that self-account reading is denied. Stripe's documented `GET /v1/accounts/:id` is a Connect account operation, so R12 does not use it for merchant identity.
 
-For each merchant, the account owner must independently sign into the correct Stripe Dashboard account and check the account ID plus the legal business name and Companies House number (Franchise: 17383077; Products and Services: 17383213). Confirm which restricted key was created in that account and installed in the matching Vercel variable. The privileged Club diagnostic exposes only a SHA-256 fingerprint of the installed key, not the key. Record the independent Dashboard check in an internal approval/ticket and use its reference in the binding record. The offline Ed25519 signing key must be held separately from Vercel; its private half must never be uploaded or committed.
+For each merchant, the account owner must independently sign into the correct Stripe Dashboard account and check the account ID and displayed Stripe account name. The current sole-trader accounts are `Madhouse Gym Rotherham` for Franchise and `Madhouse Gym Carlton` for Products & Services while the legal-entity transition remains pending. Confirm which restricted key was created in that account and installed in the matching Vercel variable. The privileged Club diagnostic exposes only a SHA-256 fingerprint of the installed key, not the key. Record the independent Dashboard check in an internal approval/ticket and use its reference in the binding record. The offline Ed25519 signing key must be held separately from Vercel; its private half must never be uploaded or committed.
 
 Generate one Ed25519 key pair on a secured owner workstation (keep the private key offline and backed up securely), then add only the public PEM as `STRIPE_ACCOUNT_BINDING_PUBLIC_KEY` in Vercel Production. Visit Club → Launch readiness → Stripe using an authorised owner account and note the fingerprint for each merchant. Create one JSON file per entity, filling values from the Dashboard and the privileged diagnostic:
 
@@ -36,11 +36,12 @@ Upload only `stripe-binding-public.pem` as the Vercel variable. Keep `stripe-bin
 
 ```json
 {
-  "version": 1,
+  "version": 2,
   "entity": "madhouse_franchise",
   "accountId": "acct_REPLACE_WITH_DASHBOARD_ID",
-  "legalEntityNumber": "17383077",
-  "legalEntityName": "Madhouse Franchise Limited",
+  "stripeAccountName": "Madhouse Gym Rotherham",
+  "accountHolderType": "sole_trader",
+  "legalEntityTransition": "pending",
   "apiKeyFingerprint": "REPLACE_WITH_64_CHARACTER_SHA256_FINGERPRINT",
   "approvedAt": "2026-10-22T12:00:00.000Z",
   "approvedBy": "Owner name or controlled staff identity",
@@ -48,7 +49,7 @@ Upload only `stripe-binding-public.pem` as the Vercel variable. Keep `stripe-bin
 }
 ```
 
-For Products and Services, set `entity` to `madhouse_products_services`, `accountId` and the fingerprint to that merchant's values, `legalEntityNumber` to `17383213`, and `legalEntityName` to `Madhouse Products and Services Limited`. Use a distinct internal evidence reference for each record. Sign each JSON record offline with `node scripts/sign-stripe-account-binding.mjs <entity> <binding.json> <offline-private-key.pem>`. Store the exact JSON in the corresponding `STRIPE_FRANCHISE_ACCOUNT_BINDING` / `STRIPE_PRODUCTS_SERVICES_ACCOUNT_BINDING` server-side Vercel variable and the returned signature in the corresponding `_ACCOUNT_BINDING_SIGNATURE` variable. Keep the approval JSON and signature in the controlled internal approval record. Never place the private key in Vercel, source control, chat or logs.
+For Products and Services, set `entity` to `madhouse_products_services`, `accountId` and the fingerprint to that merchant's values, and `stripeAccountName` to `Madhouse Gym Carlton`; keep `accountHolderType=sole_trader` and `legalEntityTransition=pending`. Use a distinct internal evidence reference for each record. Sign each JSON record offline with `node scripts/sign-stripe-account-binding.mjs <entity> <binding.json> <offline-private-key.pem>`. Store the exact JSON in the corresponding `STRIPE_FRANCHISE_ACCOUNT_BINDING` / `STRIPE_PRODUCTS_SERVICES_ACCOUNT_BINDING` server-side Vercel variable and the returned signature in the corresponding `_ACCOUNT_BINDING_SIGNATURE` variable. Keep the approval JSON and signature in the controlled internal approval record. Never place the private key in Vercel, source control, chat or logs.
 
 After Vercel has a new production deployment with those settings, rerun `/club/launch-readiness/stripe`. It must show `accountBinding=verified`, `keyAuthentication=accepted`, and distinct account IDs for both entities. The current `403 more_permissions_required` for `/v1/account` is shown separately as `selfAccountRead=permission_denied`; this is expected under these restricted scopes. `checkoutPermission=not_tested` remains honest until a separately authorised Checkout test. Keep both live gates off; this binding procedure does not activate payments.
 
@@ -59,7 +60,8 @@ Set the following server-side values in the Production environment:
 - `R12_APP_BASE_URL=https://app.r12.live` (preferred canonical app origin). Set `NEXT_PUBLIC_SITE_URL=https://app.r12.live` as the legacy fallback as well. Production URL resolution pins callbacks to this host and reports a mismatched configured origin.
 - Franchise membership payments use `STRIPE_FRANCHISE_SECRET_KEY`, `STRIPE_FRANCHISE_WEBHOOK_SECRET`, `STRIPE_FRANCHISE_ACCOUNT_ID=acct_...`, and `STRIPE_FRANCHISE_MODE=test|live`; all four values belong to Madhouse Franchise Limited (17383077).
 - Supported one-off shop/service purchases use the separate `STRIPE_PRODUCTS_SERVICES_SECRET_KEY`, `STRIPE_PRODUCTS_SERVICES_WEBHOOK_SECRET`, `STRIPE_PRODUCTS_SERVICES_ACCOUNT_ID=acct_...`, and `STRIPE_PRODUCTS_SERVICES_MODE=test|live`; all four belong to Madhouse Products and Services Limited (17383213). There is no generic Stripe key fallback.
-- Live Checkout verifies a signed, operator-approved account binding that includes the configured account ID, legal entity number/name, and SHA-256 fingerprint of that exact installed API key. This is required because Stripe returns `403 more_permissions_required` for `GET /v1/account` with the current restricted keys and Accounts: Read is not available in the key UI. Do not substitute Connect's `GET /v1/accounts/:id`, trust the account-ID setting by itself, or remove the binding check. Test-mode checkout continues to use the read-only self-account identity check. Product ownership and exact Stripe Product/Price IDs must be explicitly configured in the catalogue; categories and gym sites never infer a merchant.
+- Live Checkout verifies a signed, operator-approved version-2 account binding that includes the configured account ID, displayed Stripe account name, sole-trader transition state, and SHA-256 fingerprint of that exact installed API key. This is required because Stripe returns `403 more_permissions_required` for `GET /v1/account` with the current restricted keys and Accounts: Read is not available in the key UI. Do not substitute Connect's `GET /v1/accounts/:id`, trust the account-ID setting by itself, or remove the binding check. Test-mode checkout continues to use the read-only self-account identity check. Product ownership and exact Stripe Product/Price IDs must be explicitly configured in the catalogue; categories and gym sites never infer a merchant.
+- After the signed binding verifies and an authorised live checkout test is approved, enable each merchant independently with `STRIPE_FRANCHISE_LIVE_ENABLED=true` or `STRIPE_PRODUCTS_SERVICES_LIVE_ENABLED=true`. A missing binding, signature, public key, or live-enabled flag intentionally blocks session creation; the controlled £1-test approval variables do not enable ordinary customer Checkout.
 - `GOCARDLESS_ACCESS_TOKEN`, `GOCARDLESS_WEBHOOK_SECRET`, and `GOCARDLESS_ENVIRONMENT=live` after the live provider setup is verified. The integration defaults to sandbox if the environment is omitted; set it explicitly.
 - `CRON_SECRET` for Vercel Cron requests. Billing and notification workers also accept their dedicated `R12_BILLING_WORKER_SECRET` / `R12_NOTIFICATION_WORKER_SECRET` for trusted manual calls.
 - `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` for protected server workers. Keep the service-role key server-only.

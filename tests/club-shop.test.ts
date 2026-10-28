@@ -7,7 +7,21 @@ test("Club shop keeps payment paths behind repository actions", () => {
   const actions = readFileSync(new URL("../app/club/shop/actions.ts", import.meta.url), "utf8");
   const component = readFileSync(new URL("../components/club-shop.tsx", import.meta.url), "utf8");
   assert.match(actions, /createCommerceOrder/); assert.match(actions, /spendBalance/); assert.match(actions, /declareCash/); assert.match(actions, /recordCashPayment/); assert.match(actions, /reconcileCash/);
-  assert.doesNotMatch(component, /from\(["']club_/); assert.match(component, /Awaiting cash verification/); assert.match(component, /Card online/); assert.match(component, /Products and Services/);
+  assert.doesNotMatch(component, /from\(["']club_/); assert.match(component, /Awaiting cash verification/); assert.match(component, /Card payment/); assert.match(component, /Products and Services/);
+});
+
+test("member card checkout cannot remain indefinitely processing and keeps retries idempotent", () => {
+  const actions = readFileSync(new URL("../app/club/shop/actions.ts", import.meta.url), "utf8");
+  const component = readFileSync(new URL("../components/club-shop.tsx", import.meta.url), "utf8");
+  const merchant = readFileSync(new URL("../lib/stripe-merchant.ts", import.meta.url), "utf8");
+  assert.match(component, /checkoutResponse\(beginExternalPaymentAttemptAction/);
+  assert.match(component, /<CardIcon \/><strong>Card payment<\/strong>/);
+  assert.match(component, /Continue to secure checkout/);
+  assert.match(component, /you won.t be charged twice/);
+  assert.match(component, /const key = checkoutKey \|\| crypto\.randomUUID\(\)/);
+  assert.match(merchant, /AbortSignal\.timeout\(STRIPE_REQUEST_TIMEOUT_MS\)/);
+  assert.match(actions, /\[club-shop\] Stripe checkout start failed/);
+  assert.match(actions, /Secure card checkout couldn.t be opened\. Please try again\. Ref:/);
 });
 
 test("Club shop presents factual order states without fake provider success", () => {

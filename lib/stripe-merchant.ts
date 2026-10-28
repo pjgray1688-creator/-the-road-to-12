@@ -69,6 +69,8 @@ export class StripeMerchantNetworkError extends Error {
   }
 }
 
+const STRIPE_REQUEST_TIMEOUT_MS = 12_000;
+
 function safeStripeIdentifier(value: unknown): string | undefined {
   return typeof value === "string" && /^[a-z][a-z0-9_]{0,63}$/.test(value) ? value : undefined;
 }
@@ -268,6 +270,7 @@ export async function stripeMerchantRequest<T>(
       ...init,
       headers: { Authorization: `Bearer ${config.secretKey}`, ...(init.headers ?? {}) },
       cache: "no-store",
+      signal: init.signal ?? AbortSignal.timeout(STRIPE_REQUEST_TIMEOUT_MS),
     });
   } catch {
     // Fetch exceptions can contain request details; surface only a safe class.

@@ -11,6 +11,18 @@ import { readStripeMerchantConfig } from "@/lib/stripe-merchant";
 import { createStripeCommerceCheckoutSession, expireStripeCommerceCheckoutSession, retrieveStripeCommerceCheckoutSession } from "@/lib/stripe-commerce-provider";
 
 type Result = { ok: true; status: string; orderId: string } | { ok: false; error: string };
+function checkoutFailure(input: { organisationId: string; attemptId?: string }, error: unknown) {
+  const reference = crypto.randomUUID().slice(0, 8).toUpperCase();
+  console.error("[club-shop] Stripe checkout start failed", {
+    operation: "begin_stripe_commerce_checkout",
+    reference,
+    organisationId: input.organisationId,
+    attemptId: input.attemptId ?? null,
+    errorName: error instanceof Error ? error.name : "UnknownError",
+    message: error instanceof Error ? error.message.slice(0, 300) : "unknown",
+  });
+  return { ok: false as const, error: `Secure card checkout couldn’t be opened. Please try again. Ref: ${reference}` };
+}
 function paymentFailure(operation: "cash_sale" | "balance_sale", input: { organisationId: string; locationId?: string; customerId?: string }, error: unknown, message: string): Result {
   const reference = crypto.randomUUID().slice(0, 8).toUpperCase();
   const source = error as { code?: unknown; message?: unknown; details?: unknown; hint?: unknown };
@@ -81,10 +93,10 @@ export async function beginExternalPaymentAttemptAction(input: { organisationId:
     const stored = await admin.rpc("club_store_stripe_commerce_session", { p_attempt_id: attemptId, p_account_id: config.accountId, p_session_id: session.id, p_customer_id: typeof session.customer === "string" ? session.customer : session.customer?.id ?? null });
     if (stored.error || !session.url) throw new Error("Stripe Checkout session could not be linked to the order");
     return { ok: true, orderId, url: session.url };
-  } catch {
+  } catch (error) {
     if (sessionId) { try { await expireStripeCommerceCheckoutSession(sessionId); } catch {} }
     if (attemptId) { try { await adminSupabase().rpc("club_abort_stripe_commerce_attempt", { p_attempt_id: attemptId, p_reason: "Checkout could not be linked" }); } catch {} }
-    return { ok: false, error: "Payment couldn’t be started. Your order was not marked paid." };
+    return checkoutFailure({ organisationId: input.organisationId, attemptId }, error);
   }
 }
 
