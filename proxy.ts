@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { CLUB_STATION_COOKIE, CLUB_STATION_USER_COOKIE, stationCookieValue, verifyClubStationSession } from "@/lib/club-station";
-import { playReviewerClubRequestPolicy } from "@/lib/play-reviewer";
+import { isPublicClubPrivacyRequest, playReviewerClubRequestPolicy, playReviewerCoachRequestPolicy } from "@/lib/play-reviewer";
 
 function authClaims(request: NextRequest) {
   const values = request.cookies.getAll();
@@ -28,6 +28,10 @@ export function proxy(request: NextRequest) {
     return response;
   }
   const claims = authClaims(request);
+  const coachReviewerPolicy = playReviewerCoachRequestPolicy(claims?.email, pathname, request.method);
+  if (coachReviewerPolicy === "deny") {
+    return new NextResponse("Coach changes and API access are disabled for the read-only review account.", { status: 403, headers: { "Cache-Control": "private, no-store" } });
+  }
   const reviewerPolicy = playReviewerClubRequestPolicy(claims?.email, pathname, request.method);
   if (reviewerPolicy === "deny" && (pathname === "/api/club" || pathname.startsWith("/api/club/"))) {
     return new NextResponse("Club API access is disabled for the read-only review account.", { status: 403, headers: { "Cache-Control": "private, no-store" } });
@@ -53,4 +57,4 @@ export function proxy(request: NextRequest) {
   return response;
 }
 
-export const config = { matcher: ["/account/reset", "/club/:path*", "/api/club/:path*"] };
+export const config = { matcher: ["/account/reset", "/club/:path*", "/api/club/:path*", "/coach/:path*", "/api/coach/:path*"] };

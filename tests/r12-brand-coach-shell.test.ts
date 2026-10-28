@@ -22,14 +22,14 @@ test("R12 app metadata uses the canonical raster mark instead of the invented SV
   assert.match(manifest, /club-icon-512\.png/);
 });
 
-test("Coach shell uses the shared R12 mark and current typography tokens without member navigation", () => {
+test("Coach shell uses the approved Coach emblem and current typography tokens without member navigation", () => {
   const shell = fs.readFileSync("components/coach-product-shell.tsx", "utf8");
   const shellStyles = fs.readFileSync("components/coach-product-shell.module.css", "utf8");
   const navStyles = fs.readFileSync("components/coach-navigation.module.css", "utf8");
   const nav = fs.readFileSync("components/coach-navigation.tsx", "utf8");
   const memberNav = fs.readFileSync("components/app-nav.tsx", "utf8");
 
-  assert.match(shell, /src=\{brand\.markSrc\}/);
+  assert.match(shell, /src="\/brand\/r12-coach-emblem\.png"/);
   assert.match(shell, /className=\{styles\.productLabel\}>Coach</);
   assert.doesNotMatch(shell, /<span>R12<\/span><small>COACH<\/small>/);
   assert.match(shellStyles, /font-family:inherit/);

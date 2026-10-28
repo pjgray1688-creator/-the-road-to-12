@@ -440,3 +440,4 @@
 .auth-product-page-training .primary,.auth-product-page-club .primary { color:#fff; }
 .auth-product-page .eyebrow,.auth-product-page a,.auth-product-page .auth-product-brand span { color:var(--auth-accent); }
 .auth-product-page .secondary { display:inline-flex; margin-top:10px; }
+.auth-product-page input { -webkit-user-select:text; user-select:text; -webkit-touch-callout:default; }

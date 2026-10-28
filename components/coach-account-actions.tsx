@@ -16,7 +16,7 @@ export function CoachAccountActions() {
       setMessage("You couldn’t be signed out just now. Please try again.");
       return;
     }
-    window.location.assign("/account?mode=signIn");
+    window.location.assign("/account?app=coach&mode=signIn&next=%2Fcoach");
   };
 
   return <div className="coach-account-actions"><button type="button" className="secondary" onClick={() => void signOut()} disabled={busy}>{busy ? "Signing out…" : "Sign out of this device"}</button>{message ? <p role="status">{message}</p> : null}</div>;

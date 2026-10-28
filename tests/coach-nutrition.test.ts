@@ -75,11 +75,11 @@ test("member nutrition and Today accountability stay in the normal Member surfac
 
 test("Coach nutrition includes a real builder, accountability review and feedback", () => {
   assert.match(coach, /PLAN BUILDER/);
-  assert.match(coach, /Save draft/);
-  assert.match(coach, /Activate plan/);
+  assert.match(coach, /Save plan/);
+  assert.match(coach, /Assign to client/);
   assert.match(coach, /LAST 7 DAYS/);
   assert.match(coach, /Leave feedback/);
-  assert.match(coach, /Create revised draft/);
+  assert.match(coach, /Edit plan/);
   assert.match(coach, /Continue editing/);
   assert.match(coach, /timingText/);
   assert.match(coach, /Meal alternative/);

@@ -1,14 +1,22 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
-import { hasPlayReviewerEntitlement } from "../lib/play-reviewer";
+import { hasCoachReviewerEntitlement, hasPlayReviewerEntitlement } from "../lib/play-reviewer";
 
 test("Play reviewer entitlement is restricted to the confirmed, exact authorised account", () => {
   assert.equal(hasPlayReviewerEntitlement({ email: "staff@r12.live", email_confirmed_at: "2026-01-01T00:00:00Z" }), true);
   assert.equal(hasPlayReviewerEntitlement({ email: " STAFF@R12.LIVE ", email_confirmed_at: "2026-01-01T00:00:00Z" }), true);
+  assert.equal(hasPlayReviewerEntitlement({ email: "appreview.staff@r12.live", email_confirmed_at: "2026-01-01T00:00:00Z" }), false);
   assert.equal(hasPlayReviewerEntitlement({ email: "staff@r12.live", email_confirmed_at: null }), false);
   assert.equal(hasPlayReviewerEntitlement({ email: "other@r12.live", email_confirmed_at: "2026-01-01T00:00:00Z" }), false);
   assert.equal(hasPlayReviewerEntitlement(null), false);
+});
+
+test("Coach reviewer entitlement is restricted to the confirmed Apple account", () => {
+  assert.equal(hasCoachReviewerEntitlement({ email: "appreview.staff@r12.live", email_confirmed_at: "2026-01-01T00:00:00Z" }), true);
+  assert.equal(hasCoachReviewerEntitlement({ email: " APPREVIEW.STAFF@R12.LIVE ", email_confirmed_at: "2026-01-01T00:00:00Z" }), true);
+  assert.equal(hasCoachReviewerEntitlement({ email: "appreview.staff@r12.live", email_confirmed_at: null }), false);
+  assert.equal(hasCoachReviewerEntitlement({ email: "staff@r12.live", email_confirmed_at: "2026-01-01T00:00:00Z" }), false);
 });
 
 test("reviewer receives the production Member Hub component with synthetic data before membership queries", () => {
@@ -62,7 +70,8 @@ test("reviewer access does not create privileged Club roles or weaken training d
   const trainingProfile = readFileSync("app/api/training-profile/route.ts", "utf8");
   const workouts = readFileSync("app/api/workouts/route.ts", "utf8");
   const workoutRepository = readFileSync("lib/workout-repository.ts", "utf8");
-  assert.doesNotMatch(source, /gym_staff|coach|owner|admin|club_members|service_role/i);
+  assert.doesNotMatch(source, /gym_staff|owner|admin|club_members|service_role/i);
+  assert.doesNotMatch(source, /insert\(|update\(|upsert\(|delete\(/i);
   assert.match(trainingProfile, /\.eq\("id", user\.id\)/);
   assert.match(workouts, /listCompleteWorkouts\(client, user\.id\)/);
   assert.match(workoutRepository, /\.eq\("user_id", userId\)/);

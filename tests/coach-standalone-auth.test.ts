@@ -29,10 +29,9 @@ test("member app can enter Coach, while Coach keeps a deliberate return to membe
   assert.match(coachShell, /href="\/" className=\{styles\.switcher\}/);
 });
 
-test("unauthenticated Coach home offers the required sign-in CTA and authorised users get a distinct denial", () => {
+test("unauthenticated Coach home redirects to branded sign-in and authorised users get a distinct denial", () => {
   const page = source("app/coach/page.tsx");
-  assert.match(page, /SIGN IN TO R12 COACH/);
-  assert.match(page, /href="\/account\?app=coach&next=%2Fcoach"/);
+  assert.match(page, /redirect\("\/account\?app=coach&mode=signIn&next=%2Fcoach"\)/);
   assert.match(page, /Coach access not enabled/);
   assert.match(page, /This account is not authorised for Coach yet\.|does not currently have Coach access/);
 });
@@ -69,6 +68,8 @@ test("account login preserves the safe Coach return and clears only known-invali
   assert.match(account, /signInWithPassword/);
   assert.match(account, /signOut\(\{ scope: "local" \}\)/);
   assert.match(account, /isStaleAuthSessionError/);
+  assert.match(account, /name="email" type="email" inputMode="email" autoComplete="username" autoCapitalize="none" spellCheck=\{false\}/);
+  assert.match(account, /name="password" type="password" autoComplete=/);
   assert.equal(safeInternalReturnTo("/coach"), "/coach");
   assert.equal(safeInternalReturnTo("https://evil.test/coach"), undefined);
   assert.equal(safeInternalReturnTo("//evil.test/coach"), undefined);
@@ -93,6 +94,17 @@ test("Coach account stays inside the Coach shell and provides only shared identi
   assert.match(route, /CoachAccountActions/);
   assert.doesNotMatch(route, /AppNav|member bottom navigation/);
   assert.match(actions, /auth\.signOut\(\{ scope: "local" \}\)/);
+  assert.match(actions, /account\?app=coach&mode=signIn&next=%2Fcoach/);
   assert.match(source("app/coach/layout.tsx"), /CoachProductShell/);
   assert.match(source("components/coach-navigation.tsx"), /"\/coach\/account"/);
+});
+
+test("Coach web, Android and native launch paths use the approved identity and current web content", () => {
+  const shell = source("components/coach-product-shell.tsx");
+  const android = source("android/apps/coach/twa-manifest.json");
+  const native = source("ios/R12Coach/App/CoachNativeShell.swift");
+  assert.match(shell, /\/brand\/r12-coach-emblem\.png/);
+  assert.doesNotMatch(shell, /brand\.markSrc/);
+  assert.match(android, /"themeColor":"#07100a"/);
+  assert.match(native, /reloadRevalidatingCacheData/);
 });

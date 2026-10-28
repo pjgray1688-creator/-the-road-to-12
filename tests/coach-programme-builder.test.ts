@@ -205,8 +205,8 @@ test("structure changes use block revisions, preserve Cover read-only behaviour,
   const workspace = fs.readFileSync("components/coach-workspace.tsx", "utf8");
   assert.match(migration, /coach_validate_session_structures/);
   assert.match(migration, /before insert or update of definition/);
-  assert.match(builder, /Create structure/);
-  assert.match(builder, /Ungroup/);
+  assert.match(builder, /Add training block/);
+  assert.match(builder, /Remove block/);
   assert.match(builder, /canManage/);
   assert.match(workspace, /coach-add-client-action/);
   assert.doesNotMatch(migration, /create table/);

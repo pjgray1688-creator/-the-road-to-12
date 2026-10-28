@@ -6,19 +6,22 @@ import styles from "@/components/coach-diary.module.css";
 import { resolveClubOrganisationContext, listClubOrganisationContexts } from "@/lib/club-server-context";
 import { londonDateKey, type ScheduleEvent, type WeeklyWorkingHours } from "@/lib/club-scheduling";
 import { serverSupabase } from "@/lib/supabase-server";
+import { CoachReviewerDemo } from "@/components/coach-reviewer-demo";
+import { hasCoachReviewerEntitlement } from "@/lib/play-reviewer";
 
 export default async function CoachDiaryPage({ searchParams }: { searchParams?: Promise<{ org?: string; date?: string }> }) {
   const supabase = await serverSupabase();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/account?app=coach&mode=signIn&next=%2Fcoach%2Fdiary");
+  if (hasCoachReviewerEntitlement(user)) return <CoachReviewerDemo screen="diary"/>;
   const { data: coachAccess, error: coachAccessError } = await supabase.rpc("coach_has_access", { p_client_user_id: null });
   if (coachAccessError || !coachAccess) redirect("/coach");
   const params = await searchParams;
   const contexts = await listClubOrganisationContexts(supabase, user.id);
   const eligible = contexts.filter(context => ["trainer", "gym_staff", "gym_admin", "owner"].includes(context.role));
-  if (!eligible.length) return <AppShell className={`module-page ${styles.page}`}><h1 className="coach-visually-hidden">Diary</h1><EmptyState title="No Madhouse diary is linked yet">Your Coach access is active, but there isn’t an active Madhouse staff diary for this account. Ask authorised management to connect your staff role.</EmptyState></AppShell>;
+  if (!eligible.length) return <AppShell className={`module-page ${styles.page}`}><h1 className="coach-visually-hidden">Diary</h1><EmptyState title="No Club diary is linked yet">Your Coach access is active, but there isn’t an active Club staff diary for this account. Ask authorised management to connect your staff role.</EmptyState></AppShell>;
   const context = await resolveClubOrganisationContext(supabase, user.id, params?.org);
-  if (!context || !["trainer", "gym_staff", "gym_admin", "owner"].includes(context.role)) return <AppShell className={`module-page ${styles.page}`}><h1 className="coach-visually-hidden">Diary</h1>{eligible.length > 1 ? <section className={styles.orgPicker}><h2>Choose your Madhouse diary</h2><p>Select the location group you want to view.</p>{eligible.map(item => <Link className={styles.orgLink} key={item.organisation.id} href={`/coach/diary?org=${encodeURIComponent(item.organisation.id)}`}>{item.organisation.name}<span>Open diary →</span></Link>)}</section> : <EmptyState title="Diary access unavailable">Your Coach account does not have an active staff role for this schedule.</EmptyState>}</AppShell>;
+  if (!context || !["trainer", "gym_staff", "gym_admin", "owner"].includes(context.role)) return <AppShell className={`module-page ${styles.page}`}><h1 className="coach-visually-hidden">Diary</h1>{eligible.length > 1 ? <section className={styles.orgPicker}><h2>Choose your Club diary</h2><p>Select the location group you want to view.</p>{eligible.map(item => <Link className={styles.orgLink} key={item.organisation.id} href={`/coach/diary?org=${encodeURIComponent(item.organisation.id)}`}>{item.organisation.name}<span>Open diary →</span></Link>)}</section> : <EmptyState title="Diary access unavailable">Your Coach account does not have an active staff role for this schedule.</EmptyState>}</AppShell>;
 
   const date = params?.date && /^\d{4}-\d{2}-\d{2}$/.test(params.date) ? params.date : londonDateKey(new Date());
   const anchor = new Date(`${date}T12:00:00Z`);

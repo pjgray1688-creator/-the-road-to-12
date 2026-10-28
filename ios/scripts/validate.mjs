@@ -44,7 +44,7 @@ for (const app of appSpecs) {
   check(["AppConfiguration.swift", "NativeAppShell.swift", "RouteWebScreen.swift"].every(file => project.includes(`../Shared/${file}`)), `${app.folder} includes the shared app navigation and authenticated web shell`);
   check(info.includes(`<string>${app.scheme}</string>`), `${app.folder} registers its own deep-link scheme`);
   check(info.includes(`<string>${app.displayName}</string>`), `${app.folder} declares its app-specific display name`);
-  check(launch.includes(`text="${app.displayName}"`) || launch.includes(`${app.folder === "GlowZone" ? "GlowLaunch" : app.displayName}`), `${app.folder} launch screen uses its app name or approved brand asset`);
+  check(launch.includes('image="LaunchLogo"') || launch.includes(`text="${app.displayName}"`) || launch.includes(`${app.folder === "GlowZone" ? "GlowLaunch" : app.displayName}`), `${app.folder} launch screen uses its app name or approved brand asset`);
   check(info.includes(`<string>https://app.r12.live${app.privacy}</string>`), `${app.folder} points to its app-specific privacy policy`);
   check(appConfiguration.includes(`privacyPath: "${app.privacy}"`), `${app.folder} has an app-specific native privacy shortcut`);
   check(info.includes("<key>NSAllowsArbitraryLoads</key>\n\t\t<false/>"), `${app.folder} keeps arbitrary cleartext loads disabled`);
@@ -66,13 +66,15 @@ check(clubReception.includes("/club/access") && clubAccess.includes("next=%2Fclu
 check(clubAccess.includes("listClubOrganisationContexts") && clubAccess.includes("isClubStaffRole"), "Club reception retains organisation selection and staff role checks");
 check(club.includes("scope: { $0 == \"/club\" || $0.hasPrefix(\"/club/\") || $0 == \"/account\" }"), "R12 Club allows only Club and shared account routes");
 const coach = configuration.match(/static let coach = NativeAppConfiguration\(([\s\S]*?)\n    \)/)?.[1] ?? "";
+const coachNative = readFileSync(resolve(root, "R12Coach/App/CoachNativeShell.swift"), "utf8");
 check(coach.includes("/account") && !coach.includes("/member-hub"), "R12 Coach keeps shared account access and no Club member route");
-check(configuration.includes('AppDestination(title: "Diary", path: "/coach/diary"') && configuration.includes('AppDestination(title: "Programmes", path: "/coach/programmes"'), "R12 Coach has native client, diary and programme destinations");
+check(["Clients", "Diary", "Programmes", "Nutrition", "Account"].every(title => coachNative.includes(`title: "${title}"`)), "R12 Coach has the five approved native destinations");
+check(coachNative.includes("toolbar(.hidden, for: .navigationBar)") && coachNative.includes("safeAreaInset(edge: .bottom"), "R12 Coach uses one safe-area-aware native navigation bar");
 check(configuration.includes('AppDestination(title: "Training", path: "/training"') && configuration.includes('AppDestination(title: "Progress", path: "/progress"'), "R12 Training exposes workout and progress destinations");
 check(configuration.includes('AppDestination(title: "Home", path: "/glow-zone"'), "Glow Zone opens its customer-facing balance experience");
 const coachEntry = readFileSync(resolve(root, "../app/coach/page.tsx"), "utf8");
 const glowEntry = readFileSync(resolve(root, "../app/glow-zone/page.tsx"), "utf8");
-check(coachEntry.includes("authenticatedServerClient") && coachEntry.includes("SIGN IN TO R12 COACH"), "R12 Coach retains sign-in gating on its entry route");
+check(coachEntry.includes("authenticatedServerClient") && coachEntry.includes("app=coach") && coachEntry.includes("mode=signIn"), "R12 Coach redirects signed-out users to branded sign-in");
 check(glowEntry.includes("serverSupabase") && glowEntry.includes("app=glow") && glowEntry.includes("mode=signIn"), "Glow Zone retains branded sign-in gating on its customer route");
 const clubAccount = readFileSync(resolve(root, "../app/club/account/page.tsx"), "utf8");
 const coachAccount = readFileSync(resolve(root, "../app/coach/account/page.tsx"), "utf8");

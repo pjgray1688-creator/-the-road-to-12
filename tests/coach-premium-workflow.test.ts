@@ -31,7 +31,7 @@ test("client workspace has compact Overview, Programme, Nutrition, Sessions and 
   const navigation = read("components/coach-client-section-nav.tsx");
   const workspace = read("components/coach-client-workspace.tsx");
   const nutrition = read("app/coach/nutrition/page.tsx");
-  for (const label of ["Overview", "Programme", "Nutrition", "Sessions", "Progress"]) assert.match(navigation, new RegExp(`label: "${label}"`));
+  for (const label of ["Overview", "Workout History", "Progress / Measurements", "Programme", "Nutrition", "Sessions / Diary"]) assert.match(navigation, new RegExp(`label: "${label.replace("/", "\\/")}"`));
   assert.match(workspace, /CoachClientSectionNav/);
   assert.match(workspace, /onClick=\{\(\) => onSectionChange\("checkins"\)\}/);
   assert.match(nutrition, /coach_list_clients/);

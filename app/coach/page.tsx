@@ -5,10 +5,14 @@ import { TutorialExperience } from "@/components/tutorial-experience";
 import type { CoachWorkspaceSection } from "@/components/coach-client-workspace";
 import { listClubOrganisationContexts } from "@/lib/club-server-context";
 import { londonDateKey, type ScheduleEvent } from "@/lib/club-scheduling";
+import { CoachReviewerDemo } from "@/components/coach-reviewer-demo";
+import { hasCoachReviewerEntitlement } from "@/lib/play-reviewer";
+import { redirect } from "next/navigation";
 
 export default async function CoachPage({ searchParams }: { searchParams?: Promise<{ client?: string; section?: string }> }) {
   const { client, user } = await authenticatedServerClient();
-  if (!user) return <main className="shell"><section className="card"><span className="eyebrow">R12 COACH</span><h1>SIGN IN TO R12 COACH</h1><p>Use your R12 account to open your Coach workspace.</p><Link className="primary" href="/account?app=coach&next=%2Fcoach">Sign in</Link></section></main>;
+  if (!user) redirect("/account?app=coach&mode=signIn&next=%2Fcoach");
+  if (hasCoachReviewerEntitlement(user)) return <CoachReviewerDemo screen="clients"/>;
   const [{ data, error }, { data: pending, error: pendingError }, { data: contexts, error: contextError }, clubContexts] = await Promise.all([
     client.rpc("coach_list_clients"),
     client.rpc("coach_list_pending_relationships"),
@@ -20,7 +24,7 @@ export default async function CoachPage({ searchParams }: { searchParams?: Promi
     if (!firstError) throw new Error("Coach workspace failed without an error");
     console.error("[coach] workspace load failed", { code: firstError.code });
     const denied = firstError.code === "42501";
-    return <main className="shell"><section className="card"><h1>{denied ? "Coach access not enabled" : "Coach service unavailable"}</h1><p>{denied ? "This R12 account does not currently have Coach access. Ask your Club administrator if you believe this is a mistake." : "Coach is temporarily unavailable. Please try again shortly."}</p>{denied ? <Link className="secondary" href="/">Open R12</Link> : null}</section></main>;
+    return <main className="shell"><section className="card"><h1>{denied ? "Coach access not enabled" : "Coach service unavailable"}</h1><p>{denied ? "This R12 account does not currently have Coach access. Contact the administrator who enabled your Coach account if you believe this is a mistake." : "Coach is temporarily unavailable. Please try again shortly."}</p>{denied ? <Link className="secondary" href="/" data-r12-coach-open-r12>Open R12</Link> : null}</section></main>;
   }
   const diaryContext = clubContexts.find(context => context.role === "trainer") ?? clubContexts.find(context => ["gym_staff", "gym_admin", "owner"].includes(context.role));
   let scheduleSummary: { organisationId: string; organisationName: string; asOf: string; events: ScheduleEvent[] } | undefined;

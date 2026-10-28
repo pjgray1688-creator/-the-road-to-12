@@ -26,7 +26,7 @@ test("reviewer Club requests are isolated to synthetic routes and every Club wri
   assert.match(proxy, /playReviewerClubRequestPolicy\(claims\?\.email, pathname, request\.method\)/);
   assert.match(proxy, /reviewerPolicy === "deny"[\s\S]*?pathname === "\/api\/club"/);
   assert.match(proxy, /url\.pathname = `\/club\/reviewer/);
-  assert.match(proxy, /matcher: \["\/club\/:path\*", "\/api\/club\/:path\*"\]/);
+  assert.match(proxy, /"\/club\/:path\*", "\/api\/club\/:path\*"/);
 });
 
 test("reviewer screens authenticate before rendering production Club components with synthetic fixtures", () => {
