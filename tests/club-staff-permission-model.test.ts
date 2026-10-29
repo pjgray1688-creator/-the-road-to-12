@@ -16,11 +16,14 @@ const staffActions = readFileSync("app/club/staff/actions.ts", "utf8");
 const memberActions = readFileSync("app/club/members/actions.ts", "utf8");
 const coachBoundary = readFileSync("supabase/migrations/2026-10-05-coach-staff-access-management.sql", "utf8");
 
-test("owner and configured gym_admin receive the same full management package", () => {
+test("owner receives full management while manual grace remains explicit for managers", () => {
   assert.deepEqual(fullManagementCapabilities, clubCapabilities);
-  assert.deepEqual(resolveClubCapabilities("owner"), resolveClubCapabilities("gym_admin"));
+  assert.deepEqual(resolveClubCapabilities("owner"), [...resolveClubCapabilities("gym_admin"), "payments.extend_grace"]);
   assert.equal(hasClubCapability("owner", "staff.permissions_manage"), true);
   assert.equal(hasClubCapability("gym_admin", "staff.permissions_manage"), true);
+  assert.equal(hasClubCapability("owner", "payments.extend_grace"), true);
+  assert.equal(hasClubCapability("gym_admin", "payments.extend_grace"), false);
+  assert.equal(hasClubCapability("gym_admin", "payments.extend_grace", [{ capability: "payments.extend_grace", decision: "allow" }]), true);
   for (const capability of ["refunds.approve", "cash.reconcile", "supplier.catalogue_manage", "commerce.pricing_manage", "finance.manage", "staff.work_review"]) {
     assert.equal(hasClubCapability("gym_admin", capability as never), true);
   }
@@ -44,6 +47,7 @@ test("individual deny and safe allow overrides retain deny precedence", () => {
   assert.equal(hasClubCapability("trainer", "members.import", [{ capability: "members.import", decision: "allow" }]), true);
   assert.equal(hasClubCapability("trainer", "staff.permissions_manage", [{ capability: "staff.permissions_manage", decision: "allow" }]), false);
   assert.equal(hasClubCapability("member", "payments.take", [{ capability: "payments.take", decision: "allow" }]), false);
+  assert.equal(hasClubCapability("owner", "payments.extend_grace", [{ capability: "payments.extend_grace", decision: "deny" }]), true);
 });
 
 test("database evaluator is organisation-scoped, closed, and capability-authoritative", () => {

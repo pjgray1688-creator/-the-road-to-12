@@ -8,6 +8,30 @@ import { nudgeNotificationWorker } from "@/lib/notification-nudge";
 
 type ActionResult = { ok: true; membershipId: string } | { ok: false; error: string };
 
+export async function extendMembershipPaymentGraceAction(input: { organisationId: string; obligationId: string; newGraceExpiresAt: string; agreedPaymentDate?: string; reason: string; idempotencyKey: string }): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const supabase = await serverSupabase();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { ok: false, error: "Sign in to manage payment grace." };
+    const context = await resolveClubOperationalContext(supabase, user.id, input.organisationId);
+    if (!context || !(await context.repository.hasCapability(context.organisation.id, user.id, "payments.extend_grace"))) return { ok: false, error: "You don’t have permission to extend payment grace." };
+    const expiry = Date.parse(input.newGraceExpiresAt);
+    const reason = input.reason.trim();
+    if (!Number.isFinite(expiry) || expiry <= Date.now() || reason.length < 8 || reason.length > 500 || !input.idempotencyKey) return { ok: false, error: "Choose a future grace expiry and record a clear reason." };
+    const { error } = await supabase.rpc("club_extend_membership_payment_grace", { p_organisation_id: context.organisation.id, p_obligation_id: input.obligationId, p_new_grace_expires_at: new Date(expiry).toISOString(), p_agreed_payment_date: input.agreedPaymentDate ?? null, p_reason: reason, p_idempotency_key: input.idempotencyKey });
+    if (error) {
+      if (error.code === "42501") return { ok: false, error: "You don’t have permission to extend payment grace." };
+      if (error.code === "P0002") return { ok: false, error: "That payment obligation is no longer available." };
+      if (error.code === "23505") return { ok: false, error: "This extension was already recorded. Refresh the profile." };
+      return { ok: false, error: error.message.includes("later than") ? "The new expiry must be later than the current grace expiry." : error.message.includes("eligible") ? "Only a failed or overdue unpaid obligation can be extended." : "Payment grace couldn’t be extended. Refresh and check the dates." };
+    }
+    revalidatePath("/club/members", "layout");
+    return { ok: true };
+  } catch {
+    return { ok: false, error: "Payment grace couldn’t be extended." };
+  }
+}
+
 export async function assignMembershipAction(input: { organisationId: string; productId: string; holderUserIds?: string[]; customerId?: string; startsAt: string; endsAt?: string; idempotencyKey?: string }): Promise<ActionResult> {
   try {
     const supabase = await serverSupabase();

@@ -1,0 +1,12 @@
+.panel { margin-top: 14px; padding: 14px; border: 1px solid var(--club-border, var(--line)); border-radius: 14px; background: var(--club-surface-raised, var(--panel2)); }
+.summary { display: grid; gap: 8px; }
+.summary strong { color: var(--text); }
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); gap: 8px; margin: 10px 0; }
+.facts span { display: grid; gap: 2px; padding: 9px; border-radius: 10px; background: var(--club-surface, var(--panel)); }
+.facts small, .history small { color: var(--muted); }
+.form { display: grid; gap: 12px; margin-top: 14px; }
+.form label { display: grid; gap: 6px; }
+.form input, .form textarea { width: 100%; }
+.history { margin-top: 14px; }
+.history ul { display: grid; gap: 10px; padding: 0; list-style: none; }
+.history li { display: grid; gap: 3px; padding-top: 10px; border-top: 1px solid var(--line); }

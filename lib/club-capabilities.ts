@@ -8,6 +8,7 @@ export const clubCapabilities = [
   "classes.manage", "services.manage", "supplier.catalogue_manage", "supplier.orders_manage",
   "supplier.receive", "commerce.pricing_manage", "commerce.collections_manage", "finance.view",
   "finance.manage", "staff.work_submit", "staff.work_review", "finance.export",
+  "payments.extend_grace",
 ] as const;
 
 export type ClubCapability = typeof clubCapabilities[number];
@@ -21,7 +22,7 @@ export const operationalStaffCapabilities = [
 
 const presets: Record<ClubRole, readonly ClubCapability[]> = {
   owner: fullManagementCapabilities,
-  gym_admin: fullManagementCapabilities,
+  gym_admin: fullManagementCapabilities.filter(capability => capability !== "payments.extend_grace"),
   gym_staff: operationalStaffCapabilities,
   trainer: operationalStaffCapabilities,
   member: [],
@@ -29,12 +30,14 @@ const presets: Record<ClubRole, readonly ClubCapability[]> = {
 };
 const staffRoles: readonly ClubRole[] = ["owner", "gym_admin", "gym_staff", "trainer"];
 const managementOnly = new Set<ClubCapability>(["staff.permissions_manage"]);
+const ownerAutomatic = new Set<ClubCapability>(["payments.extend_grace"]);
 
 export function resolveClubCapabilities(role: ClubRole, overrides: Array<{ capability: string; decision: "allow" | "deny" }> = []) {
   if (!staffRoles.includes(role)) return [];
   const denied = new Set(overrides.filter(item => item.decision === "deny").map(item => item.capability));
   const allowed = new Set(overrides.filter(item => item.decision === "allow").map(item => item.capability));
   return clubCapabilities.filter(capability => {
+    if (role === "owner" && ownerAutomatic.has(capability)) return true;
     if (denied.has(capability)) return false;
     if (managementOnly.has(capability) && role !== "owner" && role !== "gym_admin") return false;
     return allowed.has(capability) || presets[role].includes(capability);

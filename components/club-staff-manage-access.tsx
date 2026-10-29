@@ -9,7 +9,7 @@ type Override = { capability: string; decision: "allow" | "deny" };
 type Group = { label: string; capabilities: readonly string[] };
 const groups: Group[] = [
   { label: "Members & memberships", capabilities: ["members.view", "members.create", "members.link_account", "memberships.assign", "memberships.end_immediately"] },
-  { label: "Payments & cash", capabilities: ["payments.take", "payments.record_cash", "refunds.issue", "refunds.approve", "cash.reconcile"] },
+  { label: "Payments & cash", capabilities: ["payments.take", "payments.record_cash", "payments.extend_grace", "refunds.issue", "refunds.approve", "cash.reconcile"] },
   { label: "Inventory & commerce", capabilities: ["inventory.adjust", "commerce.stock_remove", "supplier.catalogue_manage", "supplier.orders_manage", "supplier.receive", "commerce.pricing_manage", "commerce.collections_manage"] },
   { label: "Classes & services", capabilities: ["classes.manage", "services.manage"] },
   { label: "Administration", capabilities: ["staff.permissions_manage", "induction.manage_policy", "induction.perform", "members.import", "staff.work_submit", "staff.work_review"] },
@@ -18,7 +18,7 @@ const groups: Group[] = [
 const capabilityLabels: Record<string, string> = {
   "members.view": "View members", "members.create": "Add members", "members.link_account": "Link member accounts",
   "memberships.assign": "Assign memberships", "memberships.end_immediately": "End memberships immediately",
-  "payments.take": "Take payments", "payments.record_cash": "Record cash", "refunds.issue": "Issue refunds",
+  "payments.take": "Take payments", "payments.record_cash": "Record cash", "payments.extend_grace": "Extend payment grace", "refunds.issue": "Issue refunds",
   "refunds.approve": "Approve refunds", "cash.reconcile": "Reconcile cash", "inventory.adjust": "Adjust inventory",
   "commerce.stock_remove": "Remove or comp stock", "supplier.catalogue_manage": "Manage supplier catalogue",
   "supplier.orders_manage": "Manage supplier orders", "supplier.receive": "Receive supplier orders",
@@ -107,9 +107,10 @@ export function ClubStaffManageAccess({ organisationId, userId, name, email, rol
           return <details className="staff-permission-group" key={group.label}><summary><span>{group.label}</span><small>{enabled} of {items.length} enabled</small></summary><div className="staff-permission-items">{items.map(capability => {
             const override = overrides.find(item => item.capability === capability);
             const roleDefault = roleDefaults.includes(capability as never);
-            const state = override ? override.decision === "allow" ? "Allowed by exception" : "Blocked by exception" : roleDefault ? "Role default" : "Not included in role";
-            const disabled = capability === "staff.permissions_manage" && role !== "owner" && role !== "gym_admin";
-            return <label className="staff-permission-item" key={capability}><input type="checkbox" checked={effective.includes(capability as never)} disabled={pending || disabled} onChange={event => setPermission(capability, event.target.checked)} /><span><strong>{capabilityLabels[capability] ?? capability}</strong><small>{disabled ? "Not available for this role" : state}</small></span></label>;
+            const ownerAutomatic = capability === "payments.extend_grace" && role === "owner";
+            const state = ownerAutomatic ? "Automatic owner authority" : override ? override.decision === "allow" ? "Allowed by exception" : "Blocked by exception" : roleDefault ? "Role default" : "Not included in role";
+            const disabled = ownerAutomatic || capability === "staff.permissions_manage" && role !== "owner" && role !== "gym_admin";
+            return <label className="staff-permission-item" key={capability}><input type="checkbox" checked={effective.includes(capability as never)} disabled={pending || disabled} onChange={event => setPermission(capability, event.target.checked)} /><span><strong>{capabilityLabels[capability] ?? capability}</strong><small>{ownerAutomatic ? state : disabled ? "Not available for this role" : state}</small></span></label>;
           })}</div></details>;
         })}
       </div>
