@@ -32,6 +32,7 @@ test("membership rules keep both-site access, Off Peak and household limits expl
   assert.match(membershipRuleSummary("Off Peak"), /Monday to Friday, 10am–3pm/);
   assert.match(membershipRuleSummary("Unlimited Gym"), /both Madhouse gyms/i);
   assert.equal(membershipSupportsAdditionalPerson("Unlimited Gym Couple"), true);
+  assert.equal(membershipSupportsAdditionalPerson("Family Membership"), true);
   assert.equal(membershipSupportsAdditionalPerson("Unlimited Gym"), false);
   assert.match(household, /if \(!supportsAdditionalPerson\) return null/);
   assert.match(sql, /maximum_holders integer[\s\S]+between 1 and 2/);

@@ -18,6 +18,15 @@ test("staging blocks duplicate people and ambiguous dates without inventing memb
   assert.equal(parsed.rows[0].fullName, "Only Name");
 });
 
+test("shared contract staging preserves payer, roles and provider evidence without treating it as payment", () => {
+  const result = stageMemberCsv("legacy_member_reference,full_name,membership_type,shared_contract_id,covered_person_role,responsible_payer_member_id,recurring_amount,next_payment_date,paid_through_date,billing_method,mandate_reference\nA1,Adult One,Family Membership,FAM-7,adult,A1,45.00,2026-12-01,2026-11-30,GoCardless,MD123\nC1,Child One,Family Membership,FAM-7,child,A1,45.00,2026-12-01,2026-11-30,GoCardless,MD123\n");
+  assert.equal(result.rows.every(row => row.blockers.length === 0), true);
+  assert.deepEqual(result.rows.map(row => row.normalized.householdRole), ["adult", "child"]);
+  assert.equal(result.rows[0].normalized.responsiblePayerReference, "A1");
+  assert.equal(result.rows[0].normalized.providerSubscriptionReference, "MD123");
+  assert.match(result.rows[0].warnings.join(" "), /reconciliation only/);
+});
+
 test("import migration is staged, owner-capability protected and never fabricates providers or access", async () => {
   const source = await import("node:fs").then(fs => fs.readFileSync("supabase/migrations/2026-09-30-club-member-import.sql", "utf8"));
   assert.match(source, /members\.import/);

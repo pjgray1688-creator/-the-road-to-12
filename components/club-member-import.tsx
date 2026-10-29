@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { authoriseMemberImportAction, executeMemberImportAction, getMemberImportBatchAction, mapMemberImportPackageAction, stageMemberImportAction } from "@/app/club/members/import/actions";
 import { stageMemberCsv, type MemberImportMapping } from "@/lib/club-member-import";
 
-const fields: Array<[string, string]> = [["firstName", "First name"], ["lastName", "Last name"], ["fullName", "Full name"], ["email", "Email"], ["phone", "Phone"], ["legacyReference", "External member ID"], ["membershipName", "Membership/package"], ["membershipStatus", "Membership status"], ["startDate", "Start date"], ["endDate", "End/expiry date"], ["nextPaymentDate", "Next payment date"], ["homeLocation", "Home location"], ["billingMethod", "Payment method"]];
+const fields: Array<[string, string]> = [["firstName", "First name"], ["lastName", "Last name"], ["fullName", "Full name"], ["email", "Email"], ["phone", "Phone"], ["legacyReference", "External member ID"], ["membershipName", "Membership/package"], ["membershipStatus", "Membership status"], ["startDate", "Start date"], ["endDate", "End/expiry date"], ["nextPaymentDate", "Next payment date"], ["paidThroughDate", "Paid-through date"], ["homeLocation", "Home location"], ["billingMethod", "Payment method"], ["householdReference", "Shared contract ID"], ["householdRole", "Covered person role"], ["responsiblePayerReference", "Responsible payer member ID"], ["billingAmount", "Recurring amount"], ["providerCustomerReference", "Provider customer reference"], ["providerSubscriptionReference", "Mandate/subscription reference"]];
 type ServerRow = { source_row_number?: number; normalized_values?: Record<string, string>; warnings?: string[]; blockers?: string[]; action?: string; outcome?: string };
 type ActivationSummary = Record<string, number>;
 
@@ -69,6 +69,7 @@ export function ClubMemberImport({ organisationId, membershipProducts = [] }: { 
   return <section aria-label="Member CSV import"><div className="card">
     <span className="eyebrow">MEMBER MIGRATION</span><h2>Existing member import</h2>
     <p className="muted">Upload a CSV, map its columns, then review every proposed change. Staging is a dry run and creates no accounts, payments, memberships or access.</p>
+    <p className="muted">For Couples or Family contracts, give every covered person the same shared contract ID and identify one responsible payer. This creates one membership and one reviewed billing obligation; importing never charges or resubscribes anyone.</p>
     <p><a href="/templates/member-import.csv" download>Download CSV template</a></p>
     <label>CSV export<input type="file" accept=".csv,text/csv" onChange={event => { const file = event.target.files?.[0]; if (file) void file.text().then(text => load(text, file.name)); }} /></label>
     {preview ? <><h3>1. Map fields</h3><div className="catalogue-import-mapping">{fields.map(([key, label]) => <label key={key}>{label}<select value={mapping[key] ?? ""} onChange={event => { const next = { ...mapping, [key]: event.target.value || undefined }; setMapping(next); setPreview(stageMemberCsv(source, next)); }}><option value="">Not mapped</option>{preview.headers.map(header => <option key={header} value={header}>{header}</option>)}</select></label>)}</div>

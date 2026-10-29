@@ -85,7 +85,7 @@ export function mapProduct(value: unknown, definitions: unknown[] = []): ClubPro
   const item = row(value); const kind = String(item.kind) as ClubProduct["kind"]; const billing = String(item.billing) as ClubProduct["billing"];
   if (!productKinds.includes(kind) || !billingKinds.includes(billing)) safeError("map_product", undefined, "INVALID");
   const ordered = [...definitions].sort((a, b) => Number(row(a).position) - Number(row(b).position));
-  return { id: String(item.id), organisationId: String(item.organisation_id), name: String(item.name), kind, priceMinor: Number(item.price_minor), currency: String(item.currency), billing, ...(item.duration_days != null ? { durationDays: Number(item.duration_days) } : {}), ...(item.is_lifetime === true ? { isLifetime: true } : {}), sellable: item.sellable === true, ...(optionalString(item.archived_at) ? { archivedAt: String(item.archived_at) } : {}), entitlements: ordered.map(mapProductEntitlement) };
+  return { id: String(item.id), organisationId: String(item.organisation_id), name: String(item.name), kind, priceMinor: Number(item.price_minor), ...(item.pricing_on_request === true ? { pricingOnRequest: true } : {}), currency: String(item.currency), billing, ...(item.duration_days != null ? { durationDays: Number(item.duration_days) } : {}), ...(item.is_lifetime === true ? { isLifetime: true } : {}), sellable: item.sellable === true, ...(optionalString(item.archived_at) ? { archivedAt: String(item.archived_at) } : {}), entitlements: ordered.map(mapProductEntitlement) };
 }
 
 export function mapGrant(value: unknown): EntitlementGrant {

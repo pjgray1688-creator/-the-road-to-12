@@ -1,2 +1,2 @@
-legacy_member_reference,first_name,last_name,full_name,email,phone,membership_name,membership_status,start_date,end_date,next_payment_date,home_location,billing_method,notes
-EXAMPLE-001,Alex,Example,,alex@example.com,07123456789,Example membership,active,2024-01-15,,,Example venue,manual,Remove this example row before import
+legacy_member_reference,first_name,last_name,full_name,email,phone,membership_name,membership_status,start_date,end_date,next_payment_date,paid_through_date,home_location,billing_method,shared_contract_id,covered_person_role,responsible_payer_member_id,recurring_amount,provider_customer_reference,provider_subscription_reference,notes
+EXAMPLE-001,Alex,Example,,alex@example.com,07123456789,Example membership,active,2024-01-15,,,,Example venue,manual,,,,,,,Remove this example row before import

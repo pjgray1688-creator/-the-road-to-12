@@ -24,6 +24,7 @@ export const madhouseCatalogue: readonly CatalogueProduct[] = [
   { name: "Off Peak", kind: "membership", priceMinor: 1499, currency: "GBP", billing: "recurring", sellable: true, entitlements: [gymAccess] },
   { name: "Unlimited Gym Discount", kind: "membership", priceMinor: 2200, currency: "GBP", billing: "recurring", sellable: true, entitlements: [gymAccess] },
   { name: "Unlimited Gym Couple", kind: "membership", priceMinor: 4500, currency: "GBP", billing: "recurring", sellable: true, entitlements: [gymAccess] },
+  { name: "Family Membership", kind: "membership", priceMinor: 0, pricingOnRequest: true, currency: "GBP", billing: "recurring", sellable: false, entitlements: [gymAccess] },
   { name: "Yearly Membership", kind: "membership", priceMinor: 27500, currency: "GBP", billing: "one_off", durationDays: 365, sellable: true, entitlements: [gymAccess] },
   { name: "Transformation Bronze", kind: "transformation", priceMinor: 25000, currency: "GBP", billing: "one_off", durationDays: 70, sellable: true, entitlements: transformation(1) },
   { name: "Transformation Silver", kind: "transformation", priceMinor: 40000, currency: "GBP", billing: "one_off", durationDays: 70, sellable: true, entitlements: transformation(2) },
@@ -34,24 +35,27 @@ export const madhouseCatalogue: readonly CatalogueProduct[] = [
 ] as const;
 
 export type MadhouseMembershipRule = {
-  maximumHolders: 1 | 2;
+  maximumHolders: 1 | 2 | null;
+  shared: boolean;
+  defaultHouseholdCompositions?: readonly ["2_adults_1_child", "1_adult_2_children"];
   eligibilityVerificationRequired: boolean;
   accessWindow?: { timeZone: "Europe/London"; weekdays: readonly [1, 2, 3, 4, 5]; opensAt: "10:00"; closesAt: "15:00" };
 };
 
 /** Public copy mirrors the authoritative database rules installed by the catalogue migration. */
 export const madhouseMembershipRules: Readonly<Record<string, MadhouseMembershipRule>> = {
-  "Day Pass": { maximumHolders: 1, eligibilityVerificationRequired: false },
-  "1 Week Pass": { maximumHolders: 1, eligibilityVerificationRequired: false },
-  "Unlimited Gym": { maximumHolders: 1, eligibilityVerificationRequired: false },
-  "Off Peak": { maximumHolders: 1, eligibilityVerificationRequired: false, accessWindow: { timeZone: "Europe/London", weekdays: [1, 2, 3, 4, 5], opensAt: "10:00", closesAt: "15:00" } },
-  "Unlimited Gym Discount": { maximumHolders: 1, eligibilityVerificationRequired: true },
-  "Unlimited Gym Couple": { maximumHolders: 2, eligibilityVerificationRequired: false },
-  "Yearly Membership": { maximumHolders: 1, eligibilityVerificationRequired: false },
+  "Day Pass": { maximumHolders: 1, shared: false, eligibilityVerificationRequired: false },
+  "1 Week Pass": { maximumHolders: 1, shared: false, eligibilityVerificationRequired: false },
+  "Unlimited Gym": { maximumHolders: 1, shared: false, eligibilityVerificationRequired: false },
+  "Off Peak": { maximumHolders: 1, shared: false, eligibilityVerificationRequired: false, accessWindow: { timeZone: "Europe/London", weekdays: [1, 2, 3, 4, 5], opensAt: "10:00", closesAt: "15:00" } },
+  "Unlimited Gym Discount": { maximumHolders: 1, shared: false, eligibilityVerificationRequired: true },
+  "Unlimited Gym Couple": { maximumHolders: 2, shared: true, eligibilityVerificationRequired: false },
+  "Family Membership": { maximumHolders: null, shared: true, defaultHouseholdCompositions: ["2_adults_1_child", "1_adult_2_children"], eligibilityVerificationRequired: false },
+  "Yearly Membership": { maximumHolders: 1, shared: false, eligibilityVerificationRequired: false },
 };
 
 export function membershipSupportsAdditionalPerson(productName: string | undefined): boolean {
-  return productName != null && madhouseMembershipRules[productName]?.maximumHolders === 2;
+  return productName != null && madhouseMembershipRules[productName]?.shared === true;
 }
 
 export function membershipRuleSummary(productName: string): string {
@@ -60,6 +64,7 @@ export function membershipRuleSummary(productName: string): string {
   if (rule.accessWindow) return "Both gyms · Monday to Friday, 10am–3pm · no weekend access unless separately authorised.";
   if (rule.eligibilityVerificationRequired) return "Both gyms · eligibility must be verified by Madhouse before checkout.";
   if (rule.maximumHolders === 2) return "Both gyms · covers two linked people on one membership.";
+  if (rule.shared) return "Both gyms · covers the people recorded on one existing family contract.";
   return "Access includes both Madhouse gyms; home gym is a preference only.";
 }
 
@@ -82,7 +87,7 @@ const canonicalEntitlement = (entitlement: Omit<ProductEntitlement, "productId">
 export function catalogueProductMatches(existing: ClubProduct, expected: CatalogueProduct): boolean {
   const existingEntitlements = (existing.entitlements ?? []).map(canonicalEntitlement).sort();
   const expectedEntitlements = expected.entitlements.map(canonicalEntitlement).sort();
-  return existing.name === expected.name && existing.kind === expected.kind && existing.priceMinor === expected.priceMinor && existing.currency === expected.currency && existing.billing === expected.billing && existing.durationDays === expected.durationDays && existing.isLifetime === expected.isLifetime && existing.sellable === expected.sellable && existing.archivedAt === expected.archivedAt && JSON.stringify(existingEntitlements) === JSON.stringify(expectedEntitlements);
+  return existing.name === expected.name && existing.kind === expected.kind && existing.priceMinor === expected.priceMinor && existing.pricingOnRequest === expected.pricingOnRequest && existing.currency === expected.currency && existing.billing === expected.billing && existing.durationDays === expected.durationDays && existing.isLifetime === expected.isLifetime && existing.sellable === expected.sellable && existing.archivedAt === expected.archivedAt && JSON.stringify(existingEntitlements) === JSON.stringify(expectedEntitlements);
 }
 
 /** Exact organisation + product name is the only installed stable reconciliation key.

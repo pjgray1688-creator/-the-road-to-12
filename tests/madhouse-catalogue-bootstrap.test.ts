@@ -9,11 +9,11 @@ import { catalogueBootstrapEnabled, catalogueProductMatches, MADHOUSE_PRODUCTION
 const byName = (name: string) => madhouseCatalogue.find(product => product.name === name)!;
 const entitlement = (product: (typeof madhouseCatalogue)[number], key: string) => product.entitlements.find(item => item.entitlementKey === key);
 
-test("Madhouse catalogue is the exact typed thirteen-product source of truth", () => {
-  assert.equal(madhouseCatalogue.length, 13);
+test("Madhouse catalogue includes the staff-only Family contract product", () => {
+  assert.equal(madhouseCatalogue.length, 14);
   assert.deepEqual(Object.fromEntries(madhouseCatalogue.map(product => [product.name, product.priceMinor])), {
     "Day Pass": 500, "1 Week Pass": 1200, "Unlimited Gym": 2700, "Off Peak": 1499,
-    "Unlimited Gym Discount": 2200, "Unlimited Gym Couple": 4500, "Yearly Membership": 27500, "Transformation Bronze": 25000,
+    "Unlimited Gym Discount": 2200, "Unlimited Gym Couple": 4500, "Family Membership": 0, "Yearly Membership": 27500, "Transformation Bronze": 25000,
     "Transformation Silver": 40000, "Transformation Gold": 52500, "Single PT Session": 3000,
     "10 PT Session Block": 20000, "Golden Ticket Founding Membership": 50000,
   });
@@ -38,9 +38,10 @@ test("membership, transformation and PT catalogue benefits retain exact semantic
 
 test("Golden Ticket and Couple definitions remain assignment-ready without assigning holders", () => {
   const golden = byName("Golden Ticket Founding Membership"); assert.equal(golden.isLifetime, true); assert.equal(golden.billing, "one_off"); assert.equal(golden.sellable, false); assert.equal(golden.durationDays, undefined); assert.equal(entitlement(golden, "gym_access")?.scope, "future_locations"); assert.deepEqual(entitlement(golden, "discount")?.discount, { percent: 20, period: "month", maxUses: 1 });
-  assert.equal(madhouseCatalogue.filter(product => product !== golden).every(product => product.sellable), true);
+  assert.deepEqual(madhouseCatalogue.filter(product => !product.sellable).map(product => product.name).sort(), ["Family Membership", "Golden Ticket Founding Membership"]);
   const couples = byName("Unlimited Gym Couple"); assert.equal(couples.kind, "membership"); assert.equal(couples.billing, "recurring"); assert.equal(entitlement(couples, "gym_access")?.scope, "future_locations");
   assert.equal(membershipSupportsAdditionalPerson(couples.name), true);
+  assert.equal(membershipSupportsAdditionalPerson("Family Membership"), true);
   assert.equal(membershipSupportsAdditionalPerson("Unlimited Gym"), false);
   assert.equal(madhouseMembershipRules["Unlimited Gym Discount"].eligibilityVerificationRequired, true);
   assert.deepEqual(madhouseMembershipRules["Off Peak"].accessWindow, { timeZone: "Europe/London", weekdays: [1, 2, 3, 4, 5], opensAt: "10:00", closesAt: "15:00" });
@@ -58,7 +59,7 @@ class CatalogueRepository implements Pick<ClubRepository, "listProducts" | "crea
 
 test("catalogue reconciliation creates missing products through the repository and never assigns", async () => {
   const repository = new CatalogueRepository(); const results = await reconcileMadhouseCatalogue(repository);
-  assert.equal(results.filter(result => result.status === "created").length, 13); assert.equal(repository.creates.length, 13); assert.equal(repository.updates, 0); assert.equal(repository.assignments, 0);
+  assert.equal(results.filter(result => result.status === "created").length, 14); assert.equal(repository.creates.length, 14); assert.equal(repository.updates, 0); assert.equal(repository.assignments, 0);
   assert.ok(repository.creates.every(product => product.organisationId === MADHOUSE_PRODUCTION_ORGANISATION_ID));
 });
 

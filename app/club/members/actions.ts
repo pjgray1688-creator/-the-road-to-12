@@ -128,7 +128,7 @@ export async function setMembershipAccessStatusAction(input: { organisationId: s
   }
 }
 
-export async function setMembershipHouseholdMemberAction(input: { organisationId: string; membershipId: string; customerId: string; action: "add" | "remove"; reason: string }): Promise<{ ok: boolean; error?: string }> {
+export async function setMembershipHouseholdMemberAction(input: { organisationId: string; membershipId: string; customerId: string; action: "add" | "remove"; reason: string; coverageRole: "adult" | "child" | "other" }): Promise<{ ok: boolean; error?: string }> {
   try {
     const supabase = await serverSupabase();
     const { data: { user } } = await supabase.auth.getUser();
@@ -137,7 +137,7 @@ export async function setMembershipHouseholdMemberAction(input: { organisationId
     if (!context || !(await context.repository.hasCapability(context.organisation.id, user.id, "memberships.assign"))) return { ok: false, error: "You don’t have permission to change membership holders." };
     const reason = input.reason.trim();
     if (reason.length < 3 || reason.length > 500) return { ok: false, error: "Add a short reason for this family-membership change." };
-    const { error } = await supabase.rpc("club_set_membership_household_member", { p_organisation_id: context.organisation.id, p_membership_id: input.membershipId, p_customer_id: input.customerId, p_action: input.action, p_reason: reason });
+    const { error } = await supabase.rpc("club_set_membership_household_member", { p_organisation_id: context.organisation.id, p_membership_id: input.membershipId, p_customer_id: input.customerId, p_action: input.action, p_reason: reason, p_coverage_role: input.coverageRole });
     if (error) {
       if (error.code === "42501") return { ok: false, error: "You don’t have permission to change membership holders." };
       if (error.code === "P0002") return { ok: false, error: "The membership or person could not be found in this organisation." };
