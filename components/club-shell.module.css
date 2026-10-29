@@ -17,3 +17,7 @@
 .nav{border-color:#e3dfe9;background:linear-gradient(135deg,#fff 0%,#faf8fd 100%);box-shadow:0 12px 30px rgba(45,32,58,.08);color:#17131d}
 .tenant strong{color:#17131d}.multiply{color:#7440d5}.role{border-color:#d9cbed;background:#f5effd;color:#6535be}.links a{color:#5d5863}.links a:hover,.links a:focus-visible{background:#f2ebfb;color:#4d238e;outline:2px solid rgba(116,64,213,.28);outline-offset:1px}.links a.active{background:#eee5fa;color:#54269b;box-shadow:inset 0 -2px #7440d5}.switcher{color:#706b78}.switcher select{border-color:#d9d3df;background:#fff;color:#17131d}.switcher select:focus-visible{border-color:#7440d5;outline:3px solid rgba(116,64,213,.18);outline-offset:1px}
 @media(max-width:700px){.menuButton{border-color:#d9cbed;background:#f7f2fc;color:#54269b}.menuButton:focus-visible{outline:3px solid rgba(116,64,213,.24);outline-offset:2px}.mobileMenu{border-top-color:#e5dcef}.mobileMenu a{color:#5d5863}.mobileMenu a:hover,.mobileMenu a:focus-visible{background:#f2ebfb;color:#4d238e;outline:2px solid rgba(116,64,213,.28);outline-offset:1px}.mobileMenu a.active{background:#eee5fa;color:#54269b;box-shadow:inset 0 -2px #7440d5}}
+
+/* Approved Club emblem with the organisation retained as the tenant identity. */
+.tenantMark{width:46px;height:46px;flex:0 0 46px;border-radius:50%;background:#fff url("/brand/r12-club-emblem.png") center/contain no-repeat;box-shadow:0 5px 14px rgba(61,38,83,.12)}
+.tenantMark>*{display:none}.tenant>div .eyebrow{display:none}.tenant>div{align-content:center}

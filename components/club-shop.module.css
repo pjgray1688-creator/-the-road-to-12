@@ -61,3 +61,29 @@
   background:#f3ebfb;
   color:#4f4357;
 }
+
+/* Staff Club Shop only. Member Shop intentionally retains its dark presentation. */
+:global(.club-shop-workspace) .shop section,
+:global(.club-shop-workspace) .balance,
+:global(.club-shop-workspace) .order,
+:global(.club-shop-workspace) .declaration{border-color:#e1dae8;background:#fff;color:#17131d}
+:global(.club-shop-workspace) .balance{background:linear-gradient(120deg,#f1e7fb,#fff 58%)}
+:global(.club-shop-workspace) .balance span,
+:global(.club-shop-workspace) .productCategory,
+:global(.club-shop-workspace) .product>span:last-child,
+:global(.club-shop-workspace) .price{color:#6931a0}
+:global(.club-shop-workspace) .product{border-color:#dfd7e6;background:#fff;color:#17131d;box-shadow:0 7px 20px rgba(42,29,50,.05)}
+:global(.club-shop-workspace) .order span,
+:global(.club-shop-workspace) .declaration span,
+:global(.club-shop-workspace) .hint{color:#706976}
+:global(.club-shop-workspace) .actions button,
+:global(.club-shop-workspace) .sheetHead button{border-color:#d9d2df;background:#f8f5fa;color:#3b2b45}
+:global(.club-shop-workspace) .message{background:#f3ebfb;color:#4f4357}
+:global(.club-shop-workspace) .sheet{border-color:#ded6e5;background:#fff;color:#17131d;box-shadow:0 22px 70px rgba(26,18,31,.24)}
+:global(.club-shop-workspace) .sheet label{color:#5e5664}
+:global(.club-shop-workspace) .sheet input,
+:global(.club-shop-workspace) .sheet select{border-color:#d9d2df;background:#fff;color:#17131d}
+:global(.club-shop-workspace) .paymentChoice{border-color:#ddd5e5;background:#faf8fc;color:#17131d}
+:global(.club-shop-workspace) .paymentChoice span,
+:global(.club-shop-workspace) .paymentChoice .paymentChoiceTitle{color:#665d6d}
+:global(.club-shop-workspace) .paymentChoiceSelected{border-color:#8a4bc4;background:#f1e6fb;box-shadow:0 0 0 1px #8a4bc4}

@@ -116,3 +116,31 @@
 :global(.club-reviewer-page) .activeDot{
   color:#4c8b2f;
 }
+
+/* Approved light Club presentation; scoped to the Classes module. */
+:global(.club-classes-page) .sessionCard{border-color:#ddd6e4;background:linear-gradient(145deg,#f5eefb,#fff 42%);box-shadow:0 12px 30px rgba(42,29,50,.08);color:#17131d}
+:global(.club-classes-page) .timeRail{border-right-color:#e1dae7;background:#f6f2f8}
+:global(.club-classes-page) .statusPill{border-color:#d8d0df;color:#665e6d}
+:global(.club-classes-page) .scheduled{border-color:#b68ada;color:#66309a}
+:global(.club-classes-page) .completed{color:#65716d}
+:global(.club-classes-page) .detailRow{color:#665f6c}
+:global(.club-classes-page) .detailRow span,
+:global(.club-classes-page) .availability{border-color:#e2dce7;background:#faf8fb}
+:global(.club-classes-page) .capacityTrack{background:#e3dde8}
+:global(.club-classes-page) .availabilityUnavailable,
+:global(.club-classes-page) .quietEmpty{border-color:#dcd5e2;color:#706976}
+:global(.club-classes-page) .editButton,
+:global(.club-classes-page) .typeCard footer button{color:#6931a0}
+:global(.club-classes-page) .empty{border-color:#ddd5e5;background:radial-gradient(circle at 50% 0,#f1e5fb,transparent 58%)}
+:global(.club-classes-page) .emptyGlyph{color:#fff}
+:global(.club-classes-page) .typeCard{border-color:#dfd8e5;background:#fff;box-shadow:0 8px 22px rgba(42,29,50,.05)}
+:global(.club-classes-page) .typeCard footer{color:#665f6c}
+:global(.club-classes-page) .typeCard footer span{background:#f4f0f6}
+:global(.club-classes-page) .editorSheet{border-color:#ddd5e3;background:#fff;color:#17131d;box-shadow:0 -20px 60px rgba(26,18,31,.2)}
+:global(.club-classes-page) .formGrid label{color:#5f5765}
+:global(.club-classes-page) .formGrid input,
+:global(.club-classes-page) .formGrid select,
+:global(.club-classes-page) .formGrid textarea,
+:global(.club-classes-page) .locationFilter select{border-color:#d9d2df;background:#fff;color:#17131d}
+:global(.club-classes-page) .workspaceIntro{color:#17131d}
+:global(.club-classes-page) .readOnlyNotice{border-color:#d3b9e8;background:#f3eafb;color:#513966}

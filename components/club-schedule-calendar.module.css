@@ -2,3 +2,31 @@
 .coachMode{background:linear-gradient(155deg,#142019,#101512 65%);border-color:rgba(76,255,124,.24);box-shadow:0 26px 90px #0006}.coachMode .heading{align-items:flex-start}.coachMode .heading>div{max-width:560px}.coachMode .dateStrip{border:1px solid rgba(76,255,124,.12)}.coachMode .coachViewLabel{align-self:center;color:#8dffa9;font-size:.69rem;font-weight:800;letter-spacing:.12em}.coachMode .dateCell.today{color:#baffca}.coachMode .dateCell.selected{color:#fff;background:#207a3a;border-color:#55ee7b;box-shadow:0 8px 24px rgba(32,122,58,.35)}.coachMode .event{min-height:92px;border-left-color:#55ee7b}.coachMode .eventKind{color:#8dffa9}.coachMode .event.pt_session,.coachMode .event.class{border-left-color:#55ee7b;background:linear-gradient(100deg,rgba(76,255,124,.08),transparent 68%),#ffffff07}.coachMode .event.rota_shift{min-height:72px}.coachMode .event.rota_shift h4{font-size:.93rem}.coachMode .event.leave_request{border-style:dashed}
 @media(max-width:720px){.coachMode{gap:15px;padding:15px;border-radius:17px}.coachMode .heading{display:grid;gap:12px}.coachMode .heading>div:first-child{max-width:none}.coachMode .heading h2{font-size:1.45rem}.coachMode .heading>.dateControls{display:grid;width:100%;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.coachMode .heading>.dateControls button{min-width:0;width:100%;min-height:44px;padding-inline:8px;font-size:.82rem}.coachMode .toolbar{display:grid;gap:8px}.coachMode .toolbar>.dateControls{display:grid;grid-template-columns:44px auto 44px minmax(0,1fr);width:100%;gap:6px}.coachMode .toolbar>.dateControls button{min-height:44px;padding-inline:7px}.coachMode .toolbar>.dateControls strong{min-width:0;margin:0;text-align:right;font-size:.88rem;white-space:nowrap}.coachMode .coachViewLabel{display:block;text-align:left}.coachMode .dateStrip{display:flex;gap:5px;overflow-x:auto;overscroll-behavior-x:contain;padding:5px;scroll-snap-type:x proximity;scrollbar-width:none}.coachMode .dateStrip::-webkit-scrollbar{display:none}.coachMode .dateCell{flex:0 0 42px;scroll-snap-align:center}.coachMode .agendaHead{align-items:flex-end}.coachMode .event{display:grid;grid-template-columns:48px minmax(0,1fr);gap:8px;padding:12px 10px}.coachMode .event time{min-width:0}.coachMode .eventBody{min-width:0;overflow-wrap:anywhere}.coachMode .eventActions{grid-column:2;display:flex;flex-direction:row;align-items:center;justify-content:flex-start;flex-wrap:wrap;gap:6px}.coachMode .eventActions button{min-height:40px}.coachMode .status{font-size:.68rem}.coachMode .empty{padding:24px 12px}}
 @media(max-width:360px){.coachMode{padding:12px}.coachMode .toolbar>.dateControls{grid-template-columns:40px auto 40px minmax(0,1fr)}.coachMode .toolbar>.dateControls button{min-width:40px}.coachMode .dateCell{flex-basis:40px}.coachMode .event{grid-template-columns:43px minmax(0,1fr);gap:7px}.coachMode .event h4{font-size:.92rem}.coachMode .heading>.dateControls{grid-template-columns:1fr 1fr}}
+
+/* Club team calendar only; Coach diary keeps its green dark theme. */
+.workspace:not(.coachMode){border-color:#ded7e5;background:linear-gradient(145deg,#fff,#f8f5fa);color:#17131d;box-shadow:0 18px 50px rgba(42,29,50,.1)}
+.workspace:not(.coachMode) .heading p,
+.workspace:not(.coachMode) .event p,
+.workspace:not(.coachMode) .empty p,
+.workspace:not(.coachMode) .note{color:#706a76}
+.workspace:not(.coachMode) .filters label{color:#625a68}
+.workspace:not(.coachMode) .filters select{border-color:#d9d2df;background:#fff;color:#17131d}
+.workspace:not(.coachMode) .dateStrip{border:1px solid #e3dde8;background:#f5f1f7}
+.workspace:not(.coachMode) .dateCell{color:#716a78}
+.workspace:not(.coachMode) .dateCell.today{color:#6931a0}
+.workspace:not(.coachMode) .dateCell.selected{border-color:#8a4bc4;background:#7544c5;color:#fff;box-shadow:0 8px 20px rgba(117,68,197,.22)}
+.workspace:not(.coachMode) .event{border-color:#e2dce7;background:#fff;box-shadow:0 6px 18px rgba(42,29,50,.04)}
+.workspace:not(.coachMode) .event time{color:#312837}
+.workspace:not(.coachMode) .event time small,
+.workspace:not(.coachMode) .notes{color:#77707d}
+.workspace:not(.coachMode) .eventKind{color:#6931a0}
+.workspace:not(.coachMode) .status{border-color:#ddd6e3;color:#665e6d}
+.workspace:not(.coachMode) .empty{border-color:#ddd6e3}
+.workspace:not(.coachMode) .sheet{border-color:#ddd5e3;background:#fff;color:#17131d;box-shadow:0 30px 100px rgba(26,18,31,.24)}
+.workspace:not(.coachMode) .sheet label{color:#625a68}
+.workspace:not(.coachMode) .sheet input,
+.workspace:not(.coachMode) .sheet select,
+.workspace:not(.coachMode) .sheet textarea{border-color:#d9d2df;background:#fff;color:#17131d}
+.workspace:not(.coachMode) .results{border-color:#ddd6e3;background:#faf8fb}
+.workspace:not(.coachMode) .results button{border-bottom-color:#e4dee8;color:#2f2734}
+.workspace:not(.coachMode) .results button:hover{background:#f1e8f8}
