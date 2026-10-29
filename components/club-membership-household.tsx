@@ -7,8 +7,8 @@ import { setMembershipHouseholdMemberAction } from "@/app/club/members/actions";
 type Holder = { customerId: string; displayName: string; billingContact: boolean };
 type Candidate = { id: string; displayName: string };
 
-export function ClubMembershipHousehold({ organisationId, membershipId, holders, candidates, canManage }: {
-  organisationId: string; membershipId: string; holders: Holder[]; candidates: Candidate[]; canManage: boolean;
+export function ClubMembershipHousehold({ organisationId, membershipId, holders, candidates, canManage, supportsAdditionalPerson }: {
+  organisationId: string; membershipId: string; holders: Holder[]; candidates: Candidate[]; canManage: boolean; supportsAdditionalPerson: boolean;
 }) {
   const router = useRouter();
   const [selected, setSelected] = useState("");
@@ -16,7 +16,7 @@ export function ClubMembershipHousehold({ organisationId, membershipId, holders,
   const [message, setMessage] = useState("");
   const [pending, startTransition] = useTransition();
   const available = useMemo(() => candidates.filter(person => !holders.some(holder => holder.customerId === person.id)), [candidates, holders]);
-  if (holders.length < 2 && !canManage) return null;
+  if (!supportsAdditionalPerson) return null;
   const change = (customerId: string, action: "add" | "remove") => {
     if (reason.trim().length < 3) { setMessage("Add a short reason before saving."); return; }
     startTransition(async () => {

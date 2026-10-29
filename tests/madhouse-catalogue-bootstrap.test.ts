@@ -4,29 +4,30 @@ import test from "node:test";
 import type { ClubRepository } from "../lib/club-repository";
 import { MemoryClubRepository, madhouseFixture } from "../lib/club-repository";
 import type { ClubProduct } from "../lib/club";
-import { catalogueBootstrapEnabled, catalogueProductMatches, MADHOUSE_PRODUCTION_ORGANISATION_ID, madhouseCatalogue, materialiseCatalogueProduct, reconcileMadhouseCatalogue } from "../lib/madhouse-catalogue";
+import { catalogueBootstrapEnabled, catalogueProductMatches, MADHOUSE_PRODUCTION_ORGANISATION_ID, madhouseCatalogue, madhouseMembershipRules, materialiseCatalogueProduct, membershipSupportsAdditionalPerson, reconcileMadhouseCatalogue } from "../lib/madhouse-catalogue";
 
 const byName = (name: string) => madhouseCatalogue.find(product => product.name === name)!;
 const entitlement = (product: (typeof madhouseCatalogue)[number], key: string) => product.entitlements.find(item => item.entitlementKey === key);
 
-test("Madhouse catalogue is the exact typed twelve-product source of truth", () => {
-  assert.equal(madhouseCatalogue.length, 12);
+test("Madhouse catalogue is the exact typed thirteen-product source of truth", () => {
+  assert.equal(madhouseCatalogue.length, 13);
   assert.deepEqual(Object.fromEntries(madhouseCatalogue.map(product => [product.name, product.priceMinor])), {
-    "Gym Day Pass": 500, "Week Pass": 1200, "Concession Monthly": 2200, "Standard Monthly": 2700,
-    "Couples Membership": 4500, "Yearly Membership": 25000, "Transformation Bronze": 25000,
+    "Day Pass": 500, "1 Week Pass": 1200, "Unlimited Gym": 2700, "Off Peak": 1499,
+    "Unlimited Gym Discount": 2200, "Unlimited Gym Couple": 4500, "Yearly Membership": 27500, "Transformation Bronze": 25000,
     "Transformation Silver": 40000, "Transformation Gold": 52500, "Single PT Session": 3000,
     "10 PT Session Block": 20000, "Golden Ticket Founding Membership": 50000,
   });
   assert.ok(madhouseCatalogue.every(product => product.currency === "GBP"));
-  assert.deepEqual([byName("Gym Day Pass").durationDays, byName("Week Pass").durationDays], [1, 7]);
+  assert.deepEqual([byName("Day Pass").durationDays, byName("1 Week Pass").durationDays], [1, 7]);
   assert.ok(["Bronze", "Silver", "Gold"].every(level => byName(`Transformation ${level}`).kind === "transformation" && byName(`Transformation ${level}`).billing === "one_off" && byName(`Transformation ${level}`).durationDays === 70));
 });
 
 test("membership, transformation and PT catalogue benefits retain exact semantics", () => {
-  assert.equal(entitlement(byName("Standard Monthly"), "class_access"), undefined);
+  assert.equal(entitlement(byName("Unlimited Gym"), "class_access"), undefined);
   assert.equal(entitlement(byName("Yearly Membership"), "class_access"), undefined);
   for (const [level, credits] of [["Bronze", 1], ["Silver", 2], ["Gold", 3]] as const) {
     const product = byName(`Transformation ${level}`); assert.deepEqual(entitlement(product, "pt_session_credit")?.allowance, { quantity: credits, period: "week" });
+    assert.equal(entitlement(product, "gym_access"), undefined);
     assert.deepEqual(entitlement(product, "included_class_credit")?.allowance, { quantity: 1, period: "week" });
     for (const feature of ["enhanced_training", "nutrition", "trainer_managed"]) assert.equal(entitlement(product, feature)?.scope, "organisation");
   }
@@ -35,10 +36,14 @@ test("membership, transformation and PT catalogue benefits retain exact semantic
   assert.deepEqual(entitlement(byName("10 PT Session Block"), "pt_session_credit")?.allowance, { quantity: 10, period: "block" });
 });
 
-test("Golden Ticket and Couples definitions remain assignment-ready without assigning holders", () => {
+test("Golden Ticket and Couple definitions remain assignment-ready without assigning holders", () => {
   const golden = byName("Golden Ticket Founding Membership"); assert.equal(golden.isLifetime, true); assert.equal(golden.billing, "one_off"); assert.equal(golden.sellable, false); assert.equal(golden.durationDays, undefined); assert.equal(entitlement(golden, "gym_access")?.scope, "future_locations"); assert.deepEqual(entitlement(golden, "discount")?.discount, { percent: 20, period: "month", maxUses: 1 });
   assert.equal(madhouseCatalogue.filter(product => product !== golden).every(product => product.sellable), true);
-  const couples = byName("Couples Membership"); assert.equal(couples.kind, "membership"); assert.equal(couples.billing, "recurring"); assert.equal(entitlement(couples, "gym_access")?.scope, "future_locations");
+  const couples = byName("Unlimited Gym Couple"); assert.equal(couples.kind, "membership"); assert.equal(couples.billing, "recurring"); assert.equal(entitlement(couples, "gym_access")?.scope, "future_locations");
+  assert.equal(membershipSupportsAdditionalPerson(couples.name), true);
+  assert.equal(membershipSupportsAdditionalPerson("Unlimited Gym"), false);
+  assert.equal(madhouseMembershipRules["Unlimited Gym Discount"].eligibilityVerificationRequired, true);
+  assert.deepEqual(madhouseMembershipRules["Off Peak"].accessWindow, { timeZone: "Europe/London", weekdays: [1, 2, 3, 4, 5], opensAt: "10:00", closesAt: "15:00" });
 });
 
 class CatalogueRepository implements Pick<ClubRepository, "listProducts" | "createProduct"> {
@@ -53,23 +58,23 @@ class CatalogueRepository implements Pick<ClubRepository, "listProducts" | "crea
 
 test("catalogue reconciliation creates missing products through the repository and never assigns", async () => {
   const repository = new CatalogueRepository(); const results = await reconcileMadhouseCatalogue(repository);
-  assert.equal(results.filter(result => result.status === "created").length, 12); assert.equal(repository.creates.length, 12); assert.equal(repository.updates, 0); assert.equal(repository.assignments, 0);
+  assert.equal(results.filter(result => result.status === "created").length, 13); assert.equal(repository.creates.length, 13); assert.equal(repository.updates, 0); assert.equal(repository.assignments, 0);
   assert.ok(repository.creates.every(product => product.organisationId === MADHOUSE_PRODUCTION_ORGANISATION_ID));
 });
 
 test("matching catalogue products are not duplicated and semantic entitlement order is ignored", async () => {
   const matching = madhouseCatalogue.map((definition, index) => { const product = materialiseCatalogueProduct(definition, MADHOUSE_PRODUCTION_ORGANISATION_ID, `existing-${index}`); product.entitlements = [...(product.entitlements ?? [])].reverse(); return product; });
-  assert.equal(catalogueProductMatches(matching[3], byName("Standard Monthly")), true);
+  assert.equal(catalogueProductMatches(matching[3], byName("Off Peak")), true);
   const repository = new CatalogueRepository(matching); const results = await reconcileMadhouseCatalogue(repository);
   assert.equal(results.every(result => result.status === "already_matching"), true); assert.equal(repository.creates.length, 0);
 });
 
 test("catalogue drift and duplicate exact names are reported without overwrite", async () => {
-  const drifted = materialiseCatalogueProduct(byName("Gym Day Pass"), MADHOUSE_PRODUCTION_ORGANISATION_ID, "existing"); drifted.priceMinor = 999;
-  const duplicate = materialiseCatalogueProduct(byName("Week Pass"), MADHOUSE_PRODUCTION_ORGANISATION_ID, "duplicate-a");
+  const drifted = materialiseCatalogueProduct(byName("Day Pass"), MADHOUSE_PRODUCTION_ORGANISATION_ID, "existing"); drifted.priceMinor = 999;
+  const duplicate = materialiseCatalogueProduct(byName("1 Week Pass"), MADHOUSE_PRODUCTION_ORGANISATION_ID, "duplicate-a");
   const repository = new CatalogueRepository([drifted, duplicate, { ...duplicate, id: "duplicate-b" }]); const results = await reconcileMadhouseCatalogue(repository);
-  assert.deepEqual(results.find(result => result.name === "Gym Day Pass"), { name: "Gym Day Pass", status: "drift_detected", detail: "catalogue_difference" });
-  assert.deepEqual(results.find(result => result.name === "Week Pass"), { name: "Week Pass", status: "drift_detected", detail: "duplicate_exact_name" }); assert.equal(repository.updates, 0);
+  assert.deepEqual(results.find(result => result.name === "Day Pass"), { name: "Day Pass", status: "drift_detected", detail: "catalogue_difference" });
+  assert.deepEqual(results.find(result => result.name === "1 Week Pass"), { name: "1 Week Pass", status: "drift_detected", detail: "duplicate_exact_name" }); assert.equal(repository.updates, 0);
 });
 
 test("a sellable production Golden Ticket is drift while every other catalogue product still matches", async () => {

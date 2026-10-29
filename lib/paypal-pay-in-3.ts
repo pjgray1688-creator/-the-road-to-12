@@ -28,9 +28,9 @@ export type PayPalPayIn3RuntimeReadiness = {
 export type PayPalPayIn3CheckoutReadiness = { checkoutReady: true; productCode: PayPalPayIn3ProductCode; receivingEntity: "Madhouse Franchise Limited"; financingDecision: "paypal_decides_at_checkout" } | { checkoutReady: false; reason: string };
 
 const productContract: Record<PayPalPayIn3ProductCode, { kind: ClubProduct["kind"]; billing: ClubProduct["billing"]; durationDays?: number; lifetime: boolean; sellable: boolean; entitlements: string[] }> = {
-  [PAYPAL_PAY_IN_3_PRODUCT_CODES.transformationBronze]: { kind: "transformation", billing: "one_off", durationDays: 70, lifetime: false, sellable: true, entitlements: ["gym_access", "enhanced_training", "nutrition", "trainer_managed", "pt_session_credit", "included_class_credit"] },
-  [PAYPAL_PAY_IN_3_PRODUCT_CODES.transformationSilver]: { kind: "transformation", billing: "one_off", durationDays: 70, lifetime: false, sellable: true, entitlements: ["gym_access", "enhanced_training", "nutrition", "trainer_managed", "pt_session_credit", "included_class_credit"] },
-  [PAYPAL_PAY_IN_3_PRODUCT_CODES.transformationGold]: { kind: "transformation", billing: "one_off", durationDays: 70, lifetime: false, sellable: true, entitlements: ["gym_access", "enhanced_training", "nutrition", "trainer_managed", "pt_session_credit", "included_class_credit"] },
+  [PAYPAL_PAY_IN_3_PRODUCT_CODES.transformationBronze]: { kind: "transformation", billing: "one_off", durationDays: 70, lifetime: false, sellable: true, entitlements: ["enhanced_training", "nutrition", "trainer_managed", "pt_session_credit", "included_class_credit"] },
+  [PAYPAL_PAY_IN_3_PRODUCT_CODES.transformationSilver]: { kind: "transformation", billing: "one_off", durationDays: 70, lifetime: false, sellable: true, entitlements: ["enhanced_training", "nutrition", "trainer_managed", "pt_session_credit", "included_class_credit"] },
+  [PAYPAL_PAY_IN_3_PRODUCT_CODES.transformationGold]: { kind: "transformation", billing: "one_off", durationDays: 70, lifetime: false, sellable: true, entitlements: ["enhanced_training", "nutrition", "trainer_managed", "pt_session_credit", "included_class_credit"] },
   [PAYPAL_PAY_IN_3_PRODUCT_CODES.yearlyMembership]: { kind: "membership", billing: "one_off", durationDays: 365, lifetime: false, sellable: true, entitlements: ["gym_access"] },
   [PAYPAL_PAY_IN_3_PRODUCT_CODES.goldenTicketLifetime]: { kind: "membership", billing: "one_off", lifetime: true, sellable: false, entitlements: ["gym_access", "discount"] },
 };
@@ -51,6 +51,7 @@ export function evaluatePayPalPayIn3CheckoutReadiness(input: {
 }): PayPalPayIn3CheckoutReadiness {
   const { product, productCode, readiness } = input;
   if (!productCode || !isPayPalPayIn3ProductCode(productCode)) return { checkoutReady: false, reason: "This product is not on the PayPal Pay in 3 allowlist." };
+  if (productCode.startsWith("madhouse.transformation.")) return { checkoutReady: false, reason: "Transformation packages use the Madhouse Products & Services Stripe checkout." };
   const contract = productContract[productCode];
   if (product.kind !== contract.kind || product.billing !== contract.billing || (product.isLifetime === true) !== contract.lifetime || product.sellable !== contract.sellable || product.durationDays !== contract.durationDays || product.archivedAt) {
     return { checkoutReady: false, reason: "The product does not match its approved checkout and entitlement definition." };

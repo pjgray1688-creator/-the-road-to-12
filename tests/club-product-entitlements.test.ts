@@ -49,7 +49,8 @@ test("current product benefit shapes are representable and materialise independe
   assert.ok(transformation.some(item => item.entitlementKey === "enhanced_training"));
   assert.ok(transformation.some(item => item.entitlementKey === "trainer_managed"));
   assert.ok(transformation.some(item => item.entitlementKey === "pt_session_credit" && item.allowance?.period === "week"));
-  assert.equal(byName("Standard Monthly").entitlements?.find(item => item.entitlementKey === "class_access"), undefined);
+  assert.equal(byName("Unlimited Gym").entitlements?.find(item => item.entitlementKey === "class_access"), undefined);
+  assert.equal(transformation.find(item => item.entitlementKey === "gym_access"), undefined);
   assert.deepEqual(byName("10 PT Session Block").entitlements?.[0].allowance, { quantity: 10, period: "block" });
 
   const result = await repository.assignProduct({ organisationId: madhouseFixture.id, productId: byName("Golden Ticket Founding Membership").id, userId: "holder-a", holderUserIds: ["holder-a", "holder-b"], source: "founding", validity: { startsAt: "2026-01-01" } });

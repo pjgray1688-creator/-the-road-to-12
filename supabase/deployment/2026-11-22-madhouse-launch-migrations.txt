@@ -164,3 +164,4 @@ supabase/migrations/2027-01-20-glow-zone-pricing-and-account-read.sql
 supabase/migrations/2027-01-21-glow-customer-self-registration.sql
 supabase/migrations/2027-01-22-account-deletion-executor.sql
 supabase/migrations/2027-01-23-glow-customer-details-and-age-safety.sql
+supabase/migrations/2027-01-24-madhouse-membership-services-catalogue.sql

@@ -76,7 +76,7 @@ test("assignment and database guards prevent expiry and all billing enrollment f
 
 test("staff and member surfaces present the lifetime label and never-expiring copy without changing access state", () => {
   assert.deepEqual(membershipPresentation("Old catalogue name", true), { name: GOLDEN_TICKET_LIFETIME_LABEL, validity: "Never expires" });
-  assert.deepEqual(membershipPresentation("Standard Monthly", false), { name: "Standard Monthly", validity: undefined });
+  assert.deepEqual(membershipPresentation("Unlimited Gym", false), { name: "Unlimited Gym", validity: undefined });
   const staffProfile = source("../app/club/members/[userId]/page.tsx");
   const memberHub = source("../components/member-hub.tsx");
   const clubMember = source("../components/club-member-home.tsx");

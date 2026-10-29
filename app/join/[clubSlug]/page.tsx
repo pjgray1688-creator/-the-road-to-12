@@ -6,6 +6,7 @@ import { ClubJoiningForm } from "@/components/club-joining-form";
 import { BrandLockup } from "@/components/brand-lockup";
 import { listPayPalCheckoutReadyProductIds } from "@/lib/paypal-pay-in-3-server";
 import styles from "./join.module.css";
+import { membershipRuleSummary } from "@/lib/madhouse-catalogue";
 
 export default async function GymJoinPage({ params, searchParams }: { params: Promise<{ clubSlug: string }>; searchParams?: Promise<{ billing?: string }> }) {
   const supabase = await serverSupabase(); const slug = (await params).clubSlug;
@@ -17,7 +18,7 @@ export default async function GymJoinPage({ params, searchParams }: { params: Pr
     supabase.rpc("club_list_join_locations", { p_organisation_id: org.id }),
     user ? supabase.rpc("club_get_my_join_state", { p_organisation_id: org.id }) : Promise.resolve({ data: null }),
   ]);
-  const productRows = (Array.isArray(productData) ? productData : []).map(value => { const item = value as Record<string, unknown>; return { id: String(item.id), name: String(item.name), priceMinor: Number(item.price_minor), joiningFeeMinor: Number(item.joining_fee_minor ?? 0), joiningFeeConfigured: item.joining_fee_configured !== false, checkoutKind: String(item.checkout_kind ?? "one_off"), billing: String(item.billing), ...(item.duration_days != null ? { durationDays: Number(item.duration_days) } : {}) }; });
+  const productRows = (Array.isArray(productData) ? productData : []).map(value => { const item = value as Record<string, unknown>; const name = String(item.name); return { id: String(item.id), name, priceMinor: Number(item.price_minor), joiningFeeMinor: Number(item.joining_fee_minor ?? 0), joiningFeeConfigured: item.joining_fee_configured !== false, checkoutKind: String(item.checkout_kind ?? "one_off"), billing: String(item.billing), terms: membershipRuleSummary(name), ...(item.duration_days != null ? { durationDays: Number(item.duration_days) } : {}) }; });
   const paypalReadyIds = await listPayPalCheckoutReadyProductIds(org.id, productRows.map(product => product.id));
   const products = productRows.map(product => ({ ...product, paypalCheckoutAvailable: paypalReadyIds.has(product.id) }));
   const locations = (Array.isArray(locationData) ? locationData : []).map(value => ({ id: String(value.id), name: String(value.name) }));

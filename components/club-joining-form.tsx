@@ -7,7 +7,7 @@ import { retryJoinPaymentAction, startClubJoiningAction, type JoiningActionResul
 import { startPayPalPayIn3CheckoutAction } from "@/app/club/join/paypal-actions";
 import styles from "@/components/club-members-directory.module.css";
 
-type Product = { id: string; name: string; priceMinor: number; joiningFeeMinor: number; joiningFeeConfigured: boolean; checkoutKind: string; billing: string; durationDays?: number; paypalCheckoutAvailable?: boolean };
+type Product = { id: string; name: string; priceMinor: number; joiningFeeMinor: number; joiningFeeConfigured: boolean; checkoutKind: string; billing: string; terms: string; durationDays?: number; paypalCheckoutAvailable?: boolean };
 type Location = { id: string; name: string };
 type JoinState = { id: string; status: string; payment_state: string; product_name: string; location_name?: string | null; checkout_kind?: string; joining_fee_minor?: number; first_period_minor?: number; upfront_amount_minor?: number; upfront_payment_state?: string; recurring_authority_state?: string; paid_through_at?: string; activation_blocked_by?: string; gocardless_flow_ready?: boolean } | null;
 
@@ -73,6 +73,7 @@ export function ClubJoiningForm({ organisationId, products, locations = [], acco
     <label>Home gym <span className="muted">(optional)</span><select name="locationId" defaultValue=""><option value="">No preference</option>{locations.map(location => <option value={location.id} key={location.id}>{location.name}</option>)}</select></label>
     <p className={styles.hint}>Every Madhouse membership includes Rotherham and Carlton. Home gym only sets your default shop, reporting and communications preference.</p>
     <label>Madhouse membership plan<select name="productId" required value={productId} onChange={event => setProductId(event.target.value)}>{products.map(product => <option value={product.id} key={product.id}>{product.name} · £{(product.priceMinor / 100).toFixed(2)} · {product.billing}</option>)}</select></label>
+    {selectedProduct ? <p className={styles.hint}>{selectedProduct.terms}</p> : null}
     <div className="form-grid"><label>First name<input name="firstName" autoComplete="given-name" required /></label><label>Last name<input name="lastName" autoComplete="family-name" required /></label></div>
     <label>Email<input name="email" type="email" autoComplete="email" defaultValue={accountEmail} readOnly={Boolean(accountEmail)} required /></label>
     <label>Mobile<input name="phone" type="tel" autoComplete="tel" required /></label><label>Date of birth<input name="dateOfBirth" type="date" required /></label>

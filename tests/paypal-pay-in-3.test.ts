@@ -17,23 +17,19 @@ const product = (name: string) => {
   return materialiseCatalogueProduct(definition, "madhouse");
 };
 
-test("only canonical transformation tiers and annual membership can pass product-code allowlist", () => {
-  const cases = [
-    ["Transformation Bronze", PAYPAL_PAY_IN_3_PRODUCT_CODES.transformationBronze],
-    ["Transformation Silver", PAYPAL_PAY_IN_3_PRODUCT_CODES.transformationSilver],
-    ["Transformation Gold", PAYPAL_PAY_IN_3_PRODUCT_CODES.transformationGold],
-    ["Yearly Membership", PAYPAL_PAY_IN_3_PRODUCT_CODES.yearlyMembership],
-  ] as const;
+test("only Franchise membership products can pass the PayPal product-code allowlist", () => {
+  const cases = [["Yearly Membership", PAYPAL_PAY_IN_3_PRODUCT_CODES.yearlyMembership]] as const;
   for (const [name, code] of cases) {
     const result = evaluatePayPalPayIn3CheckoutReadiness({ product: product(name), productCode: code, readiness: validReadiness });
     assert.equal(result.checkoutReady, true, name);
     if (result.checkoutReady) assert.equal(result.financingDecision, "paypal_decides_at_checkout");
   }
-  for (const name of ["Gym Day Pass", "Week Pass", "Standard Monthly", "Single PT Session"]) {
+  for (const name of ["Day Pass", "1 Week Pass", "Unlimited Gym", "Single PT Session"]) {
     const result = evaluatePayPalPayIn3CheckoutReadiness({ product: product(name), productCode: null, readiness: validReadiness });
     assert.equal(result.checkoutReady, false, name);
   }
   assert.equal(evaluatePayPalPayIn3CheckoutReadiness({ product: product("Transformation Bronze"), productCode: "Transformation Bronze", readiness: validReadiness }).checkoutReady, false);
+  assert.equal(evaluatePayPalPayIn3CheckoutReadiness({ product: product("Transformation Bronze"), productCode: PAYPAL_PAY_IN_3_PRODUCT_CODES.transformationBronze, readiness: validReadiness }).checkoutReady, false);
 });
 
 test("feature is disabled by default and fails closed without complete merchant/provider readiness", () => {
@@ -53,7 +49,7 @@ test("feature is disabled by default and fails closed without complete merchant/
   assert.equal(evaluatePayPalPayIn3CheckoutReadiness({
     product: bronze, productCode: PAYPAL_PAY_IN_3_PRODUCT_CODES.transformationBronze,
     readiness: { ...validReadiness, buyerEligible: false },
-  } as never).checkoutReady, true, "R12 does not claim PayPal buyer financing eligibility");
+  } as never).checkoutReady, false, "Products & Services packages cannot use the Franchise PayPal merchant");
 });
 
 test("Golden Ticket stays lifetime/non-public and requires individual staff-authorised customer sale", () => {

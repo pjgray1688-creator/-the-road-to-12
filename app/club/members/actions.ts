@@ -152,6 +152,24 @@ export async function setMembershipHouseholdMemberAction(input: { organisationId
   }
 }
 
+export async function verifyMembershipEligibilityAction(input: { organisationId: string; joinRequestId: string; status: "approved" | "rejected"; evidenceNote: string }): Promise<{ ok: boolean; error: string }> {
+  try {
+    const supabase = await serverSupabase();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { ok: false, error: "Sign in to verify membership eligibility." };
+    const context = await resolveClubOperationalContext(supabase, user.id, input.organisationId);
+    if (!context || !(await context.repository.hasCapability(context.organisation.id, user.id, "memberships.assign"))) return { ok: false, error: "You don’t have permission to verify membership eligibility." };
+    const evidenceNote = input.evidenceNote.trim();
+    if (evidenceNote.length < 3 || evidenceNote.length > 500) return { ok: false, error: "Record a short evidence note before saving." };
+    const { error } = await supabase.rpc("club_verify_membership_eligibility", { p_organisation_id: context.organisation.id, p_join_request_id: input.joinRequestId, p_status: input.status, p_evidence_note: evidenceNote });
+    if (error) return { ok: false, error: error.code === "42501" ? "You don’t have permission to verify membership eligibility." : error.code === "P0002" ? "This joining request can no longer be verified." : "Eligibility verification couldn’t be saved." };
+    revalidatePath(`/club/members?org=${encodeURIComponent(context.organisation.id)}`);
+    return { ok: true, error: "" };
+  } catch {
+    return { ok: false, error: "Eligibility verification couldn’t be saved." };
+  }
+}
+
 export async function createClubCustomerAction(input: { organisationId: string; displayName: string; email?: string; phone?: string }): Promise<{ ok: true; customerId: string } | { ok: false; error: string }> {
   try {
     const supabase = await serverSupabase();

@@ -10,7 +10,6 @@ export type CatalogueBootstrapResult = { name: string; status: "created" | "alre
 
 const gymAccess: CatalogueEntitlement = { entitlementKey: "gym_access", scope: "future_locations" };
 const transformation = (weeklyPtCredits: number): CatalogueEntitlement[] => [
-  gymAccess,
   { entitlementKey: "enhanced_training", scope: "organisation" },
   { entitlementKey: "nutrition", scope: "organisation" },
   { entitlementKey: "trainer_managed", scope: "organisation" },
@@ -19,12 +18,13 @@ const transformation = (weeklyPtCredits: number): CatalogueEntitlement[] => [
 ];
 
 export const madhouseCatalogue: readonly CatalogueProduct[] = [
-  { name: "Gym Day Pass", kind: "membership", priceMinor: 500, currency: "GBP", billing: "one_off", durationDays: 1, sellable: true, entitlements: [gymAccess] },
-  { name: "Week Pass", kind: "membership", priceMinor: 1200, currency: "GBP", billing: "one_off", durationDays: 7, sellable: true, entitlements: [gymAccess] },
-  { name: "Concession Monthly", kind: "membership", priceMinor: 2200, currency: "GBP", billing: "recurring", sellable: true, entitlements: [gymAccess] },
-  { name: "Standard Monthly", kind: "membership", priceMinor: 2700, currency: "GBP", billing: "recurring", sellable: true, entitlements: [gymAccess] },
-  { name: "Couples Membership", kind: "membership", priceMinor: 4500, currency: "GBP", billing: "recurring", sellable: true, entitlements: [gymAccess] },
-  { name: "Yearly Membership", kind: "membership", priceMinor: 25000, currency: "GBP", billing: "one_off", durationDays: 365, sellable: true, entitlements: [gymAccess] },
+  { name: "Day Pass", kind: "membership", priceMinor: 500, currency: "GBP", billing: "one_off", durationDays: 1, sellable: true, entitlements: [gymAccess] },
+  { name: "1 Week Pass", kind: "membership", priceMinor: 1200, currency: "GBP", billing: "one_off", durationDays: 7, sellable: true, entitlements: [gymAccess] },
+  { name: "Unlimited Gym", kind: "membership", priceMinor: 2700, currency: "GBP", billing: "recurring", sellable: true, entitlements: [gymAccess] },
+  { name: "Off Peak", kind: "membership", priceMinor: 1499, currency: "GBP", billing: "recurring", sellable: true, entitlements: [gymAccess] },
+  { name: "Unlimited Gym Discount", kind: "membership", priceMinor: 2200, currency: "GBP", billing: "recurring", sellable: true, entitlements: [gymAccess] },
+  { name: "Unlimited Gym Couple", kind: "membership", priceMinor: 4500, currency: "GBP", billing: "recurring", sellable: true, entitlements: [gymAccess] },
+  { name: "Yearly Membership", kind: "membership", priceMinor: 27500, currency: "GBP", billing: "one_off", durationDays: 365, sellable: true, entitlements: [gymAccess] },
   { name: "Transformation Bronze", kind: "transformation", priceMinor: 25000, currency: "GBP", billing: "one_off", durationDays: 70, sellable: true, entitlements: transformation(1) },
   { name: "Transformation Silver", kind: "transformation", priceMinor: 40000, currency: "GBP", billing: "one_off", durationDays: 70, sellable: true, entitlements: transformation(2) },
   { name: "Transformation Gold", kind: "transformation", priceMinor: 52500, currency: "GBP", billing: "one_off", durationDays: 70, sellable: true, entitlements: transformation(3) },
@@ -32,6 +32,36 @@ export const madhouseCatalogue: readonly CatalogueProduct[] = [
   { name: "10 PT Session Block", kind: "pt", priceMinor: 20000, currency: "GBP", billing: "one_off", sellable: true, entitlements: [{ entitlementKey: "pt_session_credit", scope: "organisation", allowance: { quantity: 10, period: "block" } }] },
   { name: "Golden Ticket Founding Membership", kind: "membership", priceMinor: 50000, currency: "GBP", billing: "one_off", isLifetime: true, sellable: false, entitlements: [gymAccess, { entitlementKey: "discount", scope: "organisation", discount: { percent: 20, period: "month", maxUses: 1 } }] },
 ] as const;
+
+export type MadhouseMembershipRule = {
+  maximumHolders: 1 | 2;
+  eligibilityVerificationRequired: boolean;
+  accessWindow?: { timeZone: "Europe/London"; weekdays: readonly [1, 2, 3, 4, 5]; opensAt: "10:00"; closesAt: "15:00" };
+};
+
+/** Public copy mirrors the authoritative database rules installed by the catalogue migration. */
+export const madhouseMembershipRules: Readonly<Record<string, MadhouseMembershipRule>> = {
+  "Day Pass": { maximumHolders: 1, eligibilityVerificationRequired: false },
+  "1 Week Pass": { maximumHolders: 1, eligibilityVerificationRequired: false },
+  "Unlimited Gym": { maximumHolders: 1, eligibilityVerificationRequired: false },
+  "Off Peak": { maximumHolders: 1, eligibilityVerificationRequired: false, accessWindow: { timeZone: "Europe/London", weekdays: [1, 2, 3, 4, 5], opensAt: "10:00", closesAt: "15:00" } },
+  "Unlimited Gym Discount": { maximumHolders: 1, eligibilityVerificationRequired: true },
+  "Unlimited Gym Couple": { maximumHolders: 2, eligibilityVerificationRequired: false },
+  "Yearly Membership": { maximumHolders: 1, eligibilityVerificationRequired: false },
+};
+
+export function membershipSupportsAdditionalPerson(productName: string | undefined): boolean {
+  return productName != null && madhouseMembershipRules[productName]?.maximumHolders === 2;
+}
+
+export function membershipRuleSummary(productName: string): string {
+  const rule = madhouseMembershipRules[productName];
+  if (!rule) return "Access includes both Madhouse gyms; home gym is a preference only.";
+  if (rule.accessWindow) return "Both gyms · Monday to Friday, 10am–3pm · no weekend access unless separately authorised.";
+  if (rule.eligibilityVerificationRequired) return "Both gyms · eligibility must be verified by Madhouse before checkout.";
+  if (rule.maximumHolders === 2) return "Both gyms · covers two linked people on one membership.";
+  return "Access includes both Madhouse gyms; home gym is a preference only.";
+}
 
 // Class bookings are PAYG. No membership or transformation class entitlement
 // is inferred from catalogue data; package-specific class credits require an
