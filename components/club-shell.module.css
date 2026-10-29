@@ -20,4 +20,4 @@
 
 /* Approved Club emblem with the organisation retained as the tenant identity. */
 .tenantMark{width:46px;height:46px;flex:0 0 46px;border-radius:50%;background:#fff url("/brand/r12-club-emblem.png") center/contain no-repeat;box-shadow:0 5px 14px rgba(61,38,83,.12)}
-.tenantMark>*{display:none}.tenant>div .eyebrow{display:none}.tenant>div{align-content:center}
+.tenant>div .eyebrow{display:none}.tenant>div{align-content:center}

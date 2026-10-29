@@ -832,6 +832,19 @@ body:has(section[aria-label="Shared staff schedule"]){
 .club-shop-page .checkout-payment-choice{border-color:#ddd5e4;background:#faf8fb;color:#17131d}
 .club-shop-page .checkout-payment-choice.active{border-color:#8a4bc4;background:#f0e5fa}
 .club-shop-page .checkout-error{border-color:#df9fb5;background:#fff0f5;color:#8c2449}
+.club-shop-page .staff-checkout .club-family-modal{background:rgba(31,22,38,.38)}
+.club-shop-page .staff-checkout .club-family-sheet{border-color:#ded6e5;background:#fff;color:#17131d;box-shadow:0 22px 70px rgba(26,18,31,.24)}
+.club-shop-page .staff-checkout .club-family-sheet :is(h2,p,strong,label){color:#17131d}
+.club-shop-page .staff-checkout .club-family-sheet .text-button{color:#6931a0}
+.club-shop-page .staff-checkout .club-product-detail-image{background:#f4f1f6}
+.club-shop-page .staff-checkout .club-family-select-control,
+.club-shop-page .staff-checkout .club-family-sheet select{border-color:#d9d2df;background:#fff;color:#17131d}
+.club-shop-page .staff-checkout .club-family-option-label{color:#706976}
+.club-shop-page .staff-checkout .club-family-option,
+.club-shop-page .staff-checkout .club-family-quantity button{border-color:#d9d2df;background:#f8f5fa;color:#3b2b45}
+.club-shop-page .staff-checkout .club-family-option[aria-pressed=true]{border-color:#8a4bc4;background:#eee3f8;color:#54269b;box-shadow:0 0 0 1px #8a4bc4}
+.club-shop-page .staff-checkout .club-made-to-order{border-color:#d2b6e7;background:#f3eafb;color:#633091}
+.club-shop-page .staff-checkout .club-product-gallery-arrow{color:#fff}
 @media(max-width:760px){.club-shop-page .staff-checkout-basket.is-mobile-open{background:#fff;box-shadow:0 -18px 55px rgba(26,18,31,.24)}}
 
 .club-classes-page :is(h1,h2,h3,strong){color:#17131d}
