@@ -71,6 +71,7 @@ export function ClubSectionNav({ organisation, role, contexts = [], locations = 
     Management: managementAllowed ? [
       { label: "Management home", href: `/club/more${query()}`, group: "Management" },
       ...(navigation?.finance ? [{ label: "Finance & reconciliation", href: `/club/payments${query()}`, group: "Management" as const }] : []),
+      ...(navigation?.finance ? [{ label: "Cash collections", href: `/club/payments/cash-collections${query()}`, group: "Management" as const }] : []),
       ...(navigation?.memberships ? [{ label: "Membership administration", href: `/club/memberships${query()}`, group: "Management" as const }] : []),
       ...(navigation?.promotions ? [{ label: "Promotions & pricing", href: `/club/promotions${query()}`, group: "Management" as const }] : []),
       ...(navigation?.suppliers ? [{ label: "Suppliers & purchasing", href: `/club/suppliers${query()}`, group: "Management" as const }] : []),
