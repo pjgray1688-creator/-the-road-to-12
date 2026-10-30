@@ -8,6 +8,47 @@ import { nudgeNotificationWorker } from "@/lib/notification-nudge";
 
 type ActionResult = { ok: true; membershipId: string } | { ok: false; error: string };
 
+export async function initiateMembershipCounterPaymentAction(input: { organisationId: string; productId: string; customerId: string; locationId: string; method: "cash" | "bank_transfer" | "external_card"; externalReference?: string; evidenceNote: string; startsAt: string; idempotencyKey: string }): Promise<{ ok: boolean; paymentId?: string; error?: string }> {
+  try {
+    const supabase = await serverSupabase();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { ok: false, error: "Sign in to record a membership payment." };
+    const context = await resolveClubOperationalContext(supabase, user.id, input.organisationId);
+    if (!context || !(await context.repository.hasCapability(context.organisation.id, user.id, "payments.take"))) return { ok: false, error: "You don’t have permission to initiate membership payments." };
+    if (!input.locationId || !input.productId || !input.customerId || !Number.isFinite(Date.parse(input.startsAt)) || input.evidenceNote.trim().length < 8 || (input.method !== "cash" && !input.externalReference?.trim())) return { ok: false, error: "Choose a venue and record the payment evidence or receipt reference." };
+    const { data, error } = await supabase.rpc("club_initiate_membership_counter_payment", { p_organisation_id: context.organisation.id, p_product_id: input.productId, p_customer_id: input.customerId, p_location_id: input.locationId, p_method: input.method, p_external_reference: input.externalReference?.trim() || null, p_evidence_note: input.evidenceNote.trim(), p_starts_at: new Date(input.startsAt).toISOString(), p_idempotency_key: input.idempotencyKey });
+    if (error) return { ok: false, error: error.code === "42501" ? "This payment method or venue is not authorised for your account." : error.code === "23505" ? "This payment evidence is already recorded." : "Payment evidence could not be recorded. No membership was activated." };
+    revalidatePath("/club/members", "layout");
+    return { ok: true, paymentId: data && typeof data === "object" && "id" in data ? String(data.id) : undefined };
+  } catch { return { ok: false, error: "Payment evidence could not be recorded. No membership was activated." }; }
+}
+
+export async function verifyMembershipCounterPaymentAction(input: { organisationId: string; paymentId: string; decision: "confirmed" | "rejected"; verificationNote: string }): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const supabase = await serverSupabase(); const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { ok: false, error: "Sign in to verify membership payments." };
+    const context = await resolveClubOperationalContext(supabase, user.id, input.organisationId);
+    if (!context || !(await context.repository.hasCapability(context.organisation.id, user.id, "membership_payments.verify")) || !(await context.repository.hasCapability(context.organisation.id, user.id, "memberships.assign"))) return { ok: false, error: "You don’t have permission to verify and activate membership payments." };
+    if (input.verificationNote.trim().length < 8) return { ok: false, error: "Record how the payment evidence was verified." };
+    const { error } = await supabase.rpc("club_verify_membership_counter_payment", { p_organisation_id: context.organisation.id, p_payment_id: input.paymentId, p_decision: input.decision, p_verification_note: input.verificationNote.trim() });
+    if (error) return { ok: false, error: error.code === "42501" ? "Payment verification is not authorised." : "The payment could not be verified; no access was activated." };
+    revalidatePath("/club/members", "layout"); return { ok: true };
+  } catch { return { ok: false, error: "The payment could not be verified; no access was activated." }; }
+}
+
+export async function setFamilyContractTermsAction(input: { organisationId: string; membershipId: string; amountMinor: number; frequency: "weekly" | "monthly" | "quarterly" | "annual" | "other"; paidThroughDate?: string; billingState: "pending" | "active" | "paused" | "ended"; reason: string }): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const supabase = await serverSupabase(); const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { ok: false, error: "Sign in to manage Family contract terms." };
+    const context = await resolveClubOperationalContext(supabase, user.id, input.organisationId);
+    if (!context || !(await context.repository.hasCapability(context.organisation.id, user.id, "memberships.pricing_sensitive"))) return { ok: false, error: "Sensitive Family pricing permission is required." };
+    if (!Number.isInteger(input.amountMinor) || input.amountMinor <= 0 || input.reason.trim().length < 8) return { ok: false, error: "Enter the agreed positive amount and a clear source-record note." };
+    const { error } = await supabase.rpc("club_set_family_contract_terms", { p_organisation_id: context.organisation.id, p_membership_id: input.membershipId, p_amount_minor: input.amountMinor, p_currency: "GBP", p_frequency: input.frequency, p_paid_through_date: input.paidThroughDate || null, p_billing_state: input.billingState, p_reason: input.reason.trim() });
+    if (error) return { ok: false, error: error.code === "42501" ? "Sensitive Family pricing permission is required." : "Family terms could not be saved; no billing or access was changed." };
+    revalidatePath("/club/memberships", "page"); return { ok: true };
+  } catch { return { ok: false, error: "Family terms could not be saved; no billing or access was changed." }; }
+}
+
 export async function extendMembershipPaymentGraceAction(input: { organisationId: string; obligationId: string; newGraceExpiresAt: string; agreedPaymentDate?: string; reason: string; idempotencyKey: string }): Promise<{ ok: boolean; error?: string }> {
   try {
     const supabase = await serverSupabase();
@@ -45,6 +86,7 @@ export async function assignMembershipAction(input: { organisationId: string; pr
     const product = products.find(item => item.id === input.productId && item.organisationId === context.organisation.id && item.kind === "membership" && !item.archivedAt);
     if (!product) return { ok: false, error: "Choose an available membership or pass." };
     if (product.isLifetime && input.endsAt) return { ok: false, error: "Golden Ticket — Lifetime Membership cannot have an end date. Remove the end date and try again." };
+    if (product.pricingOnRequest) return { ok: false, error: "Family Membership requires authorised negotiated contract terms before activation." };
     if (requiresMadhouseProviderCheckout(context.organisation.slug, product)) return { ok: false, error: "Paid Madhouse memberships must use the joining checkout so card payment and Direct Debit setup are confirmed before activation." };
     const members = await context.repository.listMembers(context.organisation.id);
     if (holders.some(holder => !members.some(member => member.userId === holder && member.active))) return { ok: false, error: "Every holder must be an active organisation member." };
@@ -202,10 +244,11 @@ export async function createClubCustomerAction(input: { organisationId: string; 
     const context = await resolveClubOperationalContext(supabase, user.id, input.organisationId);
     if (!context || !(await context.repository.hasCapability(context.organisation.id, user.id, "members.create"))) return { ok: false, error: "You don’t have permission to add people." };
     const displayName = input.displayName.trim();
-    if (!displayName || displayName.length > 120 || (input.email && (!input.email.includes("@") || input.email.length > 200))) return { ok: false, error: "Enter a valid name and email." };
+    const email = input.email?.trim();
+    if (!displayName || displayName.length > 120 || !email || !email.includes("@") || email.length > 200) return { ok: false, error: "A valid email is required for a new member." };
     const existing = await context.repository.listCustomers(context.organisation.id);
-    if (existing.some(customer => customer.email && input.email && customer.email.toLowerCase() === input.email.toLowerCase())) return { ok: false, error: "A person with that email is already in this organisation." };
-    const customer = await context.repository.createCustomer({ organisationId: context.organisation.id, displayName, ...(input.email?.trim() ? { email: input.email.trim() } : {}), ...(input.phone?.trim() ? { phone: input.phone.trim() } : {}), status: "guest" });
+    if (existing.some(customer => customer.email && customer.email.toLowerCase() === email.toLowerCase())) return { ok: false, error: "A person with that email is already in this organisation." };
+    const customer = await context.repository.createCustomer({ organisationId: context.organisation.id, displayName, email, ...(input.phone?.trim() ? { phone: input.phone.trim() } : {}), status: "guest" });
     await context.repository.appendAuditEvent({ organisationId: context.organisation.id, action: "person.created", targetType: "customer", targetId: customer.id });
     revalidatePath(`/club/members?org=${encodeURIComponent(context.organisation.id)}`);
     return { ok: true, customerId: customer.id };

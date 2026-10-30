@@ -18,12 +18,13 @@ const coachBoundary = readFileSync("supabase/migrations/2026-10-05-coach-staff-a
 
 test("owner receives full management while manual grace remains explicit for managers", () => {
   assert.deepEqual(fullManagementCapabilities, clubCapabilities);
-  assert.deepEqual(resolveClubCapabilities("owner"), [...resolveClubCapabilities("gym_admin"), "payments.extend_grace"]);
+  assert.deepEqual(new Set(resolveClubCapabilities("owner")), new Set([...resolveClubCapabilities("gym_admin"), "payments.extend_grace", "memberships.pricing_sensitive"]));
   assert.equal(hasClubCapability("owner", "staff.permissions_manage"), true);
   assert.equal(hasClubCapability("gym_admin", "staff.permissions_manage"), true);
   assert.equal(hasClubCapability("owner", "payments.extend_grace"), true);
   assert.equal(hasClubCapability("gym_admin", "payments.extend_grace"), false);
   assert.equal(hasClubCapability("gym_admin", "payments.extend_grace", [{ capability: "payments.extend_grace", decision: "allow" }]), true);
+  assert.equal(hasClubCapability("gym_admin", "memberships.pricing_sensitive"), false);
   for (const capability of ["refunds.approve", "cash.reconcile", "supplier.catalogue_manage", "commerce.pricing_manage", "finance.manage", "staff.work_review"]) {
     assert.equal(hasClubCapability("gym_admin", capability as never), true);
   }

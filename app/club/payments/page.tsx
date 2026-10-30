@@ -12,7 +12,7 @@ export default async function ClubPaymentsPage({ searchParams }: { searchParams?
   const { data: { user } } = await client.auth.getUser();
   if (!user) redirect("/account?app=club&mode=signIn");
   const context = await resolveClubOrganisationContext(client, user.id, (await searchParams)?.org);
-  if (!context || !["owner", "gym_admin"].includes(context.role) || !(await context.repository.hasCapability(context.organisation.id, user.id, "cash.reconcile"))) {
+  if (!context || !(await context.repository.hasCapability(context.organisation.id, user.id, "finance.view"))) {
     return <AppShell className="module-page club-page"><PageHeader eyebrow="R12 CLUB · BILLING" title="Payments" /><EmptyState title="Billing access required">Payment recovery is limited to authorised Club staff.</EmptyState><AppNav /></AppShell>;
   }
   const params = await searchParams; const now = new Date(); const requestedFrom = params?.from ? new Date(params.from) : new Date(now.getFullYear(), now.getMonth(), 1); const requestedTo = params?.to ? new Date(params.to) : now; const fromDate = Number.isNaN(requestedFrom.getTime()) ? new Date(now.getFullYear(), now.getMonth(), 1) : requestedFrom; const toDate = Number.isNaN(requestedTo.getTime()) ? now : requestedTo; if (fromDate > toDate) fromDate.setTime(toDate.getTime()); const from = fromDate.toISOString(); const to = toDate.toISOString();

@@ -37,6 +37,12 @@ test("member timetable excludes cancelled, completed and already-started session
   assert.match(page, /memberView \? session\.status === "scheduled" && new Date\(session\.startsAt\)\.getTime\(\) >= Date\.now\(\)/);
 });
 
+test("Club timetable defaults to six sessions with a clear View all control", () => {
+  assert.match(components, /filteredSessions\.slice\(0, 6\)/);
+  assert.match(components, /View all classes/);
+  assert.match(components, /Show six upcoming/);
+});
+
 test("class type and session editors map through repository-backed server actions", () => {
   assert.match(actions, /context\.repository\.saveClassType\(/);
   assert.match(actions, /context\.repository\.saveClassSession\(/);

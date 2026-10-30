@@ -1,0 +1,12 @@
+"use client";
+
+import { useState, useTransition } from "react";
+import { setFamilyContractTermsAction } from "@/app/club/members/actions";
+
+export function ClubFamilyContractTerms({ organisationId, membershipId, currentAmountMinor, currentFrequency, currentState, paidThroughDate }: { organisationId: string; membershipId: string; currentAmountMinor?: number; currentFrequency?: string; currentState?: string; paidThroughDate?: string }) {
+  const [message, setMessage] = useState(""); const [pending, startTransition] = useTransition();
+  return <form onSubmit={event => { event.preventDefault(); const data = new FormData(event.currentTarget); startTransition(async () => { const result = await setFamilyContractTermsAction({ organisationId, membershipId, amountMinor: Math.round(Number(data.get("amount")) * 100), frequency: String(data.get("frequency")) as "weekly" | "monthly" | "quarterly" | "annual" | "other", paidThroughDate: String(data.get("paidThroughDate") ?? "") || undefined, billingState: String(data.get("billingState")) as "pending" | "active" | "paused" | "ended", reason: String(data.get("reason") ?? "") }); setMessage(result.ok ? "Negotiated Family terms recorded. No provider collection was started." : result.error ?? "Terms could not be saved."); }); }}>
+    <div className="club-detail-row"><label>Agreed GBP amount<input name="amount" type="number" min="0.01" step="0.01" required defaultValue={currentAmountMinor ? (currentAmountMinor / 100).toFixed(2) : ""} /></label><label>Frequency<select name="frequency" defaultValue={currentFrequency ?? "monthly"}><option value="weekly">Weekly</option><option value="monthly">Monthly</option><option value="quarterly">Quarterly</option><option value="annual">Annual</option><option value="other">Other</option></select></label><label>Billing state<select name="billingState" defaultValue={currentState ?? "pending"}><option value="pending">Pending</option><option value="active">Active</option><option value="paused">Paused</option><option value="ended">Ended</option></select></label></div>
+    <label>Paid through <span className="muted">(optional)</span><input name="paidThroughDate" type="date" defaultValue={paidThroughDate} /></label><label>Source-record reason<textarea name="reason" minLength={8} required /></label><button className="primary" disabled={pending}>{pending ? "Saving…" : "Save negotiated terms"}</button>{message ? <p className="muted" role="status">{message}</p> : null}
+  </form>;
+}

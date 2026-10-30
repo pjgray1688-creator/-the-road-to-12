@@ -10,7 +10,6 @@ test("member onboarding is repository-backed and avoids fabricated accounts", ()
   const component = read("components/club-member-onboarding.tsx");
   const membersPage = read("app/club/members/page.tsx");
   const actions = read("app/club/members/actions.ts");
-  assert.match(membersPage, /MEMBERSHIP MANAGEMENT/);
   assert.match(membersPage, /Add or update a member/);
   assert.doesNotMatch(membersPage, /ADD PERSON/);
   assert.match(component, /Member<select/);
@@ -38,8 +37,8 @@ test("membership management exposes active staff-assignment products without mak
 test("membership assignment uses persisted product benefits and preserves history", () => {
   const component = read("components/club-membership-assignment.tsx");
   const actions = read("app/club/members/actions.ts");
-  assert.match(component, /Benefits are applied from the saved product definition/);
-  assert.match(component, /Existing history is kept/);
+  assert.match(component, /authorised product definition/);
+  assert.match(component, /confirmed receipt before access can activate/);
   assert.match(actions, /kind === "membership"/);
   assert.match(actions, /source: "staff_assignment"/);
 });
