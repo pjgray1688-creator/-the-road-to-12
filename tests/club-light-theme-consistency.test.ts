@@ -10,7 +10,7 @@ test("Club staff Shop is light without changing the Member Hub Shop scope", () =
   const staffPage = read("../app/club/shop/page.tsx");
   const memberPage = read("../app/member-hub/shop/page.tsx");
 
-  assert.match(staffPage, /className="module-page club-shop-page"/);
+  assert.match(staffPage, /loaded\.staff \? "module-page club-page club-shop-page" : "module-page club-shop-page"/);
   assert.match(globals, /html:has\(\.club-shop-page\)/);
   assert.match(globals, /\.club-shop-page \.club-family-card\{[^}]*background:#fff/);
   assert.match(globals, /\.club-shop-page \.staff-checkout \.club-family-sheet\{[^}]*background:#fff[^}]*color:#17131d/);
@@ -29,6 +29,9 @@ test("Classes, Schedule and Finance use light Club-scoped surfaces", () => {
   const classes = read("../app/club/classes/classes.module.css");
   const schedule = read("../components/club-schedule-calendar.module.css");
   const scheduleExtra = read("../components/club-schedule-extra.module.css");
+  const classesPage = read("../app/club/classes/page.tsx");
+  const schedulePage = read("../app/club/schedule/page.tsx");
+  const paymentsPage = read("../app/club/payments/page.tsx");
 
   assert.match(classes, /:global\(\.club-classes-page\) \.sessionCard\{[^}]*#fff/);
   assert.match(classes, /:global\(\.club-classes-page\) \.editorSheet\{[^}]*background:#fff/);
@@ -36,6 +39,9 @@ test("Classes, Schedule and Finance use light Club-scoped surfaces", () => {
   assert.match(schedule, /\.coachMode\{background:linear-gradient\(155deg,#142019,#101512/);
   assert.match(scheduleExtra, /Shared staff schedule/);
   assert.match(globals, /\.club-page:not\(\.glow-zone-page\) \.club-shop-tabs[^}]*background:#fff/);
+  assert.match(classesPage, /module-page club-page club-classes-page/);
+  assert.match(schedulePage, /module-page club-page/);
+  assert.match(paymentsPage, /module-page club-page/);
 });
 
 test("Club operations header uses the approved emblem and keeps tenant identity", () => {

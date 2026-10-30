@@ -11,7 +11,8 @@ test("club navigation keeps commerce management inside Shop", () => {
   assert.doesNotMatch(nav, /\["Services"/);
   assert.doesNotMatch(nav, /\["Promotions"/);
   assert.match(tabs, /Products &amp; Pricing/);
-  assert.doesNotMatch(tabs, />Promotions</);
+  assert.match(tabs, />Promotions</);
+  assert.match(tabs, /canManage \? <><Link/);
 });
 
 test("products and catalogue surfaces use ten-card pagination and full-result filters", () => {

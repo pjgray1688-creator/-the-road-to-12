@@ -4,8 +4,8 @@ import { toClubNavContexts, type ClubOrganisationContext } from "../lib/club-ser
 
 test("Club overview projects repository contexts before passing them to client navigation", () => {
   const repository = {} as ClubOrganisationContext["repository"];
-  const context = { repository, organisation: { id: "org", name: "Gym", slug: "gym", active: true }, members: [], member: { id: "m", organisationId: "org", userId: "u", role: "owner" as const, active: true }, role: "owner" as const };
+  const context = { repository, organisation: { id: "org", name: "Gym", slug: "gym", active: true }, members: [], member: { id: "m", organisationId: "org", userId: "u", role: "owner" as const, active: true }, role: "owner" as const, navigation: { members: true, payments: true } };
   const nav = toClubNavContexts([context]);
-  assert.deepEqual(nav, [{ organisation: context.organisation, role: "owner" }]);
+  assert.deepEqual(nav, [{ organisation: context.organisation, role: "owner", navigation: { members: true, payments: true } }]);
   assert.equal("repository" in nav[0]!, false);
 });

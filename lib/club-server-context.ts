@@ -10,11 +10,12 @@ export type ClubOrganisationContext = {
   members: OrganisationMember[];
   member: OrganisationMember;
   role: ClubRole;
-  availableContexts?: Array<Pick<ClubOrganisationContext, "organisation" | "role">>;
+  navigation: { members: boolean; payments: boolean };
+  availableContexts?: Array<Pick<ClubOrganisationContext, "organisation" | "role" | "navigation">>;
 };
 
 /** Only serialisable organisation/role data may cross into client navigation. */
-export function toClubNavContexts(contexts: ClubOrganisationContext[]) { return contexts.map(context => ({ organisation: context.organisation, role: context.role })); }
+export function toClubNavContexts(contexts: ClubOrganisationContext[]) { return contexts.map(context => ({ organisation: context.organisation, role: context.role, navigation: context.navigation })); }
 
 /** Resolve only organisations where the signed-in user has an active membership. */
 export async function listClubOrganisationContexts(client: SupabaseClient, userId: string) {
@@ -23,7 +24,13 @@ export async function listClubOrganisationContexts(client: SupabaseClient, userI
   const contexts = await Promise.all(organisations.map(async organisation => {
     const members = await repository.listMembers(organisation.id);
     const member = members.find(item => item.userId === userId && item.active);
-    return member ? { repository, organisation, members, member, role: member.role } satisfies ClubOrganisationContext : undefined;
+    if (!member) return undefined;
+    const [canViewMembers, canReconcileCash] = await Promise.all([
+      repository.hasCapability(organisation.id, userId, "members.view"),
+      repository.hasCapability(organisation.id, userId, "cash.reconcile"),
+    ]);
+    const navigation = { members: canViewMembers, payments: ["owner", "gym_admin"].includes(member.role) && canReconcileCash };
+    return { repository, organisation, members, member, role: member.role, navigation } satisfies ClubOrganisationContext;
   }));
   return contexts.filter((context): context is ClubOrganisationContext => Boolean(context));
 }
