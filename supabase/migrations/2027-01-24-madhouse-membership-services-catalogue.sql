@@ -51,7 +51,7 @@ begin
   if exists(select 1 from public.club_products where organisation_id=org and name='Week Pass') and exists(select 1 from public.club_products where organisation_id=org and name='1 Week Pass') then raise exception 'Both legacy and canonical Week Pass products exist'; end if;
   if exists(select 1 from public.club_products where organisation_id=org and name='Standard Monthly') and exists(select 1 from public.club_products where organisation_id=org and name='Unlimited Gym') then raise exception 'Both legacy and canonical Unlimited Gym products exist'; end if;
   if exists(select 1 from public.club_products where organisation_id=org and name='Concession Monthly') and exists(select 1 from public.club_products where organisation_id=org and name='Unlimited Gym Discount') then raise exception 'Both legacy and canonical Discount products exist'; end if;
-  if exists(select 1 from public.club_products where organisation_id=org and name='Couples Membership') and exists(select 1 from public.club_products where organisation_id=org and name='Unlimited Gym Couple') then raise exception 'Both legacy and canonical Couple products exist'; end if;
+  if exists(select 1 from public.club_products where organisation_id=org and name='Couples Membership') and exists(select 1 from public.club_products where organisation_id=org and name='Unlimited Gym Couple') then raise exception 'Both canonical and legacy Couple products exist'; end if;
   update public.club_products set name='Day Pass' where organisation_id=org and name='Gym Day Pass'
     and not exists(select 1 from public.club_products where organisation_id=org and name='Day Pass');
   update public.club_products set name='1 Week Pass' where organisation_id=org and name='Week Pass'
@@ -60,8 +60,8 @@ begin
     and not exists(select 1 from public.club_products where organisation_id=org and name='Unlimited Gym');
   update public.club_products set name='Unlimited Gym Discount' where organisation_id=org and name='Concession Monthly'
     and not exists(select 1 from public.club_products where organisation_id=org and name='Unlimited Gym Discount');
-  update public.club_products set name='Unlimited Gym Couple' where organisation_id=org and name='Couples Membership'
-    and not exists(select 1 from public.club_products where organisation_id=org and name='Unlimited Gym Couple');
+  update public.club_products set name='Couples Membership' where organisation_id=org and name='Unlimited Gym Couple'
+    and not exists(select 1 from public.club_products where organisation_id=org and name='Couples Membership');
 end $$;
 
 do $$
@@ -74,7 +74,7 @@ begin
     ('madhouse.membership.unlimited.v1','Unlimited Gym',2700,'recurring',null,1,false,null,null,null,null),
     ('madhouse.membership.off-peak.v1','Off Peak',1499,'recurring',null,1,false,'Europe/London',array[1,2,3,4,5],'10:00'::time,'15:00'::time),
     ('madhouse.membership.discount.v1','Unlimited Gym Discount',2200,'recurring',null,1,true,null,null,null,null),
-    ('madhouse.membership.couple.v1','Unlimited Gym Couple',4500,'recurring',null,2,false,null,null,null,null),
+    ('madhouse.membership.couple.v1','Couples Membership',4500,'recurring',null,2,false,null,null,null,null),
     ('madhouse.membership.yearly.v1','Yearly Membership',27500,'one_off',365,1,false,null,null,null,null)
   ) as x(code,name,price,billing,duration,max_holders,verify_required,tz,weekdays,opens,closes)
   loop
@@ -82,6 +82,11 @@ begin
     if product is null then
       insert into public.club_products(organisation_id,name,kind,price_minor,currency,billing,duration_days,sellable)
       values(org,item.name,'membership',item.price,'GBP',item.billing,item.duration,true) returning id into product;
+    elsif item.name='Couples Membership' then
+      if not exists(select 1 from public.club_products where id=product and organisation_id=org and kind='membership'
+        and price_minor=4500 and currency='GBP' and billing='recurring' and sellable) then
+        raise exception 'Existing Madhouse Couples Membership configuration does not match the authorised £45 recurring product';
+      end if;
     else
       update public.club_products set kind='membership',price_minor=item.price,currency='GBP',billing=item.billing,
         duration_days=item.duration,sellable=true,archived_at=null where id=product and organisation_id=org;

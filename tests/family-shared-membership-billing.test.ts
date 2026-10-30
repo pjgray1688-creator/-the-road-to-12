@@ -15,11 +15,36 @@ test("Family is contact-only publicly and staff-manageable as a shared product",
   assert.deepEqual(madhouseMembershipRules[family.name].defaultHouseholdCompositions, ["2_adults_1_child", "1_adult_2_children"]);
   assert.match(publicJoin, /Contact us for pricing and details/);
   assert.match(publicJoin, /not available for automatic online checkout/);
+  assert.doesNotMatch(publicJoin, /Family Membership[^]*£0/);
   assert.match(sql, /pricing_on_request=true/);
   assert.match(household, /Covered person role/);
   assert.match(sql, /shared_membership boolean/);
   assert.match(sql, /Household controls are only available for shared memberships/);
   assert.match(sql, /values\(family_product,org,'madhouse\.membership\.family\.v1',null,true\)/);
+});
+
+test("Family migration installs the missing product-rules prerequisite before altering it", () => {
+  const createAt = sql.indexOf("create table if not exists public.club_membership_product_rules");
+  const alterAt = sql.indexOf("alter table public.club_membership_product_rules drop constraint");
+  assert.ok(createAt >= 0 && createAt < alterAt);
+  assert.match(sql, /product_id uuid primary key/);
+  assert.match(sql, /unique\(organisation_id,catalogue_code\)/);
+  assert.match(sql, /foreign key\(product_id,organisation_id\) references public\.club_products\(id,organisation_id\) on delete restrict/);
+  assert.match(sql, /maximum_holders is null or maximum_holders between 1 and 2/);
+  assert.match(sql, /shared_membership boolean not null default false/);
+  assert.match(sql, /created_at timestamptz not null default now\(\).*updated_at timestamptz not null default now\(\)/s);
+  assert.match(sql, /enable row level security/);
+  assert.match(sql, /revoke all on public\.club_membership_product_rules from public,anon,authenticated/);
+});
+
+test("Couples import binds the existing £45 recurring product and requires exactly two holders", () => {
+  assert.match(sql, /name='Couples Membership'/);
+  assert.match(sql, /count\(\*\).*name='Couples Membership'\)<>1/s);
+  assert.match(sql, /price_minor=4500 and currency='GBP' and billing='recurring' and sellable/);
+  assert.match(sql, /madhouse\.membership\.couple\.v1',2,true,false/);
+  assert.match(sql, /product_name='Couples Membership' and group_row\.holder_count<>2/);
+  assert.doesNotMatch(sql, /Unlimited Gym Couple/);
+  assert.doesNotMatch(sql, /update public\.club_products[^;]+name='Couples Membership'/s);
 });
 
 test("shared import creates one contract, membership, payer and obligation without provider actions", () => {

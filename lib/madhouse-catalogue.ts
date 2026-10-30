@@ -23,7 +23,7 @@ export const madhouseCatalogue: readonly CatalogueProduct[] = [
   { name: "Unlimited Gym", kind: "membership", priceMinor: 2700, currency: "GBP", billing: "recurring", sellable: true, entitlements: [gymAccess] },
   { name: "Off Peak", kind: "membership", priceMinor: 1499, currency: "GBP", billing: "recurring", sellable: true, entitlements: [gymAccess] },
   { name: "Unlimited Gym Discount", kind: "membership", priceMinor: 2200, currency: "GBP", billing: "recurring", sellable: true, entitlements: [gymAccess] },
-  { name: "Unlimited Gym Couple", kind: "membership", priceMinor: 4500, currency: "GBP", billing: "recurring", sellable: true, entitlements: [gymAccess] },
+  { name: "Couples Membership", kind: "membership", priceMinor: 4500, currency: "GBP", billing: "recurring", sellable: true, entitlements: [gymAccess] },
   { name: "Family Membership", kind: "membership", priceMinor: 0, pricingOnRequest: true, currency: "GBP", billing: "recurring", sellable: false, entitlements: [gymAccess] },
   { name: "Yearly Membership", kind: "membership", priceMinor: 27500, currency: "GBP", billing: "one_off", durationDays: 365, sellable: true, entitlements: [gymAccess] },
   { name: "Transformation Bronze", kind: "transformation", priceMinor: 25000, currency: "GBP", billing: "one_off", durationDays: 70, sellable: true, entitlements: transformation(1) },
@@ -49,7 +49,7 @@ export const madhouseMembershipRules: Readonly<Record<string, MadhouseMembership
   "Unlimited Gym": { maximumHolders: 1, shared: false, eligibilityVerificationRequired: false },
   "Off Peak": { maximumHolders: 1, shared: false, eligibilityVerificationRequired: false, accessWindow: { timeZone: "Europe/London", weekdays: [1, 2, 3, 4, 5], opensAt: "10:00", closesAt: "15:00" } },
   "Unlimited Gym Discount": { maximumHolders: 1, shared: false, eligibilityVerificationRequired: true },
-  "Unlimited Gym Couple": { maximumHolders: 2, shared: true, eligibilityVerificationRequired: false },
+  "Couples Membership": { maximumHolders: 2, shared: true, eligibilityVerificationRequired: false },
   "Family Membership": { maximumHolders: null, shared: true, defaultHouseholdCompositions: ["2_adults_1_child", "1_adult_2_children"], eligibilityVerificationRequired: false },
   "Yearly Membership": { maximumHolders: 1, shared: false, eligibilityVerificationRequired: false },
 };

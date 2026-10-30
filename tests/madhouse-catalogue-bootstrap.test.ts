@@ -13,7 +13,7 @@ test("Madhouse catalogue includes the staff-only Family contract product", () =>
   assert.equal(madhouseCatalogue.length, 14);
   assert.deepEqual(Object.fromEntries(madhouseCatalogue.map(product => [product.name, product.priceMinor])), {
     "Day Pass": 500, "1 Week Pass": 1200, "Unlimited Gym": 2700, "Off Peak": 1499,
-    "Unlimited Gym Discount": 2200, "Unlimited Gym Couple": 4500, "Family Membership": 0, "Yearly Membership": 27500, "Transformation Bronze": 25000,
+    "Unlimited Gym Discount": 2200, "Couples Membership": 4500, "Family Membership": 0, "Yearly Membership": 27500, "Transformation Bronze": 25000,
     "Transformation Silver": 40000, "Transformation Gold": 52500, "Single PT Session": 3000,
     "10 PT Session Block": 20000, "Golden Ticket Founding Membership": 50000,
   });
@@ -39,7 +39,7 @@ test("membership, transformation and PT catalogue benefits retain exact semantic
 test("Golden Ticket and Couple definitions remain assignment-ready without assigning holders", () => {
   const golden = byName("Golden Ticket Founding Membership"); assert.equal(golden.isLifetime, true); assert.equal(golden.billing, "one_off"); assert.equal(golden.sellable, false); assert.equal(golden.durationDays, undefined); assert.equal(entitlement(golden, "gym_access")?.scope, "future_locations"); assert.deepEqual(entitlement(golden, "discount")?.discount, { percent: 20, period: "month", maxUses: 1 });
   assert.deepEqual(madhouseCatalogue.filter(product => !product.sellable).map(product => product.name).sort(), ["Family Membership", "Golden Ticket Founding Membership"]);
-  const couples = byName("Unlimited Gym Couple"); assert.equal(couples.kind, "membership"); assert.equal(couples.billing, "recurring"); assert.equal(entitlement(couples, "gym_access")?.scope, "future_locations");
+  const couples = byName("Couples Membership"); assert.equal(couples.kind, "membership"); assert.equal(couples.billing, "recurring"); assert.equal(couples.priceMinor, 4500); assert.equal(entitlement(couples, "gym_access")?.scope, "future_locations");
   assert.equal(membershipSupportsAdditionalPerson(couples.name), true);
   assert.equal(membershipSupportsAdditionalPerson("Family Membership"), true);
   assert.equal(membershipSupportsAdditionalPerson("Unlimited Gym"), false);
@@ -68,6 +68,17 @@ test("matching catalogue products are not duplicated and semantic entitlement or
   assert.equal(catalogueProductMatches(matching[3], byName("Off Peak")), true);
   const repository = new CatalogueRepository(matching); const results = await reconcileMadhouseCatalogue(repository);
   assert.equal(results.every(result => result.status === "already_matching"), true); assert.equal(repository.creates.length, 0);
+});
+
+test("production Couples Membership ID is retained without creating or repricing a product", async () => {
+  const productionId = "892195bf-2f53-4580-ad9d-108effbce011";
+  const existing = materialiseCatalogueProduct(byName("Couples Membership"), MADHOUSE_PRODUCTION_ORGANISATION_ID, productionId);
+  const repository = new CatalogueRepository([existing]);
+  const result = (await reconcileMadhouseCatalogue(repository)).find(item => item.name === "Couples Membership");
+  assert.deepEqual(result, { name: "Couples Membership", status: "already_matching" });
+  assert.equal(repository.products[0]?.id, productionId);
+  assert.equal(repository.creates.some(product => product.name === "Couples Membership"), false);
+  assert.equal(repository.updates, 0);
 });
 
 test("catalogue drift and duplicate exact names are reported without overwrite", async () => {

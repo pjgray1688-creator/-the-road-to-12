@@ -18,7 +18,7 @@ test("public catalogue exposes exactly the seven approved memberships", () => {
     "Unlimited Gym": 2700,
     "Off Peak": 1499,
     "Unlimited Gym Discount": 2200,
-    "Unlimited Gym Couple": 4500,
+    "Couples Membership": 4500,
     "Yearly Membership": 27500,
   });
   assert.match(joinPage, /membershipRuleSummary/);
@@ -31,7 +31,7 @@ test("membership rules keep both-site access, Off Peak and household limits expl
   });
   assert.match(membershipRuleSummary("Off Peak"), /Monday to Friday, 10am–3pm/);
   assert.match(membershipRuleSummary("Unlimited Gym"), /both Madhouse gyms/i);
-  assert.equal(membershipSupportsAdditionalPerson("Unlimited Gym Couple"), true);
+  assert.equal(membershipSupportsAdditionalPerson("Couples Membership"), true);
   assert.equal(membershipSupportsAdditionalPerson("Family Membership"), true);
   assert.equal(membershipSupportsAdditionalPerson("Unlimited Gym"), false);
   assert.match(household, /if \(!supportsAdditionalPerson\) return null/);
@@ -73,7 +73,9 @@ test("transformation and PT shop products use separate paid entitlements and Pro
 });
 
 test("migration reconciles legacy catalogue names without deleting memberships or Golden Tickets", () => {
-  for (const legacy of ["Gym Day Pass", "Week Pass", "Standard Monthly", "Concession Monthly", "Couples Membership"]) assert.match(sql, new RegExp(legacy));
+  for (const legacy of ["Gym Day Pass", "Week Pass", "Standard Monthly", "Concession Monthly", "Unlimited Gym Couple"]) assert.match(sql, new RegExp(legacy));
+  assert.match(sql, /set name='Couples Membership'.*name='Unlimited Gym Couple'/s);
+  assert.doesNotMatch(sql, /set name='Unlimited Gym Couple'.*name='Couples Membership'/s);
   assert.doesNotMatch(sql, /delete from public\.club_memberships/i);
   assert.doesNotMatch(sql, /Golden Ticket Founding Membership/);
   assert.match(sql, /on conflict\(organisation_id,sku\) do update/);

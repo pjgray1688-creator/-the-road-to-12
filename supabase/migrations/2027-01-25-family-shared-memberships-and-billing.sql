@@ -4,19 +4,59 @@ begin;
 
 alter table public.club_products add column if not exists pricing_on_request boolean not null default false;
 
+-- Production may have the membership/billing foundations without the catalogue
+-- rules migration. Install the complete authoritative prerequisite here before
+-- altering it; the composite foreign key prevents cross-organisation rules.
+create table if not exists public.club_membership_product_rules (
+  product_id uuid primary key,
+  organisation_id uuid not null,
+  catalogue_code text not null,
+  maximum_holders integer default 1,
+  shared_membership boolean not null default false,
+  eligibility_verification_required boolean not null default false,
+  access_timezone text,
+  access_weekdays integer[],
+  access_opens_at time,
+  access_closes_at time,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique(organisation_id,catalogue_code),
+  foreign key(product_id,organisation_id) references public.club_products(id,organisation_id) on delete restrict,
+  check(maximum_holders is null or maximum_holders between 1 and 2),
+  check((access_timezone is null and access_weekdays is null and access_opens_at is null and access_closes_at is null)
+    or (access_timezone='Europe/London' and access_weekdays <@ array[1,2,3,4,5,6,7]
+      and cardinality(access_weekdays)>0 and access_opens_at is not null and access_closes_at is not null
+      and access_opens_at<access_closes_at))
+);
+alter table public.club_membership_product_rules enable row level security;
+revoke all on public.club_membership_product_rules from public,anon,authenticated;
+
 alter table public.club_membership_product_rules drop constraint if exists club_membership_product_rules_maximum_holders_check;
 alter table public.club_membership_product_rules alter column maximum_holders drop not null;
 alter table public.club_membership_product_rules add column if not exists shared_membership boolean not null default false;
 alter table public.club_membership_product_rules add constraint club_membership_product_rules_maximum_holders_check
-  check(maximum_holders is null or maximum_holders>=1);
+  check(maximum_holders is null or maximum_holders between 1 and 2);
 
 do $$
-declare org uuid; family_product uuid;
+declare org uuid; couple_product uuid; family_product uuid;
 begin
   select id into org from public.club_organisations where slug='madhouse-gym';
   if org is null then raise exception 'Madhouse organisation is missing'; end if;
-  update public.club_membership_product_rules r set shared_membership=true
-  from public.club_products p where p.id=r.product_id and p.organisation_id=r.organisation_id and p.organisation_id=org and p.name='Unlimited Gym Couple';
+  if (select count(*) from public.club_products where organisation_id=org and name='Couples Membership')<>1 then
+    raise exception 'Expected exactly one existing Madhouse Couples Membership product';
+  end if;
+  select id into couple_product from public.club_products where organisation_id=org and name='Couples Membership';
+  if not exists(select 1 from public.club_products where id=couple_product and organisation_id=org and kind='membership'
+    and price_minor=4500 and currency='GBP' and billing='recurring' and sellable) then
+    raise exception 'Existing Madhouse Couples Membership configuration does not match the authorised £45 recurring product';
+  end if;
+  insert into public.club_membership_product_rules(product_id,organisation_id,catalogue_code,maximum_holders,shared_membership,eligibility_verification_required)
+  values(couple_product,org,'madhouse.membership.couple.v1',2,true,false)
+  on conflict(product_id) do update set catalogue_code=excluded.catalogue_code,maximum_holders=2,shared_membership=true,
+    eligibility_verification_required=false,updated_at=now();
+  if (select count(*) from public.club_products where organisation_id=org and name='Family Membership')>1 then
+    raise exception 'Duplicate Madhouse Family Membership products exist';
+  end if;
   select id into family_product from public.club_products where organisation_id=org and name='Family Membership';
   if family_product is null then
     insert into public.club_products(organisation_id,name,kind,price_minor,currency,billing,sellable)
@@ -224,8 +264,8 @@ begin
       join public.club_member_import_package_mappings pm on pm.batch_id=b.id and lower(pm.source_package)=lower(x.normalized_values->>'membershipName') and pm.status='mapped'
       join public.club_products p on p.id=pm.club_product_id and p.organisation_id=p_organisation_id
       where x.batch_id=b.id and public.club_import_mapped_value(x.raw_values,b.mapping,'householdReference',array['shared_contract_id','household_reference'])=household_ref limit 1;
-    if product_name not in ('Unlimited Gym Couple','Family Membership') then raise exception 'Shared contract % must map to Couple or Family Membership',household_ref using errcode='22023'; end if;
-    if product_name='Unlimited Gym Couple' and group_row.holder_count<>2 then raise exception 'Couples memberships require exactly two covered people' using errcode='22023'; end if;
+    if product_name not in ('Couples Membership','Family Membership') then raise exception 'Shared contract % must map to Couple or Family Membership',household_ref using errcode='22023'; end if;
+    if product_name='Couples Membership' and group_row.holder_count<>2 then raise exception 'Couples memberships require exactly two covered people' using errcode='22023'; end if;
     if exists(select 1 from public.club_member_import_rows x join public.club_member_import_package_mappings pm on pm.batch_id=b.id and lower(pm.source_package)=lower(x.normalized_values->>'membershipName') and pm.status='mapped'
       where x.batch_id=b.id and public.club_import_mapped_value(x.raw_values,b.mapping,'householdReference',array['shared_contract_id','household_reference'])=household_ref and pm.club_product_id<>product) then raise exception 'Shared contract % has inconsistent products',household_ref using errcode='22023'; end if;
     select min(coalesce((x.normalized_values->>'startDate')::date::timestamptz,b.created_at)),max(case when x.normalized_values->>'endDate' is null then null else (x.normalized_values->>'endDate')::date::timestamptz+interval '1 day' end),
@@ -262,7 +302,7 @@ begin
     method:=case when method like '%cash%' then 'cash' when method like '%card%' or method like '%stripe%' then 'recurring_card' when method like '%direct%' or method like '%gocardless%' then 'direct_debit' else 'other' end;
     provider_type:=case when method='direct_debit' then 'gocardless' when method='recurring_card' then 'stripe' else null end;
     insert into public.club_membership_shared_contracts(membership_id,organisation_id,external_contract_reference,arrangement_kind,default_composition,responsible_payer_customer_id,imported,paid_through_date,provider_reconciliation_state)
-    values(membership.id,p_organisation_id,household_ref,case when product_name='Unlimited Gym Couple' then 'couple' else 'family' end,case when product_name='Family Membership' then 'existing_contract' else null end,payer.id,true,paid_through,'pending');
+    values(membership.id,p_organisation_id,household_ref,case when product_name='Couples Membership' then 'couple' else 'family' end,case when product_name='Family Membership' then 'existing_contract' else null end,payer.id,true,paid_through,'pending');
     insert into public.club_membership_billing_arrangements(organisation_id,membership_id,user_id,customer_id,provider_type,payment_method_family,provider_customer_reference,provider_subscription_reference,amount_minor,currency,frequency,next_due_at,state,billing_anchor_day,schedule_source,anniversary_established_at)
     values(p_organisation_id,membership.id,payer.user_id,payer.id,provider_type,method,provider_customer,provider_subscription,amount_minor,'GBP','monthly',next_due::timestamptz,'active',extract(day from next_due)::integer,'imported_contract',start_at) returning id into arrangement_id;
     insert into public.club_membership_billing_obligations(organisation_id,arrangement_id,membership_id,user_id,customer_id,provider_type,payment_method_family,provider_customer_reference,provider_subscription_reference,amount_minor,currency,frequency,next_due_at,period_key,state,coverage_start_at,coverage_end_at)

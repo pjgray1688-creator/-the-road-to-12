@@ -8,11 +8,11 @@ const read = (path: string) => readFileSync(new URL(`../${path}`, import.meta.ur
 
 test("member onboarding is repository-backed and avoids fabricated accounts", () => {
   const component = read("components/club-member-onboarding.tsx");
-  const overview = read("app/club/page.tsx");
+  const membersPage = read("app/club/members/page.tsx");
   const actions = read("app/club/members/actions.ts");
-  assert.match(overview, /MEMBER MANAGEMENT/);
-  assert.match(overview, /Add or update a member and assign a membership or pass/);
-  assert.doesNotMatch(overview, /ADD PERSON/);
+  assert.match(membersPage, /MEMBERSHIP MANAGEMENT/);
+  assert.match(membersPage, /Add or update a member/);
+  assert.doesNotMatch(membersPage, /ADD PERSON/);
   assert.match(component, /Member<select/);
   assert.match(component, /New member/);
   assert.doesNotMatch(component, /record a new walk-in/);
@@ -31,7 +31,7 @@ test("membership management exposes active staff-assignment products without mak
   assert.ok(staffOnly.includes("Yearly Membership"));
   assert.equal(staffOnly.includes("Golden Ticket Founding Membership"), false);
   assert.equal(regular.includes("Golden Ticket Founding Membership"), false);
-  for (const name of ["Day Pass", "1 Week Pass", "Unlimited Gym", "Off Peak", "Unlimited Gym Discount", "Unlimited Gym Couple", "Yearly Membership"]) assert.ok(regular.includes(name));
+  for (const name of ["Day Pass", "1 Week Pass", "Unlimited Gym", "Off Peak", "Unlimited Gym Discount", "Couples Membership", "Yearly Membership"]) assert.ok(regular.includes(name));
   assert.equal(assignable.filter(name => name === "Golden Ticket Founding Membership").length, 1);
 });
 
@@ -45,7 +45,7 @@ test("membership assignment uses persisted product benefits and preserves histor
 });
 
 test("membership directory loads onboarding dependencies in one parallel read", () => {
-  const page = read("app/club/page.tsx");
-  assert.match(page, /Promise\.all\(\[context\.repository\.listMemberSummaries/);
+  const page = read("app/club/members/page.tsx");
+  assert.match(page, /Promise\.all\(\[\s*context\.repository\.listMemberSummaries/);
   assert.match(page, /ClubMemberOnboarding/);
 });
