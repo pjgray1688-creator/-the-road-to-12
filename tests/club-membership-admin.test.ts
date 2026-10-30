@@ -31,7 +31,7 @@ test("membership management exposes active staff-assignment products without mak
   assert.ok(staffOnly.includes("Yearly Membership"));
   assert.equal(staffOnly.includes("Golden Ticket Founding Membership"), false);
   assert.equal(regular.includes("Golden Ticket Founding Membership"), false);
-  for (const name of ["Day Pass", "1 Week Pass", "Unlimited Gym", "Off Peak", "Unlimited Gym Discount", "Couples Membership", "Yearly Membership"]) assert.ok(regular.includes(name));
+  for (const name of ["Gym Day Pass", "Week Pass", "Standard Monthly", "Concession Monthly", "Couples Membership", "Yearly Membership"]) assert.ok(regular.includes(name));
   assert.equal(assignable.filter(name => name === "Golden Ticket Founding Membership").length, 1);
 });
 

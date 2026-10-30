@@ -24,7 +24,7 @@ test("only Franchise membership products can pass the PayPal product-code allowl
     assert.equal(result.checkoutReady, true, name);
     if (result.checkoutReady) assert.equal(result.financingDecision, "paypal_decides_at_checkout");
   }
-  for (const name of ["Day Pass", "1 Week Pass", "Unlimited Gym", "Single PT Session"]) {
+  for (const name of ["Gym Day Pass", "Week Pass", "Standard Monthly", "Single PT Session"]) {
     const result = evaluatePayPalPayIn3CheckoutReadiness({ product: product(name), productCode: null, readiness: validReadiness });
     assert.equal(result.checkoutReady, false, name);
   }

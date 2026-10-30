@@ -1,5 +1,7 @@
--- Canonical Madhouse membership and service catalogue.
--- Forward-only/review-only: release separately; this file does not enable checkout.
+-- SUPERSEDED FOR PRODUCTION: do not execute this migration.
+-- Production retained its established membership names/prices and January 25/26
+-- were applied first. Use the two reviewed, manual scripts in supabase/deployment
+-- for membership compatibility and service-package seeding instead.
 begin;
 
 create table if not exists public.club_membership_product_rules (
