@@ -4,6 +4,7 @@ import test from "node:test";
 import { MADHOUSE_ORGANISATION_ID, WEBSITE_SHOP_PROPOSALS, WEBSITE_SHOP_SIZES, resolveWebsitePrice, uniformActiveCataloguePrice } from "../lib/madhouse-website-shop-mappings";
 
 const migration = readFileSync("supabase/migrations/2026-11-04-madhouse-website-shop.sql", "utf8");
+const controlsMigration = readFileSync("supabase/migrations/2026-11-04-madhouse-website-shop-controls.sql", "utf8");
 const managementPage = readFileSync("app/club/website-shop/page.tsx", "utf8");
 const actions = readFileSync("app/club/website-shop/actions.ts", "utf8");
 const manifest = readFileSync("supabase/deployment/2026-11-22-madhouse-launch-migrations.txt", "utf8");
@@ -23,9 +24,9 @@ test("anonymous catalogue access returns a narrow published view with no private
   assert.match(migration, /club_list_public_website_shop_catalogue\(p_organisation_id uuid\)/);
   assert.match(migration, /where w\.organisation_id = p_organisation_id and w\.published and w\.available/);
   assert.match(migration, /'price_minor', public_price/);
-  assert.match(migration, /all_sizes_priced and distinct_catalogue_prices = 1/);
-  assert.match(migration, /active_variant_count = 8/);
-  assert.match(migration, /sizes @> array\['S','M','L','XL','2XL','3XL','4XL','5XL'\]/);
+  assert.match(controlsMigration, /website_available_sizes/);
+  assert.match(controlsMigration, /coalesce\(fs\.visible, true\)/);
+  assert.doesNotMatch(controlsMigration, /active_variant_count = 8/);
   assert.match(migration, /w\.published and w\.available and w\.mapping_verified/);
   assert.match(migration, /'sizes', to_jsonb\(sizes\)/);
   assert.doesNotMatch(migration, /'cost_price_minor'|'customer_id'|'stripe_price_id'/);
@@ -34,14 +35,14 @@ test("anonymous catalogue access returns a narrow published view with no private
 
 test("Club manager reads omit cost fields and write through an authenticated capability-checked RPC", () => {
   assert.match(managementPage, /hasCapability\(context\.organisation\.id, user\.id, "commerce\.pricing_manage"\)/);
-  assert.match(managementPage, /select\("id,brand,active,sell_price_minor,family_id,variant_options"\)/);
+  assert.match(managementPage, /select\("brand,active,sell_price_minor,family_id,variant_options"\)/);
   assert.match(managementPage, /eq\("organisation_id", context\.organisation\.id\)\.ilike\("brand", "Madhouse Apparel"\)/);
   assert.doesNotMatch(managementPage, /cost_price_minor/);
-  assert.match(actions, /client\.rpc\("club_save_website_shop_publication"/);
-  assert.match(actions, /hasCapability\(context\.organisation\.id, user\.id, "commerce\.pricing_manage"\)/);
-  assert.match(actions, /p_mapping_verified: input\.mappingVerified/);
-  assert.match(migration, /if p_published and p_available and not coalesce\(p_mapping_verified, false\)/);
-  assert.match(migration, /count\(\*\) = 8[\s\S]*count\(distinct p\.variant_options ->> 'size'\) = 8[\s\S]*count\(p\.sell_price_minor\) = 8/);
+  assert.match(actions, /client\.rpc\("club_update_website_shop_product"/);
+  assert.match(actions, /hasCapability\(organisationId, user\.id, "commerce\.pricing_manage"\)/);
+  assert.match(actions, /client\.rpc\("club_set_website_shop_family_visibility"/);
+  assert.match(controlsMigration, /count\(distinct p\.variant_options ->> 'size'\) = cardinality\(p_available_sizes\)/);
+  assert.doesNotMatch(controlsMigration, /update public\.club_commerce_products/);
 });
 
 test("Club management template covers every showroom colour without guessed product UUIDs", () => {
@@ -60,7 +61,10 @@ test("all 21 showroom entries have unique proposed family and colour mappings", 
     "Pullover Hoodie": 9,
     "Crewneck Sweatshirt": 6,
   });
-  assert.equal(entries.filter(([, mapping]) => mapping.reviewNote).length, 6);
+  for (const [slug, mapping] of entries) {
+    assert.ok(controlsMigration.includes(`('${slug}','${mapping.familyId}','${mapping.variantColour}'`), `SQL mapping must match ${slug}`);
+  }
+  assert.equal(entries.filter(([, mapping]) => mapping.reviewNote).length, 0);
   const expectedColours: Record<string, string> = {
     "acid-black": "Black/Grey", "acid-blue": "Blue", "acid-brown": "Brown", "acid-forest-green": "Green", "acid-pink": "Pink", "acid-purple": "Purple",
     "hoodie-beige": "Cream", "hoodie-forest-green": "Green", "hoodie-charcoal": "Charcoal", "hoodie-white": "White", "hoodie-light-blue": "Light Blue", "hoodie-pink": "Pink", "hoodie-red": "Red", "hoodie-navy": "Navy", "hoodie-black": "Black",
@@ -72,34 +76,43 @@ test("all 21 showroom entries have unique proposed family and colour mappings", 
   assert.ok(entries.filter(([slug]) => slug.startsWith("sweatshirt-")).every(([, mapping]) => mapping.familyId === "7f1116bb-2d32-408b-ac66-ac7cde04170b"));
 });
 
-test("catalogue price fallback requires eight ordered sizes with one valid price", () => {
+test("catalogue price fallback supports ordered enabled-size subsets with one valid price", () => {
   assert.deepEqual(WEBSITE_SHOP_SIZES, ["S", "M", "L", "XL", "2XL", "3XL", "4XL", "5XL"]);
   const variants = WEBSITE_SHOP_SIZES.map(size => ({ size, active: true, sellPriceMinor: 2500 }));
   assert.equal(uniformActiveCataloguePrice(variants), 2500);
   assert.equal(resolveWebsitePrice(3100, variants), 3100);
   assert.equal(resolveWebsitePrice(null, variants), 2500);
-  assert.equal(uniformActiveCataloguePrice(variants.slice(1)), null);
+  assert.equal(uniformActiveCataloguePrice(variants.slice(1)), 2500);
+  assert.equal(uniformActiveCataloguePrice([]), null);
   assert.equal(uniformActiveCataloguePrice(variants.map((variant, i) => i === 4 ? { ...variant, sellPriceMinor: null } : variant)), null);
   assert.equal(uniformActiveCataloguePrice(variants.map((variant, i) => i === 4 ? { ...variant, sellPriceMinor: 2600 } : variant)), null);
 });
 
-test("proposed mappings stay unpublished until a Club manager verifies them", () => {
+test("approved mappings are seeded without changing member prices and Club hides internal mapping controls", () => {
   assert.match(migration, /published boolean not null default false/);
   assert.match(migration, /available boolean not null default false/);
   assert.match(migration, /mapping_verified boolean not null default false/);
-  assert.match(migration, /website_shop\.product_saved/);
-  assert.match(migration, /mapping_verified = excluded\.mapping_verified/);
-  assert.match(managementPage, /WEBSITE_SHOP_PROPOSALS/);
-  assert.match(managementPage, /mapping_verified/);
-  assert.doesNotMatch(migration, /update public\.club_commerce_products[\s\S]{0,220}website_price_minor/);
+  assert.match(controlsMigration, /mapping_verified = true/);
+  assert.match(controlsMigration, /website_available_sizes text\[\] not null/);
+  assert.match(controlsMigration, /website_shop\.settings_saved/);
+  const seededSlugs = [...controlsMigration.matchAll(/^\s*\('((?:acid|hoodie|sweatshirt)-[a-z-]+)'/gm)].map(match => match[1]);
+  assert.equal(seededSlugs.length, 21);
+  assert.equal(new Set(seededSlugs).size, 21);
+  assert.match(controlsMigration, /club_website_shop_family_settings/);
+  assert.match(controlsMigration, /published = case when current_publication\.mapping_verified/);
+  assert.match(managementPage, /WEBSITE_SHOP_MAPPINGS/);
+  assert.doesNotMatch(managementPage, /mapping_verified|R12 catalogue product and colour dropdown|front image path/);
+  assert.doesNotMatch(controlsMigration, /update public\.club_commerce_products/);
 });
 
 test("the forward migration is included in the deployment manifest and isolated SQL validation", () => {
   assert.match(manifest, /2026-11-04-madhouse-website-shop\.sql/);
+  assert.match(manifest, /2026-11-04-madhouse-website-shop-controls\.sql/);
   const reconciliation = workflow.indexOf("2026-11-22-madhouse-final-state-reconciliation.sql");
   const websiteShop = workflow.indexOf("2026-11-04-madhouse-website-shop.sql", reconciliation);
-  assert.ok(reconciliation >= 0 && websiteShop > reconciliation);
+  const controls = workflow.indexOf("2026-11-04-madhouse-website-shop-controls.sql", websiteShop);
+  assert.ok(reconciliation >= 0 && websiteShop > reconciliation && controls > websiteShop);
   assert.match(workflow, /club_list_public_website_shop_catalogue/);
-  assert.match(workflow, /club_save_website_shop_publication\(uuid,text,uuid,text,text,text,integer,text,text,boolean,boolean,boolean\)/);
+  assert.match(workflow, /club_update_website_shop_product\(uuid,text,integer,boolean,text\[\]\)/);
   assert.match(workflow, /has_table_privilege\('anon'.*'insert'\)/);
 });

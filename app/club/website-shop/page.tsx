@@ -1,11 +1,11 @@
 import { redirect } from "next/navigation";
 import { AppNav } from "@/components/app-nav";
 import { ClubSectionNav } from "@/components/club-shell";
-import { ClubWebsiteShop, type WebsiteShopChoice, type WebsiteShopRow } from "@/components/club-website-shop";
+import { ClubWebsiteShop, type WebsiteShopRow } from "@/components/club-website-shop";
 import { AppShell, EmptyState, PageHeader } from "@/components/ui";
 import { resolveClubOrganisationContext } from "@/lib/club-server-context";
 import { serverSupabase } from "@/lib/supabase-server";
-import { MADHOUSE_ORGANISATION_ID, WEBSITE_SHOP_PROPOSALS, WEBSITE_SHOP_SIZES, uniformActiveCataloguePrice, type WebsiteShopSlug } from "@/lib/madhouse-website-shop-mappings";
+import { MADHOUSE_ORGANISATION_ID, WEBSITE_SHOP_MAPPINGS, WEBSITE_SHOP_SIZES, uniformActiveCataloguePrice, type WebsiteShopSlug } from "@/lib/madhouse-website-shop-mappings";
 
 const showroomRows: Omit<WebsiteShopRow, "publication">[] = [
   { slug: "acid-black", name: "Acid-Wash T-Shirt", colour: "Black", kind: "tee", frontImage: "/apparel/53db9107-7b29-4a92-811b-573779bb8bf6.JPG", backImage: "/apparel/cc03291e-9418-4d66-bb89-c9e86e658626.JPG" },
@@ -31,8 +31,7 @@ const showroomRows: Omit<WebsiteShopRow, "publication">[] = [
   { slug: "sweatshirt-cream", name: "Sweatshirt", colour: "Cream", kind: "sweatshirt", frontImage: "/apparel/a2b08c26-1a49-4050-90a6-24deeb26a156.JPG", backImage: null },
 ];
 
-type ProductRow = { id: string; brand: string | null; active: boolean; sell_price_minor: number | null; family_id: string | null; variant_options: Record<string, unknown> | null };
-type FamilyRow = { id: string; name: string; brand: string | null; active: boolean; archived_at: string | null };
+type ProductRow = { brand: string | null; active: boolean; sell_price_minor: number | null; family_id: string | null; variant_options: Record<string, unknown> | null };
 
 export default async function ClubWebsiteShopPage({ searchParams }: { searchParams?: Promise<{ org?: string }> }) {
   const client = await serverSupabase();
@@ -46,45 +45,43 @@ export default async function ClubWebsiteShopPage({ searchParams }: { searchPara
     return <AppShell className="module-page club-page"><PageHeader eyebrow="R12 CLUB" title="Website Shop" /><EmptyState title="Madhouse organisation required">Switch to the confirmed Madhouse Apparel organisation to manage its public catalogue.</EmptyState><AppNav /></AppShell>;
   }
 
-  const [productResult, familyResult, publicationResult] = await Promise.all([
-    client.from("club_commerce_products").select("id,brand,active,sell_price_minor,family_id,variant_options").eq("organisation_id", context.organisation.id).ilike("brand", "Madhouse Apparel"),
-    client.from("club_product_families").select("id,name,brand,active,archived_at").eq("organisation_id", context.organisation.id),
-    client.from("club_website_shop_publications").select("public_slug,family_id,variant_colour,website_price_minor,published,available,mapping_verified,front_image_url,back_image_url").eq("organisation_id", context.organisation.id),
+  const [productResult, publicationResult, familySettingsResult] = await Promise.all([
+    client.from("club_commerce_products").select("brand,active,sell_price_minor,family_id,variant_options").eq("organisation_id", context.organisation.id).ilike("brand", "Madhouse Apparel"),
+    client.from("club_website_shop_publications").select("public_slug,family_id,variant_colour,website_price_minor,published,available,website_available_sizes,front_image_url,back_image_url").eq("organisation_id", context.organisation.id),
+    client.from("club_website_shop_family_settings").select("family_id,visible").eq("organisation_id", context.organisation.id),
   ]);
-  if (productResult.error || familyResult.error || publicationResult.error) {
-    return <AppShell className="module-page club-page"><PageHeader eyebrow="R12 CLUB · PUBLIC CATALOGUE" title="Website Shop" description="A database setup step is required before website publications can be managed." /><ClubSectionNav organisation={context.organisation} role={context.role} contexts={context.availableContexts} /><EmptyState title="Website Shop setup is pending">Apply the reviewed Website Shop database migration before managing publication settings. No existing member-shop pricing has been changed.</EmptyState><AppNav /></AppShell>;
+  if (productResult.error || publicationResult.error || familySettingsResult.error) {
+    return <AppShell className="module-page club-page"><PageHeader eyebrow="R12 CLUB" title="Madhouse Apparel — Website Shop" /><ClubSectionNav organisation={context.organisation} role={context.role} contexts={context.availableContexts} /><EmptyState title="Website Shop update required">The Website Shop size and family settings migration must be applied before these controls can be used.</EmptyState><AppNav /></AppShell>;
   }
   const products = (productResult.data ?? []) as ProductRow[];
-  const families = new Map(((familyResult.data ?? []) as FamilyRow[]).map(family => [family.id, family]));
-  const grouped = new Map<string, { choice: WebsiteShopChoice; variants: { size: unknown; active: boolean; sellPriceMinor: number | null }[] }>();
-  for (const product of products) {
-    if (product.brand?.toLocaleLowerCase() !== "madhouse apparel" || !product.family_id) continue;
-    const family = families.get(product.family_id);
-    const colour = typeof product.variant_options?.colour === "string" ? product.variant_options.colour : "";
-    if (!family || family.brand?.toLocaleLowerCase() !== "madhouse apparel" || !colour) continue;
-    const key = `${family.id}:${colour}`;
-    const group = grouped.get(key) ?? { choice: { key, familyId: family.id, familyName: family.name, variantColour: colour, sizes: [], defaultPriceMinor: null, eligible: family.active && !family.archived_at }, variants: [] };
-    const size = product.variant_options?.size;
-    if (product.active && typeof size === "string" && WEBSITE_SHOP_SIZES.includes(size as typeof WEBSITE_SHOP_SIZES[number]) && !group.choice.sizes.includes(size)) group.choice.sizes.push(size);
-    group.variants.push({ size, active: product.active, sellPriceMinor: product.sell_price_minor });
-    grouped.set(key, group);
-  }
-  const choices = [...grouped.values()].map(({ choice, variants }) => ({
-    ...choice,
-    sizes: WEBSITE_SHOP_SIZES.filter(size => choice.sizes.includes(size)),
-    defaultPriceMinor: uniformActiveCataloguePrice(variants),
-  })).sort((a, b) => `${a.familyName} ${a.variantColour}`.localeCompare(`${b.familyName} ${b.variantColour}`));
   const publications = new Map((publicationResult.data ?? []).map((value: Record<string, unknown>) => [String(value.public_slug), value]));
+  const familyVisibility = new Map((familySettingsResult.data ?? []).map((value: Record<string, unknown>) => [String(value.family_id), value.visible === true]));
+  const familyMeta = [
+    { id: "fccc70d5-2db2-45ab-be4f-3cd728c28aa8", kind: "tee" as const, title: "Acid-Wash T-Shirts", defaultPriceMinor: 2500 },
+    { id: "912a3ec3-c8cc-48c0-9d20-9223584d0714", kind: "hoodie" as const, title: "Hoodies", defaultPriceMinor: 3500 },
+    { id: "7f1116bb-2d32-408b-ac66-ac7cde04170b", kind: "sweatshirt" as const, title: "Sweatshirts", defaultPriceMinor: 3500 },
+  ];
   const rows: WebsiteShopRow[] = showroomRows.map(row => {
-    const publication = publications.get(row.slug);
-    return publication ? { ...row, publication: {
-      familyId: String(publication.family_id), variantColour: String(publication.variant_colour),
-      priceMinor: publication.website_price_minor == null ? null : Number(publication.website_price_minor),
-      published: publication.published === true, available: publication.available === true,
-      mappingVerified: publication.mapping_verified === true,
-      frontImage: String(publication.front_image_url), backImage: typeof publication.back_image_url === "string" ? publication.back_image_url : null,
-    } } : row;
+    const mapping = WEBSITE_SHOP_MAPPINGS[row.slug as WebsiteShopSlug];
+    const publication = publications.get(row.slug) as Record<string, unknown> | undefined;
+    const catalogueSizes = WEBSITE_SHOP_SIZES.filter(size => products.some(product => product.active && product.family_id === mapping.familyId && product.variant_options?.colour === mapping.variantColour && product.variant_options?.size === size));
+    const enabledSizes = Array.isArray(publication?.website_available_sizes)
+      ? WEBSITE_SHOP_SIZES.filter(size => (publication.website_available_sizes as unknown[]).includes(size) && catalogueSizes.includes(size))
+      : catalogueSizes;
+    const allVariants = products.filter(product => product.family_id === mapping.familyId && product.variant_options?.colour === mapping.variantColour)
+      .map(product => ({ size: product.variant_options?.size, active: product.active, sellPriceMinor: product.sell_price_minor }));
+    const enabledVariants = allVariants.filter(product => enabledSizes.includes(product.size as typeof WEBSITE_SHOP_SIZES[number]));
+    return {
+      ...row,
+      familyId: mapping.familyId,
+      defaultPriceMinor: uniformActiveCataloguePrice(enabledVariants) ?? uniformActiveCataloguePrice(allVariants),
+      catalogueSizes,
+      enabledSizes,
+      visible: publication?.published === true && publication?.available === true,
+      priceOverrideMinor: publication?.website_price_minor == null ? null : Number(publication.website_price_minor),
+    };
   });
+  const families = familyMeta.map(family => ({ ...family, visible: familyVisibility.get(family.id) ?? true }));
   const query = `?org=${encodeURIComponent(context.organisation.id)}`;
-  return <AppShell className="module-page club-page"><PageHeader eyebrow="R12 CLUB · PUBLIC CATALOGUE" title="Website Shop" description="Review the proposed R12 match, confirm product and image identity, then manage website price and publication independently of member pricing." /><ClubSectionNav organisation={context.organisation} role={context.role} contexts={context.availableContexts} /><ClubWebsiteShop organisationId={context.organisation.id} rows={rows} choices={choices} proposals={WEBSITE_SHOP_PROPOSALS} /><a className="text-button" href={`/club/products${query}`}>Return to Products & Pricing</a><AppNav /></AppShell>;
+  return <AppShell className="module-page club-page"><PageHeader eyebrow="R12 CLUB · MADHOUSE APPAREL" title="Madhouse Apparel — Website Shop" description="Manage public colourways, prices and made-to-order sizes. These settings do not change member-shop pricing." /><ClubSectionNav organisation={context.organisation} role={context.role} contexts={context.availableContexts} /><ClubWebsiteShop organisationId={context.organisation.id} rows={rows} families={families} /><a className="text-button" href={`/club/products${query}`}>Return to Products & Pricing</a><AppNav /></AppShell>;
 }

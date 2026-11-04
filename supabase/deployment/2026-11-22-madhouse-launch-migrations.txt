@@ -89,6 +89,7 @@ supabase/migrations/2026-11-02-reduce-statement-timing-volume.sql
 supabase/migrations/2026-11-03-reconcile-remaining-statement-timings.sql
 supabase/migrations/2026-11-04-post-reconciliation-timings.sql
 supabase/migrations/2026-11-04-madhouse-website-shop.sql
+supabase/migrations/2026-11-04-madhouse-website-shop-controls.sql
 supabase/migrations/2026-11-07-remove-active-sports-reconciliation-guard.sql
 supabase/migrations/2026-11-08-link-supplier-catalogue-to-commerce.sql
 supabase/migrations/2026-11-09-fix-active-sports-retail-rounding.sql

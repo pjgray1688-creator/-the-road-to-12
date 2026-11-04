@@ -6,6 +6,12 @@ This change adds a separate publication layer over existing R12 commerce product
 
 The R12 deployment guide's primary path first applies `supabase/deployment/2026-11-22-madhouse-final-state-reconciliation.sql`. Apply `supabase/migrations/2026-11-04-madhouse-website-shop.sql` as a separate forward step after that baseline; the launch migration manifest also includes it for the optional runner. Do not execute it from an application route. The Postgres validation workflow applies the forward migration after the canonical baseline and checks its RLS and grants.
 
+## Website Shop controls and size availability
+
+The follow-up migration `supabase/migrations/2026-11-04-madhouse-website-shop-controls.sql` adds website-only enabled sizes and family visibility, installs the manager RPCs, replaces the public catalogue RPC, and idempotently reconciles the 21 approved Madhouse mappings. The original Website Shop migration has already been applied and must not be rerun for this update.
+
+Before deploying the updated Club and Madhouse website application code, execute the complete contents of `2026-11-04-madhouse-website-shop-controls.sql` once in the production Supabase SQL Editor. It is transactional and may be re-run safely if a SQL Editor connection fails before commit. Confirm the editor reports success. Then deploy the R12 Club application and the public Madhouse website through their existing Vercel projects. Do not enable checkout; this migration does not create payment sessions or touch Stripe/member pricing.
+
 The migration creates a manager-only publication table, a capability-checked save RPC with audit events, and a narrow anonymous read RPC. Anonymous callers can receive only explicitly published, available, and mapping-verified product fields; product and organisation IDs, costs, and customer data are not returned. Publication and availability default to off. The database also rejects publishing until an authorised manager confirms the R12 product, colour, and photos match the showroom entry.
 
 The confirmed organisation is `fa44592a-1593-4ad3-a621-63a4a4bcbceb`. The code contains proposed mappings to these existing product families: Heavy Oversized T-Shirt (`fccc70d5-2db2-45ab-be4f-3cd728c28aa8`), Pullover Hoodie (`912a3ec3-c8cc-48c0-9d20-9223584d0714`), and Crewneck Sweatshirt (`7f1116bb-2d32-408b-ac66-ac7cde04170b`). It resolves variants by family and catalogue colour; it does not guess or store per-size product UUIDs.

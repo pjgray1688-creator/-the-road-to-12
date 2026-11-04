@@ -169,22 +169,31 @@ jobs:
           # club_save_staff_permission from jsonb to void.
           psql -v ON_ERROR_STOP=1 -f supabase/deployment/2026-11-22-madhouse-final-state-reconciliation.sql
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/2026-11-04-madhouse-website-shop.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/2026-11-04-madhouse-website-shop-controls.sql
           psql -v ON_ERROR_STOP=1 -X <<'SQL'
           do $$
           declare
             v_save oid := to_regprocedure('public.club_save_website_shop_publication(uuid,text,uuid,text,text,text,integer,text,text,boolean,boolean,boolean)');
+            v_update oid := to_regprocedure('public.club_update_website_shop_product(uuid,text,integer,boolean,text[])');
+            v_family oid := to_regprocedure('public.club_set_website_shop_family_visibility(uuid,uuid,boolean)');
             v_catalogue oid := to_regprocedure('public.club_list_public_website_shop_catalogue(uuid)');
           begin
             if to_regclass('public.club_website_shop_publications') is null
+              or to_regclass('public.club_website_shop_family_settings') is null
               or not (select relrowsecurity from pg_class where oid='public.club_website_shop_publications'::regclass)
               or not exists (select 1 from information_schema.columns where table_schema='public' and table_name='club_website_shop_publications' and column_name='mapping_verified' and column_default like '%false%')
-              or v_save is null or v_catalogue is null
+              or not exists (select 1 from information_schema.columns where table_schema='public' and table_name='club_website_shop_publications' and column_name='website_available_sizes')
+              or v_save is null or v_update is null or v_family is null or v_catalogue is null
               or has_table_privilege('anon','public.club_website_shop_publications','select')
               or has_table_privilege('anon','public.club_website_shop_publications','insert')
               or has_table_privilege('anon','public.club_website_shop_publications','update')
               or has_table_privilege('anon','public.club_website_shop_publications','delete')
               or has_function_privilege('anon',v_save,'execute')
-              or not has_function_privilege('authenticated',v_save,'execute')
+              or has_function_privilege('authenticated',v_save,'execute')
+              or not has_function_privilege('authenticated',v_update,'execute')
+              or not has_function_privilege('authenticated',v_family,'execute')
+              or has_function_privilege('anon',v_update,'execute')
+              or has_function_privilege('anon',v_family,'execute')
               or not has_function_privilege('anon',v_catalogue,'execute') then
               raise exception 'Website Shop migration schema or grants are invalid';
             end if;
@@ -195,12 +204,15 @@ jobs:
                 and coalesce(qual,'') like '%commerce.pricing_manage%'
             ) then raise exception 'Website Shop manager RLS policy is missing'; end if;
             if not (select prosecdef from pg_proc where oid=v_save)
+              or not (select prosecdef from pg_proc where oid=v_update)
+              or not (select prosecdef from pg_proc where oid=v_family)
               or not (select prosecdef from pg_proc where oid=v_catalogue) then
               raise exception 'Website Shop RPC security-definer boundary is missing';
             end if;
-            if pg_get_functiondef(v_catalogue) not ilike '%mapping_verified%'
-              or pg_get_functiondef(v_catalogue) not ilike '%active_variant_count = 8%' then
-              raise exception 'Public catalogue mapping verification or eight-size validation is missing';
+            if pg_get_functiondef(v_catalogue) not ilike '%website_available_sizes%'
+              or pg_get_functiondef(v_catalogue) not ilike '%club_website_shop_family_settings%'
+              or pg_get_functiondef(v_catalogue) ilike '%active_variant_count = 8%' then
+              raise exception 'Public catalogue size/family filtering is invalid';
             end if;
           end $$;
           SQL

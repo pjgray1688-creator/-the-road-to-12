@@ -1,132 +1,99 @@
 "use client";
 
+import Image from "next/image";
 import { useState, useTransition } from "react";
-import { saveWebsiteShopPublication } from "@/app/club/website-shop/actions";
-import type { WebsiteShopProposal, WebsiteShopSlug } from "@/lib/madhouse-website-shop-mappings";
+import { saveWebsiteShopFamilyVisibility, saveWebsiteShopSettings } from "@/app/club/website-shop/actions";
+import type { WebsiteShopSlug } from "@/lib/madhouse-website-shop-mappings";
 import styles from "./club-website-shop.module.css";
 
-export type WebsiteShopChoice = {
-  key: string;
-  familyId: string;
-  familyName: string;
-  variantColour: string;
-  sizes: string[];
-  defaultPriceMinor: number | null;
-  eligible: boolean;
-};
-
 export type WebsiteShopRow = {
-  slug: string;
+  slug: WebsiteShopSlug;
   name: string;
   colour: string;
   kind: "tee" | "hoodie" | "sweatshirt";
   frontImage: string;
-  backImage: string | null;
-  publication?: {
-    familyId: string;
-    variantColour: string;
-    priceMinor: number | null;
-    published: boolean;
-    available: boolean;
-    mappingVerified: boolean;
-    frontImage: string;
-    backImage: string | null;
-  };
+  familyId: string;
+  defaultPriceMinor: number | null;
+  priceOverrideMinor: number | null;
+  visible: boolean;
+  catalogueSizes: string[];
+  enabledSizes: string[];
 };
 
-export function ClubWebsiteShop({ organisationId, rows, choices, proposals }: { organisationId: string; rows: WebsiteShopRow[]; choices: WebsiteShopChoice[]; proposals: Readonly<Record<WebsiteShopSlug, WebsiteShopProposal>> }) {
-  const [saved, setSaved] = useState<Record<string, WebsiteShopRow["publication"]>>(
-    Object.fromEntries(rows.filter(row => row.publication).map(row => [row.slug, row.publication])),
-  );
-  const [pending, startTransition] = useTransition();
-  const [message, setMessage] = useState("");
-  const choiceLabel = (choice: WebsiteShopChoice) => `${choice.familyName} · ${choice.variantColour}${choice.sizes.length ? ` · ${choice.sizes.join(", ")}` : " · No active sizes"}${choice.defaultPriceMinor == null ? " · No uniform catalogue price" : ` · R12 ${new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(choice.defaultPriceMinor / 100)}`}${choice.eligible ? "" : " · Inactive family (unpublish only)"}`;
-  const clearMappingConfirmation = (form: HTMLFormElement | null) => {
-    const confirmation = form?.elements.namedItem("mappingVerified");
-    if (confirmation instanceof HTMLInputElement) confirmation.checked = false;
-  };
-  const previewItems = rows.flatMap(row => {
-    const publication = saved[row.slug];
-    if (!publication?.published || !publication.available || !publication.mappingVerified) return [];
-    const choice = choices.find(item => item.familyId === publication.familyId && item.variantColour === publication.variantColour);
-    const priceMinor = publication.priceMinor ?? choice?.defaultPriceMinor ?? null;
-    if (!choice || choice.sizes.length !== 8 || priceMinor === null || priceMinor <= 0) return [];
-    return [{ row, choice, priceMinor }];
-  });
+type ShopFamily = { id: string; kind: WebsiteShopRow["kind"]; title: string; defaultPriceMinor: number; visible: boolean };
+type Draft = { price: string; visible: boolean; sizes: string[] };
+const money = (minor: number | null) => minor === null ? "Price unavailable" : new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(minor / 100);
 
-  function save(row: WebsiteShopRow, form: HTMLFormElement) {
-    const data = new FormData(form);
-    const choice = choices.find(item => item.key === String(data.get("choice")));
-    if (!choice) { setMessage(`Select an existing R12 product colour for ${row.name} · ${row.colour}.`); return; }
-    const rawPrice = String(data.get("price") ?? "").trim();
-    let priceMinor: number | null = null;
-    if (rawPrice !== "") {
-      const parsedPrice = Math.round(Number(rawPrice) * 100);
-      if (!Number.isFinite(Number(rawPrice)) || !Number.isSafeInteger(parsedPrice) || parsedPrice <= 0) {
-        setMessage("Enter a valid website price in pounds, or leave it blank to use a single verified R12 catalogue price.");
-        return;
-      }
-      priceMinor = parsedPrice;
-    }
-    const frontImage = String(data.get("frontImage") ?? "").trim();
-    const backImage = String(data.get("backImage") ?? "").trim();
-    const mappingVerified = data.get("mappingVerified") === "on";
-    const published = data.get("published") === "on";
-    const available = data.get("available") === "on";
-    if (published && available && !mappingVerified) {
-      setMessage("Confirm the selected R12 product, colour and photographs before publishing.");
+export function ClubWebsiteShop({ organisationId, rows, families }: { organisationId: string; rows: WebsiteShopRow[]; families: ShopFamily[] }) {
+  const [drafts, setDrafts] = useState<Record<string, Draft>>(() => Object.fromEntries(rows.map(row => [row.slug, {
+    price: row.priceOverrideMinor === null ? "" : (row.priceOverrideMinor / 100).toFixed(2),
+    visible: row.visible,
+    sizes: row.enabledSizes,
+  }])));
+  const [familyState, setFamilyState] = useState<Record<string, boolean>>(() => Object.fromEntries(families.map(family => [family.id, family.visible])));
+  const [messages, setMessages] = useState<Record<string, string>>({});
+  const [pending, startTransition] = useTransition();
+  const [savingFamily, setSavingFamily] = useState<string | null>(null);
+  const setDraft = (slug: string, patch: Partial<Draft>) => setDrafts(current => ({ ...current, [slug]: { ...current[slug], ...patch } }));
+  const currentVisibleCount = rows.filter(row => drafts[row.slug]?.visible && drafts[row.slug]?.sizes.length > 0 && familyState[row.familyId]).length;
+
+  function save(row: WebsiteShopRow) {
+    const draft = drafts[row.slug];
+    const parsed = draft.price.trim() === "" ? null : Math.round(Number(draft.price) * 100);
+    if (parsed !== null && (!Number.isSafeInteger(parsed) || parsed <= 0)) {
+      setMessages(current => ({ ...current, [row.slug]: "Enter a valid price, or use the standard price." }));
       return;
     }
-    const publication = {
-      familyId: choice.familyId,
-      variantColour: choice.variantColour,
-      priceMinor,
-      published,
-      available,
-      mappingVerified,
-      frontImage,
-      backImage: backImage || null,
-    };
-    setMessage("");
+    setMessages(current => ({ ...current, [row.slug]: "Saving…" }));
     startTransition(async () => {
-      const result = await saveWebsiteShopPublication({
-        organisationId, slug: row.slug, familyId: publication.familyId,
-        variantColour: publication.variantColour, name: row.name, colour: row.colour,
-        priceMinor, frontImage, backImage: publication.backImage,
-        published: publication.published, available: publication.available, mappingVerified,
-      });
-      if (result.ok) { setSaved(current => ({ ...current, [row.slug]: publication })); setMessage(`${row.name} · ${row.colour} saved.`); }
-      else setMessage(result.error);
+      const result = await saveWebsiteShopSettings({ organisationId, slug: row.slug, priceMinor: parsed, visible: draft.visible, sizes: draft.sizes });
+      setMessages(current => ({ ...current, [row.slug]: result.ok ? "Saved" : result.error }));
     });
   }
 
-  return <section className={styles.workspace} aria-label="Website shop products">
-    <header className={styles.intro}><div><span className={styles.eyebrow}>PUBLIC CATALOGUE</span><h2>Website Shop</h2><p>Choose existing Madhouse Apparel products, set website prices and control publication. Member shop prices remain unchanged.</p></div><span className={styles.counter}>{rows.length} showroom colours</span></header>
-    {choices.length === 0 ? <div className={styles.empty}><strong>No R12 apparel products are available to map yet.</strong><p>After the Madhouse Apparel products are present in this organisation’s catalogue, refresh this page to map them.</p></div> : <div className={styles.products}>
-      {rows.map(row => {
-        const publication = saved[row.slug];
-        const proposal = proposals[row.slug as WebsiteShopSlug];
-        const proposedKey = proposal ? `${proposal.familyId}:${proposal.variantColour}` : "";
-        const selectedKey = publication ? `${publication.familyId}:${publication.variantColour}` : choices.some(choice => choice.key === proposedKey) ? proposedKey : "";
-        const proposedChoice = choices.find(choice => choice.key === proposedKey);
-        return <form key={row.slug} className={styles.product} onSubmit={event => { event.preventDefault(); save(row, event.currentTarget); }}>
-          <div className={styles.productHead}><div><h3>{row.name}</h3><p>{row.colour}</p></div><code>{row.slug}</code></div>
-          {proposal && <div className={styles.proposal}><strong>Proposed R12 match</strong><span>{proposal.familyName} · {proposal.variantColour}</span>{proposal.reviewNote && <p>{proposal.reviewNote}</p>}{proposedChoice?.defaultPriceMinor != null && <small>Current catalogue default: {new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(proposedChoice.defaultPriceMinor / 100)}</small>}</div>}
-          <label>R12 catalogue product and colour<select name="choice" defaultValue={selectedKey} required onChange={event => { if (publication && event.currentTarget.value !== `${publication.familyId}:${publication.variantColour}`) clearMappingConfirmation(event.currentTarget.form); }}><option value="" disabled>Select a verified product</option>{choices.map(choice => <option key={choice.key} value={choice.key}>{choiceLabel(choice)}</option>)}</select></label>
-          <div className={styles.priceRow}><label>Website price (£)<input name="price" inputMode="decimal" type="number" min="0.01" step="0.01" defaultValue={publication?.priceMinor == null ? "" : (publication.priceMinor / 100).toFixed(2)} placeholder="Use R12 price" /></label><span>R12 prices remain unchanged</span></div>
-          <label>Approved front image path<input name="frontImage" required pattern="/apparel/[A-Za-z0-9._/-]+" defaultValue={publication?.frontImage ?? row.frontImage} onChange={event => clearMappingConfirmation(event.currentTarget.form)} /></label>
-          {row.kind === "tee" && <label>Approved back image path<input name="backImage" pattern="/apparel/[A-Za-z0-9._/-]+" defaultValue={publication?.backImage ?? row.backImage ?? ""} onChange={event => clearMappingConfirmation(event.currentTarget.form)} /></label>}
-          <div className={styles.flags}><label><input type="checkbox" name="published" defaultChecked={publication?.published ?? false} /> Published on website</label><label><input type="checkbox" name="available" defaultChecked={publication?.available ?? false} /> Available to order</label></div>
-          <label className={styles.mappingCheck}><input type="checkbox" name="mappingVerified" defaultChecked={publication?.mappingVerified ?? false} /><span>I checked that the selected R12 product, colour and photos match this showroom garment.</span></label>
-          <button type="submit" disabled={pending}>{pending ? "Saving…" : "Save product"}</button>
-        </form>;
-      })}
-    </div>}
-    <section className={styles.preview} aria-label="Published website catalogue preview">
-      <div><span className={styles.eyebrow}>PUBLIC VIEW</span><h3>Published catalogue preview</h3></div>
-      {previewItems.length ? <div className={styles.previewGrid}>{previewItems.map(({ row, choice, priceMinor }) => <article key={row.slug}><strong>{row.name} · {row.colour}</strong><span>{new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(priceMinor / 100)}</span><small>{choice.sizes.join(" · ")}</small></article>)}</div> : <p>No verified products are currently published and available.</p>}
-    </section>
-    <p className={styles.note}>Apparel is made to order; no stock counts are collected here. A published product appears only when R12 confirms a valid price and at least one active size.</p>
-    <p className={styles.status} aria-live="polite">{message}</p>
+  function toggleFamily(family: ShopFamily) {
+    const visible = !familyState[family.id];
+    setSavingFamily(family.id);
+    startTransition(async () => {
+      const result = await saveWebsiteShopFamilyVisibility({ organisationId, familyId: family.id, visible });
+      if (result.ok) setFamilyState(current => ({ ...current, [family.id]: visible }));
+      setMessages(current => ({ ...current, [`family:${family.id}`]: result.ok ? (visible ? "Family is visible on the website." : "Family is hidden from the website.") : result.error }));
+      setSavingFamily(null);
+    });
+  }
+
+  return <section className={styles.workspace} aria-label="Madhouse Apparel website shop management">
+    <header className={styles.summary}>
+      <div><span className={styles.eyebrow}>MADE TO ORDER</span><h2>Website Shop</h2><p>Changes here affect public website prices and availability. Member-shop prices stay as they are.</p></div>
+      <div className={styles.summaryCounts}><strong>{currentVisibleCount} <small>visible</small></strong><span>{rows.length - currentVisibleCount} hidden</span></div>
+    </header>
+    {families.map(family => {
+      const familyRows = rows.filter(row => row.familyId === family.id);
+      const visible = familyState[family.id];
+      return <section key={family.id} className={styles.family} aria-labelledby={`family-${family.kind}`}>
+        <header className={styles.familyHead}>
+          <div><span className={styles.eyebrow}>STANDARD PRICE · {money(family.defaultPriceMinor)}</span><h2 id={`family-${family.kind}`}>{family.title}</h2><p>{familyRows.length} colourways</p></div>
+          <div className={styles.familyControl}><span>{visible ? "Visible" : "Hidden"}</span><button type="button" role="switch" aria-checked={visible} aria-label={`${visible ? "Hide" : "Show"} all ${family.title}`} onClick={() => toggleFamily(family)} disabled={savingFamily === family.id}>{visible ? "Hide family" : "Show family"}</button></div>
+        </header>
+        {messages[`family:${family.id}`] && <p className={styles.feedback} role="status">{messages[`family:${family.id}`]}</p>}
+        <div className={styles.colourways}>
+          {familyRows.map(row => {
+            const draft = drafts[row.slug];
+            const effectivePrice = draft.price.trim() ? Math.round(Number(draft.price) * 100) : row.defaultPriceMinor;
+            return <article key={row.slug} className={styles.colourway}>
+              <div className={styles.productIdentity}><Image src={row.frontImage} width={66} height={78} alt="" /><div><h3>{row.name}</h3><p>{row.colour}</p><span>Website price <b>{money(effectivePrice)}</b></span></div></div>
+              <label className={styles.priceField}>Price override <span>£</span><input aria-label={`${row.colour} website price override`} inputMode="decimal" type="number" min="0.01" step="0.01" placeholder={money(row.defaultPriceMinor)} value={draft.price} onChange={event => setDraft(row.slug, { price: event.target.value })} /><button type="button" onClick={() => setDraft(row.slug, { price: "" })} disabled={!draft.price}>Use standard price</button></label>
+              <div className={styles.visibility}><span>{draft.visible ? "Visible" : "Hidden"}</span><button type="button" role="switch" aria-checked={draft.visible} aria-label={`${draft.visible ? "Hide" : "Show"} ${row.colour}`} onClick={() => setDraft(row.slug, { visible: !draft.visible })}><i /></button></div>
+              <fieldset className={styles.sizes}><legend>Available sizes</legend><div>{["S", "M", "L", "XL", "2XL", "3XL", "4XL", "5XL"].map(size => {
+                const inCatalogue = row.catalogueSizes.includes(size);
+                const enabled = draft.sizes.includes(size);
+                return <label key={size} className={!inCatalogue ? styles.unavailableSize : ""}><input type="checkbox" checked={enabled} disabled={!inCatalogue} onChange={() => setDraft(row.slug, { sizes: enabled ? draft.sizes.filter(item => item !== size) : [...draft.sizes, size] })} /><span>{size}</span></label>;
+              })}</div>{row.catalogueSizes.length === 0 && <small className={styles.feedback}>No active catalogue sizes are currently available.</small>}{draft.sizes.length === 0 && <small className={styles.feedback}>No sizes selected; this colourway will be hidden from customers.</small>}</fieldset>
+              <div className={styles.saveRow}><button type="button" onClick={() => save(row)} disabled={pending}>{pending ? "Saving…" : "Save changes"}</button><span className={styles.feedback} role="status">{messages[row.slug] ?? ""}</span></div>
+            </article>;
+          })}
+        </div>
+      </section>;
+    })}
   </section>;
 }
