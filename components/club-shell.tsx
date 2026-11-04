@@ -18,7 +18,7 @@ function groupForPath(pathname: string): NavigationGroup {
   if (path === "/club") return "Overview";
   if (path.startsWith("/club/memberships")) return "Management";
   if (path.startsWith("/club/members") || path.startsWith("/club/join")) return "Members";
-  if (path.startsWith("/club/payments") || path.startsWith("/club/reports") || path.startsWith("/club/membership-billing") || path.startsWith("/club/products") || path.startsWith("/club/promotions") || path.startsWith("/club/suppliers") || path.startsWith("/club/staff") || path.startsWith("/club/locations") || path.startsWith("/club/stations") || path.startsWith("/club/services") || path.startsWith("/club/launch-readiness")) return "Management";
+  if (path.startsWith("/club/payments") || path.startsWith("/club/reports") || path.startsWith("/club/membership-billing") || path.startsWith("/club/products") || path.startsWith("/club/promotions") || path.startsWith("/club/website-shop") || path.startsWith("/club/suppliers") || path.startsWith("/club/staff") || path.startsWith("/club/locations") || path.startsWith("/club/stations") || path.startsWith("/club/services") || path.startsWith("/club/launch-readiness")) return "Management";
   if (path.startsWith("/club/shop")) return "Shop";
   if (path.startsWith("/club/classes") || path.startsWith("/club/schedule") || path.startsWith("/club/work")) return "Classes & PT";
   if (["/club/check-in", "/club/access", "/club/reception", "/club/induction", "/club/checks", "/club/sunbeds", "/club/lock", "/club/station"].some(route => path.startsWith(route))) return "Daily Operations";
@@ -74,6 +74,7 @@ export function ClubSectionNav({ organisation, role, contexts = [], locations = 
       ...(navigation?.finance ? [{ label: "Cash collections", href: `/club/payments/cash-collections${query()}`, group: "Management" as const }] : []),
       ...(navigation?.memberships ? [{ label: "Membership administration", href: `/club/memberships${query()}`, group: "Management" as const }] : []),
       ...(navigation?.promotions ? [{ label: "Promotions & pricing", href: `/club/promotions${query()}`, group: "Management" as const }] : []),
+      ...(navigation?.promotions ? [{ label: "Website Shop", href: `/club/website-shop${query()}`, group: "Management" as const }] : []),
       ...(navigation?.suppliers ? [{ label: "Suppliers & purchasing", href: `/club/suppliers${query()}`, group: "Management" as const }] : []),
       ...(navigation?.staff ? [{ label: "Staff & permissions", href: `/club/staff${query()}`, group: "Management" as const }] : []),
       ...(navigation?.venues ? [{ label: "Venues & settings", href: `/club/locations${query()}`, group: "Management" as const }, { label: "Shared stations", href: `/club/stations${query()}`, group: "Management" as const }] : []),
