@@ -12,6 +12,7 @@ export type WebsiteShopRow = {
   colour: string;
   kind: "tee" | "hoodie" | "sweatshirt";
   frontImage: string;
+  backImage?: string | null;
   familyId: string;
   defaultPriceMinor: number | null;
   priceOverrideMinor: number | null;
@@ -47,7 +48,7 @@ export function ClubWebsiteShop({ organisationId, rows, families }: { organisati
     setMessages(current => ({ ...current, [row.slug]: "Saving…" }));
     startTransition(async () => {
       const result = await saveWebsiteShopSettings({ organisationId, slug: row.slug, priceMinor: parsed, visible: draft.visible, sizes: draft.sizes });
-      setMessages(current => ({ ...current, [row.slug]: result.ok ? "Saved" : result.error }));
+      setMessages(current => ({ ...current, [row.slug]: result.ok ? "Saved" : (result.error ?? "Save failed") }));
     });
   }
 
@@ -57,7 +58,7 @@ export function ClubWebsiteShop({ organisationId, rows, families }: { organisati
     startTransition(async () => {
       const result = await saveWebsiteShopFamilyVisibility({ organisationId, familyId: family.id, visible });
       if (result.ok) setFamilyState(current => ({ ...current, [family.id]: visible }));
-      setMessages(current => ({ ...current, [`family:${family.id}`]: result.ok ? (visible ? "Family is visible on the website." : "Family is hidden from the website.") : result.error }));
+      setMessages(current => ({ ...current, [`family:${family.id}`]: result.ok ? (visible ? "Family is visible on the website." : "Family is hidden from the website.") : (result.error ?? "Save failed") }));
       setSavingFamily(null);
     });
   }
