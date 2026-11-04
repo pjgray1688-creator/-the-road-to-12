@@ -7,7 +7,7 @@ import { resolveClubOrganisationContext } from "@/lib/club-server-context";
 import { serverSupabase } from "@/lib/supabase-server";
 import { MADHOUSE_ORGANISATION_ID, WEBSITE_SHOP_MAPPINGS, WEBSITE_SHOP_SIZES, uniformActiveCataloguePrice, type WebsiteShopSlug } from "@/lib/madhouse-website-shop-mappings";
 
-const showroomRows: Omit<WebsiteShopRow, "publication">[] = [
+const showroomRows: Pick<WebsiteShopRow, "slug" | "name" | "colour" | "kind" | "frontImage" | "backImage">[] = [
   { slug: "acid-black", name: "Acid-Wash T-Shirt", colour: "Black", kind: "tee", frontImage: "/apparel/53db9107-7b29-4a92-811b-573779bb8bf6.JPG", backImage: "/apparel/cc03291e-9418-4d66-bb89-c9e86e658626.JPG" },
   { slug: "acid-blue", name: "Acid-Wash T-Shirt", colour: "Blue", kind: "tee", frontImage: "/apparel/f5dde856-20b6-4f96-b93c-bf8c5216b334.JPG", backImage: "/apparel/bcd3baf3-96c3-4c11-b440-deb82947da34.JPG" },
   { slug: "acid-brown", name: "Acid-Wash T-Shirt", colour: "Brown", kind: "tee", frontImage: "/apparel/madhouse-acid-wash-brown-tee-rail.png", backImage: "/apparel/437b35a6-9893-4f6f-9b2f-7a2833924fdb.JPG" },
