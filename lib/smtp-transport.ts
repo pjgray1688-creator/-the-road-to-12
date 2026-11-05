@@ -80,6 +80,13 @@ function encodeHeader(value: string) { return `=?UTF-8?B?${Buffer.from(safeHeade
 function encodeBody(value: string) { return Buffer.from(value.replace(/\r?\n/g, "\r\n"), "utf8").toString("base64").match(/.{1,76}/g)?.join("\r\n") ?? ""; }
 function formatAddress(name: string, address: string) { return `${encodeHeader(name)} <${address}>`; }
 function smtpSender(config: SmtpConfiguration, sender: NotificationEnvelope["sender"]) {
+  if (sender === "apparel") {
+    if (process.env.MADHOUSE_APPAREL_EMAIL_SENDER_VERIFIED !== "true") throw smtpError("Madhouse Apparel sender is not verified");
+    const address = process.env.MADHOUSE_APPAREL_EMAIL_FROM?.trim() ?? "";
+    const name = process.env.MADHOUSE_APPAREL_EMAIL_FROM_NAME?.trim() || "Madhouse Apparel";
+    if (!/^[^\s@<>]+@madhousegym\.online$/i.test(address) || /[\r\n]/.test(name)) throw smtpError("Madhouse Apparel sender is not configured");
+    return { address, name };
+  }
   return config.from[sender] ?? { address: "privacy@r12.live", name: "R12" };
 }
 

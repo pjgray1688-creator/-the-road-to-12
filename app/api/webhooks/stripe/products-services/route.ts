@@ -74,5 +74,36 @@ export async function POST(request: NextRequest) {
     p_refunded_minor: refundedMinor, p_currency: currency, p_status: status,
   });
   if (error) return NextResponse.json({ error: "Stripe event could not be reconciled" }, { status: 500 });
+  if (kind === "checkout_paid") {
+    const admin = adminSupabase();
+    const { data: paidOrder, error: apparelOrderError } = await admin.rpc("club_mark_madhouse_apparel_paid", {
+      p_attempt_id: attemptId,
+      p_event_id: event.id,
+    });
+    // Member commerce attempts do not have apparel detail rows. Ignore only
+    // the expected missing-row case; paid apparel events remain retryable.
+    if (apparelOrderError && !/not found|P0002/i.test(`${apparelOrderError.message} ${apparelOrderError.code ?? ""}`)) {
+      return NextResponse.json({ error: "Paid apparel order could not be activated" }, { status: 500 });
+    }
+    if (!apparelOrderError && paidOrder && typeof paidOrder === "object" && typeof (paidOrder as Record<string, unknown>).order_id === "string") {
+      const recipients = (process.env.MADHOUSE_APPAREL_ORDER_RECIPIENTS ?? "").split(",").map(value => value.trim()).filter(Boolean);
+      if (recipients.length) {
+        const { error: notifyError } = await admin.rpc("club_queue_madhouse_apparel_order_alert", {
+          p_order_id: (paidOrder as Record<string, unknown>).order_id,
+          p_recipients: recipients,
+        });
+        if (notifyError) return NextResponse.json({ error: "Paid Apparel order notification could not be queued" }, { status: 500 });
+      }
+    }
+  }
+  if (["checkout_failed", "checkout_expired", "charge_refunded"].includes(kind)) {
+    const { error: stateSyncError } = await adminSupabase().rpc("club_sync_madhouse_apparel_payment_state", {
+      p_attempt_id: attemptId,
+      p_event_id: event.id,
+    });
+    if (stateSyncError && !/not found|P0002/i.test(`${stateSyncError.message} ${stateSyncError.code ?? ""}`)) {
+      return NextResponse.json({ error: "Apparel payment status could not be synchronised" }, { status: 500 });
+    }
+  }
   return new NextResponse(null, { status: 204 });
 }

@@ -75,6 +75,7 @@ export function ClubSectionNav({ organisation, role, contexts = [], locations = 
       ...(navigation?.memberships ? [{ label: "Membership administration", href: `/club/memberships${query()}`, group: "Management" as const }] : []),
       ...(navigation?.promotions ? [{ label: "Promotions & pricing", href: `/club/promotions${query()}`, group: "Management" as const }] : []),
       ...(navigation?.promotions ? [{ label: "Website Shop", href: `/club/website-shop${query()}`, group: "Management" as const }] : []),
+      ...(navigation?.promotions ? [{ label: "Website Shop · Orders", href: `/club/website-shop/orders${query()}`, group: "Management" as const }] : []),
       ...(navigation?.suppliers ? [{ label: "Suppliers & purchasing", href: `/club/suppliers${query()}`, group: "Management" as const }] : []),
       ...(navigation?.staff ? [{ label: "Staff & permissions", href: `/club/staff${query()}`, group: "Management" as const }] : []),
       ...(navigation?.venues ? [{ label: "Venues & settings", href: `/club/locations${query()}`, group: "Management" as const }, { label: "Shared stations", href: `/club/stations${query()}`, group: "Management" as const }] : []),

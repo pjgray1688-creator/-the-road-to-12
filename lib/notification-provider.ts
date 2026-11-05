@@ -2,7 +2,7 @@ import { siteUrl } from "./site-url";
 import { inspectSmtpConfiguration } from "./smtp-config";
 import { sendSmtpMessage } from "./smtp-transport";
 
-export type NotificationSender = "members" | "billing" | "staff" | "privacy";
+export type NotificationSender = "members" | "billing" | "staff" | "privacy" | "apparel";
 
 export type NotificationEnvelope = {
   id: string;
@@ -44,11 +44,18 @@ export function notificationTransportAvailable() {
 }
 
 export function senderAddress(sender: NotificationSender) {
+  if (sender === "apparel") return process.env.MADHOUSE_APPAREL_EMAIL_FROM?.trim() ?? "";
   return notificationConfig().from[sender];
 }
 
 /** Delivery is deliberately disabled unless a provider is explicitly configured. */
 export async function deliverNotification(_envelope: NotificationEnvelope): Promise<NotificationDelivery> {
+  if (_envelope.sender === "apparel") {
+    const from = process.env.MADHOUSE_APPAREL_EMAIL_FROM?.trim() ?? "";
+    if (process.env.MADHOUSE_APPAREL_EMAIL_SENDER_VERIFIED !== "true" || !/^[^\s@<>]+@madhousegym\.online$/i.test(from)) {
+      return { ok: false, state: "unavailable", code: "madhouse_sender_not_verified", message: "Madhouse Apparel sender identity is not verified.", retryable: false };
+    }
+  }
   const provider = notificationConfig().provider;
   if (provider === "mock") return { ok: true, provider: "mock", reference: `mock-${_envelope.id}` };
   if (provider === "smtp") {
