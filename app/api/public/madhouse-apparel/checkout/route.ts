@@ -24,6 +24,38 @@ type PreparedOrder = { order_id: string; attempt_id: string; order_number: strin
 type StripeCustomer = { id: string };
 type StripeSession = { status?: string; id: string; url: string | null; mode: string; amount_total: number | null; customer: string | { id: string } | null };
 
+type SafePgDiagnostic = { sqlstate?: string; postgrestCode?: string; constraint?: string; table?: string; column?: string; category?: string };
+const SAFE_PG_CATEGORIES: Record<string, string> = {
+  "23502": "not_null_violation", "23503": "foreign_key_violation", "23505": "unique_violation",
+  "23514": "check_violation", "42703": "undefined_column", "42P01": "undefined_table",
+  "42883": "undefined_function", "42501": "insufficient_privilege", "22023": "invalid_parameter",
+  "PGRST202": "rpc_not_found_or_schema_cache",
+};
+const safeDbIdentifier = (value: unknown) => typeof value === "string" && /^[A-Za-z_][A-Za-z0-9_]{0,62}$/.test(value) ? value : undefined;
+
+class CheckoutDatabaseError extends Error {
+  readonly diagnostic: SafePgDiagnostic;
+  constructor(source: unknown) {
+    super("checkout_database_rpc_failed");
+    this.name = "CheckoutDatabaseError";
+    const error = source && typeof source === "object" ? source as Record<string, unknown> : {};
+    const code = typeof error.code === "string" && /^[0-9A-Z]{5,8}$/.test(error.code) ? error.code : undefined;
+    const searchable = [error.message, error.details, error.hint].filter((value): value is string => typeof value === "string").join(" ");
+    const findIdentifier = (kind: "constraint" | "table" | "column") => {
+      const match = searchable.match(new RegExp(`${kind} ["']([A-Za-z_][A-Za-z0-9_]{0,62})["']`, "i"));
+      return safeDbIdentifier(match?.[1] ?? error[`${kind}_name`]);
+    };
+    this.diagnostic = {
+      ...(code && code.length === 5 ? { sqlstate: code } : {}),
+      ...(code && /^PGRST[0-9A-Z]+$/.test(code) ? { postgrestCode: code } : {}),
+      ...(findIdentifier("constraint") ? { constraint: findIdentifier("constraint") } : {}),
+      ...(findIdentifier("table") ? { table: findIdentifier("table") } : {}),
+      ...(findIdentifier("column") ? { column: findIdentifier("column") } : {}),
+      ...(code && SAFE_PG_CATEGORIES[code] ? { category: SAFE_PG_CATEGORIES[code] } : {}),
+    };
+  }
+}
+
 export async function POST(request: NextRequest) {
   const raw = await request.text();
   if (raw.length > 32_000) return NextResponse.json({ error: "Checkout request is too large." }, { status: 413 });
@@ -62,8 +94,10 @@ export async function POST(request: NextRequest) {
   let stage = "order_preparation";
   const reference = randomUUID().slice(0, 8).toUpperCase();
   try {
+    stage = "order_preparation";
     const { data, error } = await adminSupabase().rpc("club_prepare_madhouse_apparel_checkout", { p_payload: input, p_idempotency_key: idempotencyKey });
-    if (error || !data || typeof data !== "object") throw new Error("Order preparation failed");
+    if (error) throw new CheckoutDatabaseError(error);
+    if (!data || typeof data !== "object") throw new Error("checkout_database_rpc_invalid_response");
     prepared = data as PreparedOrder;
     if (!prepared.order_id || !prepared.attempt_id || !prepared.confirmation_token || !Number.isSafeInteger(prepared.total_minor) || !prepared.lines?.length) throw new Error("Order preparation was incomplete");
 
@@ -146,6 +180,7 @@ export async function POST(request: NextRequest) {
     const diagnostic = error as { code?: unknown; type?: unknown; statusCode?: unknown };
     console.error("[madhouse-apparel-checkout] failed", { reference, stage,
       errorType: error instanceof Error ? error.name : "unknown",
+      ...(error instanceof CheckoutDatabaseError ? error.diagnostic : {}),
       providerCode: typeof diagnostic?.code === "string" ? diagnostic.code.slice(0, 80) : undefined,
       providerType: typeof diagnostic?.type === "string" ? diagnostic.type.slice(0, 80) : undefined,
       statusCode: Number.isInteger(diagnostic?.statusCode) ? diagnostic.statusCode : undefined });
