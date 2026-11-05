@@ -21,8 +21,8 @@ function authenticatedHandoff(raw: string, request: NextRequest) {
 }
 
 type PreparedOrder = { order_id: string; attempt_id: string; order_number: string; total_minor: number; confirmation_token: string; lines: Array<{ product_id: string; product_name: string; colour: string; size: string; quantity: number; discount_quantity: number; unit_price_minor: number; currency: string }> };
-type StripeCustomer = { id: string };
-type StripeSession = { status?: string; id: string; url: string | null; mode: string; amount_total: number | null; customer: string | { id: string } | null };
+type StripeSessionCustomer = string | { id: string } | null;
+type StripeSession = { status?: string; id: string; url: string | null; mode: string; amount_total: number | null; customer: StripeSessionCustomer };
 
 type SafePgDiagnostic = { sqlstate?: string; postgrestCode?: string; constraint?: string; table?: string; column?: string; category?: string };
 const SAFE_PG_CATEGORIES: Record<string, string> = {
@@ -122,26 +122,10 @@ export async function POST(request: NextRequest) {
     const { error: bindingError } = await admin.rpc("club_bind_stripe_commerce_account", { p_attempt_id: prepared.attempt_id, p_account_id: config.accountId });
     if (bindingError) throw new Error("Products & Services merchant binding is unavailable");
 
-    const customerBody = new URLSearchParams({ email: String(customer.email).trim().toLowerCase(), name: `${customer.firstName} ${customer.surname}`.trim(), phone: String(customer.phone).trim() });
-    const billingAddress = same ? delivery : billing!;
-    const addAddress = (prefix: string, address: Record<string,unknown>) => {
-      const fields: Array<[string,string]> = [["line1","line1"],["line2","line2"],["city","town"],["state","county"],["postal_code","postcode"],["country","country"]];
-      for (const [stripeKey,inputKey] of fields) if (address[inputKey]) customerBody.set(`${prefix}[${stripeKey}]`, String(address[inputKey]));
-    };
-    addAddress("address",billingAddress);
-    customerBody.set("shipping[name]", `${customer.firstName} ${customer.surname}`.trim());
-    customerBody.set("shipping[phone]", String(customer.phone).trim());
-    addAddress("shipping[address]",delivery);
-    stage = "stripe_customer_creation";
-    const stripeCustomer = await stripeMerchantRequest<StripeCustomer>(merchant,"/customers",{
-      method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded","Idempotency-Key":`madhouse-apparel-customer-${prepared.attempt_id}`},body:customerBody,
-    });
-    if (!/^cus_[A-Za-z0-9]+$/.test(stripeCustomer.id)) throw new Error("Stripe customer could not be verified");
-
-    const body = new URLSearchParams({ mode:"payment", customer:stripeCustomer.id,
+    const body = new URLSearchParams({ mode:"payment", customer_email:String(customer.email).trim().toLowerCase(), customer_creation:"if_required",
       client_reference_id:prepared.attempt_id, success_url:`${base}/apparel/order-confirmation/${prepared.confirmation_token}?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url:`${base}/apparel/checkout?cancelled=1`, billing_address_collection:"auto",
-      "shipping_address_collection[allowed_countries][0]":"GB", "customer_update[address]":"auto", "customer_update[shipping]":"auto",
+      "shipping_address_collection[allowed_countries][0]":"GB",
       "payment_method_types[0]":"card", "metadata[merchant_entity]":"madhouse_products_services",
       "metadata[payment_attempt_id]":prepared.attempt_id,"metadata[order_id]":prepared.order_id,"metadata[order_number]":prepared.order_number,
       "payment_intent_data[metadata][merchant_entity]":"madhouse_products_services",
@@ -170,7 +154,8 @@ export async function POST(request: NextRequest) {
     stage = "stripe_amount_verification";
     if (session.mode!=="payment" || !session.url || session.amount_total!==prepared.total_minor || session.id?.startsWith("cs_")!==true) throw new Error("Stripe session total did not match the R12 order");
     stage = "order_session_link";
-    const { error: storeError }=await admin.rpc("club_store_stripe_commerce_session",{p_attempt_id:prepared.attempt_id,p_account_id:config.accountId,p_session_id:session.id,p_customer_id:stripeCustomer.id});
+    const stripeCustomerId: string | null = typeof session.customer === "string" ? session.customer : session.customer?.id ?? null;
+    const { error: storeError }=await admin.rpc("club_store_stripe_commerce_session",{p_attempt_id:prepared.attempt_id,p_account_id:config.accountId,p_session_id:session.id,p_customer_id:stripeCustomerId});
     if (storeError) throw new Error("Stripe session could not be linked to the R12 order");
     stage = "apparel_session_link";
     const { error: detailsError }=await admin.rpc("club_set_madhouse_apparel_session",{p_attempt_id:prepared.attempt_id,p_session_id:session.id});
