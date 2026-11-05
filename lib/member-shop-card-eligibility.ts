@@ -1,4 +1,5 @@
 export type ProductsServicesRoute = {
+  category?: unknown;
   active?: unknown;
   stripe_merchant_entity?: unknown;
   sales_channels?: unknown;
