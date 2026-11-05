@@ -9,6 +9,7 @@ import { adminSupabase } from "@/lib/supabase-admin";
 import { siteUrl } from "@/lib/site-url";
 import { readStripeMerchantConfig } from "@/lib/stripe-merchant";
 import { createStripeCommerceCheckoutSession, expireStripeCommerceCheckoutSession, retrieveStripeCommerceCheckoutSession } from "@/lib/stripe-commerce-provider";
+import { memberCardEligibilityFailure } from "@/lib/member-shop-card-eligibility";
 
 type Result = { ok: true; status: string; orderId: string } | { ok: false; error: string };
 function checkoutFailure(input: { organisationId: string; attemptId?: string }, error: unknown) {
@@ -72,11 +73,46 @@ export async function beginExternalPaymentAttemptAction(input: { organisationId:
     const config = readStripeMerchantConfig("madhouse_products_services");
     const client = await serverSupabase(); const { data: { user } } = await client.auth.getUser();
     if (!user?.email || !user.email_confirmed_at) return { ok: false, error: "Sign in with a confirmed email to pay by card." };
+    const productIds = [...new Set(input.items.map(line => line.productId))];
+    const { data: routeRows, error: routeError } = await client.from("club_commerce_products")
+      .select("id,active,sales_channels,stripe_merchant_entity")
+      .eq("organisation_id", value.organisation.id).in("id", productIds);
+    if (routeError) {
+      const reference = crypto.randomUUID().slice(0, 8).toUpperCase();
+      console.error("[member-shop-card] eligibility lookup failed", { reference, code: routeError.code, organisationId: value.organisation.id, itemCount: productIds.length });
+      return { ok: false, error: `Card eligibility could not be checked. Please try again. Reference: ${reference}` };
+    }
+    const foundRows = Array.isArray(routeRows) ? routeRows as Array<Record<string, unknown>> : [];
+    const eligibility = foundRows.length !== productIds.length ? "inactive_or_missing" : memberCardEligibilityFailure(foundRows);
+    if (eligibility) {
+      const error = eligibility === "merchant_route"
+        ? "This basket includes an item not routed to Madhouse Products and Services. Please remove it or choose another payment method."
+        : eligibility === "online_channel"
+          ? "One or more items are not enabled for online card checkout. Please remove them or choose another payment method."
+          : "One or more basket items are no longer available. Refresh the shop and try again.";
+      console.warn("[member-shop-card] item eligibility rejected", { organisationId: value.organisation.id, itemCount: productIds.length, reason: eligibility });
+      return { ok: false, error };
+    }
     const { data, error } = await client.rpc("club_begin_stripe_commerce_attempt", {
       p_organisation_id: value.organisation.id, p_location_id: input.locationId ?? null,
       p_items: input.items.map(line => ({ product_id: line.productId, quantity: line.quantity })), p_idempotency_key: input.idempotencyKey.trim(),
     });
-    if (error || !data || typeof data !== "object") return { ok: false, error: "This basket is not configured for Products and Services card checkout." };
+    if (error || !data || typeof data !== "object") {
+      const reference = crypto.randomUUID().slice(0, 8).toUpperCase();
+      const failure = error as { code?: unknown; message?: unknown; details?: unknown } | null;
+      const code = typeof failure?.code === "string" ? failure.code : "UNKNOWN";
+      const diagnostic = typeof failure?.message === "string" ? failure.message.slice(0, 220) : "invalid database response";
+      console.error("[member-shop-card] attempt RPC rejected", { reference, operation: "club_begin_stripe_commerce_attempt", organisationId: value.organisation.id, locationId: input.locationId ?? null, itemCount: input.items.length, productIds: input.items.map(item => item.productId), code, diagnostic });
+      const lower = diagnostic.toLowerCase();
+      const errorMessage = lower.includes("products and services route")
+        ? "One or more items are not enabled for online card checkout. Please remove those items or choose another payment method."
+        : lower.includes("authoritative stripe total mismatch")
+          ? "The current basket offer could not be matched to the checkout total. Please review the basket or choose another payment method."
+          : lower.includes("basket is empty")
+            ? "Your basket is empty. Add an item before continuing."
+            : `Card checkout could not be prepared for this basket. Please try again or choose another payment method. Reference: ${reference}`;
+      return { ok: false, error: errorMessage };
+    }
     const payload = data as Record<string, unknown>; const order = payload.order as Record<string, unknown> | undefined; const attempt = payload.attempt as Record<string, unknown> | undefined;
     attemptId = String(attempt?.id ?? ""); const orderId = String(order?.id ?? "");
     const linesRaw = Array.isArray(payload.lines) ? payload.lines as Array<Record<string, unknown>> : [];

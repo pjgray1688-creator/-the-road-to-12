@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 480" role="img" aria-labelledby="title">
+  <title id="title">Madhouse ten PT session block</title>
+  <defs><linearGradient id="g" x2="1" y2="1"><stop stop-color="#251536"/><stop offset="1" stop-color="#09090d"/></linearGradient></defs>
+  <rect width="720" height="480" rx="26" fill="url(#g)"/><path d="M46 370H674" stroke="#9b61d4" stroke-width="2" opacity=".65"/><path d="M70 90h580" stroke="#fff" opacity=".13"/>
+  <text x="70" y="72" fill="#d1adef" font-family="Arial,sans-serif" font-size="18" font-weight="700" letter-spacing="5">MADHOUSE · PERSONAL TRAINING</text>
+  <text x="64" y="294" fill="#fff" font-family="Arial,sans-serif" font-size="210" font-weight="900" letter-spacing="-14">10</text>
+  <text x="340" y="220" fill="#c994f4" font-family="Arial,sans-serif" font-size="44" font-weight="800">PT</text><text x="342" y="272" fill="#d4cbdc" font-family="Arial,sans-serif" font-size="24" font-weight="700" letter-spacing="3">SESSIONS</text>
+  <g fill="#a867df"><rect x="70" y="390" width="54" height="9" rx="4"/><rect x="134" y="390" width="54" height="9" rx="4"/><rect x="198" y="390" width="54" height="9" rx="4"/><rect x="262" y="390" width="54" height="9" rx="4"/><rect x="326" y="390" width="54" height="9" rx="4"/><rect x="390" y="390" width="54" height="9" rx="4"/><rect x="454" y="390" width="54" height="9" rx="4"/><rect x="518" y="390" width="54" height="9" rx="4"/><rect x="582" y="390" width="54" height="9" rx="4"/></g>
+</svg>

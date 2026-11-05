@@ -1,4 +1,4 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { adminSupabase } from "@/lib/supabase-admin";
 import { readStripeMerchantConfig, stripeMerchantRequest, verifyStripeMerchantAccount } from "@/lib/stripe-merchant";
@@ -27,7 +27,7 @@ type StripeSession = { status?: string; id: string; url: string | null; mode: st
 export async function POST(request: NextRequest) {
   const raw = await request.text();
   if (raw.length > 32_000) return NextResponse.json({ error: "Checkout request is too large." }, { status: 413 });
-  if (!authenticatedHandoff(raw, request)) return NextResponse.json({ error: "Checkout service is unavailable." }, { status: 503 });
+  if (!authenticatedHandoff(raw, request)) { console.warn("[madhouse-apparel-checkout] handoff rejected", { stage: "hmac", reason: "signature_or_timestamp_invalid" }); return NextResponse.json({ error: "Checkout service is unavailable." }, { status: 503 }); }
   let input: Record<string, unknown>;
   try { input = JSON.parse(raw) as Record<string, unknown>; } catch { return NextResponse.json({ error: "Invalid checkout request." }, { status: 400 }); }
   const customer = input.customer as Record<string, unknown> | undefined;
@@ -59,18 +59,32 @@ export async function POST(request: NextRequest) {
   let prepared: PreparedOrder | null = null;
   let sessionId: string | null = null;
   let merchantConfig: ReturnType<typeof readStripeMerchantConfig> | null = null;
+  let stage = "order_preparation";
+  const reference = randomUUID().slice(0, 8).toUpperCase();
   try {
     const { data, error } = await adminSupabase().rpc("club_prepare_madhouse_apparel_checkout", { p_payload: input, p_idempotency_key: idempotencyKey });
     if (error || !data || typeof data !== "object") throw new Error("Order preparation failed");
     prepared = data as PreparedOrder;
     if (!prepared.order_id || !prepared.attempt_id || !prepared.confirmation_token || !Number.isSafeInteger(prepared.total_minor) || !prepared.lines?.length) throw new Error("Order preparation was incomplete");
 
+    const quotedTotal = input.quotedTotalMinor;
+    if (quotedTotal !== undefined && (!Number.isSafeInteger(quotedTotal) || quotedTotal !== prepared.total_minor)) {
+      const { error: abortError } = await adminSupabase().rpc("club_abort_stripe_commerce_attempt", { p_attempt_id: prepared.attempt_id, p_reason: "Website quote changed before checkout" });
+      if (abortError) throw new Error("Price changed and pending attempt could not be safely cancelled");
+      prepared = null;
+      return NextResponse.json({ error: "The basket price changed. Please review the updated total before continuing.", code: "QUOTE_CHANGED" }, { status: 409, headers: { "Cache-Control": "no-store" } });
+    }
+
+    stage = "merchant_policy";
     const merchant = stripeMerchantForCategory("other_product_or_service");
     if (merchant !== "madhouse_products_services") throw new Error("Apparel merchant policy mismatch");
     const config = merchantConfig = readStripeMerchantConfig(merchant);
+    stage = "live_checkout_gate";
     assertStripeLiveCheckoutEnabled(merchant, config.mode);
+    stage = "merchant_account_verification";
     await verifyStripeMerchantAccount(merchant);
     const admin = adminSupabase();
+    stage = "merchant_binding";
     const { error: bindingError } = await admin.rpc("club_bind_stripe_commerce_account", { p_attempt_id: prepared.attempt_id, p_account_id: config.accountId });
     if (bindingError) throw new Error("Products & Services merchant binding is unavailable");
 
@@ -84,6 +98,7 @@ export async function POST(request: NextRequest) {
     customerBody.set("shipping[name]", `${customer.firstName} ${customer.surname}`.trim());
     customerBody.set("shipping[phone]", String(customer.phone).trim());
     addAddress("shipping[address]",delivery);
+    stage = "stripe_customer_creation";
     const stripeCustomer = await stripeMerchantRequest<StripeCustomer>(merchant,"/customers",{
       method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded","Idempotency-Key":`madhouse-apparel-customer-${prepared.attempt_id}`},body:customerBody,
     });
@@ -113,17 +128,27 @@ export async function POST(request: NextRequest) {
       body.set(`line_items[${index}][price_data][product_data][name]`,line.name);
       body.set(`line_items[${index}][quantity]`,String(line.quantity));
     });
+    stage = "stripe_session_creation";
     const session=await stripeMerchantRequest<StripeSession>(merchant,"/checkout/sessions",{
       method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded","Idempotency-Key":`madhouse-apparel-session-${prepared.attempt_id}`},body,
     });
     sessionId = session.id;
+    stage = "stripe_amount_verification";
     if (session.mode!=="payment" || !session.url || session.amount_total!==prepared.total_minor || session.id?.startsWith("cs_")!==true) throw new Error("Stripe session total did not match the R12 order");
+    stage = "order_session_link";
     const { error: storeError }=await admin.rpc("club_store_stripe_commerce_session",{p_attempt_id:prepared.attempt_id,p_account_id:config.accountId,p_session_id:session.id,p_customer_id:stripeCustomer.id});
     if (storeError) throw new Error("Stripe session could not be linked to the R12 order");
+    stage = "apparel_session_link";
     const { error: detailsError }=await admin.rpc("club_set_madhouse_apparel_session",{p_attempt_id:prepared.attempt_id,p_session_id:session.id});
     if (detailsError) throw new Error("Apparel order details could not be linked");
     return NextResponse.json({url:session.url},{headers:{"Cache-Control":"no-store"}});
-  } catch {
+  } catch (error) {
+    const diagnostic = error as { code?: unknown; type?: unknown; statusCode?: unknown };
+    console.error("[madhouse-apparel-checkout] failed", { reference, stage,
+      errorType: error instanceof Error ? error.name : "unknown",
+      providerCode: typeof diagnostic?.code === "string" ? diagnostic.code.slice(0, 80) : undefined,
+      providerType: typeof diagnostic?.type === "string" ? diagnostic.type.slice(0, 80) : undefined,
+      statusCode: Number.isInteger(diagnostic?.statusCode) ? diagnostic.statusCode : undefined });
     if (prepared) {
       try {
         const admin = adminSupabase();
@@ -135,6 +160,6 @@ export async function POST(request: NextRequest) {
         if (safeToAbort) await admin.rpc("club_abort_stripe_commerce_attempt",{p_attempt_id:prepared.attempt_id,p_reason:"Apparel checkout could not be safely linked"});
       } catch { /* keep a potentially payable attempt for webhook reconciliation */ }
     }
-    return NextResponse.json({error:"Secure checkout could not be started. Your basket has been kept."},{status:503,headers:{"Cache-Control":"no-store"}});
+    return NextResponse.json({error:"Secure checkout could not be started. Your basket has been kept.",reference},{status:503,headers:{"Cache-Control":"no-store"}});
   }
 }
