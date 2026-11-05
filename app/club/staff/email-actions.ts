@@ -5,6 +5,8 @@ import { serverSupabase } from "@/lib/supabase-server";
 import { resolveClubOperationalContext } from "@/lib/club-server-context";
 import { deliverNotification } from "@/lib/notification-provider";
 import { renderNotification, type NotificationTemplateKey } from "@/lib/notification-templates";
+import { sendMadhouseApparelVerificationEmail } from "@/lib/smtp-transport";
+import { MADHOUSE_ORGANISATION_ID } from "@/lib/madhouse-website-shop-mappings";
 
 const samples: Record<"staff_owner" | "staff_coach" | "member_activation", { templateKey: NotificationTemplateKey; payload: Record<string, unknown> }> = {
   staff_owner: { templateKey: "staff_invitation", payload: { name: "Keenan", email: "keenan@example.test", role: "owner", coachEnabled: true, organisationName: "Madhouse", venueNames: ["Rotherham", "Carlton"], expiresAt: "2026-11-14T12:00:00Z", grantId: "example-only" } },
@@ -29,4 +31,22 @@ export async function sendStaffEmailPreviewTest(input: { organisationId: string;
     if (!delivery.ok) return { ok: false as const, error: delivery.state === "unavailable" ? "Email provider is not configured; no test email was sent." : "Test email delivery failed. Check the protected worker/provider logs." };
     return { ok: true as const, message: "Clearly marked test email sent.", from: `${rendered.senderName} <${rendered.senderAddress}>`, subject: rendered.subject };
   } catch { return { ok: false as const, error: "Test email could not be sent." }; }
+}
+
+/** Sends only a fixed-recipient SMTP verification message; it creates no order or outbox record. */
+export async function sendMadhouseApparelEmailVerificationTest(input: { organisationId: string }) {
+  try {
+    if (input.organisationId !== MADHOUSE_ORGANISATION_ID) return { ok: false as const, error: "Choose the Madhouse organisation to test Apparel email." };
+    const client = await serverSupabase();
+    const { data: { user } } = await client.auth.getUser();
+    if (!user) return { ok: false as const, error: "Sign in with authorised staff access." };
+    const context = await resolveClubOperationalContext(client, user.id, input.organisationId);
+    if (!context || !(await context.repository.hasCapability(context.organisation.id, user.id, "staff.permissions_manage"))) {
+      return { ok: false as const, error: "Madhouse Apparel email verification is restricted to authorised staff managers." };
+    }
+    await sendMadhouseApparelVerificationEmail();
+    return { ok: true as const, message: "Madhouse Apparel test email delivered to contact@madhousegym.online. The sender verification gate remains disabled." };
+  } catch {
+    return { ok: false as const, error: "Madhouse Apparel test email could not be delivered. The sender verification gate remains disabled." };
+  }
 }

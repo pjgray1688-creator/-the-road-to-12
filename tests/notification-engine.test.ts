@@ -7,7 +7,7 @@ import { renderNotification } from "../lib/notification-templates";
 import { deliverNotification, notificationTransportAvailable, senderAddress } from "../lib/notification-provider";
 import { inspectSmtpConfiguration } from "../lib/smtp-config";
 import { EventEmitter } from "node:events";
-import { sendSmtpMessage } from "../lib/smtp-transport";
+import { sendMadhouseApparelVerificationEmail, sendSmtpMessage } from "../lib/smtp-transport";
 import { NOTIFICATION_MAX_ATTEMPTS, notificationWorkerLimits, retryDelaySeconds, shouldRetry } from "../lib/notification-worker";
 
 const sql = readFileSync("supabase/migrations/2026-11-21-notification-engine.sql", "utf8");
@@ -294,6 +294,69 @@ test("SMTP accepts only complete authenticated TLS configuration and hides crede
   assert.equal(config.configuration?.username, "user@example.test");
   assert.doesNotMatch(JSON.stringify(config.checks), /very-secret|user@example/);
   assert.equal(inspectSmtpConfiguration({ ...process.env, SMTP_HOST: "smtp.example.test", SMTP_PORT: "25", SMTP_SECURE: "false", SMTP_USERNAME: "user", SMTP_PASSWORD: undefined }).state, "invalid");
+});
+
+test("Madhouse Apparel SMTP profile reads only its separate SpaceMail settings", () => {
+  const config = inspectSmtpConfiguration({
+    ...process.env,
+    SMTP_HOST: "r12-mail.example.test", SMTP_PORT: "587", SMTP_SECURE: "false", SMTP_USERNAME: "r12-user", SMTP_PASSWORD: "r12-password",
+    R12_EMAIL_FROM_MEMBERS: "members@r12.live", R12_EMAIL_FROM_STAFF: "staff@r12.live", R12_EMAIL_FROM_BILLING: "accounts@r12.live",
+    MADHOUSE_APPAREL_SMTP_HOST: "mail.spacemail.com", MADHOUSE_APPAREL_SMTP_PORT: "465", MADHOUSE_APPAREL_SMTP_SECURE: "true",
+    MADHOUSE_APPAREL_SMTP_USERNAME: "apparel-user", MADHOUSE_APPAREL_SMTP_PASSWORD: "apparel-password",
+    MADHOUSE_APPAREL_EMAIL_FROM: "contact@madhousegym.online", MADHOUSE_APPAREL_EMAIL_FROM_NAME: "Madhouse Apparel",
+  }, "apparel");
+  assert.equal(config.state, "configured");
+  assert.deepEqual({ host: config.configuration?.host, port: config.configuration?.port, secure: config.configuration?.secure, username: config.configuration?.username, password: config.configuration?.password }, {
+    host: "mail.spacemail.com", port: 465, secure: true, username: "apparel-user", password: "apparel-password",
+  });
+  assert.doesNotMatch(JSON.stringify(config.checks), /apparel-user|apparel-password/);
+});
+
+test("fixed-recipient Madhouse verification email can test SMTP while the live sender gate stays closed", async () => {
+  class FakeSmtpSocket extends EventEmitter {
+    writes: string[] = [];
+    destroy() { this.emit("close"); }
+    pause() { return this; }
+    resume() { return this; }
+    setTimeout() { return this; }
+    write(chunk: string, callback?: (error?: Error | null) => void) {
+      callback?.();
+      const value = chunk.toString(); this.writes.push(value);
+      let response = "";
+      if (value.startsWith("EHLO")) response = "250-spacemail.test\r\n250 AUTH LOGIN\r\n";
+      else if (value === "AUTH LOGIN\r\n") response = "334 VXNlcm5hbWU6\r\n";
+      else if (value === `${Buffer.from("apparel-user").toString("base64")}\r\n`) response = "334 UGFzc3dvcmQ6\r\n";
+      else if (value === `${Buffer.from("apparel-password").toString("base64")}\r\n`) response = "235 authenticated\r\n";
+      else if (value.startsWith("MAIL FROM:") || value.startsWith("RCPT TO:")) response = "250 accepted\r\n";
+      else if (value === "DATA\r\n") response = "354 send content\r\n";
+      else if (value.endsWith("\r\n.\r\n")) response = "250 queued-id-789\r\n";
+      else if (value === "QUIT\r\n") response = "221 bye\r\n";
+      if (response) setImmediate(() => this.emit("data", Buffer.from(response)));
+      return true;
+    }
+  }
+  const keys = ["MADHOUSE_APPAREL_SMTP_HOST", "MADHOUSE_APPAREL_SMTP_PORT", "MADHOUSE_APPAREL_SMTP_SECURE", "MADHOUSE_APPAREL_SMTP_USERNAME", "MADHOUSE_APPAREL_SMTP_PASSWORD", "MADHOUSE_APPAREL_EMAIL_FROM", "MADHOUSE_APPAREL_EMAIL_FROM_NAME", "MADHOUSE_APPAREL_EMAIL_SENDER_VERIFIED"] as const;
+  const previous = Object.fromEntries(keys.map(key => [key, process.env[key]]));
+  Object.assign(process.env, {
+    MADHOUSE_APPAREL_SMTP_HOST: "mail.spacemail.com", MADHOUSE_APPAREL_SMTP_PORT: "465", MADHOUSE_APPAREL_SMTP_SECURE: "true",
+    MADHOUSE_APPAREL_SMTP_USERNAME: "apparel-user", MADHOUSE_APPAREL_SMTP_PASSWORD: "apparel-password",
+    MADHOUSE_APPAREL_EMAIL_FROM: "contact@madhousegym.online", MADHOUSE_APPAREL_EMAIL_FROM_NAME: "Madhouse Apparel",
+  });
+  delete process.env.MADHOUSE_APPAREL_EMAIL_SENDER_VERIFIED;
+  const socket = new FakeSmtpSocket();
+  try {
+    const result = await sendMadhouseApparelVerificationEmail(async () => { setImmediate(() => socket.emit("data", Buffer.from("220 SpaceMail ready\r\n"))); return socket as never; });
+    const transcript = socket.writes.join("");
+    assert.match(result.reference, /queued-id-789/);
+    assert.match(transcript, /MAIL FROM:<contact@madhousegym\.online>/);
+    assert.match(transcript, /RCPT TO:<contact@madhousegym\.online>/);
+    assert.match(transcript, /\[TEST\] Madhouse Apparel email delivery verification/);
+    assert.match(transcript, /No customer order was created, no payment was taken/);
+    assert.doesNotMatch(transcript, /R12/);
+    assert.equal(process.env.MADHOUSE_APPAREL_EMAIL_SENDER_VERIFIED, undefined);
+  } finally {
+    for (const key of keys) { const value = previous[key]; if (value === undefined) delete process.env[key]; else process.env[key] = value; }
+  }
 });
 
 test("SMTP transport sends multipart mail over an already-secured test socket and records acceptance", async () => {

@@ -57,9 +57,13 @@ export async function deliverNotification(_envelope: NotificationEnvelope): Prom
     }
   }
   const provider = notificationConfig().provider;
+  if (_envelope.sender === "apparel" && provider !== "smtp") {
+    return { ok: false, state: "unavailable", code: "madhouse_smtp_required", message: "Madhouse Apparel requires its authenticated SMTP transport.", retryable: false };
+  }
   if (provider === "mock") return { ok: true, provider: "mock", reference: `mock-${_envelope.id}` };
   if (provider === "smtp") {
-    if (!inspectSmtpConfiguration().configuration) {
+    const smtpProfile = _envelope.sender === "apparel" ? "apparel" : "r12";
+    if (!inspectSmtpConfiguration(process.env, smtpProfile).configuration) {
       return { ok: false, state: "unavailable", code: "smtp_configuration_incomplete", message: "SMTP delivery is not configured completely.", retryable: false };
     }
     try {

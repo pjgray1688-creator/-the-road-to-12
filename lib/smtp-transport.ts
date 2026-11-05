@@ -79,9 +79,9 @@ function safeHeader(value: string) { return value.replace(/[\r\n]/g, " ").trim()
 function encodeHeader(value: string) { return `=?UTF-8?B?${Buffer.from(safeHeader(value), "utf8").toString("base64")}?=`; }
 function encodeBody(value: string) { return Buffer.from(value.replace(/\r?\n/g, "\r\n"), "utf8").toString("base64").match(/.{1,76}/g)?.join("\r\n") ?? ""; }
 function formatAddress(name: string, address: string) { return `${encodeHeader(name)} <${address}>`; }
-function smtpSender(config: SmtpConfiguration, sender: NotificationEnvelope["sender"]) {
+function smtpSender(config: SmtpConfiguration, sender: NotificationEnvelope["sender"], allowUnverifiedTest = false) {
   if (sender === "apparel") {
-    if (process.env.MADHOUSE_APPAREL_EMAIL_SENDER_VERIFIED !== "true") throw smtpError("Madhouse Apparel sender is not verified");
+    if (!allowUnverifiedTest && process.env.MADHOUSE_APPAREL_EMAIL_SENDER_VERIFIED !== "true") throw smtpError("Madhouse Apparel sender is not verified");
     const address = process.env.MADHOUSE_APPAREL_EMAIL_FROM?.trim() ?? "";
     const name = process.env.MADHOUSE_APPAREL_EMAIL_FROM_NAME?.trim() || "Madhouse Apparel";
     if (!/^[^\s@<>]+@madhousegym\.online$/i.test(address) || /[\r\n]/.test(name)) throw smtpError("Madhouse Apparel sender is not configured");
@@ -90,13 +90,15 @@ function smtpSender(config: SmtpConfiguration, sender: NotificationEnvelope["sen
   return config.from[sender] ?? { address: "privacy@r12.live", name: "R12" };
 }
 
-function buildMessage(config: SmtpConfiguration, envelope: NotificationEnvelope) {
+function buildMessage(config: SmtpConfiguration, envelope: NotificationEnvelope, allowUnverifiedTest = false) {
   const recipient = envelope.recipientEmail.trim().toLowerCase();
   if (!/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(recipient)) throw smtpError("Recipient email address is invalid");
-  const from = smtpSender(config, envelope.sender);
-  const boundary = `r12-${randomUUID()}`;
-  let host = "the-road-to-12.vercel.app";
-  try { if (process.env.R12_APP_BASE_URL) host = new URL(process.env.R12_APP_BASE_URL).hostname; } catch { /* use stable fallback; never let a malformed display URL block delivery */ }
+  const from = smtpSender(config, envelope.sender, allowUnverifiedTest);
+  const boundary = `${envelope.sender === "apparel" ? "madhouse" : "r12"}-${randomUUID()}`;
+  let host = envelope.sender === "apparel" ? "madhousegym.online" : "the-road-to-12.vercel.app";
+  if (envelope.sender !== "apparel") {
+    try { if (process.env.R12_APP_BASE_URL) host = new URL(process.env.R12_APP_BASE_URL).hostname; } catch { /* use stable fallback; never let a malformed display URL block delivery */ }
+  }
   return [
     `From: ${formatAddress(from.name, from.address)}`,
     `To: <${recipient}>`,
@@ -145,10 +147,13 @@ async function command(socket: Socket, reader: ReplyReader, value: string, accep
   return reply;
 }
 
-export async function sendSmtpMessage(envelope: NotificationEnvelope, configuration?: SmtpConfiguration, connector: SmtpConnector = connectedSocket) {
-  const config = configuration ?? inspectSmtpConfiguration().configuration;
-  if (!config) throw smtpError("SMTP configuration is incomplete");
+async function sendSmtpMessageInternal(envelope: NotificationEnvelope, configuration?: SmtpConfiguration, connector: SmtpConnector = connectedSocket, allowUnverifiedTest = false) {
   const recipient = envelope.recipientEmail.trim().toLowerCase();
+  const verificationTest = allowUnverifiedTest && envelope.sender === "apparel" && recipient === "contact@madhousegym.online";
+  if (allowUnverifiedTest && !verificationTest) throw smtpError("Apparel verification test recipient is restricted");
+  const profile = envelope.sender === "apparel" ? "apparel" : "r12";
+  const config = configuration ?? inspectSmtpConfiguration(process.env, profile).configuration;
+  if (!config) throw smtpError("SMTP configuration is incomplete");
   let socket: Socket | undefined;
   let reader: ReplyReader | undefined;
   let deadline: ReturnType<typeof setTimeout> | undefined;
@@ -185,10 +190,10 @@ export async function sendSmtpMessage(envelope: NotificationEnvelope, configurat
     } else {
       throw smtpError("SMTP server does not advertise a supported AUTH mechanism");
     }
-    await command(socket, reader, `MAIL FROM:<${smtpSender(config, envelope.sender).address}>`, [250]);
+    await command(socket, reader, `MAIL FROM:<${smtpSender(config, envelope.sender, verificationTest).address}>`, [250]);
     await command(socket, reader, `RCPT TO:<${recipient}>`, [250, 251]);
     await command(socket, reader, "DATA", [354]);
-    const message = buildMessage(config, envelope).replace(/\n\./g, "\n..");
+    const message = buildMessage(config, envelope, verificationTest).replace(/\n\./g, "\n..");
     await write(socket, `${message.replace(/\r\n$/, "")}\r\n.\r\n`);
     const sent = await reader.readReply();
     assertCode(sent, [250]);
@@ -207,4 +212,24 @@ export async function sendSmtpMessage(envelope: NotificationEnvelope, configurat
     reader?.dispose();
     socket?.destroy();
   }
+}
+
+/** Normal notification delivery; Madhouse Apparel remains gated by sender verification. */
+export async function sendSmtpMessage(envelope: NotificationEnvelope, configuration?: SmtpConfiguration, connector: SmtpConnector = connectedSocket) {
+  return sendSmtpMessageInternal(envelope, configuration, connector);
+}
+
+/** Fixed-recipient transport verification. This sends no order and does not enable the sender gate. */
+export async function sendMadhouseApparelVerificationEmail(connector: SmtpConnector = connectedSocket) {
+  const envelope: NotificationEnvelope = {
+    id: `apparel-smtp-test-${randomUUID()}`,
+    recipientEmail: "contact@madhousegym.online",
+    sender: "apparel",
+    subject: "[TEST] Madhouse Apparel email delivery verification",
+    text: "MADHOUSE APPAREL\n\nThis is a test email to verify SpaceMail SMTP delivery. No customer order was created, no payment was taken, and no order update was sent.\n\nMadhouse Gym",
+    html: "<!doctype html><html><body style=\"font-family:Arial,sans-serif;background:#111;color:#f6f1fa;padding:24px\"><main style=\"max-width:560px;margin:auto;padding:24px;border:1px solid #8252aa;background:#19151e\"><p style=\"color:#c084fc;font-weight:bold;letter-spacing:2px\">MADHOUSE APPAREL</p><h1>Email delivery test</h1><p>This test verifies the Madhouse Apparel SpaceMail connection.</p><p>No customer order was created, no payment was taken, and no order update was sent.</p><p style=\"color:#bdb3c6;font-size:13px\">Madhouse Gym</p></main></body></html>",
+  };
+  const configuration = inspectSmtpConfiguration(process.env, "apparel").configuration;
+  if (!configuration) throw smtpError("Madhouse Apparel SMTP configuration is incomplete");
+  return sendSmtpMessageInternal(envelope, configuration, connector, true);
 }

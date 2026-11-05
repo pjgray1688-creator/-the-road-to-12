@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { sendStaffEmailPreviewTest } from "@/app/club/staff/email-actions";
+import { sendMadhouseApparelEmailVerificationTest, sendStaffEmailPreviewTest } from "@/app/club/staff/email-actions";
 
 type Sample = "staff_owner" | "staff_coach" | "member_activation";
 type Preview = { fromName: string; fromAddress: string; subject: string; destinationType: string; testPreview: boolean; text: string; html: string };
@@ -10,6 +10,7 @@ export function ClubEmailPreview({ organisationId, previews }: { organisationId:
   const [sample, setSample] = useState<Sample>("staff_owner");
   const [recipient, setRecipient] = useState("");
   const [message, setMessage] = useState("");
+  const [apparelMessage, setApparelMessage] = useState("");
   const [pending, startTransition] = useTransition();
   const preview = previews[sample];
   return <div className="club-list">
@@ -23,5 +24,15 @@ export function ClubEmailPreview({ organisationId, previews }: { organisationId:
     </form>
     {message ? <p role="status">{message}</p> : null}
     <p className="muted">Previews use example data only. This page does not create a staff grant, member record or notification outbox item. Test delivery is restricted to R12_EMAIL_TEST_RECIPIENTS.</p>
+    <section aria-labelledby="apparel-smtp-test-title" style={{ marginTop: 28, paddingTop: 20, borderTop: "1px solid #443b50" }}>
+      <h2 id="apparel-smtp-test-title">Madhouse Apparel sender test</h2>
+      <p>This sends one clearly marked SMTP test message to <strong>contact@madhousegym.online</strong>. It creates no order, payment or notification outbox entry.</p>
+      <button className="secondary" type="button" disabled={pending} onClick={() => startTransition(async () => {
+        const result = await sendMadhouseApparelEmailVerificationTest({ organisationId });
+        setApparelMessage(result.ok ? result.message : result.error ?? "Test email could not be sent.");
+      })}>{pending ? "Sending…" : "Send Madhouse Apparel test email"}</button>
+      {apparelMessage ? <p role="status">{apparelMessage}</p> : null}
+      <p className="muted">Live Madhouse order emails remain blocked until this real delivery test succeeds and the sender verification gate is deliberately enabled.</p>
+    </section>
   </div>;
 }

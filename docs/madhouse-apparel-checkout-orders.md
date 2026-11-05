@@ -54,19 +54,36 @@ franchise route. No live setting is enabled by this change.
 
 ## Email readiness
 
-Order and fulfilment templates are rendered by the authenticated R12
-notification worker. Set the following only after the sender has been verified
-for `madhousegym.online` and actual recipients have been approved:
+Order and fulfilment templates are rendered by the authenticated notification
+worker using Madhouse-only customer copy. The production SpaceMail settings are
+already stored as server-only Vercel variables. Keep the explicit sender gate
+unset until the fixed-recipient delivery test below succeeds:
 
 - `MADHOUSE_APPAREL_EMAIL_FROM` — verified address at `madhousegym.online`.
 - `MADHOUSE_APPAREL_EMAIL_FROM_NAME` — normally `Madhouse Apparel`.
-- `MADHOUSE_APPAREL_EMAIL_SENDER_VERIFIED=true` — explicit operator gate after verification.
+- `MADHOUSE_APPAREL_EMAIL_SENDER_VERIFIED=true` — set only after successful delivery has been confirmed.
 - `MADHOUSE_APPAREL_ORDER_RECIPIENTS` — comma-separated confirmed manager recipients, including Keenan.
 
-SMTP continues to use R12's server-only provider settings. Without the sender
-verification flag, Apparel email outbox rows remain queued and are not sent.
+Apparel SMTP uses the separate server-only `MADHOUSE_APPAREL_SMTP_HOST`,
+`MADHOUSE_APPAREL_SMTP_PORT`, `MADHOUSE_APPAREL_SMTP_SECURE`,
+`MADHOUSE_APPAREL_SMTP_USERNAME` and `MADHOUSE_APPAREL_SMTP_PASSWORD` settings.
+R12 messages continue to use `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`,
+`SMTP_USERNAME` and `SMTP_PASSWORD` unchanged. Apparel delivery requires the
+SMTP provider; it cannot fall back to the mock provider. Without
+`MADHOUSE_APPAREL_EMAIL_SENDER_VERIFIED=true`, Apparel email outbox rows remain
+queued and are not sent.
 Without manager recipients, R12 Club's new-order events and order count still
 appear, but email escalation to managers is not configured.
+
+For a safe SMTP verification, an authorised staff manager opens
+`/club/staff/email-preview?org=<Madhouse organisation ID>` and selects **Send
+Madhouse Apparel test email**. The server sends one clearly marked message to
+the fixed recipient `contact@madhousegym.online` using the Apparel SMTP
+credentials. The action creates no order or outbox record and does not enable
+the sender gate. Confirm receipt and the sender identity first; only then may
+an operator deliberately set `MADHOUSE_APPAREL_EMAIL_SENDER_VERIFIED=true` in
+the R12 production environment. Never enable that setting before delivery has
+been confirmed.
 
 ## Rollout order
 
