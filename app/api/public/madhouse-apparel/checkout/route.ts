@@ -22,7 +22,7 @@ function authenticatedHandoff(raw: string, request: NextRequest) {
 
 type PreparedOrder = { order_id: string; attempt_id: string; order_number: string; total_minor: number; confirmation_token: string; lines: Array<{ product_id: string; product_name: string; colour: string; size: string; quantity: number; discount_quantity: number; unit_price_minor: number; currency: string }> };
 type StripeCustomer = { id: string };
-type StripeSession = { id: string; url: string | null; mode: string; amount_total: number | null; customer: string | { id: string } | null };
+type StripeSession = { status?: string; id: string; url: string | null; mode: string; amount_total: number | null; customer: string | { id: string } | null };
 
 export async function POST(request: NextRequest) {
   const raw = await request.text();
