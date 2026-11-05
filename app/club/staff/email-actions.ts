@@ -46,7 +46,13 @@ export async function sendMadhouseApparelEmailVerificationTest(input: { organisa
     }
     await sendMadhouseApparelVerificationEmail();
     return { ok: true as const, message: "Madhouse Apparel test email delivered to contact@madhousegym.online. The sender verification gate remains disabled." };
-  } catch {
-    return { ok: false as const, error: "Madhouse Apparel test email could not be delivered. The sender verification gate remains disabled." };
+  } catch (error) {
+    const source = error as { deliveryCode?: unknown; message?: unknown };
+    const code = typeof source.deliveryCode === "string"
+      ? source.deliveryCode
+      : source.message === "Madhouse Apparel SMTP configuration is incomplete"
+        ? "smtp_configuration_incomplete"
+        : "smtp_connection_or_authentication_error";
+    return { ok: false as const, error: `Madhouse Apparel test failed (${code}). The sender verification gate remains disabled.` };
   }
 }
