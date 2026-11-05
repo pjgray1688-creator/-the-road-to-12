@@ -21,6 +21,12 @@ test("organisation and inactive variants are excluded", () => {
   assert.equal(groupProductFamilies([product("other", {}, 1)], [], "different").length, 0);
 });
 
+test("Madhouse transformation package cards display Gold, Silver, then Bronze", () => {
+  const packages = ["Transformation Bronze", "Transformation Silver", "Transformation Gold"].map((name, index) => ({ ...product(`package-${index}`, {}, 25000 + index), name, familyId: undefined }));
+  const cards = groupProductFamilies(packages, [], "org");
+  assert.deepEqual(cards.map(card => card.label), ["Transformation Gold", "Transformation Silver", "Transformation Bronze"]);
+});
+
 test("legacy and canonical Carb Killa parents collapse into one Grenade family and duplicate products show once", () => {
   const products = [
     { ...product("bar-current", { Flavour: "Chocolate" }), name: "Carb Killa Protein Bar", brand: "Grenade", familyId: "grenade-current" },
