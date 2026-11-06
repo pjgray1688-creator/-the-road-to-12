@@ -22,14 +22,30 @@ export function androidAssetLinks(value: string | undefined) {
   if (!value) return [];
   let parsed: unknown;
   try { parsed = JSON.parse(value); } catch { return []; }
-  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return [];
-  const configured = parsed as Record<string, unknown>;
-  return Object.values(ANDROID_APPS).flatMap(app => {
+  if (!parsed || typeof parsed !== "object") return [];
+  const configured: Record<string, unknown> = {};
+  if (Array.isArray(parsed)) {
+    for (const association of parsed) {
+      if (!association || typeof association !== "object") continue;
+      const entry = association as Record<string, unknown>;
+      if (typeof entry.package_name !== "string") continue;
+      const existing = configured[entry.package_name];
+      configured[entry.package_name] = Array.isArray(existing) && Array.isArray(entry.sha256_cert_fingerprints)
+        ? [...existing, ...entry.sha256_cert_fingerprints]
+        : entry.sha256_cert_fingerprints;
+    }
+  } else {
+    // Retain compatibility with the original package-keyed configuration.
+    Object.assign(configured, parsed);
+  }
+  const statements: Array<{ relation: string[]; target: { namespace: "android_app"; package_name: string; sha256_cert_fingerprints: string[] } }> = [];
+  for (const app of Object.values(ANDROID_APPS)) {
     const fingerprints = configured[app.packageId];
-    if (!Array.isArray(fingerprints)) return [];
+    if (!Array.isArray(fingerprints)) continue;
     const valid = [...new Set(fingerprints.filter((item): item is string => typeof item === "string" && sha256Fingerprint.test(item)))];
-    return valid.length ? [{ relation: ["delegate_permission/common.handle_all_urls"], target: { namespace: "android_app", package_name: app.packageId, sha256_cert_fingerprints: valid } }] : [];
-  });
+    if (valid.length) statements.push({ relation: ["delegate_permission/common.handle_all_urls"], target: { namespace: "android_app" as const, package_name: app.packageId, sha256_cert_fingerprints: valid } });
+  }
+  return statements;
 }
 
 export function manifestResponse(key: AndroidAppKey) {
