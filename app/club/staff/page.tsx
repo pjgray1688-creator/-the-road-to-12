@@ -10,6 +10,8 @@ import { ClubStaffAccessForm } from "@/components/club-staff-access-form";
 import { linkOperationalStaffInvitation, resendStaffInvitation, revokeStaffAccessGrant } from "@/app/club/staff/actions";
 import { ClubStaffManageAccess } from "@/components/club-staff-manage-access";
 import { ClubOwnerTransfer } from "@/components/club-owner-transfer";
+import { ClubStaffInviteActivation } from "@/components/club-staff-invite-activation";
+import staffStyles from "@/components/club-staff-management.module.css";
 
 const roleLabel = (role: string) => role === "owner" ? "Owner" : role === "gym_admin" ? "Manager" : role === "trainer" ? "PT / Coach" : "Operational Staff";
 const initials = (name: string) => name.trim().split(/\s+/).slice(0, 2).map(part => part[0]?.toUpperCase() ?? "").join("") || "R12";
@@ -22,6 +24,10 @@ const invitationLabel = (state: string, failure: unknown, expiresAt: string) => 
   if (state === "scheduled") return "Scheduled";
   if (new Date(expiresAt).getTime() < Date.now()) return "Expired";
   return "Waiting to send";
+};
+const normalizedStaffName = (value: string) => {
+  const normalized = value.trim().split(/\s+/)[0]?.toLowerCase().replace(/[^a-z]/g, "") ?? "";
+  return normalized === "amie" ? "aimee" : normalized;
 };
 
 type StaffAccountRow = {
@@ -46,7 +52,7 @@ export default async function ClubStaffPage({ searchParams }: { searchParams?: P
   const [locations, staffResult, pendingResult, locationResult, overrideResult, coachResult, invitationResult, operationalAssignmentsResult] = await Promise.all([
     context.repository.listLocations(context.organisation.id),
     supabase.rpc("club_list_staff_accounts", { p_organisation_id: context.organisation.id }),
-    supabase.from("club_staff_access_grants").select("id,email_normalized,display_name,intended_role,status,location_ids,coach_requested,member_intent,created_at,expires_at").eq("organisation_id", context.organisation.id).eq("status", "pending").order("created_at", { ascending: false }),
+    supabase.rpc("club_list_pending_staff_invites_for_management", { p_organisation_id: context.organisation.id }),
     supabase.from("club_staff_location_access").select("user_id,location_id").eq("organisation_id", context.organisation.id),
     supabase.from("club_staff_permission_overrides").select("user_id,capability,decision").eq("organisation_id", context.organisation.id),
     supabase.rpc("coach_list_permissions", { p_organisation_id: context.organisation.id }),
@@ -76,9 +82,13 @@ export default async function ClubStaffPage({ searchParams }: { searchParams?: P
   const ownCapabilities = resolveClubCapabilities(context.role);
   const activeStaff = staff.filter(person => person.active);
   const suspendedStaff = staff.filter(person => !person.active);
+  const preparedAssignments = operationalAssignments.filter(row => {
+    const preparedName = normalizedStaffName(String(row.canonical_name ?? ""));
+    return preparedName !== "shannon" && !activeStaff.some(person => normalizedStaffName(person.display_name) === preparedName);
+  });
 
   return <AppShell className="module-page club-page staff-management-page">
-    <PageHeader eyebrow="R12 CLUB · PEOPLE" title="Staff" description="Manage staff access, roles and permissions." />
+    <PageHeader title="Staff" description="Manage staff access, roles and permissions." />
     <ClubSectionNav organisation={context.organisation} role={context.role} contexts={context.availableContexts} />
     <div className="staff-page-actions"><ClubStaffAccessForm organisationId={context.organisation.id} locations={locations} /><Link className="secondary staff-email-link" href={`/club/staff/email-preview?org=${encodeURIComponent(context.organisation.id)}`}>Email preview / test</Link></div>
 
@@ -100,24 +110,32 @@ export default async function ClubStaffPage({ searchParams }: { searchParams?: P
       {suspendedStaff.length ? <details className="staff-suspended-list"><summary>Suspended access <small>{suspendedStaff.length}</small></summary><div className="staff-list">{suspendedStaff.map(member => <article className="staff-person" key={member.member_id}><div className="staff-person-avatar" aria-hidden="true">{initials(member.display_name)}</div><div className="staff-person-main"><strong>{member.display_name}</strong><span>{member.email ?? "No profile email"}</span></div><div className="staff-person-access"><strong>{roleLabel(member.role)}</strong><small>{(staffLocations.get(member.user_id) ?? []).map(id => locationNames.get(id)).filter(Boolean).join(" + ") || "No venues assigned"}</small></div><span className="staff-status is-suspended">Suspended</span><ClubStaffManageAccess organisationId={context.organisation.id} userId={member.user_id} name={member.display_name} email={member.email} role={member.role} active={member.active} locationIds={staffLocations.get(member.user_id) ?? []} locations={locations} overrides={staffOverrides.get(member.user_id) ?? []} coachEnabled={coachAccess.get(member.user_id) === true} gymMembership={member.is_gym_member ? member.membership_name ?? "Active" : "None"} /></article>)}</div></details> : null}
     </Surface>
 
-    {operationalAssignments.length ? <Surface>
-      <div className="staff-section-heading"><div><span className="eyebrow">MADHOUSE ROTA & CLASSES</span><h2>Prepared staff identities</h2><p className="muted">These operational assignments do not grant system access. Link the verified invitation to reconcile future classes and shifts after acceptance.</p></div></div>
-      <div className="staff-list">{operationalAssignments.map(row => {
+    {preparedAssignments.length ? <Surface>
+      <div className="staff-section-heading"><div><span className="eyebrow">MADHOUSE ROTA & CLASSES</span><h2>Prepared staff identities</h2><p className="muted">Normal work locations are shown here. Active Madhouse staff can enter both gyms regardless of rota location.</p></div></div>
+      <div className={staffStyles.preparedList}>{preparedAssignments.map(row => {
         const assignmentId = String(row.assignment_id);
         const name = String(row.canonical_name);
         const locationsForAssignment = Array.isArray(row.location_ids) ? row.location_ids.map((id: unknown) => locationNames.get(String(id))).filter(Boolean).join(" + ") : "";
-        const candidates = pendingRows.filter(grant => String(grant.display_name ?? "").trim().split(/\s+/)[0]?.toLowerCase() === name.toLowerCase());
-        return <article className="staff-invite" key={assignmentId}><div className="staff-invite-main"><strong>{name}</strong><span>{locationsForAssignment || "No locations"}</span><small>{row.grant_status ? `Invitation ${String(row.grant_status)}` : "No invitation linked"}</small></div>{candidates.length ? <form className="staff-invite-actions" action={async (formData: FormData) => { "use server"; const grantId = String(formData.get("grantId") ?? ""); if (grantId) await linkOperationalStaffInvitation({ organisationId: context.organisation.id, assignmentId, grantId }); }}><select name="grantId" aria-label={`Invitation for ${name}`} defaultValue=""><option value="" disabled>Choose matching invite</option>{candidates.map(grant => <option key={String(grant.id)} value={String(grant.id)}>{String(grant.email_normalized)}</option>)}</select><button className="secondary" type="submit">Link invitation</button></form> : null}</article>;
+        const candidates = pendingRows.filter(grant => normalizedStaffName(String(grant.display_name ?? "")) === normalizedStaffName(name));
+        const matchedStaff = staff.find(person => normalizedStaffName(person.display_name) === normalizedStaffName(name));
+        const linkedStatus = matchedStaff?.active ? "Active account" : matchedStaff ? "Account suspended" : row.grant_status === "pending" ? "Invitation pending" : row.grant_status === "accepted" ? "Account inactive" : row.grant_status ? `Invitation ${String(row.grant_status)}` : "No account linked";
+        const linkedRole = candidates[0]?.intended_role ?? matchedStaff?.role ?? "gym_staff";
+        return <article className={staffStyles.preparedRow} key={assignmentId}>
+          <div className={staffStyles.preparedIdentity}><strong>{name}</strong><small>{roleLabel(String(linkedRole))}</small></div>
+          <div className={staffStyles.preparedLocation}><small>Normal work location</small><span>{locationsForAssignment || "Not assigned"}</span></div>
+          <div className={staffStyles.preparedStatus}><span>{linkedStatus}</span><small>Gym entry depends on active staff access, not this rota location.</small></div>
+          {candidates.length ? <form className={staffStyles.preparedActions} action={async (formData: FormData) => { "use server"; const grantId = String(formData.get("grantId") ?? ""); if (grantId) await linkOperationalStaffInvitation({ organisationId: context.organisation.id, assignmentId, grantId }); }}><select name="grantId" aria-label={`Invitation for ${name}`} defaultValue=""><option value="" disabled>Choose matching invite</option>{candidates.map(grant => <option key={String(grant.id)} value={String(grant.id)}>{String(grant.email_normalized)}</option>)}</select><button className="secondary" type="submit">Link invitation</button></form> : <span />}
+        </article>;
       })}</div>
     </Surface> : null}
 
     <Surface>
       <div className="staff-section-heading"><div><span className="eyebrow">INVITATIONS</span><h2>Pending invitations</h2><p className="muted">Invites are separate from active staff access.</p></div><span className="staff-count">{pendingRows.length} waiting</span></div>
       {pendingRows.length ? <div className="staff-list staff-pending-list">{pendingRows.map(row => {
-        const venueList = Array.isArray(row.location_ids) ? row.location_ids.map(id => locationNames.get(String(id)) ?? "Unknown venue").join(" + ") || "All venues" : "Venues not set";
+        const venueList = Array.isArray(row.location_ids) ? row.location_ids.map((id: unknown) => locationNames.get(String(id)) ?? "Unknown venue").join(" + ") || "All venues" : "Venues not set";
         const notification = invitationStatus.get(String(row.id));
         const state = invitationLabel(String(notification?.state ?? "pending"), notification?.failure_code, String(row.expires_at));
-        return <article className="staff-invite" key={String(row.id)}><div className="staff-invite-avatar" aria-hidden="true">{initials(String(row.display_name ?? "Staff member"))}</div><div className="staff-invite-main"><strong>{String(row.display_name ?? "Staff member")}</strong><span>{String(row.email_normalized)}</span><small>{roleLabel(String(row.intended_role))}{row.coach_requested ? " · Coach/PT" : ""} · {venueList}</small></div><div className="staff-invite-meta"><span className={`staff-invite-state ${state.startsWith("Delivery failed") || state === "Expired" ? "needs-attention" : ""}`}>{state}</span><small>Expires {new Date(String(row.expires_at)).toLocaleDateString("en-GB")}</small></div><div className="staff-invite-actions"><form action={async () => { "use server"; await resendStaffInvitation(context.organisation.id, String(row.id)); }}><button className="secondary" type="submit">Resend invitation</button></form><form action={async () => { "use server"; await revokeStaffAccessGrant(context.organisation.id, String(row.id)); }}><button className="secondary" type="submit">Cancel invitation</button></form></div></article>;
+        return <article className="staff-invite" key={String(row.id)}><div className="staff-invite-avatar" aria-hidden="true">{initials(String(row.display_name ?? "Staff member"))}</div><div className="staff-invite-main"><strong>{String(row.display_name ?? "Staff member")}</strong><span>{String(row.email_normalized)}</span><small>{roleLabel(String(row.intended_role))}{row.coach_requested ? " · Coach/PT" : ""} · {venueList}</small></div><div className="staff-invite-meta"><span className={`staff-invite-state ${state.startsWith("Delivery failed") || state === "Expired" ? "needs-attention" : ""}`}>{state}</span><small>Expires {new Date(String(row.expires_at)).toLocaleDateString("en-GB")}</small>{row.existing_account_verified ? <small>Verified R12 account found</small> : null}</div><div className="staff-invite-actions">{row.existing_account_verified ? <ClubStaffInviteActivation organisationId={context.organisation.id} grantId={String(row.id)} /> : null}<form action={async () => { "use server"; await resendStaffInvitation(context.organisation.id, String(row.id)); }}><button className="secondary" type="submit">Resend invitation</button></form><form action={async () => { "use server"; await revokeStaffAccessGrant(context.organisation.id, String(row.id)); }}><button className="secondary" type="submit">Cancel invitation</button></form></div></article>;
       })}</div> : <p className="staff-empty-note">No invitations are waiting for acceptance.</p>}
       <p className="staff-footnote">Invitees use their own R12 account and the invited email address. Gym membership is handled separately.</p>
     </Surface>

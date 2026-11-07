@@ -78,7 +78,24 @@ export async function claimStaffAccessGrant(grantId: string) {
   const { data, error } = await client.rpc("club_claim_staff_access_grant", { p_grant_id: grantId });
   if (error) return { ok: false as const, error: "This access grant is unavailable." };
   revalidatePath("/club");
+  revalidatePath("/club/staff/claim");
+  revalidatePath("/coach");
   return { ok: true as const, result: data };
+}
+
+export async function activateExistingStaffAccessGrant(input: { organisationId: string; grantId: string }) {
+  const manager = await staffManager(input.organisationId);
+  if (!manager) return { ok: false as const, error: "You don’t have permission to manage staff access." };
+  const { error } = await manager.client.rpc("club_activate_existing_staff_access_grant", {
+    p_organisation_id: manager.context.organisation.id,
+    p_grant_id: input.grantId,
+  });
+  if (error) return { ok: false as const, error: "The existing account could not be verified and activated from this invitation." };
+  revalidatePath("/club/staff");
+  revalidatePath("/club");
+  revalidatePath("/coach");
+  revalidatePath("/club/staff/claim");
+  return { ok: true as const };
 }
 
 export async function replaceStaffLocations(input: { organisationId: string; userId: string; locationIds: string[] }) {

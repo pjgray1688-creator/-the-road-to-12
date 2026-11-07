@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createStaffAccessGrant } from "@/app/club/staff/actions";
 import { resolveClubCapabilities } from "@/lib/club-capabilities";
+import styles from "./club-staff-management.module.css";
 
 type StaffRole = "gym_staff" | "gym_admin" | "trainer";
 
@@ -15,7 +16,7 @@ export function ClubStaffAccessForm({ organisationId, locations }: { organisatio
   const router = useRouter();
   const coachEligible = role === "gym_admin" || role === "trainer";
 
-  return <details className="staff-add"><summary className="primary staff-add-trigger"><span aria-hidden="true">＋</span> Add staff member</summary><form className="staff-access-form" onSubmit={event => {
+  return <details className="staff-add"><summary className={`primary staff-add-trigger ${styles.addTrigger}`}><span aria-hidden="true">+</span> Add staff member</summary><form className="staff-access-form" onSubmit={event => {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     startTransition(async () => {

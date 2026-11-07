@@ -1,0 +1,115 @@
+.addTrigger {
+  background: #812de0 !important;
+  color: #fff !important;
+  box-shadow: 0 5px 18px rgb(116 42 203 / 22%);
+  transition: background-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.addTrigger:hover {
+  background: #963ff0 !important;
+  box-shadow: 0 7px 22px rgb(116 42 203 / 32%);
+}
+
+.addTrigger:focus-visible {
+  outline: 3px solid #e3c8ff;
+  outline-offset: 3px;
+}
+
+.preparedList {
+  display: grid;
+  gap: 8px;
+}
+
+.preparedRow {
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) minmax(150px, 0.8fr) minmax(180px, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 11px 14px;
+  border: 1px solid var(--club-border);
+  border-radius: 10px;
+  background: rgb(255 255 255 / 2%);
+}
+
+.preparedIdentity,
+.preparedLocation,
+.preparedStatus {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.preparedIdentity strong {
+  font-size: 14px;
+}
+
+.preparedIdentity small,
+.preparedLocation small,
+.preparedStatus small {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.preparedStatus {
+  justify-items: start;
+  font-size: 12px;
+}
+
+.preparedActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.preparedActions select {
+  min-width: 170px;
+  min-height: 38px;
+}
+
+.preparedActions button {
+  min-height: 38px;
+  white-space: nowrap;
+}
+
+@media (max-width: 760px) {
+  .preparedRow {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 9px 12px;
+  }
+
+  .preparedActions {
+    grid-column: 1 / -1;
+    justify-content: stretch;
+  }
+
+  .preparedActions form {
+    flex: 1;
+  }
+
+  .preparedActions select,
+  .preparedActions button {
+    width: 100%;
+    min-width: 0;
+  }
+}
+
+@media (max-width: 420px) {
+  .preparedRow {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .preparedActions {
+    grid-column: 1;
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .addTrigger {
+    transition: none;
+  }
+}

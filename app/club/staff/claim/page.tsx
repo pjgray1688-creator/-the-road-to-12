@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { claimStaffAccessGrant } from "@/app/club/staff/actions";
 import { AppNav } from "@/components/app-nav";
 import { AppShell, EmptyState, PageHeader, Surface } from "@/components/ui";
 import { staffClaimReturnTo } from "@/lib/auth-return";
 import { serverSupabase } from "@/lib/supabase-server";
+import { ClubStaffGrantAutoClaim } from "@/components/club-staff-grant-auto-claim";
 
 type ClaimContext = {
   grant_id: string;
@@ -57,11 +57,7 @@ export default async function StaffClaimPage({ searchParams }: { searchParams: P
       <Surface><AccessSummary context={context} />
         <p className="muted">Signed in as {user.email ?? "your R12 account"}. Accept using the verified email address the invitation was sent to.</p>
         <p className="muted">Invitation expires {new Date(context.expires_at).toLocaleDateString("en-GB")}.</p>
-        {user.email_confirmed_at ? <form action={async () => {
-          "use server";
-          const result = await claimStaffAccessGrant(grantId);
-          if (result.ok) redirect(`/club/staff/claim?grant=${encodeURIComponent(grantId)}`);
-        }}><button className="primary" type="submit">Accept staff access</button></form> : <p role="status">Verify this email address before accepting staff access. Open the verification email and then return to this invitation.</p>}
+        {user.email_confirmed_at ? <ClubStaffGrantAutoClaim grantId={grantId} /> : <p role="status">Verify this email address before activating staff access. Open the verification email and then return to this invitation.</p>}
       </Surface><AppNav />
     </AppShell>;
 

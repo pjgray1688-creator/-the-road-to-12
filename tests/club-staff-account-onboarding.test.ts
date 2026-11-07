@@ -10,6 +10,7 @@ const form = read("components/club-staff-access-form.tsx");
 const staffPage = read("app/club/staff/page.tsx");
 const staffEditor = read("components/club-staff-manage-access.tsx");
 const claimPage = read("app/club/staff/claim/page.tsx");
+const autoClaim = read("components/club-staff-grant-auto-claim.tsx");
 const accountPage = read("app/account/page.tsx");
 const resetPage = read("components/reset-password-client.tsx");
 const bootstrap = read("docs/manual-sql/madhouse-first-organisation-bootstrap.sql");
@@ -30,7 +31,9 @@ test("claim requires the authenticated account email and exact canonical package
   assert.match(migration, /Staff access grant is unavailable for this account/);
   assert.match(migration, /g\.capabilities is distinct from public\.club_capabilities_for_role\(g\.intended_role\)/);
   assert.match(claimPage, /club_list_my_pending_staff_access/);
-  assert.match(claimPage, /Accept staff access/);
+  assert.match(claimPage, /ClubStaffGrantAutoClaim/);
+  assert.doesNotMatch(claimPage, /Accept staff access/);
+  assert.match(autoClaim, /claimStaffAccessGrant\(grantId\)/);
 });
 
 test("duplicate pending and active same-email invitations are rejected within the organisation", () => {
