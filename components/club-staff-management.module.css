@@ -74,6 +74,32 @@
   white-space: nowrap;
 }
 
+.activationControl {
+  width: 100%;
+  min-width: 0;
+  margin-top: 4px;
+}
+
+.activationControl :global(.staff-invite-activation) {
+  display: grid;
+  gap: 5px;
+  width: 100%;
+}
+
+.activationControl :global(.staff-invite-activation button) {
+  width: 100%;
+  min-width: 0;
+  min-height: 42px;
+  padding: 7px 10px;
+  white-space: normal;
+  line-height: 1.25;
+}
+
+.activationControl :global(.staff-invite-activation button:focus-visible) {
+  outline: 3px solid #e3c8ff;
+  outline-offset: 2px;
+}
+
 @media (max-width: 760px) {
   .preparedRow {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);

@@ -1,0 +1,49 @@
+.panel:global(.staff-manage-panel) {
+  color: #20202a;
+  background: #fff;
+  border-color: #ddd7e7;
+  box-shadow: 0 12px 30px rgb(25 17 38 / 12%);
+}
+
+.panel :global(.staff-manage-heading .muted),
+.panel :global(.staff-manage-section .muted),
+.panel :global(.staff-permissions-heading .muted),
+.panel :global(.staff-permission-item small),
+.panel :global(.staff-manage-section dt) {
+  color: #5e5b68;
+}
+
+.panel :global(.staff-manage-section) {
+  color: #22212a;
+  background: #faf9fc;
+  border-color: #e2deea;
+}
+
+.panel :global(.staff-permission-group) {
+  color: #25232c;
+  background: #fbfaff;
+  border-color: #e2deea;
+}
+
+.panel :global(.staff-permission-item) {
+  background: #f1eef6;
+}
+
+.panel :global(.staff-permission-item small) {
+  color: #625d6b;
+}
+
+.panel :global(.staff-manage-message) {
+  background: #f1eaff;
+  color: #332044;
+}
+
+.staffAccessNote {
+  padding: 10px 12px;
+  border: 1px solid #ded3ed;
+  border-radius: 9px;
+  background: #f5f0fb;
+  color: #40334f;
+  font-size: 12px;
+  line-height: 1.45;
+}

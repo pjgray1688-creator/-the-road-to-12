@@ -35,7 +35,7 @@ test("only authorised managers can activate a pending grant for an existing veri
   assert.match(migration, /lower\(u\.email\)=g\.email_normalized and u\.email_confirmed_at is not null/);
   assert.match(migration, /club_list_pending_staff_invites_for_management/);
   assert.match(staffPage, /club_list_pending_staff_invites_for_management/);
-  assert.match(staffPage, /row\.existing_account_verified \? <ClubStaffInviteActivation/);
+  assert.match(staffPage, /row\.existing_account_verified \? <>[\s\S]*?<ClubStaffInviteActivation/);
   assert.match(activation, /activateExistingStaffAccessGrant\(\{ organisationId, grantId \}\)/);
   assert.doesNotMatch(staffActions, /activateExistingStaffAccessGrant\(input: \{[^}]*userId/);
 });

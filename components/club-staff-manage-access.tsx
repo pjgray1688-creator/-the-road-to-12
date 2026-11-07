@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { clubCapabilities, resolveClubCapabilities } from "@/lib/club-capabilities";
 import { replaceStaffLocations, setCoachAccess, setStaffActive, setStaffPermission, setStaffRole } from "@/app/club/staff/actions";
+import styles from "@/components/club-staff-manage-access.module.css";
 
 type StaffRole = "owner" | "gym_staff" | "trainer" | "gym_admin";
 type Override = { capability: string; decision: "allow" | "deny" };
@@ -88,12 +89,14 @@ export function ClubStaffManageAccess({ organisationId, userId, name, email, rol
     setMessage(active ? "Staff access suspended." : "Staff access reactivated.");
   });
 
+  const madhouseOrganisation = organisationId === "fa44592a-1593-4ad3-a621-63a4a4bcbceb";
+
   return <details className="staff-manage">
     <summary className="secondary staff-manage-trigger" aria-label={`Manage ${name}`}>Manage</summary>
-    <div className="staff-manage-panel">
+    <div className={`staff-manage-panel ${styles.panel}`}>
       <div className="staff-manage-heading"><div><span className="eyebrow">STAFF ACCESS</span><h3>{name}</h3><p className="muted">Role permissions are applied automatically. Use individual permissions only for exceptions.</p></div><span className={`staff-status ${active ? "is-active" : "is-suspended"}`}>{active ? "Active" : "Suspended"}</span></div>
       <div className="staff-manage-grid">
-        <section className="staff-manage-section"><h4>Profile & access</h4><dl><div><dt>Email</dt><dd>{email || "No profile email"}</dd></div><div><dt>Role</dt><dd>{roleName(role)}{coachEnabled ? " · Coach/PT" : ""}</dd></div><div><dt>Gym membership</dt><dd>{gymMembership ?? "None"}</dd></div></dl>
+        <section className="staff-manage-section"><h4>Profile & access</h4><dl><div><dt>Email</dt><dd>{email || "No profile email"}</dd></div><div><dt>Club staff role</dt><dd>{roleName(role)}</dd></div><div><dt>Coach permission</dt><dd>{coachEnabled ? "Enabled" : "Not enabled"}</dd></div><div><dt>Paid gym membership</dt><dd>{gymMembership ?? "None"}</dd></div></dl>{madhouseOrganisation && active ? <p className={styles.staffAccessNote}>Staff gym access: Rotherham and Carlton. This is separate from any paid membership.</p> : null}
           {canEditRole ? <label className="staff-field">Role<select value={role} onChange={event => setRole(event.target.value as Exclude<StaffRole, "owner">)}><option value="gym_admin">Manager</option><option value="gym_staff">Operational Staff</option><option value="trainer">PT / Coach</option></select></label> : <p className="muted">Owner access is protected and cannot be changed here.</p>}
         </section>
         <section className="staff-manage-section"><h4>Venues</h4>{role === "owner" ? <p className="muted">Organisation-wide access to all Club venues.</p> : <><p className="muted">Choose the Club locations this person can work at.</p><div className="staff-check-list">{locations.map(location => <label key={location.id}><input type="checkbox" checked={selected.includes(location.id)} disabled={pending} onChange={() => toggleLocation(location.id)} />{location.name}</label>)}</div><button className="secondary" type="button" disabled={pending} onClick={save}>Save role & venues</button></>}</section>

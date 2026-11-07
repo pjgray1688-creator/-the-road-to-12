@@ -23,11 +23,27 @@ export default async function ClubMembersPage({ searchParams }: { searchParams?:
     context.repository.hasCapability(context.organisation.id, user.id, "members.import"),
     context.repository.hasCapability(context.organisation.id, user.id, "payments.extend_grace"),
   ]);
+  const { data: unlinkedMembershipData, error: unlinkedMembershipError } = await supabase.rpc("club_list_unlinked_membership_customers", { p_organisation_id: context.organisation.id });
+  const unlinkedMembershipCustomers = !unlinkedMembershipError && Array.isArray(unlinkedMembershipData)
+    ? unlinkedMembershipData.flatMap((value: unknown) => {
+      if (!value || typeof value !== "object") return [];
+      const row = value as Record<string, unknown>;
+      if (typeof row.id !== "string" || typeof row.display_name !== "string") return [];
+      return [{
+        id: row.id,
+        displayName: row.display_name,
+        ...(typeof row.email === "string" ? { email: row.email } : {}),
+        ...(typeof row.membership_name === "string" ? { membershipName: row.membership_name } : {}),
+        ...(typeof row.membership_status === "string" ? { membershipStatus: row.membership_status } : {}),
+        ...(typeof row.membership_ends_at === "string" ? { membershipEndsAt: row.membership_ends_at } : {}),
+      }];
+    })
+    : [];
   const query = `?org=${encodeURIComponent(context.organisation.id)}`;
   return <AppShell className="module-page club-page">
     <PageHeader title="Members" description="Search member records, manage memberships and open access or billing details." />
     <ClubSectionNav organisation={context.organisation} role={context.role} contexts={context.availableContexts} />
-    <Surface><div className="section-header"><div><span className="eyebrow">MEMBER DIRECTORY</span><h2>Find a member</h2></div>{canImport ? <Link className="secondary" href={`/club/members/import${query}`}>Import members</Link> : null}</div><ClubMembersDirectory members={members} customers={customers} organisationId={context.organisation.id} /></Surface>
+    <Surface><div className="section-header"><div><span className="eyebrow">MEMBER DIRECTORY</span><h2>Find a member</h2></div>{canImport ? <Link className="secondary" href={`/club/members/import${query}`}>Import members</Link> : null}</div><ClubMembersDirectory members={members} customers={unlinkedMembershipCustomers} organisationId={context.organisation.id} /></Surface>
     {canAssign ? <Surface><h2>Add or update a member</h2><p className="muted">Individual, Couples and Family memberships retain separate member identities and billing relationships.</p><ClubMemberOnboarding organisationId={context.organisation.id} organisationSlug={context.organisation.slug} customers={customers} products={products} locations={locations.filter(location => location.active).map(location => ({ id: location.id, name: location.name }))} role={context.role} canAssign={canAssign} /></Surface> : null}
     {canExtendGrace ? <Surface><h2>Authorised payment grace</h2><p className="muted">Open a member profile to review failed or overdue obligations. Payment remains outstanding until genuinely recovered.</p></Surface> : null}
     <AppNav />
