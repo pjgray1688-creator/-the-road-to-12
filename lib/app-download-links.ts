@@ -51,7 +51,3 @@ export function detectDownloadPlatform(userAgent: string | null | undefined): Do
   if (/Windows|Macintosh|Mac OS X|Linux|X11/i.test(userAgent)) return "desktop";
   return "unknown";
 }
-
-export function appOpenUrl(slug: AppDownloadSlug): string {
-  return `${R12_APP_ORIGIN}${APP_DOWNLOAD_LINKS[slug].appPath}`;
-}

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { APP_DOWNLOAD_LINKS, PERMANENT_QR_DESTINATIONS, appOpenUrl, detectDownloadPlatform, isAppDownloadSlug } from "../lib/app-download-links";
+import { APP_DOWNLOAD_LINKS, PERMANENT_QR_DESTINATIONS, detectDownloadPlatform, isAppDownloadSlug } from "../lib/app-download-links";
 import { accessQrMatrix } from "../lib/qr-code";
 
 test("all four permanent smart QR paths map to the supplied official store listings", () => {
@@ -28,11 +28,7 @@ test("platform detection supports iOS, Android, desktop and unknown user agents"
   assert.equal(detectDownloadPlatform(null), "unknown");
 });
 
-test("Open App links only target the fixed existing app paths; arbitrary slugs are rejected", () => {
-  assert.equal(appOpenUrl("training"), "https://app.r12.live/training");
-  assert.equal(appOpenUrl("club"), "https://app.r12.live/club");
-  assert.equal(appOpenUrl("coach"), "https://app.r12.live/coach");
-  assert.equal(appOpenUrl("glow-zone"), "https://app.r12.live/glow-zone");
+test("unsupported app slugs are rejected", () => {
   assert.equal(isAppDownloadSlug("https://attacker.example"), false);
   assert.equal(isAppDownloadSlug("unknown"), false);
 });
