@@ -1,4 +1,6 @@
 export const R12_APP_ORIGIN = "https://app.r12.live";
+export const JOIN_SMART_QR_URL = `${R12_APP_ORIGIN}/go/join`;
+export const MADHOUSE_JOINING_DESTINATION = "https://secure.clubmanagercentral.com/acd47283-1392-4c40-8d63-a908ba7d46d3/Joining.mvc";
 
 export const APP_DOWNLOAD_LINKS = {
   training: {
