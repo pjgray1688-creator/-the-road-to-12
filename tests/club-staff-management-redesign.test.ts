@@ -58,7 +58,7 @@ test("pending invitations preserve resend and cancel actions with human delivery
 });
 
 test("add staff, email preview, own permissions and owner controls are progressively disclosed", () => {
-  assert.match(form, /<details className="staff-add">/);
+  assert.match(form, /<details ref=\{detailsRef\} className="staff-add"/);
   assert.match(form, /Send staff invite/);
   assert.match(form, /nextRole === "trainer"\) setCoachRequested\(true\)/);
   assert.match(page, /Email preview \/ test/);

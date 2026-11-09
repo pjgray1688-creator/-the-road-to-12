@@ -116,12 +116,21 @@ export default async function ClubStaffPage({ searchParams }: { searchParams?: P
         const assignmentId = String(row.assignment_id);
         const name = String(row.canonical_name);
         const locationsForAssignment = Array.isArray(row.location_ids) ? row.location_ids.map((id: unknown) => locationNames.get(String(id))).filter(Boolean).join(" + ") : "";
-        const candidates = pendingRows.filter(grant => normalizedStaffName(String(grant.display_name ?? "")) === normalizedStaffName(name));
         const matchedStaff = staff.find(person => normalizedStaffName(person.display_name) === normalizedStaffName(name));
-        const linkedStatus = matchedStaff?.active ? "Active account" : matchedStaff ? "Account suspended" : row.grant_status === "pending" ? "Invitation pending" : row.grant_status === "accepted" ? "Account inactive" : row.grant_status ? `Invitation ${String(row.grant_status)}` : "No account linked";
-        const linkedRole = candidates[0]?.intended_role ?? matchedStaff?.role ?? "gym_staff";
+        const linkedGrantId = row.staff_grant_id ? String(row.staff_grant_id) : "";
+        const linkedGrant = linkedGrantId ? pendingRows.find(grant => String(grant.id) === linkedGrantId) : undefined;
+        const candidates = linkedGrantId || matchedStaff ? [] : pendingRows.filter(grant => normalizedStaffName(String(grant.display_name ?? "")) === normalizedStaffName(name));
+        const linkedNotification = linkedGrant ? invitationStatus.get(String(linkedGrant.id)) : undefined;
+        const linkedStatus = matchedStaff?.active ? "Active"
+          : matchedStaff ? "Invitation accepted · account inactive"
+            : linkedGrant?.existing_account_verified ? "Verified · pending activation"
+              : linkedGrant ? invitationLabel(String(linkedNotification?.state ?? linkedGrant.status), linkedNotification?.failure_code, String(linkedGrant.expires_at))
+                : row.grant_status === "accepted" ? "Invitation accepted · account inactive"
+                  : row.grant_status ? `Invitation ${String(row.grant_status)}` : "No invitation linked";
+        const linkedRole = linkedGrant?.intended_role ?? matchedStaff?.role ?? "gym_staff";
+        const linkedEmail = linkedGrant?.email_normalized ?? matchedStaff?.email;
         return <article className={staffStyles.preparedRow} key={assignmentId}>
-          <div className={staffStyles.preparedIdentity}><strong>{name}</strong><small>{roleLabel(String(linkedRole))}</small></div>
+          <div className={staffStyles.preparedIdentity}><strong>{name}</strong><small>{roleLabel(String(linkedRole))}</small>{linkedEmail ? <small>{linkedEmail}</small> : null}</div>
           <div className={staffStyles.preparedLocation}><small>Normal work location</small><span>{locationsForAssignment || "Not assigned"}</span></div>
           <div className={staffStyles.preparedStatus}><span>{linkedStatus}</span><small>Gym entry depends on active staff access, not this rota location.</small></div>
           {candidates.length ? <form className={staffStyles.preparedActions} action={async (formData: FormData) => { "use server"; const grantId = String(formData.get("grantId") ?? ""); if (grantId) await linkOperationalStaffInvitation({ organisationId: context.organisation.id, assignmentId, grantId }); }}><select name="grantId" aria-label={`Invitation for ${name}`} defaultValue=""><option value="" disabled>Choose matching invite</option>{candidates.map(grant => <option key={String(grant.id)} value={String(grant.id)}>{String(grant.email_normalized)}</option>)}</select><button className="secondary" type="submit">Link invitation</button></form> : <span />}
