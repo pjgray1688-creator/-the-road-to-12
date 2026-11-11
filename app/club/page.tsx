@@ -14,7 +14,7 @@ import { hasPlayReviewerEntitlement } from "@/lib/play-reviewer";
 import { ClubMemberHome, MemberClubUnavailable } from "@/components/club-member-home";
 import overviewStyles from "@/components/club-desktop-overview.module.css";
 import type { ClubClassBooking, ClubClassSession, ClubServiceTransaction } from "@/lib/club-operations";
-import { resolveInstructorName } from "@/lib/club-instructor-name";
+import { listLinkedInstructorIdentities, resolveInstructorName } from "@/lib/club-instructor-name";
 
 const roleLabel = (role: string) => role.replace(/_/g, " ").replace(/\b\w/g, letter => letter.toUpperCase());
 
@@ -72,7 +72,7 @@ export default async function ClubPage({ searchParams }: { searchParams?: Promis
       context.repository.listClassSessions(context.organisation.id),
       context.repository.listClassTypes(context.organisation.id),
       context.navigation.finance ? context.repository.hasCapability(context.organisation.id, user.id, "payments.take") : Promise.resolve(false),
-      context.repository.listMemberIdentities(context.organisation.id),
+      listLinkedInstructorIdentities(supabase, context.organisation.id),
     ]);
     const billingResult = canReviewBilling ? await supabase.rpc("club_list_membership_billing_attention", { p_organisation_id: context.organisation.id }) : { data: null, error: null };
     const billingAttention = !billingResult.error && Array.isArray(billingResult.data) ? billingResult.data.length : 0;

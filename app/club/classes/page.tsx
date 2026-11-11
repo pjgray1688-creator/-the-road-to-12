@@ -10,7 +10,7 @@ import type { ClubRole, OrganisationLocation, OrganisationMember } from "@/lib/c
 import type { ClubClassAvailability, ClubClassBooking, ClubClassSession, ClubClassType } from "@/lib/club-operations";
 import { ClubSectionNav } from "@/components/club-shell";
 import { ClubMemberClasses } from "@/components/club-member-classes";
-import { resolveInstructorName } from "@/lib/club-instructor-name";
+import { listLinkedInstructorIdentities, resolveInstructorName } from "@/lib/club-instructor-name";
 const londonDay = (value = new Date()) => new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/London", year: "numeric", month: "2-digit", day: "2-digit" }).format(value);
 
 function AccessRequired() {
@@ -34,7 +34,7 @@ function MemberClassesLoaded({ organisation, classTypes, locations, sessions, av
 async function loadClasses(supabase: Awaited<ReturnType<typeof serverSupabase>>, userId: string, organisationId?: string) {
   const context = await resolveClubOrganisationContext(supabase, userId, organisationId);
   if (!context) return null;
-  const [classTypes, locations, sessions, identities] = await Promise.all([context.repository.listClassTypes(context.organisation.id), context.repository.listLocations(context.organisation.id), context.repository.listClassSessions(context.organisation.id), context.repository.listMemberIdentities(context.organisation.id)]);
+  const [classTypes, locations, sessions, identities] = await Promise.all([context.repository.listClassTypes(context.organisation.id), context.repository.listLocations(context.organisation.id), context.repository.listClassSessions(context.organisation.id), listLinkedInstructorIdentities(supabase, context.organisation.id)]);
   const today = londonDay(); const memberView = context.role === "member" || context.role === "guest"; const visibleSessions = sessions.filter(session => memberView ? session.status === "scheduled" && new Date(session.startsAt).getTime() >= Date.now() : londonDay(new Date(session.startsAt)) >= today).sort((a, b) => a.startsAt.localeCompare(b.startsAt)).map(session => ({ ...session, instructorName: resolveInstructorName(session.hostUserId, identities, session.instructorName) }));
   const availabilityResults = await Promise.allSettled(visibleSessions.map(session => context.repository.getClassAvailability(session.id)));
   const availability = Object.fromEntries(visibleSessions.map((session, index) => [session.id, availabilityResults[index].status === "fulfilled" ? availabilityResults[index].value : null]));

@@ -7,7 +7,7 @@ import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSPro
 import type { ClubRole, Organisation } from "@/lib/club";
 import styles from "./club-desktop-shell.module.css";
 
-type NavAccess = { members: boolean; payments: boolean; management?: boolean; finance?: boolean; cashControls?: boolean; cashTill?: boolean; classSetup?: boolean; memberships?: boolean; memberImports?: boolean; promotions?: boolean; suppliers?: boolean; staff?: boolean; venues?: boolean; reports?: boolean; services?: boolean; workReview?: boolean };
+type NavAccess = { members: boolean; payments: boolean; management?: boolean; finance?: boolean; cashControls?: boolean; cashTill?: boolean; classSetup?: boolean; memberships?: boolean; memberImports?: boolean; promotions?: boolean; suppliers?: boolean; staff?: boolean; venues?: boolean; reports?: boolean; services?: boolean; workReview?: boolean; glowZone?: boolean };
 export type DesktopClubContext = { organisation: Organisation; role: ClubRole; navigation: NavAccess; accent?: string };
 export type DesktopClubLocation = { id: string; name: string; active: boolean };
 type Props = { contexts: DesktopClubContext[]; locationsByOrganisation: Record<string, DesktopClubLocation[]>; identityControl?: ReactNode; children: ReactNode };
@@ -132,7 +132,7 @@ export function ClubDesktopShell({ contexts, locationsByOrganisation, identityCo
     ...(access.venues ? [{ label: "Shared stations", href: `/club/stations${q}`, icon: "operations", match: (path: string) => path.startsWith("/club/stations") }] : []),
     ...(access.reports ? [{ label: "Reports & audit", href: `/club/reports${q}`, icon: "finance", match: (path: string) => path.startsWith("/club/reports") }] : []),
     ...(access.services ? [{ label: "Services & configuration", href: `/club/services${q}`, icon: "management", match: (path: string) => path.startsWith("/club/services") }] : []),
-    ...(access.services && access.finance ? [{ label: "Glow Zone management", href: `/club/sunbeds${q}&view=management`, icon: "operations", match: (path: string) => path.startsWith("/club/sunbeds") && searchParams.get("view") === "management" }] : []),
+    ...(access.services && access.management ? [{ label: "Glow Zone management", href: `/club/sunbeds${q}&view=management`, icon: "operations", match: (path: string) => path.startsWith("/club/sunbeds") && searchParams.get("view") === "management" }] : []),
   ];
   const activeManagement = managementLinks.some(item => activePath(pathname, item));
   const venueOptions = (locationsByOrganisation[selected.organisation.id] ?? []).filter(location => location.active);
@@ -186,7 +186,10 @@ export function ClubDesktopShell({ contexts, locationsByOrganisation, identityCo
       </Link>
       <nav className={styles.navigation} aria-label="Club workspace navigation">
         <span className={styles.navCaption}>WORKSPACE</span>
-        {links.map(item => <Link key={item.label} href={item.href} className={activePath(pathname, item) ? styles.active : undefined} aria-current={activePath(pathname, item) ? "page" : undefined} title={item.label}><Icon name={item.icon} /><span>{item.label}</span></Link>)}
+        {links.map(item => item.label === "Daily Operations" ? <div className={styles.operationalGroup} key={item.label}>
+          <Link href={item.href} className={activePath(pathname, item) ? styles.active : undefined} aria-current={activePath(pathname, item) ? "page" : undefined} title={item.label}><Icon name={item.icon} /><span>{item.label}</span></Link>
+          {access.glowZone ? <div className={styles.operationalSubNavigation}><Link href={`/club/sunbeds?org=${orgId}`} className={pathname.startsWith("/club/sunbeds") && searchParams.get("view") !== "management" ? styles.subActive : undefined} aria-current={pathname.startsWith("/club/sunbeds") && searchParams.get("view") !== "management" ? "page" : undefined} title="Glow Zone"><span>Glow Zone</span></Link></div> : null}
+        </div> : <Link key={item.label} href={item.href} className={activePath(pathname, item) ? styles.active : undefined} aria-current={activePath(pathname, item) ? "page" : undefined} title={item.label}><Icon name={item.icon} /><span>{item.label}</span></Link>)}
         {access.management ? <div className={styles.managementGroup}>
           <button type="button" className={activeManagement || pathname.startsWith("/club/more") ? styles.active : undefined} aria-expanded={managementOpen} aria-controls="club-management-links" onClick={toggleManagement} title="Management"><Icon name="management" /><span>Management</span><b aria-hidden="true" className={managementOpen ? styles.chevronOpen : ""}>⌄</b></button>
           {managementOpen ? <div id="club-management-links" className={styles.subNavigation}>{managementLinks.map(item => <Link key={item.label} href={item.href} className={activePath(pathname, item) ? styles.subActive : undefined} aria-current={activePath(pathname, item) ? "page" : undefined} title={item.label}><span>{item.label}</span></Link>)}</div> : null}

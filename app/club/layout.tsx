@@ -31,12 +31,18 @@ export default async function ClubLayout({ children }: Readonly<{ children: Reac
   const fullName=reviewer?"Google Play reviewer":[profile.data?.first_name,profile.data?.last_name].filter(Boolean).join(" ")||profile.data?.display_name||user?.user_metadata?.display_name||firstName;
   const contexts=user&&!reviewer&&!(station&&lockRoute)?await listClubOrganisationContexts(client,user.id).catch(()=>[]):[];
   const staffContexts=contexts.filter(context=>isClubStaffRole(context.role));
-  const navContexts=toClubNavContexts(staffContexts).map(context=>({ ...context, accent: resolveOrganisationTheme(context.organisation).primaryAccent }));
   const locationsByOrganisation:Record<string,DesktopClubLocation[]>={};
+  const glowZoneAccess = new Map<string, boolean>();
   await Promise.all(staffContexts.map(async context=>{
     const locations=await context.repository.listLocations(context.organisation.id).catch(()=>[]);
     locationsByOrganisation[context.organisation.id]=locations.map(location=>({id:location.id,name:location.name,active:location.active}));
+    const carlton=locations.find(location=>location.active&&location.name.toLocaleLowerCase("en-GB").includes("carlton"));
+    if(context.organisation.slug==="madhouse-gym"&&context.navigation.services&&carlton){
+      const access=await client.rpc("club_location_authorized",{p_organisation_id:context.organisation.id,p_location_id:carlton.id});
+      glowZoneAccess.set(context.organisation.id,!access.error&&access.data===true);
+    }
   }));
+  const navContexts=toClubNavContexts(staffContexts).map(context=>({ ...context, navigation:{...context.navigation,glowZone:glowZoneAccess.get(context.organisation.id)===true}, accent: resolveOrganisationTheme(context.organisation).primaryAccent }));
   const identity=user&&!(station&&lockRoute)?<ClubIdentityControl firstName={firstName} fullName={fullName} photoUrl={typeof user.user_metadata?.avatar_url==="string"?user.user_metadata.avatar_url:undefined}/>:null;
   const content=staffContexts.length&&!reviewer? <ClubDesktopShell contexts={navContexts} locationsByOrganisation={locationsByOrganisation} identityControl={identity}>{children}</ClubDesktopShell>:children;
   return <><div className="club-desktop-mobile-identity">{identity}</div><ClubStationTimeout enabled={Boolean(station&&user&&!lockRoute)} timeoutMinutes={stationSessionTtlSeconds()/60}/>{content}</>;

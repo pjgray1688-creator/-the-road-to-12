@@ -22,6 +22,19 @@
   .brandText small { color: #aaa1b6; font-size: 11px; }
   .navigation { display: grid; align-content: start; gap: 4px; min-height: 0; overflow: auto; scrollbar-width: thin; }
   .navCaption { padding: 0 11px 7px; color: #91879d; font-size: 9px; font-weight: 800; letter-spacing: .13em; }
+  .operationalGroup { display: grid; gap: 2px; }
+  .navigation > .operationalGroup > a { position: relative; display: flex; align-items: center; gap: 12px; width: 100%; min-width: 0; min-height: 42px; padding: 0 11px; border: 1px solid transparent; border-radius: 9px; background: transparent; color: #c6bfce; font: inherit; font-size: 12px; font-weight: 650; text-align: left; text-decoration: none; transition: background-color 150ms ease-out, color 150ms ease-out; }
+  .operationalGroup > a svg { flex: 0 0 19px; color: #a79cb4; }
+  .operationalGroup > a > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .operationalGroup > a:hover { background: #30283a; color: #fff; }
+  .operationalGroup > a:focus-visible { outline: 2px solid #d4a7ff; outline-offset: 2px; }
+  .operationalGroup > a.active { color: #fff; background: color-mix(in srgb, var(--tenant-accent) 20%, #30283a); border-color: color-mix(in srgb, var(--tenant-accent) 42%, #342c40); }
+  .operationalGroup > a.active::before { position: absolute; inset: 8px auto 8px -1px; width: 3px; border-radius: 0 3px 3px 0; background: var(--tenant-accent); content: ""; }
+  .operationalSubNavigation { display: grid; gap: 2px; margin: 0 0 4px 21px; padding-left: 10px; border-left: 1px solid #4a3e55; }
+  .operationalSubNavigation a { min-width: 0; padding: 7px 9px; border-radius: 7px; color: #b8afc3; font-size: 11px; line-height: 1.25; text-decoration: none; }
+  .operationalSubNavigation a:hover,.operationalSubNavigation a:focus-visible { color: #fff; background: #30283a; outline: none; }
+  .operationalSubNavigation a:focus-visible { box-shadow: 0 0 0 2px #d4a7ff; }
+  .operationalSubNavigation a.subActive { color: #f0ddff; background: #352840; }
   .navigation > a,.managementGroup > button { position: relative; display: flex; align-items: center; gap: 12px; width: 100%; min-width: 0; min-height: 42px; padding: 0 11px; border: 1px solid transparent; border-radius: 9px; background: transparent; color: #c6bfce; font: inherit; font-size: 12px; font-weight: 650; text-align: left; text-decoration: none; transition: background-color 150ms ease-out, color 150ms ease-out; }
   .navigation > a svg,.managementGroup > button svg { flex: 0 0 19px; color: #a79cb4; }
   .navigation > a > span,.managementGroup > button > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -243,8 +256,8 @@
 
 @media (min-width: 1100px) {
   .frame[data-collapsed="true"] .brand { justify-content: center; padding-inline: 0; }
-  .frame[data-collapsed="true"] .brandText,.frame[data-collapsed="true"] .navCaption,.frame[data-collapsed="true"] .navigation > a > span,.frame[data-collapsed="true"] .managementGroup > button > span,.frame[data-collapsed="true"] .managementGroup > button > b,.frame[data-collapsed="true"] .subNavigation,.frame[data-collapsed="true"] .roleBadge,.frame[data-collapsed="true"] .collapseButton > span:last-child { display: none; }
-  .frame[data-collapsed="true"] .navigation > a,.frame[data-collapsed="true"] .managementGroup > button { justify-content: center; padding-inline: 0; }
+  .frame[data-collapsed="true"] .brandText,.frame[data-collapsed="true"] .navCaption,.frame[data-collapsed="true"] .navigation > a > span,.frame[data-collapsed="true"] .operationalGroup > a > span,.frame[data-collapsed="true"] .operationalSubNavigation,.frame[data-collapsed="true"] .managementGroup > button > span,.frame[data-collapsed="true"] .managementGroup > button > b,.frame[data-collapsed="true"] .subNavigation,.frame[data-collapsed="true"] .roleBadge,.frame[data-collapsed="true"] .collapseButton > span:last-child { display: none; }
+  .frame[data-collapsed="true"] .navigation > a,.frame[data-collapsed="true"] .operationalGroup > a,.frame[data-collapsed="true"] .managementGroup > button { justify-content: center; padding-inline: 0; }
   .frame[data-collapsed="true"] .sidebarBottom { justify-items: center; }
   .frame[data-collapsed="true"] .collapseButton { justify-content: center; width: 42px; padding: 0; }
 }

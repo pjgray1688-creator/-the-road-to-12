@@ -17,6 +17,14 @@ export default async function ClubMorePage({ searchParams }: { searchParams?: Pr
     context.repository.hasCapability(context.organisation.id, user.id, "members.import"),
     Promise.resolve(["gym_admin", "owner"].includes(context.role)),
   ]);
+  const glowLocations = context.organisation.slug === "madhouse-gym" && context.navigation.services
+    ? await context.repository.listLocations(context.organisation.id).catch(() => [])
+    : [];
+  const carlton = glowLocations.find(location => location.active && location.name.toLocaleLowerCase("en-GB").includes("carlton"));
+  const glowAccess = carlton
+    ? await client.rpc("club_location_authorized", { p_organisation_id: context.organisation.id, p_location_id: carlton.id })
+    : { data: false, error: null };
+  const canManageGlowZone = context.navigation.services && context.navigation.management && !glowAccess.error && glowAccess.data === true;
   const groups: Array<{ title: string; items: Destination[] }> = [
     { title: "Finance & cash", items: [
       ...(context.navigation.finance ? [{ label: "Finance & sales", href: `/club/payments${q}` }] : []),
@@ -34,7 +42,7 @@ export default async function ClubMorePage({ searchParams }: { searchParams?: Pr
       ...(context.navigation.promotions ? [{ label: "Products & pricing", href: `/club/products${q}` }, { label: "Website Shop products", href: `/club/website-shop${q}` }, { label: "Website Shop orders", href: `/club/website-shop/orders${q}` }, { label: "Manage offers", href: `/club/promotions${q}` }] : []),
     ] },
     { title: "Operations & settings", items: [
-      ...(context.navigation.services && context.navigation.finance ? [{ label: "Glow Zone management & sales", href: `/club/sunbeds?org=${encodeURIComponent(context.organisation.id)}&view=management` }] : []),
+      ...(canManageGlowZone ? [{ label: "Glow Zone management & sales", href: `/club/sunbeds?org=${encodeURIComponent(context.organisation.id)}&view=management` }] : []),
       ...(context.navigation.workReview ? [{ label: "Work submissions", href: `/club/work/review${q}` }] : []),
       ...(context.navigation.venues ? [{ label: "Venues & settings", href: `/club/locations${q}` }, { label: "Shared stations", href: `/club/stations${q}` }] : []),
       ...(canClassSetup ? [{ label: "Class, rota & daily-check setup", href: `/club/classes/setup${q}` }] : []),

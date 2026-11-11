@@ -6,7 +6,8 @@ import { summarizeCompletedGlowSales } from "../lib/glow-zone-finance";
 const migrationPath = new URL("../supabase/migrations/2027-01-24-glow-zone-carlton-operations-guards.sql", import.meta.url);
 const componentPath = new URL("../components/glow-zone-reception-scanner.tsx", import.meta.url);
 const actionsPath = new URL("../app/club/sunbeds/actions.ts", import.meta.url);
-const shellPath = new URL("../components/club-shell.tsx", import.meta.url);
+const shellPath = new URL("../components/club-desktop-shell.tsx", import.meta.url);
+const layoutPath = new URL("../app/club/layout.tsx", import.meta.url);
 const managementPath = new URL("../app/club/more/page.tsx", import.meta.url);
 const pagePath = new URL("../app/club/sunbeds/page.tsx", import.meta.url);
 const operationUiPath = new URL("../components/club-sunbed-operations.tsx", import.meta.url);
@@ -56,11 +57,17 @@ test("invalid and expired requests and insufficient balances fail before credit 
 });
 
 test("Club navigation exposes staff operations and gates management reporting", async () => {
-  const [shell, management, page] = await Promise.all([
-    readFile(shellPath, "utf8"), readFile(managementPath, "utf8"), readFile(pagePath, "utf8"),
+  const [shell, layout, management, page] = await Promise.all([
+    readFile(shellPath, "utf8"), readFile(layoutPath, "utf8"), readFile(managementPath, "utf8"), readFile(pagePath, "utf8"),
   ]);
-  assert.match(shell, /navigation\?\.services \? \[\{ label: "Glow Zone"/);
-  assert.match(management, /navigation\.services && context\.navigation\.finance/);
+  assert.match(shell, /access\.glowZone \? <div className=\{styles\.operationalSubNavigation\}/);
+  assert.match(layout, /context\.navigation\.services&&carlton/);
+  assert.match(layout, /club_location_authorized/);
+  assert.match(layout, /access\.data===true/);
+  assert.match(shell, /access\.services && access\.management \? \[\{ label: "Glow Zone management"/);
+  assert.match(management, /context\.navigation\.services && context\.navigation\.management && !glowAccess\.error && glowAccess\.data === true/);
+  assert.match(management, /club_location_authorized/);
+  assert.doesNotMatch(shell, /Glow Zone management[^\n]*access\.finance/);
   assert.match(page, /params\?\.view==="management"&&canViewFinance/);
   assert.match(page, /club_location_authorized/);
 });

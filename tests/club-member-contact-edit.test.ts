@@ -22,6 +22,24 @@ test("member record onboarding remains available because it is an active creatio
   assert.match(page, /ClubMemberOnboarding/);
   assert.match(component, /New member/);
   assert.match(component, /Existing member/);
+  assert.match(component, /Add or assign a membership/);
+  assert.match(component, /Create a member record or assign a membership to an existing customer/);
+});
+
+test("linked member profiles show the name once and retain contact editing", () => {
+  const linked = read("app/club/members/[userId]/page.tsx");
+  const customer = read("app/club/members/customer/[customerId]/page.tsx");
+  assert.doesNotMatch(linked, /IDENTITY<\/span><h2>\{customer\?\.displayName/);
+  assert.doesNotMatch(customer, /IDENTITY<\/span><h2>\{customer\.displayName/);
+  assert.match(linked, /<ClubMemberContactEditor/);
+});
+
+test("contact editing action has readable purple button states", () => {
+  const css = read("components/club-member-contact-editor.module.css");
+  assert.match(css, /\.edit,\.save\{background:#633582;color:#fff\}/);
+  assert.match(css, /\.edit:hover:not\(:disabled\),\.save:hover:not\(:disabled\)\{background:#51276f;color:#fff\}/);
+  assert.match(css, /\.edit:focus-visible,\.save:focus-visible,\.cancel:focus-visible/);
+  assert.match(css, /\.edit:disabled,\.save:disabled\{background:#806d8b;color:#fff/);
 });
 
 test("Refunds keeps a normal finance KPI grid cell and Export CSV is styled as a compact action", () => {
