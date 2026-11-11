@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { serverSupabase } from "@/lib/supabase-server";
-import { resolveClubOperationalContext } from "@/lib/club-server-context";
+import { isClubStaffRole, listClubOrganisationContexts, resolveClubOperationalContext, toClubNavContexts } from "@/lib/club-server-context";
 import { ClubIdentityControl } from "@/components/club-identity-control";
+import { ClubDesktopShell, type DesktopClubLocation } from "@/components/club-desktop-shell";
+import { resolveOrganisationTheme } from "@/lib/club";
 import { ClubStationTimeout } from "@/components/club-station-lock";
 import { cookies } from "next/headers";
 import { CLUB_STATION_COOKIE, stationCookieValue, stationSessionTtlSeconds } from "@/lib/club-station";
@@ -27,5 +29,15 @@ export default async function ClubLayout({ children }: Readonly<{ children: Reac
   const lockRoute=(await headers()).get("x-r12-club-lock-route")==="1";
   const firstName=reviewer?"Google Play reviewer":profile.data?.first_name||user?.user_metadata?.first_name||user?.email?.split("@")[0]||"Staff";
   const fullName=reviewer?"Google Play reviewer":[profile.data?.first_name,profile.data?.last_name].filter(Boolean).join(" ")||profile.data?.display_name||user?.user_metadata?.display_name||firstName;
-  return <>{user&&!(station&&lockRoute)?<ClubIdentityControl firstName={firstName} fullName={fullName} photoUrl={typeof user.user_metadata?.avatar_url==="string"?user.user_metadata.avatar_url:undefined}/>:null}<ClubStationTimeout enabled={Boolean(station&&user&&!lockRoute)} timeoutMinutes={stationSessionTtlSeconds()/60}/>{children}</>;
+  const contexts=user&&!reviewer&&!(station&&lockRoute)?await listClubOrganisationContexts(client,user.id).catch(()=>[]):[];
+  const staffContexts=contexts.filter(context=>isClubStaffRole(context.role));
+  const navContexts=toClubNavContexts(staffContexts).map(context=>({ ...context, accent: resolveOrganisationTheme(context.organisation).primaryAccent }));
+  const locationsByOrganisation:Record<string,DesktopClubLocation[]>={};
+  await Promise.all(staffContexts.map(async context=>{
+    const locations=await context.repository.listLocations(context.organisation.id).catch(()=>[]);
+    locationsByOrganisation[context.organisation.id]=locations.map(location=>({id:location.id,name:location.name,active:location.active}));
+  }));
+  const identity=user&&!(station&&lockRoute)?<ClubIdentityControl firstName={firstName} fullName={fullName} photoUrl={typeof user.user_metadata?.avatar_url==="string"?user.user_metadata.avatar_url:undefined}/>:null;
+  const content=staffContexts.length&&!reviewer? <ClubDesktopShell contexts={navContexts} locationsByOrganisation={locationsByOrganisation} identityControl={identity}>{children}</ClubDesktopShell>:children;
+  return <><div className="club-desktop-mobile-identity">{identity}</div><ClubStationTimeout enabled={Boolean(station&&user&&!lockRoute)} timeoutMinutes={stationSessionTtlSeconds()/60}/>{content}</>;
 }

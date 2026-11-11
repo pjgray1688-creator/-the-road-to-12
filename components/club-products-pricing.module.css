@@ -3,7 +3,21 @@
 .filters { display:flex; flex-wrap:wrap; gap:8px; }
 .filters button { min-height:44px; }
 .search { width:100%; min-height:46px; padding:12px 14px; border:1px solid var(--line); border-radius:10px; background:var(--panel2); color:var(--text); }
+.exceptionControls{display:grid;grid-template-columns:minmax(0,1fr) minmax(170px,.35fr);align-items:end;gap:10px}
+.exceptionControls label{display:grid;gap:5px;color:var(--muted);font-size:11px;font-weight:700}
+.exceptionControls select{min-height:42px;padding:8px 10px;border:1px solid var(--line);border-radius:9px;background:var(--panel2);color:var(--text);font:inherit}
 .results { display:grid; gap:1px; }
+.tableWrap{min-width:0;overflow:auto;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
+.exceptionTable{width:100%;border-collapse:collapse;table-layout:fixed;text-align:left;font-size:12px}
+.exceptionTable th,.exceptionTable td{padding:9px 11px;border-bottom:1px solid var(--line);overflow-wrap:anywhere}
+.exceptionTable th{background:var(--panel2);color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.04em}
+.exceptionTable tr:last-child td{border-bottom:0}
+.exceptionTable th:first-child{width:48%}.exceptionTable th:nth-child(2){width:23%}.exceptionTable th:nth-child(3){width:15%}
+.exceptionTable td span{display:inline-flex;padding:3px 7px;border:1px solid var(--line);border-radius:999px;background:var(--panel2);font-size:10px}
+.exceptionTable button{min-height:32px;padding:5px 9px!important;font-size:11px}
+.pagination{display:flex;align-items:center;justify-content:flex-end;gap:9px;font-size:11px;color:var(--muted)}
+.pagination button{min-height:34px;padding-inline:10px}.pagination button:disabled{opacity:.45}
+@media(max-width:620px){.exceptionControls{grid-template-columns:1fr}.exceptionControls select{width:100%}}
 .supplierPanel { display:grid; gap:16px; margin-block:24px; }
 .controls { display:flex; flex-wrap:wrap; gap:12px; }
 .controls label { display:grid; gap:6px; flex:1 1 160px; }
@@ -15,7 +29,7 @@
 .facts div { min-width:0; overflow-wrap:anywhere; }
 .facts dt { font-size:12px; color:var(--muted); }
 .facts dd { margin:4px 0 0; }
-.warning { color:#fbbf24; }
+.warning { color:#7a4b00; }
 .duplicateCompare { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:12px; margin-block:12px; }
 .duplicateColumn { border:1px solid var(--line); border-radius:10px; padding:12px; }
 .duplicateColumn h4 { margin:0 0 8px; }
@@ -27,3 +41,15 @@
 .progressTrack { height:12px; border-radius:999px; background:var(--panel2); overflow:hidden; }
 .progressTrack span { display:block; height:100%; border-radius:inherit; background:var(--accent,#8b5cf6); transition:width .4s ease; }
 .history { padding-left:20px; overflow-wrap:anywhere; }
+@media (min-width:1100px) {
+  :global(.club-products-pricing-page) .overview,:global(.club-products-pricing-page) .supplierPanel { color:#302638; }
+  :global(.club-products-pricing-page) .overview > section { padding:16px; border:1px solid #e4dfe8; border-radius:11px; background:#fff; }
+  :global(.club-products-pricing-page) .overview h2,:global(.club-products-pricing-page) .supplierPanel h2 { color:#302638; }
+  :global(.club-products-pricing-page) .offer,:global(.club-supplier-catalogue-page) .offer { border-color:#e3dee7; background:#fff; color:#302638; }
+  :global(.club-products-pricing-page) .offer summary,:global(.club-supplier-catalogue-page) .offer summary { color:#302638; }
+  :global(.club-products-pricing-page) .offer summary small,:global(.club-supplier-catalogue-page) .offer summary small,:global(.club-products-pricing-page) .offer p,:global(.club-supplier-catalogue-page) .offer p,:global(.club-products-pricing-page) .offer .facts dt,:global(.club-supplier-catalogue-page) .offer .facts dt { color:#706777; }
+  :global(.club-products-pricing-page) .offer input,:global(.club-products-pricing-page) .offer select,:global(.club-supplier-catalogue-page) .offer input { border:1px solid #d9d3df; border-radius:7px; background:#fff; color:#302638; }
+  :global(.club-products-pricing-page) .offer button.primary,:global(.club-supplier-catalogue-page) .offer button.primary { min-height:36px; border:1px solid #633582; background:#75429b; color:#fff; opacity:1; }
+  :global(.club-products-pricing-page) .offer button.secondary,:global(.club-supplier-catalogue-page) .offer button.secondary { min-height:34px; border:1px solid #d9d3df; background:#fff; color:#473651; opacity:1; }
+  :global(.club-products-pricing-page) .controls input,:global(.club-products-pricing-page) .controls select,:global(.club-supplier-catalogue-page) .offer input[type=file] { min-height:36px; padding:7px 9px; color:#302638; }
+}

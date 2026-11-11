@@ -10,6 +10,11 @@
   box-shadow: 0 7px 22px rgb(116 42 203 / 32%);
 }
 
+.addTrigger:active {
+  background: #7026c3 !important;
+  transform: translateY(1px);
+}
+
 .addTrigger:focus-visible {
   outline: 3px solid #e3c8ff;
   outline-offset: 3px;
@@ -112,6 +117,13 @@
 
 .accessForm button.primary:hover:not(:disabled) {
   background: #6320aa !important;
+}
+
+.accessForm button.primary:disabled {
+  background: #8b72a0 !important;
+  color: #fff !important;
+  opacity: 1;
+  cursor: wait;
 }
 
 .preparedList {

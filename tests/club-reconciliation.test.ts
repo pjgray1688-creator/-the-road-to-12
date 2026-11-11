@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { filterCashForPeriod, reconciliationCsv, reconciliationState, summariseReconciliation } from "@/lib/club-reconciliation";
+import { classifyReconciliationOrders, filterCashForPeriod, reconciliationCsv, reconciliationState, summariseReconciliation } from "@/lib/club-reconciliation";
 
 const orders = [
   { id: "sale", created_at: "2026-09-01T10:00:00Z", status: "paid", subtotal_minor: 1000, discount_minor: 100, total_minor: 900, currency: "GBP" },
@@ -47,4 +47,16 @@ test("partial payments are not reconciled and multiple tenders are represented",
   assert.match(csv, /stripe_merchant_entities/);
   assert.match(csv, /madhouse_products_services/);
   assert.match(csv, /reconciled/);
+});
+
+test("only paid, fulfilled and refunded orders appear as completed transactions", () => {
+  const { sales, attempts } = classifyReconciliationOrders(orders);
+  assert.deepEqual(sales.map(order => order.id), ["sale", "comp"]);
+  assert.deepEqual(attempts.map(order => order.id), ["unpaid", "cancelled"]);
+  const csv = reconciliationCsv(orders, []);
+  assert.match(csv, /sale/);
+  assert.equal(csv.trim().split("\n").length, 3, "only the two completed order rows are exported");
+  assert.doesNotMatch(csv, /"cancelled"/);
+  const references = csv.trim().split("\n").slice(1).map(line => line.split(",")[1]);
+  assert.deepEqual(references, ['"sale"', '"comp"']);
 });

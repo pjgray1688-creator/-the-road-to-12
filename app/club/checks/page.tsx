@@ -15,7 +15,17 @@ export default async function ClubChecksPage({ searchParams }: { searchParams?: 
   const locationAccess = canReview ? null : await client.from("club_staff_location_access").select("location_id").eq("organisation_id", context.organisation.id).eq("user_id", user.id);
   const allowedLocationIds = new Set((locationAccess?.data ?? []).map(row => String(row.location_id)));
   const allowedLocations = canReview ? locations : locations.filter(location => location.active && allowedLocationIds.has(location.id));
-  let locationId = params?.location && allowedLocations.some(location => location.id === params.location) ? params.location : allowedLocations[0]?.id;
+  let scheduledWorkLocation: string | undefined;
+  if (!canReview && !params?.location && allowedLocations.length) {
+    const now = new Date();
+    const schedule = await client.rpc("club_list_shared_schedule", { p_organisation_id: context.organisation.id, p_from: now.toISOString(), p_to: new Date(now.getTime() + 14 * 86400000).toISOString(), p_staff_user_id: user.id, p_location_id: null });
+    if (!schedule.error && Array.isArray(schedule.data)) {
+      const allowed = new Set(allowedLocations.map(location => location.id));
+      const shift = (schedule.data as Array<Record<string, unknown>>).filter(event => event.eventType === "rota_shift" && typeof event.locationId === "string" && allowed.has(event.locationId) && typeof event.startsAt === "string" && new Date(event.startsAt).getTime() >= now.getTime()).sort((a, b) => String(a.startsAt).localeCompare(String(b.startsAt)))[0];
+      if (typeof shift?.locationId === "string") scheduledWorkLocation = shift.locationId;
+    }
+  }
+  let locationId = params?.location && allowedLocations.some(location => location.id === params.location) ? params.location : scheduledWorkLocation ?? allowedLocations[0]?.id;
   if (!locationId) return <AppShell className="module-page club-page"><PageHeader eyebrow="R12 CLUB" title="Daily checks" /><EmptyState title="No venue access assigned">Ask a manager to assign your staff account to a venue.</EmptyState><AppNav /></AppShell>;
   if (!canReview && params?.location) { const access = await client.rpc("club_location_authorized", { p_organisation_id: context.organisation.id, p_location_id: params.location }); if (access.error || access.data !== true) locationId = allowedLocations[0]?.id; }
   const location = locations.find(item => item.id === locationId); if (!location) return null;

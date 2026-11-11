@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { presentClassAvailability } from "../lib/class-availability";
+import { displayClassTitle } from "../lib/club-class-presentation";
 
 const availability = (spacesRemaining: number, waitlistedCount = 0) => ({ sessionId: "session", capacity: 20, confirmedCount: 20 - spacesRemaining, spacesRemaining, waitlistedCount, isFull: spacesRemaining === 0 });
 const page = readFileSync(new URL("../app/club/classes/page.tsx", import.meta.url), "utf8");
@@ -9,15 +10,21 @@ const actions = readFileSync(new URL("../app/club/classes/actions.ts", import.me
 const components = readFileSync(new URL("../components/club-classes.tsx", import.meta.url), "utf8");
 const migration = readFileSync(new URL("../supabase/migrations/2026-09-07-club-classes-bookings-services.sql", import.meta.url), "utf8");
 
-test("class availability wording uses factual reusable thresholds", () => {
-  assert.deepEqual(presentClassAvailability(availability(10)), { summary: "20 spaces · 10 booked", status: "10 spaces available", tone: "neutral", fillPercent: 50 });
-  assert.equal(presentClassAvailability(availability(9)).status, "Filling up");
-  assert.equal(presentClassAvailability(availability(5)).status, "Filling up");
-  assert.equal(presentClassAvailability(availability(4)).status, "Only 4 spaces left");
-  assert.equal(presentClassAvailability(availability(2)).status, "Only 2 spaces left");
-  assert.equal(presentClassAvailability(availability(1)).status, "Last space");
+test("class availability shows actual occupancy and marks only full sessions", () => {
+  assert.deepEqual(presentClassAvailability(availability(10)), { summary: "10/20 booked", status: "Available", tone: "neutral", fillPercent: 50 });
+  assert.equal(presentClassAvailability(availability(9)).status, "Available");
+  assert.equal(presentClassAvailability(availability(5)).status, "Available");
+  assert.equal(presentClassAvailability(availability(1)).status, "Available");
   assert.equal(presentClassAvailability(availability(0)).status, "Full");
   assert.equal(presentClassAvailability(availability(0, 3)).status, "Full · 3 waiting");
+  assert.equal(presentClassAvailability(availability(1)).summary, "19/20 booked");
+});
+
+test("current class type replaces the stale Women Only session title without changing stored sessions", () => {
+  assert.equal(displayClassTitle("Women Only", "Girls and Gains"), "Girls and Gains");
+  assert.equal(displayClassTitle("HIIT", "HIIT"), "HIIT");
+  assert.equal(displayClassTitle("Circuit", "Circuit"), "Circuit");
+  assert.doesNotMatch(components, /· invitation pending/);
 });
 
 test("unlimited capacity has no fabricated remaining-space value", () => {
@@ -38,9 +45,16 @@ test("member timetable excludes cancelled, completed and already-started session
 });
 
 test("Club timetable defaults to six sessions with a clear View all control", () => {
-  assert.match(components, /filteredSessions\.slice\(0, 6\)/);
+  assert.match(components, /sessions\.slice\(0, 6\)/);
   assert.match(components, /View all classes/);
   assert.match(components, /Show six upcoming/);
+  assert.doesNotMatch(components, /All locations/);
+  assert.match(components, /weekday: "long"/);
+  assert.match(components, /month: "long"/);
+  assert.match(components, /sessionActions/);
+  assert.match(components, /Class register/);
+  assert.match(components, /Edit session/);
+  assert.doesNotMatch(components, /timeLabel.format(new Date(session.endsAt))/);
 });
 
 test("class type and session editors map through repository-backed server actions", () => {
@@ -61,8 +75,10 @@ test("management controls are role-aware and trainer edits remain host-scoped", 
 
 test("classes route has intentional empty, loading and safe error states", () => {
   const loading = readFileSync(new URL("../app/club/classes/loading.tsx", import.meta.url), "utf8"); const error = readFileSync(new URL("../app/club/classes/error.tsx", import.meta.url), "utf8");
-  assert.match(components, /No classes scheduled yet/); assert.match(components, />Create class</);
-  assert.match(loading, /Loading classes…/);
+  assert.match(components, /No classes scheduled yet/); assert.match(components, />Create Class</);
+  assert.match(loading, /Loading Classes and PT/);
+  assert.doesNotMatch(loading, /R12 CLUB|Timetable|organisation schedule/);
+  assert.match(readFileSync(new URL("../app/club/classes/loading.module.css", import.meta.url), "utf8"), /prefers-reduced-motion/);
   assert.match(page + error, /Classes couldn’t be loaded\./);
   assert.doesNotMatch(page + error + components, /Postgres|permission denied|42501/);
 });

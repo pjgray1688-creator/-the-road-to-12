@@ -12,7 +12,12 @@ export function resolveMemberProductAvailability(input: {
 }
 
 export function memberAvailabilityLabel(state: MemberAvailabilityState): string {
-  return state === "IN_GYM" ? "In Gym Now" : state === "OTHER_GYM" ? "Available at another gym" : state === "SUPPLIER_ORDER" ? "Available to Order" : "Unavailable";
+  return state === "IN_GYM" ? "In gym now" : state === "OTHER_GYM" ? "Available at another gym" : state === "SUPPLIER_ORDER" ? "Available to order" : "Unavailable";
+}
+
+export function memberProductFulfilmentLabel(state: MemberAvailabilityState, madeToOrder = false): string {
+  if (state === "UNAVAILABLE") return memberAvailabilityLabel(state);
+  return madeToOrder ? "Made to order" : memberAvailabilityLabel(state);
 }
 
 export function supplierOrderable(product: ClubCommerceProduct): boolean {

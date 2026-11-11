@@ -10,9 +10,11 @@ test("member onboarding is repository-backed and avoids fabricated accounts", ()
   const component = read("components/club-member-onboarding.tsx");
   const membersPage = read("app/club/members/page.tsx");
   const actions = read("app/club/members/actions.ts");
-  assert.match(membersPage, /Add or update a member/);
+  assert.match(membersPage, /ClubMemberOnboarding/);
   assert.doesNotMatch(membersPage, /ADD PERSON/);
-  assert.match(component, /Member<select/);
+  assert.match(component, /aria-label="Member record type"/);
+  assert.match(component, /Find membership customer/);
+  assert.match(component, /Search name, email or phone/);
   assert.match(component, /New member/);
   assert.doesNotMatch(component, /record a new walk-in/);
   assert.match(component, /assignMembershipAction/);

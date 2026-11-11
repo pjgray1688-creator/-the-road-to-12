@@ -619,7 +619,7 @@ test("Active Sports linker backfills generated prices without touching manual pr
 
 test("shared family selector exposes persisted prices and real size/flavour choices", () => {
   const source = readFileSync(new URL("../components/club-product-family-selector.tsx", import.meta.url), "utf8");
-  assert.match(source, /priceFor\(card, availability\)/);
+  assert.match(source, /availableVariantPriceLabel\(card\.variants, availability\)/);
   assert.match(source, /club-family-option/);
   assert.match(source, /key !== "orderUnit"/);
   assert.doesNotMatch(source, /Price not set/);
@@ -719,7 +719,7 @@ test("family tiles select an image-bearing sibling and preserve local GSN imager
   const selector = await fs.readFile("components/club-product-family-selector.tsx", "utf8");
   const clubShopPage = await fs.readFile("app/club/shop/page.tsx", "utf8");
   assert.match(selector, /card\.variants\.find\(variant => productImageUrl\(variant\)\)/);
-  assert.match(selector, /resolved\?\.variantImageReference/);
+  assert.match(selector, /const image = preview\?\.variantImageReference/);
   assert.match(clubShopPage, /imagePipeline/);
   assert.match(clubShopPage, /canonicalProductsWithImage/);
   assert.match(clubShopPage, /finalUniverseWithImage/);

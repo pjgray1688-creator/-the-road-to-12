@@ -30,3 +30,33 @@
 .workspace:not(.coachMode) .results{border-color:#ddd6e3;background:#faf8fb}
 .workspace:not(.coachMode) .results button{border-bottom-color:#e4dee8;color:#2f2734}
 .workspace:not(.coachMode) .results button:hover{background:#f1e8f8}
+
+/* The Coach calendar is reused in Club, with Club-only visual tokens. */
+.workspace.clubMode{border-color:#ded7e5;background:linear-gradient(145deg,#fff,#f8f5fa);color:#17131d;box-shadow:0 18px 50px rgba(42,29,50,.1)}
+.clubMode .heading p,.clubMode .event p,.clubMode .empty p,.clubMode .note{color:#706a76}
+.clubMode .dateStrip{border:1px solid #e3dde8;background:#f5f1f7}
+.clubMode .dateCell{color:#716a78}
+.clubMode .dateCell.today{color:#6931a0}
+.clubMode .dateCell.selected{border-color:#8a4bc4;background:#7544c5;color:#fff;box-shadow:0 8px 20px rgba(117,68,197,.22)}
+.clubMode .dateCell.selected small,.clubMode .dateCell.selected strong{color:#fff}
+.clubMode .coachViewLabel{color:#6931a0}
+.clubMode .event{border-color:#e2dce7;border-left-color:#8a4bc4;background:#fff;box-shadow:0 6px 18px rgba(42,29,50,.04)}
+.clubMode .event time{color:#312837}
+.clubMode .event time small,.clubMode .notes{color:#77707d}
+.clubMode .eventKind{color:#6931a0}
+.clubMode .event.pt_session,.clubMode .event.class{border-left-color:#8a4bc4;background:#fff}
+.clubMode .status{border-color:#ddd6e3;color:#665e6d}
+.clubMode .empty{border-color:#ddd6e3}
+.clubMode .dateControls button,.clubMode .heading .dateControls button{min-height:38px;border:1px solid #ddd5e5;border-radius:8px;background:#fff;color:#4d3d59;box-shadow:none}
+.clubMode .dateControls button:hover,.clubMode .heading .dateControls button:hover{border-color:#b794d0;background:#f5eef9;color:#542776}
+.clubMode .heading .dateControls button.primary{border-color:#633582;background:#75429b;color:#fff}
+.clubMode .heading .dateControls button.primary:hover{background:#633582;color:#fff}
+.clubMode button:focus-visible{outline:3px solid rgb(117 66 155 / 28%);outline-offset:2px}
+.clubMode .sheet{border-color:#ddd5e3;background:#fff;color:#17131d;box-shadow:0 30px 100px rgba(26,18,31,.24)}
+.clubMode .sheet header h3{color:#33243e}
+.clubMode .sheet label{color:#625a68}
+.clubMode .sheet input,.clubMode .sheet select,.clubMode .sheet textarea{border-color:#d9d2df;background:#fff;color:#17131d}
+.clubMode .results{border-color:#ddd6e3;background:#faf8fb}
+.clubMode .results button{border-bottom-color:#e4dee8;color:#2f2734}
+.clubMode .results button:hover{background:#f1e8f8}
+@media(prefers-reduced-motion:reduce){.clubMode *{scroll-behavior:auto!important;transition:none!important}}

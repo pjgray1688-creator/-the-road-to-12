@@ -1,5 +1,9 @@
 export type ReconciliationOrder = { id: string; created_at: string; location_id?: string | null; status: string; subtotal_minor: number; discount_minor: number; total_minor: number; currency: string; channel?: string };
 export type ReconciliationPayment = { id: string; order_id: string; created_at: string; method: string; amount_minor: number; status: string; stripe_merchant_entity?: string | null };
+export function classifyReconciliationOrders<T extends { status: string }>(orders: T[]) {
+  const sales = orders.filter(order => ["paid", "fulfilled", "refunded"].includes(order.status));
+  return { sales, attempts: orders.filter(order => !["paid", "fulfilled", "refunded"].includes(order.status)) };
+}
 export type ReconciliationSummary = { grossMinor: number; discountMinor: number; netMinor: number; paidMinor: number; cashMinor: number; balanceMinor: number; externalMinor: number; refundMinor: number; unpaidMinor: number; pendingMinor: number; failedMinor: number; compValueMinor: number };
 export function filterCashForPeriod<T extends { status: string; declaredAt: string; locationId?: string }>(cash: T[], from: Date, to: Date, locationId?: string): T[] { return cash.filter(item => item.status === "confirmed" && new Date(item.declaredAt) >= from && new Date(item.declaredAt) <= to && (!locationId || item.locationId === locationId)); }
 export function summariseReconciliation(orders: ReconciliationOrder[], payments: ReconciliationPayment[], refunds: Array<{ amount_minor: number; order_id: string }> = []): ReconciliationSummary {
@@ -21,5 +25,14 @@ export function summariseReconciliation(orders: ReconciliationOrder[], payments:
   summary.refundMinor = refunds.reduce((sum, refund) => sum + (byOrder.has(refund.order_id) ? refund.amount_minor : 0), 0);
   return summary;
 }
+export function completedCardTotalsByMerchant(orders: ReconciliationOrder[], payments: ReconciliationPayment[]) {
+  const completedIds = new Set(orders.filter(order => order.status === "paid" || order.status === "fulfilled").map(order => order.id));
+  return payments.reduce((totals, payment) => {
+    if (payment.status === "paid" && payment.method === "card" && completedIds.has(payment.order_id) && payment.stripe_merchant_entity) {
+      totals[payment.stripe_merchant_entity] = (totals[payment.stripe_merchant_entity] ?? 0) + payment.amount_minor;
+    }
+    return totals;
+  }, {} as Record<string, number>);
+}
 export function reconciliationState(order: ReconciliationOrder, payments: ReconciliationPayment[]): "reconciled" | "unpaid" | "pending" | "failed" | "comp" { if (order.total_minor === 0 && order.discount_minor > 0) return "comp"; const related = payments.filter(payment => payment.order_id === order.id); const paid = related.filter(payment => payment.status === "paid").reduce((sum,payment)=>sum+payment.amount_minor,0); if (paid === order.total_minor && order.total_minor > 0) return "reconciled"; if (related.some(payment => payment.status === "pending")) return "pending"; if (related.some(payment => payment.status === "failed")) return "failed"; return "unpaid"; }
-export function reconciliationCsv(orders: ReconciliationOrder[], payments: ReconciliationPayment[]): string { const lines = ["timestamp,reference,location,transaction_type,gross,discount,net,payment_methods,stripe_merchant_entities,payment_state,reconciliation_state"]; return lines.concat(orders.map(order => { const related = payments.filter(item => item.order_id === order.id); const methods = [...new Set(related.map(item=>item.method))].join(" + "); const entities = [...new Set(related.filter(item=>item.method === "card").map(item => item.stripe_merchant_entity ?? "legacy_or_unverified"))].join(" + "); const states = [...new Set(related.map(item=>item.status))].join(" + "); return [order.created_at,order.id,order.location_id ?? "", "sale",(order.subtotal_minor/100).toFixed(2),(order.discount_minor/100).toFixed(2),(order.total_minor/100).toFixed(2),methods,entities,states || "unpaid",reconciliationState(order,payments)].map(value => `"${String(value).replaceAll('"','""')}"`).join(","); })).join("\n"); }
+export function reconciliationCsv(orders: ReconciliationOrder[], payments: ReconciliationPayment[]): string { const lines = ["timestamp,reference,location,transaction_type,gross,discount,net,payment_methods,stripe_merchant_entities,payment_state,reconciliation_state"]; return lines.concat(classifyReconciliationOrders(orders).sales.map(order => { const related = payments.filter(item => item.order_id === order.id); const methods = [...new Set(related.map(item=>item.method))].join(" + "); const entities = [...new Set(related.filter(item=>item.method === "card").map(item => item.stripe_merchant_entity ?? "legacy_or_unverified"))].join(" + "); const states = [...new Set(related.map(item=>item.status))].join(" + "); return [order.created_at,order.id,order.location_id ?? "", "sale",(order.subtotal_minor/100).toFixed(2),(order.discount_minor/100).toFixed(2),(order.total_minor/100).toFixed(2),methods,entities,states || "unpaid",reconciliationState(order,payments)].map(value => `"${String(value).replaceAll('"','""')}"`).join(","); })).join("\n"); }

@@ -1,0 +1,271 @@
+.inactive { display: contents; }
+.frame { display: contents; }
+.sidebar,.toolbar { display: none; }
+.workspace { min-width: 0; }
+.content { min-width: 0; }
+:global(.club-desktop-mobile-identity) { display: contents; }
+:global(.club-finance-desktop-only) { display:none; }
+
+@media (min-width: 1100px) {
+  :global(.club-camera-scan) { display:none!important; }
+  :global(.club-checklist-submit) { min-height:42px; padding:0 14px; border:1px solid #633582; border-radius:8px; background:#75429b!important; color:#fff!important; font-weight:750; }
+  :global(.club-checklist-submit:hover) { background:#633582!important; }
+  :global(.club-checklist-submit:focus-visible) { outline:3px solid rgb(117 66 155 / 28%); outline-offset:2px; }
+  .frame { --sidebar-width: 258px; display: block; min-height: 100dvh; background: #f5f4f7; }
+  .frame[data-collapsed="true"] { --sidebar-width: 76px; }
+  .sidebar { position: fixed; z-index: 60; inset: 0 auto 0 0; display: flex; flex-direction: column; width: var(--sidebar-width); padding: 18px 12px 14px; overflow: visible; color: #f6f2fa; background: #211c2a; border-right: 1px solid #342c40; transition: width 180ms ease-out; }
+  .brand { display: flex; align-items: center; gap: 11px; min-width: 0; height: 54px; margin: 0 0 23px; padding: 5px 7px; color: inherit; text-decoration: none; }
+  .brandLogo { display: grid; flex: 0 0 40px; width: 40px; height: 40px; place-items: center; overflow: hidden; border-radius: 12px; background: #fff; }
+  .brandLogo img { width: 100%; height: 100%; object-fit: contain; }
+  .brandText { display: grid; min-width: 0; gap: 3px; }
+  .brandText strong { overflow: hidden; color: #fff; font-size: 13px; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
+  .brandText small { color: #aaa1b6; font-size: 11px; }
+  .navigation { display: grid; align-content: start; gap: 4px; min-height: 0; overflow: auto; scrollbar-width: thin; }
+  .navCaption { padding: 0 11px 7px; color: #91879d; font-size: 9px; font-weight: 800; letter-spacing: .13em; }
+  .navigation > a,.managementGroup > button { position: relative; display: flex; align-items: center; gap: 12px; width: 100%; min-width: 0; min-height: 42px; padding: 0 11px; border: 1px solid transparent; border-radius: 9px; background: transparent; color: #c6bfce; font: inherit; font-size: 12px; font-weight: 650; text-align: left; text-decoration: none; transition: background-color 150ms ease-out, color 150ms ease-out; }
+  .navigation > a svg,.managementGroup > button svg { flex: 0 0 19px; color: #a79cb4; }
+  .navigation > a > span,.managementGroup > button > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .navigation > a:hover,.managementGroup > button:hover { background: #30283a; color: #fff; }
+  .navigation > a:focus-visible,.managementGroup > button:focus-visible,.collapseButton:focus-visible { outline: 2px solid #d4a7ff; outline-offset: 2px; }
+  .navigation > a.active,.managementGroup > button.active { color: #fff; background: color-mix(in srgb, var(--tenant-accent) 20%, #30283a); border-color: color-mix(in srgb, var(--tenant-accent) 42%, #342c40); }
+  .navigation > a.active::before,.managementGroup > button.active::before { position: absolute; inset: 8px auto 8px -1px; width: 3px; border-radius: 0 3px 3px 0; background: var(--tenant-accent); content: ""; }
+  .navigation > a.active svg,.managementGroup > button.active svg { color: #e0c2ff; }
+  .managementGroup { display: grid; gap: 3px; }
+  .managementGroup > button { cursor: pointer; }
+  .managementGroup > button b { margin-left: auto; color: #958aa0; font-size: 13px; font-weight: 500; transition: transform 150ms ease-out; }
+  .managementGroup > button b.chevronOpen { transform: rotate(180deg); }
+  .subNavigation { display: grid; gap: 2px; margin: 0 0 4px 21px; padding-left: 10px; border-left: 1px solid #4a3e55; }
+  .subNavigation a { min-width: 0; padding: 8px 9px; border-radius: 7px; color: #b8afc3; font-size: 11px; line-height: 1.25; text-decoration: none; }
+  .subNavigation a:hover,.subNavigation a:focus-visible { color: #fff; background: #30283a; outline: none; }
+  .subNavigation a:focus-visible { box-shadow: 0 0 0 2px #d4a7ff; }
+  .subNavigation a.subActive { color: #f0ddff; background: #352840; }
+  .sidebarBottom { display: grid; gap: 12px; margin-top: auto; padding: 14px 3px 0; border-top: 1px solid #3a3144; }
+  .roleBadge { width: fit-content; max-width: 100%; padding: 5px 9px; overflow: hidden; border: 1px solid #51405e; border-radius: 999px; color: #d3b7eb; font-size: 10px; font-weight: 750; text-overflow: ellipsis; white-space: nowrap; }
+  .collapseButton { display: flex; align-items: center; gap: 11px; min-height: 38px; padding: 0 8px; border: 0; border-radius: 8px; background: transparent; color: #aaa0b6; font-size: 11px; text-align: left; cursor: pointer; }
+  .collapseButton:hover { background: #30283a; color: #fff; }
+  .collapseButton > span:first-child { width: 19px; color: #d0c7da; font-size: 20px; line-height: 1; text-align: center; }
+  .workspace { min-height: 100dvh; margin-left: var(--sidebar-width); transition: margin-left 180ms ease-out; }
+  .toolbar { position: sticky; z-index: 50; top: 0; display: flex; align-items: center; justify-content: space-between; gap: 18px; min-height: 66px; padding: 10px clamp(20px, 2.2vw, 34px); border-bottom: 1px solid #e7e4eb; background: rgb(255 255 255 / 94%); backdrop-filter: blur(14px); }
+  .toolbarControls { display: flex; align-items: center; justify-content: flex-end; gap: 10px; width: 100%; min-width: 0; }
+  .control { display: flex!important; align-items: center; gap: 8px!important; color: #766e7d; font-size: 11px; font-weight: 700; line-height: 1; white-space: nowrap; }
+  .control select { width: clamp(166px, 13vw, 184px); min-width: 166px; height: 38px; padding: 0 26px 0 10px; border: 1px solid #e0dce5; border-radius: 8px; background: #fff; color: #382f40; font: inherit; font-size: 11px; }
+  .control select:focus-visible,.search:focus-within { border-color: #9856d8; outline: 3px solid rgb(152 86 216 / 17%); outline-offset: 1px; }
+  .searchControl { display: flex; flex: 0 1 auto; align-items: center; gap: 8px; min-width: 0; }
+  .searchControl > label { flex: 0 0 auto; color: #766e7d; font-size: 11px; font-weight: 700; line-height: 1; white-space: nowrap; }
+  .search { display: flex; flex: 0 1 270px; align-items: center; width: clamp(210px, 22vw, 270px); min-width: 190px; height: 38px; margin: 0; padding: 0 10px; border: 1px solid #e0dce5; border-radius: 8px; background: #fff; }
+  .search input { width: 100%; min-width: 0; height: 34px; margin: 0; padding: 0; border: 0; outline: 0; background: transparent; color: #30263a; font-size: 12px; }
+  .search input:focus-visible { outline: 0; }
+  .search input::placeholder { color: #958d9c; }
+  .account { display: flex; align-items: center; }
+  .account :global(.club-native-identity-control) { max-width: none; margin: 0; padding: 0; }
+  .account :global(.club-native-identity-control details > summary) { min-height: 38px; border-color: #e4dfea; background: #faf9fb; color: #33283c; }
+  .account :global(.club-native-identity-control .name) { color: #33283c; }
+  .account :global(.club-native-identity-control .popover) { background: #211c2a; }
+  .content { width: 100%; max-width: 1780px; margin: 0 auto; padding: 24px clamp(20px, 2.2vw, 34px) 44px; }
+  .shopSellContent { padding-top: 12px; }
+  .shopNavigation { position: sticky; z-index: 45; top: var(--club-toolbar-height, 66px); display: flex; flex-wrap: wrap; gap: 5px; padding: 8px clamp(20px, 2.2vw, 34px); border-bottom: 1px solid #e7e4eb; background: #fbfafc; }
+  .shopNavigation { gap: 3px; padding-block: 6px; }
+  .shopNavigation a { display: inline-flex; align-items: center; min-height: 32px; padding: 0 10px; border: 1px solid transparent; border-radius: 7px; color: #62576b; font-size: 11px; font-weight: 700; text-decoration: none; }
+  .shopNavigation a:hover,.shopNavigation a:focus-visible { border-color: #e3d6ed; background: #fff; color: #532c73; outline: none; }
+  .shopNavigation a.shopActive { border-color: #d8c4e8; background: #f2eaf8; color: #532c73; }
+  .content :global(.club-page) { width: 100%; max-width: none; margin: 0; padding: 0; }
+  .content :global(.club-page > nav[aria-label="Club navigation"]) { display: none !important; }
+  .content :global(.club-page > .page-header) { align-items: center; min-height: 54px; margin: 0 0 18px; padding: 0; }
+  .content :global(.club-page.club-main-timetable > .page-header) { min-height: 0; margin-bottom: 3px; }
+  .content :global(.club-page > .page-header .page-header-description) { display:none; }
+  .content :global(.club-page > .page-header h1) { font-size: clamp(24px, 2vw, 31px); letter-spacing: -.035em; }
+  .content :global(.club-page > .page-header .eyebrow) { margin-bottom: 3px; font-size: 9px; }
+  .content :global(.club-page > .page-header .eyebrow),.content :global(.club-page > .page-header .page-header-description) { display: none; }
+  .content :global(.club-page .surface) { border-radius: 12px; box-shadow: 0 2px 8px rgb(34 25 45 / 3%); }
+  .content :global(.club-page > .app-nav) { display: none !important; }
+  .content :global(.club-shop-tabs[aria-label="Shop areas"]) { display: none !important; }
+  .content :global(.club-member-history-note) { display: none; }
+  .content :global(.club-legacy-overview),.content :global(.club-brand-banner) { display: none !important; }
+  .inactive { display: contents; }
+  :global(.club-management-groups) { display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); grid-auto-rows:1fr; align-items:stretch; gap:14px; }
+  :global(.club-management-groups > section) { height:100%; padding:16px!important; }
+  :global(.club-management-groups h2) { margin:0 0 10px; color:#33283c; font-size:14px; }
+  :global(.club-management-links) { display:grid; gap:5px; }
+  :global(.club-management-links a) { display:flex; align-items:center; justify-content:space-between; gap:10px; min-height:39px; padding:8px 10px; border:1px solid #eee8f2; border-radius:8px; color:#4b3b56; font-size:12px; font-weight:700; text-decoration:none; }
+  :global(.club-management-links a:hover),:global(.club-management-links a:focus-visible) { border-color:#d8c3e7; background:#faf6fd; outline:none; }
+  :global(.club-management-links a span) { color:#8e63a8; font-size:18px; }
+  :global(.club-members-toolbar) { display:flex; justify-content:flex-end; margin-bottom:8px; }
+  :global(.club-member-import) { display:none!important; }
+  :global(.club-class-tools) { display:flex; flex-wrap:wrap; gap:8px; margin-top:2px; }
+  :global(.club-class-tools a) { display:inline-flex; align-items:center; min-height:36px; padding:7px 11px; border:1px solid #ded5e6; border-radius:8px; background:#fff; color:#56336b; font-size:11px; font-weight:700; text-decoration:none; }
+  :global(.club-class-tools a:hover),:global(.club-class-tools a:focus-visible) { background:#f8f1fc; outline:2px solid rgb(152 86 216 / 18%); }
+  :global(.club-shop-offers) { display:grid; gap:8px; }
+  :global(.club-shop-offers article) { display:flex; align-items:center; justify-content:space-between; gap:18px; padding:14px 16px; border:1px solid #e6e0ea; border-radius:10px; background:#fff; }
+  :global(.club-shop-offers article > div:first-child) { min-width:0; }
+  :global(.club-shop-offers article span),:global(.club-shop-offers article small) { color:#776d80; font-size:10px; }
+  :global(.club-shop-offers article h2) { margin:3px 0; color:#33283c; font-size:14px; }
+  :global(.club-shop-offers article p) { margin:0; color:#716878; font-size:11px; }
+  :global(.club-shop-offers article > div:last-child) { display:grid; justify-items:end; gap:4px; white-space:nowrap; }
+  :global(.club-shop-offers article strong) { color:#6e4386; font-size:11px; text-transform:capitalize; }
+  :global(.club-class-tools),:global(.club-management-groups),:global(.club-shop-offers) { min-width:0; }
+  :global(.club-finance-kpis) { grid-template-columns:repeat(4,minmax(0,1fr)); gap:9px; }
+  :global(.club-finance-kpis > section) { min-width:0; padding:13px!important; }
+  :global(.club-finance-kpis .eyebrow) { font-size:9px; }
+  :global(.club-finance-kpis h2) { margin:6px 0 0; font-size:21px; }
+  :global(.club-finance-export) { display:inline-flex; min-height:34px; align-items:center; justify-content:center; padding:6px 11px; border:1px solid #d8c9e7; border-radius:8px; background:#fff; color:#56317a; font-size:12px; font-weight:700; line-height:1.2; text-decoration:none; white-space:nowrap; }
+  :global(.club-finance-export:hover) { background:#f4eef9; border-color:#a982c7; text-decoration:none; }
+  :global(.club-finance-export:focus-visible) { outline:3px solid #b68add; outline-offset:2px; text-decoration:none; }
+  :global(.club-finance-action) { margin:0 0 10px; text-align:right; }
+  :global(.club-work-heading) { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+  :global(.club-work-heading h2) { margin:0; font-size:15px; }
+  :global(.club-work-heading a) { display:inline-flex; align-items:center; min-height:34px; padding:6px 10px; border:1px solid #ded5e6; border-radius:8px; color:#56336b; font-size:11px; font-weight:700; text-decoration:none; }
+  :global(.club-work-heading a:hover),:global(.club-work-heading a:focus-visible) { background:#f8f1fc; outline:2px solid rgb(152 86 216 / 18%); }
+  :global(.club-classes-page .workspaceIntro) { display:none; }
+  :global(.club-classes-page .workspace > .toolbar > div:first-child > p) { display:none; }
+  :global(.club-main-timetable .club-class-library),:global(.club-main-timetable .club-create-type) { display:none!important; }
+  :global(.club-page.club-main-timetable .workspace) { gap:10px; }
+  :global(.club-class-tools-mobile) { display:none!important; }
+  :global(.club-main-timetable .sessionCard) { grid-template-columns:64px minmax(0,1fr); border:1px solid #e6e1e9; border-radius:11px; background:#fff; box-shadow:0 2px 8px rgb(34 25 45 / 4%); }
+  :global(.club-main-timetable .timeRail) { justify-content:center; padding:10px 8px; border-color:#eeeaf1; background:#faf9fb; color:#342a3d; }
+  :global(.club-main-timetable .timeRail strong) { font-size:15px; }
+  :global(.club-main-timetable .sessionBody) { gap:8px; padding:11px 13px; color:#342a3d; }
+  :global(.club-main-timetable .sessionHeading h3) { margin:2px 0; color:#302638; font-size:14px; }
+  :global(.club-main-timetable .sessionMeta),:global(.club-main-timetable .detailRow) { color:#6e6476; font-size:11px; }
+  :global(.club-main-timetable .sessionHeading) { align-items:center; }
+  :global(.club-main-timetable .statusPill) { padding:3px 7px; background:#f2edf7; color:#624579; font-size:9px; }
+  :global(.club-main-timetable .club-default-session-status),:global(.club-main-timetable .club-public-session-visibility) { display:none; }
+  :global(.club-main-timetable .empty a[href^="/club/classes/setup"]) { display:none; }
+  :global(.club-main-timetable .detailRow) { justify-content:flex-start; gap:16px; }
+  :global(.club-main-timetable .futureCommunitySlot) { display:none; }
+  :global(.club-main-timetable .editButton) { display:inline-flex; align-items:center; justify-content:center; width:fit-content; min-height:31px; padding:5px 10px; border:1px solid #d8c8e4; border-radius:7px; background:#f7f1fb; color:#583872; font-size:11px; font-weight:700; text-decoration:none; opacity:1; }
+  :global(.club-main-timetable .editButton:hover),:global(.club-main-timetable .editButton:focus-visible) { background:#efe4f7; outline:2px solid rgb(152 86 216 / 20%); }
+  :global(.club-main-timetable .dayGroup) { grid-template-columns:112px minmax(0,1fr); gap:14px; }
+  :global(.club-main-timetable .daySessions) { gap:7px; }
+  :global(.club-main-timetable .timetable) { gap:15px; }
+  :global(.club-main-timetable .sessionBody) { gap:6px; padding:9px 11px; }
+  :global(.club-main-timetable .sessionHeading h3) { font-size:13px; }
+  :global(.club-main-timetable .dayGroup) { grid-template-columns:100px minmax(0,1fr); gap:10px; }
+  :global(.club-main-timetable .daySessions) { gap:6px; }
+  :global(.club-main-timetable .timetable) { gap:12px; }
+  :global(.club-main-timetable .availability) { grid-template-columns:minmax(0,1fr) minmax(70px,130px); gap:10px; }
+  :global(.club-main-timetable .availability) { min-height:29px; padding:5px 8px; }
+  :global(.club-page .club-work-heading + *) { margin-top:0; }
+  :global(.club-page .club-form-grid > button.primary),:global(.club-page .club-work-shifts button.primary) { min-height:38px; padding:8px 14px; border:1px solid #6f3b98; background:#75429b; color:#fff; font-weight:750; opacity:1; }
+  :global(.club-page .club-form-grid > button.primary:hover),:global(.club-page .club-form-grid > button.primary:focus-visible) { background:#603382; }
+  :global(.club-page .club-form-grid > button.primary:disabled) { background:#d8d0df; color:#5f5665; }
+  :global(.club-page .club-checks-module) { color:#31283a; }
+  :global(.club-page .club-checks-module .metric),:global(.club-page .club-checks-module .template) { border-color:#e4dfe8; background:#fff; color:#342b3c; }
+  :global(.club-page .club-checks-module .metric small),:global(.club-page .club-checks-module .checkRow small),:global(.club-page .club-checks-module .muted) { color:#746b7b; }
+  :global(.club-page .club-checks-module .formGrid label),:global(.club-page .club-checks-module .form label) { color:#4e4556; }
+  :global(.club-page .club-checks-module .form input),:global(.club-page .club-checks-module .form select),:global(.club-page .club-checks-module .form textarea) { border-color:#dcd6e1; background:#fff; color:#302638; }
+  :global(.club-page .club-checks-module .checklistToggle label) { color:#49345a; }
+  :global(.club-page.club-products-pricing-page) { --line:#e4dfe8; --panel:#fff; --panel2:#f8f6fa; --text:#302638; --muted:#766d7d; color:#302638; }
+  :global(.club-page .club-products-pricing-page .offer),:global(.club-page .club-products-pricing-page .importJob),:global(.club-page .club-products-pricing-page .duplicateColumn) { border-color:#e3dee7; background:#fff; color:#302638; }
+  :global(.club-page .club-products-pricing-page .offer summary),:global(.club-page .club-products-pricing-page .offer summary strong),:global(.club-page .club-products-pricing-page .offer h2),:global(.club-page .club-products-pricing-page .offer h3) { color:#302638; }
+  :global(.club-page .club-products-pricing-page .offer summary small),:global(.club-page .club-products-pricing-page .offer .facts dt),:global(.club-page .club-products-pricing-page .offer p),:global(.club-page .club-products-pricing-page .offer .history) { color:#706777; }
+  :global(.club-page .club-products-pricing-page .offer input),:global(.club-page .club-products-pricing-page .offer select),:global(.club-page .club-products-pricing-page .offer input[type=file]) { border:1px solid #d9d3df; border-radius:7px; background:#fff; color:#302638; }
+  :global(.club-page .club-products-pricing-page .offer button.primary) { min-height:36px; background:#75429b; color:#fff; opacity:1; }
+  :global(.club-page .club-products-pricing-page .offer button.secondary) { min-height:34px; border:1px solid #d9d3df; background:#fff; color:#473651; opacity:1; }
+  :global(.club-page .club-products-pricing-page .club-catalogue-row) { border-color:#e3dee7; background:#fff; color:#302638; }
+  :global(.club-page .club-products-pricing-page .club-catalogue-row summary),:global(.club-page .club-products-pricing-page .club-catalogue-row strong) { color:#302638; }
+  :global(.club-page .club-products-pricing-page .club-catalogue-row small),:global(.club-page .club-products-pricing-page .club-catalogue-row .muted) { color:#716878; }
+  :global(.club-page .balance-topup button.primary),:global(.club-page .balance-topup-complete button.primary) { min-height:38px; border:1px solid #633582; background:#75429b; color:#fff; opacity:1; }
+  :global(.club-page .club-cash-review) { display:grid; gap:10px; color:#302638; }
+  :global(.club-page .club-cash-review-list article) { display:flex; align-items:center; justify-content:space-between; gap:18px; padding:12px 14px; border:1px solid #e3dee7; border-radius:9px; background:#fff; }
+  :global(.club-page .club-cash-review-list article > div:first-child) { display:grid; gap:5px; }
+  :global(.club-page .club-cash-review-list article span) { color:#716878; font-size:11px; }
+  :global(.club-page .club-cash-review-actions) { display:flex; gap:6px; flex-wrap:wrap; }
+  :global(.club-page .club-cash-review-actions button) { min-height:32px; }
+  :global(.club-page .club-cash-review-dialog) { position:fixed; z-index:100; inset:0; display:grid; place-items:center; padding:20px; background:rgb(25 19 31 / 45%); }
+  :global(.club-page .club-cash-review-dialog > div) { display:grid; gap:12px; width:min(100%,440px); padding:20px; border:1px solid #e2dce8; border-radius:12px; background:#fff; color:#302638; box-shadow:0 16px 50px rgb(22 12 34 / 20%); }
+  :global(.club-page .club-cash-review-dialog label) { display:grid; gap:5px; color:#534a5c; font-size:12px; font-weight:700; }
+  :global(.club-page .club-cash-review-dialog input) { min-height:38px; padding:8px 10px; border:1px solid #d9d3df; border-radius:7px; color:#302638; }
+  :global(.club-page .club-cash-review-dialog > div > div) { display:flex; gap:8px; }
+  :global(.club-page .club-supplier-catalogue-page [aria-label="Supplier catalogue"]) { --club-border:#e3dee7; --club-surface:#fff; color:#302638; }
+  :global(.club-page .club-supplier-catalogue-page .club-catalogue-row) { border-color:#e3dee7; background:#fff; color:#302638; }
+  :global(.club-page .club-supplier-catalogue-page .club-catalogue-row small),:global(.club-page .club-supplier-catalogue-page .club-catalogue-row em) { color:#716878; }
+  :global(.club-page .club-supplier-catalogue-page .toolbar-actions button.primary),:global(.club-page .club-supplier-catalogue-page .club-catalogue-row button.primary) { min-height:34px; border:1px solid #633582; background:#75429b; color:#fff; opacity:1; }
+  :global(.club-page .club-supplier-catalogue-page input),:global(.club-page .club-supplier-catalogue-page select) { border-color:#d9d3df; background:#fff; color:#302638; }
+  :global(.club-page .club-work-shifts > .club-work-heading + .club-detail-row) { color:#302638; }
+  :global(.club-page .club-finance-kpi-definition) { display:block; max-width:240px; margin-top:6px; color:#776e7d; font-size:10px; line-height:1.35; }
+  :global(.club-page .club-finance-transaction-tables) { display:grid; gap:14px; }
+  :global(.club-finance-desktop-only) { display:block; }
+  :global(.club-finance-mobile-only),:global(.club-page .club-finance-kpi-definition) { display:none; }
+  :global(.club-page .club-finance-table-section) { min-width:0; padding:15px; border:1px solid #e4dfe8; border-radius:11px; background:#fff; }
+  :global(.club-page .club-finance-table-heading) { display:flex; align-items:end; justify-content:space-between; gap:14px; margin-bottom:10px; }
+  :global(.club-page .club-finance-table-heading h2) { margin:0; color:#302638; font-size:16px; }
+  :global(.club-page .club-finance-table-heading label) { display:grid; gap:4px; width:min(320px,40%); color:#5d5365; font-size:10px; font-weight:700; }
+  :global(.club-page .club-finance-table-heading input) { min-height:34px; margin:0; padding:6px 9px; border:1px solid #d9d3df; border-radius:7px; background:#fff; color:#302638; font-size:11px; }
+  :global(.club-page .club-finance-table-wrap) { overflow:auto; border:1px solid #ebe7ef; border-radius:8px; }
+  :global(.club-page .club-finance-table-wrap table) { width:100%; border-collapse:collapse; color:#382f40; font-size:11px; text-align:left; }
+  :global(.club-page .club-finance-table-wrap th),:global(.club-page .club-finance-table-wrap td) { padding:9px 10px; border-bottom:1px solid #eeeaf1; vertical-align:middle; }
+  :global(.club-page .club-finance-table-wrap th) { background:#faf9fb; color:#706777; font-size:9px; letter-spacing:.04em; text-transform:uppercase; }
+  :global(.club-page .club-finance-table-wrap tr:last-child td) { border-bottom:0; }
+  :global(.club-page .club-finance-table-wrap td:first-child) { min-width:220px; }
+  :global(.club-page .club-finance-table-wrap button) { min-height:29px; padding:4px 8px; }
+  :global(.club-page .club-finance-pagination) { display:flex; align-items:center; justify-content:flex-end; gap:10px; margin-top:9px; color:#716878; font-size:10px; }
+  :global(.club-page .club-finance-pagination button) { min-height:30px; padding:4px 9px; }
+  :global(.club-page .club-finance-filters) { display:flex; align-items:end; justify-content:flex-start; gap:12px; flex-wrap:wrap; }
+  :global(.club-page .club-finance-filters label) { display:grid; gap:4px; color:#5d5365; font-size:10px; font-weight:700; }
+  :global(.club-page .club-finance-filters input),:global(.club-page .club-finance-filters select) { min-height:34px; margin:0; padding:5px 8px; border:1px solid #d9d3df; border-radius:7px; background:#fff; color:#302638; font-size:11px; }
+  :global(.club-page .club-finance-table-wrap th button) { padding:0; border:0; background:transparent; color:inherit; font:inherit; text-transform:inherit; cursor:pointer; }
+  :global(.club-page .club-finance-table-wrap th button:hover),:global(.club-page .club-finance-table-wrap th button:focus-visible) { color:#5f3183; text-decoration:underline; outline:none; }
+  :global(.club-page .club-class-report-sections) { display:grid; gap:12px; }
+  :global(.club-page .club-class-report-section) { min-width:0; padding:14px; border:1px solid #e4dfe8; border-radius:11px; background:#fff; }
+  :global(.club-page .club-class-report-section h2) { margin:0 0 9px; color:#33283c; font-size:14px; }
+  :global(.club-page .club-class-report-table-wrap) { overflow:auto; border:1px solid #ebe7ef; border-radius:8px; }
+  :global(.club-page .club-class-report-table-wrap table) { width:100%; border-collapse:collapse; color:#382f40; font-size:11px; text-align:left; }
+  :global(.club-page .club-class-report-table-wrap th),:global(.club-page .club-class-report-table-wrap td) { padding:8px 9px; border-bottom:1px solid #eeeaf1; vertical-align:top; }
+  :global(.club-page .club-class-report-table-wrap th) { background:#faf9fb; color:#706777; font-size:9px; text-transform:uppercase; }
+  :global(.club-page .club-home-gym-control) { display:grid; grid-template-columns:minmax(150px,1fr) auto; align-items:end; gap:7px 10px; margin-top:12px; padding-top:12px; border-top:1px solid #eeeaf1; }
+  :global(.club-page .club-home-gym-control label) { display:grid; gap:4px; color:#5d5365; font-size:10px; font-weight:700; }
+  :global(.club-page .club-home-gym-control select) { min-height:34px; margin:0; border:1px solid #d9d3df; border-radius:7px; background:#fff; color:#302638; font-size:11px; }
+  :global(.club-page .club-home-gym-control button) { min-height:34px; padding:6px 10px; white-space:nowrap; }
+  :global(.club-page .club-home-gym-control small) { grid-column:1/-1; color:#716878; font-size:10px; }
+  :global(.club-page .club-stock-row) { grid-template-columns:minmax(200px,1.6fr) repeat(2,minmax(105px,.7fr)) auto; gap:8px; padding:9px 11px; border-color:#e4dfe8; background:#fff; color:#302638; }
+  :global(.club-page .club-stock-row b) { color:#302638; font-size:15px; }
+  :global(.club-page .club-stock-row small) { color:#706777; font-size:10px; }
+  :global(.club-page .club-stock-row button) { min-height:30px; padding:4px 9px; font-size:10px; }
+  :global(.club-page .balance-topup) { display:grid; grid-template-columns:minmax(200px,1fr) minmax(160px,.7fr) auto; align-items:end; gap:10px; width:100%; max-width:none; padding:16px; border:1px solid #e4dfe8; border-radius:11px; background:#fff; }
+  :global(.club-page .balance-topup h2) { grid-column:1/-1; margin:0; font-size:15px; }
+  :global(.club-page .balance-topup label) { margin:0; color:#5d5365; }
+  :global(.club-page .balance-topup button.primary) { min-height:36px; white-space:nowrap; }
+  :global(.club-page .balance-topup [role="alert"]) { grid-column:1/-1; margin:0; }
+  :global(.club-page .club-shift-actions) { order:-1; }
+  :global(.club-page .club-work-mobile-heading) { display:none; }
+  :global(.club-page .club-members-directory label) { align-self:end; }
+}
+
+@media (max-width: 1099px) {
+  .shopNavigation { display:none; }
+  :global(.club-work-shifts) { display:none; }
+  :global(.club-class-tools-desktop) { display:none!important; }
+}
+
+@media (min-width: 1100px) and (max-width: 1250px) {
+  :global(.club-finance-kpis) { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
+
+@media (min-width: 1100px) {
+  .frame[data-collapsed="true"] .brand { justify-content: center; padding-inline: 0; }
+  .frame[data-collapsed="true"] .brandText,.frame[data-collapsed="true"] .navCaption,.frame[data-collapsed="true"] .navigation > a > span,.frame[data-collapsed="true"] .managementGroup > button > span,.frame[data-collapsed="true"] .managementGroup > button > b,.frame[data-collapsed="true"] .subNavigation,.frame[data-collapsed="true"] .roleBadge,.frame[data-collapsed="true"] .collapseButton > span:last-child { display: none; }
+  .frame[data-collapsed="true"] .navigation > a,.frame[data-collapsed="true"] .managementGroup > button { justify-content: center; padding-inline: 0; }
+  .frame[data-collapsed="true"] .sidebarBottom { justify-items: center; }
+  .frame[data-collapsed="true"] .collapseButton { justify-content: center; width: 42px; padding: 0; }
+}
+
+@media (max-width: 1099px) {
+  .frame,.inactive { display: contents; }
+}
+
+@media (min-width: 1100px) {
+  :global(body:has(.club-desktop-shell-active) .club-desktop-mobile-identity) { display: none; }
+}
+
+@media (max-width: 1260px) and (min-width: 1100px) {
+  .toolbarControls { gap: 8px; }
+  .control select { width: 166px; min-width: 166px; }
+  .searchControl { flex: 1 1 auto; }
+  .search { flex: 1 1 220px; width: min(260px, 24vw); min-width: 190px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar,.workspace,.managementGroup > button b { transition: none; }
+}
+
+:global(html[data-r12-shell="club-ios"]) .frame { display: contents !important; }

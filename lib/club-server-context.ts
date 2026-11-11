@@ -10,7 +10,7 @@ export type ClubOrganisationContext = {
   members: OrganisationMember[];
   member: OrganisationMember;
   role: ClubRole;
-  navigation: { members: boolean; payments: boolean; management?: boolean; finance?: boolean; memberships?: boolean; promotions?: boolean; suppliers?: boolean; staff?: boolean; venues?: boolean; reports?: boolean; services?: boolean };
+  navigation: { members: boolean; payments: boolean; management?: boolean; finance?: boolean; cashControls?: boolean; cashTill?: boolean; classSetup?: boolean; memberships?: boolean; memberImports?: boolean; promotions?: boolean; suppliers?: boolean; staff?: boolean; venues?: boolean; reports?: boolean; services?: boolean; workReview?: boolean };
   availableContexts?: Array<Pick<ClubOrganisationContext, "organisation" | "role" | "navigation">>;
 };
 
@@ -25,18 +25,23 @@ export async function listClubOrganisationContexts(client: SupabaseClient, userI
     const members = await repository.listMembers(organisation.id);
     const member = members.find(item => item.userId === userId && item.active);
     if (!member) return undefined;
-    const [canViewMembers, finance, memberships, promotions, suppliers, staff, venues, reports, services] = await Promise.all([
+    const [canViewMembers, finance, cashControls, refunds, memberships, memberImports, promotions, suppliers, staff, venues, reports, services, workReview] = await Promise.all([
       repository.hasCapability(organisation.id, userId, "members.view"),
       repository.hasCapability(organisation.id, userId, "finance.view"),
+      repository.hasCapability(organisation.id, userId, "cash.reconcile"),
+      repository.hasCapability(organisation.id, userId, "refunds.issue"),
       repository.hasCapability(organisation.id, userId, "memberships.manage"),
+      repository.hasCapability(organisation.id, userId, "members.import"),
       repository.hasCapability(organisation.id, userId, "commerce.pricing_manage"),
       repository.hasCapability(organisation.id, userId, "supplier.catalogue_manage"),
       repository.hasCapability(organisation.id, userId, "staff.permissions_manage"),
       repository.hasCapability(organisation.id, userId, "induction.manage_policy"),
       repository.hasCapability(organisation.id, userId, "finance.export"),
       repository.hasCapability(organisation.id, userId, "services.manage"),
+      repository.hasCapability(organisation.id, userId, "staff.work_review"),
     ]);
-    const navigation = { members: canViewMembers, payments: finance, finance, memberships, promotions, suppliers, staff, venues, reports, services, management: finance || memberships || promotions || suppliers || staff || venues || reports || services };
+    const classSetup = member.role === "gym_admin" || member.role === "owner";
+    const navigation = { members: canViewMembers, payments: finance, finance, cashControls, cashTill: refunds, classSetup, memberships, memberImports, promotions, suppliers, staff, venues, reports, services, workReview, management: finance || cashControls || classSetup || memberships || memberImports || promotions || suppliers || staff || venues || reports || services || workReview };
     return { repository, organisation, members, member, role: member.role, navigation } satisfies ClubOrganisationContext;
   }));
   return contexts.filter((context): context is ClubOrganisationContext => Boolean(context));

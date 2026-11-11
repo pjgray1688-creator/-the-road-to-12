@@ -80,7 +80,8 @@ test("reception requires explicit bed and duration confirmation and remains trut
  assert.match(reception,/reception scanner or enter the code/);
 });
 
-test("existing manual customer lookup, usage, top-up and adjustment operations remain",()=>{
- for(const contract of ["searchGlowCustomersAction","recordSunbedUseAction","completeGlowSaleAction","adjustGlowMinutesAction","removeGlowMinutesAction"])assert.match(manual,new RegExp(contract));
- assert.match(manual,/Manual reception operations remain available/);
+test("customer lookup, cash top-up and manager adjustments remain while session spending is QR-confirmed only",()=>{
+ for(const contract of ["searchGlowCustomersAction","completeGlowSaleAction","adjustGlowMinutesAction","removeGlowMinutesAction"])assert.match(manual,new RegExp(contract));
+ assert.doesNotMatch(manual,/recordSunbedUseAction|USE MINUTES/);
+ assert.match(manual,/minutes are deducted only when reception approves the customer’s current session QR/);
 });

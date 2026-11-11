@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { checkInStationScanAction } from "@/app/club/access/actions";
 
 type ScanResult = { allowed?: boolean; attendanceRecorded?: boolean; repeatVisit?: boolean; reason?: string; member?: { displayName?: string } | null; decidedAt?: string; checkedAt?: string | null };
-const reasonLabel: Record<string,string> = { credential_not_found:"QR not recognised",membership_not_started:"Membership has not started",membership_expired:"Membership has expired",location_not_included:"This membership does not include this venue",location_disabled:"Check-in is unavailable at this venue",access_throttled:"Please ask reception for help" };
+const reasonLabel: Record<string,string> = { credential_not_found:"QR not recognised",membership_not_started:"Membership has not started",membership_expired:"Membership has expired",membership_time_restricted:"This membership does not include access at this time. Please check your Off-Peak hours.",location_not_included:"This membership does not include this venue",location_disabled:"Check-in is unavailable at this venue",access_throttled:"Please ask reception for help" };
 
 export function ClubCheckinStation({ locationName, stationName }: { locationName: string; stationName: string }) {
   const [token,setToken] = useState("");

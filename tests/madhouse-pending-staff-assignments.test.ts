@@ -27,7 +27,8 @@ test("pending class and rota generation retain management, identity, location an
   assert.match(migration, /max_transformation_credit_bookings,visibility,status/);
   assert.match(migration, /a\.canonical_name/);
   assert.match(staffPage, /Link invitation/);
-  assert.match(setupPage, /Prepared operational staff identities/);
+  assert.match(staffPage, /Prepared staff identities/);
+  assert.match(setupPage, /Recurring class timetable/);
 });
 
 test("follow-up migration is after the already deployed Madhouse class chain", () => {

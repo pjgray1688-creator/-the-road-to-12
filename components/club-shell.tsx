@@ -20,8 +20,8 @@ function groupForPath(pathname: string): NavigationGroup {
   if (path.startsWith("/club/members") || path.startsWith("/club/join")) return "Members";
   if (path.startsWith("/club/payments") || path.startsWith("/club/reports") || path.startsWith("/club/membership-billing") || path.startsWith("/club/products") || path.startsWith("/club/promotions") || path.startsWith("/club/website-shop") || path.startsWith("/club/suppliers") || path.startsWith("/club/staff") || path.startsWith("/club/locations") || path.startsWith("/club/stations") || path.startsWith("/club/services") || path.startsWith("/club/launch-readiness")) return "Management";
   if (path.startsWith("/club/shop")) return "Shop";
-  if (path.startsWith("/club/classes") || path.startsWith("/club/schedule") || path.startsWith("/club/work")) return "Classes & PT";
-  if (["/club/check-in", "/club/access", "/club/reception", "/club/induction", "/club/checks", "/club/sunbeds", "/club/lock", "/club/station"].some(route => path.startsWith(route))) return "Daily Operations";
+  if (path.startsWith("/club/classes") || path.startsWith("/club/schedule")) return "Classes & PT";
+  if (["/club/check-in", "/club/access", "/club/reception", "/club/induction", "/club/checks", "/club/sunbeds", "/club/lock", "/club/station", "/club/work"].some(route => path.startsWith(route))) return "Daily Operations";
   return "Management";
 }
 
@@ -66,7 +66,7 @@ export function ClubSectionNav({ organisation, role, contexts = [], locations = 
       { label: "Door access", href: `/club/access${query()}`, group: "Daily Operations" },
       { label: "Inductions", href: `/club/induction${query()}`, group: "Daily Operations" },
       { label: "Daily checks", href: `/club/checks${query()}`, group: "Daily Operations" },
-      { label: "Glow Zone", href: `/club/sunbeds${query()}`, group: "Daily Operations" },
+      ...(navigation?.services ? [{ label: "Glow Zone", href: `/club/sunbeds${query()}`, group: "Daily Operations" as const }] : []),
     ],
     Management: managementAllowed ? [
       { label: "Management home", href: `/club/more${query()}`, group: "Management" },

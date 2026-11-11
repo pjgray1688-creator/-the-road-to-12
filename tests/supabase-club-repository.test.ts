@@ -126,6 +126,7 @@ test("Club page uses the repository boundary and contains no direct Club table q
 
 test("Supabase operational rows map provider-neutral customer, session, booking and transaction contracts", () => {
   assert.equal(mapCustomer({ id: "c", organisation_id: "o", user_id: null, display_name: "Guest", status: "guest", created_at: "a", updated_at: "b" }).userId, undefined);
+  assert.equal(mapCustomer({ id: "c", organisation_id: "o", user_id: null, display_name: "Guest", preferred_location_id: "loc-2", status: "guest", created_at: "a", updated_at: "b" }).preferredLocationId, "loc-2");
   assert.equal(mapClassSession({ id: "s", organisation_id: "o", location_id: "l", class_type_id: "t", starts_at: "a", ends_at: "b", visibility: "public", status: "scheduled", recurrence_metadata: { series: "future" }, created_at: "a", updated_at: "a" }).recurrenceMetadata?.series, "future");
   assert.equal(mapClassBooking({ id: "b", organisation_id: "o", session_id: "s", customer_id: "c", status: "confirmed", booked_at: "a", attendance_state: "pending", created_at: "a", updated_at: "a" }).attendanceState, "pending");
   const transaction = mapServiceTransaction({ id: "x", organisation_id: "o", location_id: "l", service_id: "v", quantity: 1, unit_price_minor: 500, currency: "GBP", payment_status: "paid", payment_method: "wallet", fulfilment_status: "pending", occurred_at: "a", created_at: "a", updated_at: "a" });

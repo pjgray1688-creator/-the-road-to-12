@@ -15,6 +15,6 @@ export async function submitWorkAction(formData: FormData) {
   revalidatePath("/club/work");
 }
 export async function reviewWorkAction(formData: FormData) {
-  const organisationId = String(formData.get("organisationId") ?? ""); const id = String(formData.get("id") ?? ""); const client = await serverSupabase(); const { data: { user } } = await client.auth.getUser(); if (!user || !id) return; const context = await resolveClubOperationalContext(client, user.id, organisationId); if (!context || !["gym_admin", "owner"].includes(context.role)) return;
-  await client.rpc("club_finance_review_work", { p_work_id: id, p_status: String(formData.get("status") ?? "queried"), p_manager_note: String(formData.get("note") ?? "") || null }); revalidatePath("/club/work");
+  const organisationId = String(formData.get("organisationId") ?? ""); const id = String(formData.get("id") ?? ""); const client = await serverSupabase(); const { data: { user } } = await client.auth.getUser(); if (!user || !id) return; const context = await resolveClubOperationalContext(client, user.id, organisationId); if (!context || !(await context.repository.hasCapability(context.organisation.id, user.id, "staff.work_review"))) return;
+  await client.rpc("club_finance_review_work", { p_work_id: id, p_status: String(formData.get("status") ?? "queried"), p_manager_note: String(formData.get("note") ?? "") || null }); revalidatePath("/club/work"); revalidatePath("/club/work/review");
 }

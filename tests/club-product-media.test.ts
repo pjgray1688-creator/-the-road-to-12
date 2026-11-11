@@ -30,16 +30,17 @@ test("member and staff family cards share the same image component and stable sq
 });
 
 test("shared product detail image is bounded on desktop and compact on mobile without cropping", () => {
-  assert.match(familySelector, /club-product-detail-image"><ClubProductGallery product=\{image\}/);
-  assert.match(css, /\.club-product-detail-image\{[^}]*width:min\(100%,340px\)[^}]*height:clamp\(128px,25svh,210px\)/);
-  assert.match(css, /\.club-product-detail-image \.club-product-large,\.club-product-detail-image \.club-product-placeholder\{[^}]*height:100%[^}]*object-fit:contain[^}]*object-position:center/);
-  assert.match(css, /@media\(max-width:640px\)\{\.club-product-detail-image\{width:min\(100%,260px\);height:clamp\(118px,20svh,160px\)\}\}/);
+  assert.match(familySelector, /club-product-detail-image">\{image \? <ClubProductGallery product=\{image\}/);
+  assert.match(css, /\.club-family-detail-layout \.club-product-detail-image\{width:100%;height:clamp\(280px,54vh,470px\)/);
+  assert.match(css, /\.club-family-detail-layout \.club-product-gallery\{width:100%;height:100%/);
+  assert.match(css, /\.club-family-detail-layout \.club-product-gallery \.club-product-large\{width:100%;height:100%;object-fit:contain\}/);
+  assert.match(css, /club-family-detail-layout \.club-product-detail-image\{height:clamp\(190px,34dvh,300px\)\}/);
 });
 
 test("family image selection and variant checkout path remain unchanged", () => {
-  assert.match(familySelector, /card\.variants\.find\(variant => productImageUrl\(variant\)\) \?\? card\.variants\[0\]/);
+  assert.match(familySelector, /const cardImage = card\.variants\.find\(variant => productImageUrl\(variant\)\) \?\? card\.variants\[0\]/);
   assert.match(familySelector, /const image = preview\?\.variantImageReference/);
-  assert.match(familySelector, /onAdd\(resolved\)/);
+  assert.match(familySelector, /onAdd\(resolved, quantity\)/);
 });
 
 test("member and staff use one current supplier-image resolver while local imagery keeps precedence", () => {

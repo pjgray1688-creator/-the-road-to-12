@@ -40,8 +40,9 @@ test("couples membership keeps one membership with multiple user holders", () =>
 
 test("onboarding does not require an account before recording membership", () => {
   const source = readFileSync("components/club-member-onboarding.tsx", "utf8");
-  assert.doesNotMatch(source, /before assigning a membership/);
-  assert.match(source, /The member can be linked to an R12 account after they are added/);
+  assert.match(source, /mode === "new"/);
+  assert.match(source, /mode === "existing"/);
+  assert.match(source, /Paid memberships activate only after the separate authorised payment workflow confirms receipt/);
 });
 
 test("membership administration exposes linking and fixed-term handling", () => {
@@ -50,13 +51,15 @@ test("membership administration exposes linking and fixed-term handling", () => 
   assert.match(actions, /linkClubCustomerAction/);
   assert.match(actions, /product\.durationDays/);
   assert.match(assignment, /Fixed term/);
-  assert.match(assignment, /Recurring membership/);
+  assert.match(assignment, /product\.billing/);
+  assert.match(assignment, /Renewal dates remain separate from actual payment receipt/);
 });
 
 test("operations directory and customer profile support unlinked people", () => {
   const directory = readFileSync("components/club-members-directory.tsx", "utf8");
   const page = readFileSync("app/club/members/customer/[customerId]/page.tsx", "utf8");
-  assert.match(directory, /No R12 account linked/);
-  assert.match(directory, /customer\/\$\{encodeURIComponent\(customer.id\)\}/);
+  assert.match(directory, /membershipName/);
+  assert.match(directory, /row.imported \|\| !row.userId/);
+  assert.match(directory, /`\/club\/members\/customer\/\$\{encodeURIComponent\(row.id\)\}`/);
   assert.match(page, /ClubMembershipAssignment/);
 });

@@ -18,7 +18,7 @@ test("former and paused membership states are retained and shown with their actu
     assert.ok(migration.includes(`when '${state}' then`), `missing ${state} ordering`);
   }
   assert.match(migration, /membership_status',history\.status/);
-  assert.match(directory, /membershipLabel\(member\.membershipStatus\)/);
+  assert.match(directory, /labelStatus\(row\.status\)/);
 });
 
 test("unlinked customers appear only when a membership holder record exists", () => {
@@ -31,12 +31,14 @@ test("unlinked customers appear only when a membership holder record exists", ()
 test("staff and Coach access alone do not qualify, while genuine managers can also be members", () => {
   assert.match(migration, /from public\.club_members m[\s\S]*where m\.organisation_id=p_organisation_id[\s\S]*and exists\(/);
   assert.doesNotMatch(migration, /insert into public\.club_memberships|update public\.club_memberships|delete from public\.club_memberships/);
-  assert.match(membersPage, /ClubMembersDirectory members=\{members\}/);
+  assert.match(membersPage, /ClubMembersDirectory members=\{directoryMembers\}/);
 });
 
 test("full customer list remains available to membership assignment, but directory receives filtered records", () => {
-  assert.match(membersPage, /ClubMemberOnboarding[\s\S]*customers=\{customers\}/);
+  assert.match(membersPage, /customerById = new Map\(customers\.map/);
+  assert.match(membersPage, /ClubMemberOnboarding[\s\S]*customers=\{onboardingCustomers\}/);
   assert.match(membersPage, /customers=\{unlinkedMembershipCustomers\}/);
   assert.match(repository, /customerId: String\(x\.customer_id\)/);
-  assert.match(directory, /member\.customerId \? `\/club\/members\/customer\//);
+  assert.match(directory, /row\.imported \|\| !row\.userId/);
+  assert.match(directory, /club\/members\/customer\/\$\{encodeURIComponent\(row\.id\)\}/);
 });

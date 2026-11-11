@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { availableVariantOptions, groupProductFamilies, memberVariantChoices, resolveProductVariant } from "../lib/club-product-families";
+import { availableVariantOptions, availableVariantPriceLabel, groupProductFamilies, memberVariantChoices, resolveProductVariant } from "../lib/club-product-families";
 import type { ClubCommerceProduct } from "../lib/club-commerce";
 
 const product = (id: string, options: Record<string,string>, price = 1000, active = true): ClubCommerceProduct => ({ id, organisationId: "org", name: "Beef XP", active, stockTracked: true, sellPriceMinor: price, currency: "GBP", variantOptions: options, createdAt: "", updatedAt: "", familyId: "fam" });
@@ -19,6 +19,26 @@ test("options are derived only from real active combinations", () => {
 test("organisation and inactive variants are excluded", () => {
   assert.equal(groupProductFamilies([product("other", {}, 1)], [], "org").length, 1);
   assert.equal(groupProductFamilies([product("other", {}, 1)], [], "different").length, 0);
+});
+
+test("available variant pricing shows an exact price for equal prices and excludes unavailable variants", () => {
+  const equal = [product("same-a", { Size: "S" }, 2500), product("same-b", { Size: "M" }, 2500)];
+  assert.equal(availableVariantPriceLabel(equal), "£25.00");
+  assert.equal(availableVariantPriceLabel(equal, { "same-a": "UNAVAILABLE" }), "£25.00");
+  assert.equal(availableVariantPriceLabel([product("low", {}, 1500), product("high", {}, 2500)], { low: "UNAVAILABLE" }), "£25.00");
+  assert.equal(availableVariantPriceLabel([product("low", {}, 1500), product("high", {}, 2500)]), "From £15.00");
+  assert.equal(availableVariantPriceLabel([product("inactive", {}, 1500, false)]), "");
+  assert.equal(availableVariantPriceLabel(equal, { "same-a": "UNAVAILABLE", "same-b": "UNAVAILABLE" }), "");
+});
+
+test("product modal keeps accessible close, exact selected price and a solid add action", async () => {
+  const fs = await import("node:fs/promises");
+  const component = await fs.readFile(new URL("../components/club-product-family-selector.tsx", import.meta.url), "utf8");
+  assert.match(component, /aria-label="Close product details"/);
+  assert.match(component, /money\(resolved\.sellPriceMinor\)/);
+  assert.match(component, /club-family-add/);
+  assert.match(component, /event\.key === "Escape"/);
+  assert.match(component, /availableVariantPriceLabel\(card\.variants, availability\)/);
 });
 
 test("Madhouse transformation package cards display Gold, Silver, then Bronze", () => {

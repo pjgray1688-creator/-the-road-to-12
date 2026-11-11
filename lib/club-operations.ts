@@ -1,6 +1,6 @@
 /** Provider-neutral Club classes, bookings, customers and venue-service contracts. */
 export type ClubCustomerStatus = "guest" | "member" | "customer";
-export type ClubCustomer = { id: string; organisationId: string; userId?: string; displayName: string; email?: string; phone?: string; status: ClubCustomerStatus; createdAt: string; updatedAt: string };
+export type ClubCustomer = { id: string; organisationId: string; userId?: string; displayName: string; email?: string; phone?: string; preferredLocationId?: string; status: ClubCustomerStatus; createdAt: string; updatedAt: string };
 
 export type ClubClassType = { id: string; organisationId: string; name: string; description?: string; defaultDurationMinutes: number; defaultCapacity?: number; active: boolean; createdAt: string; updatedAt: string };
 export type ClubClassSessionStatus = "scheduled" | "cancelled" | "completed";
@@ -34,7 +34,7 @@ export type ClubServiceTransaction = {
 type Mutable<T> = Omit<T, "id" | "createdAt" | "updatedAt"> & { id?: string };
 export type SaveClubClassTypeInput = Mutable<ClubClassType>;
 export type SaveClubClassSessionInput = Mutable<ClubClassSession>;
-export type CreateClubCustomerInput = Omit<ClubCustomer, "id" | "createdAt" | "updatedAt">;
+export type CreateClubCustomerInput = Omit<ClubCustomer, "id" | "createdAt" | "updatedAt" | "preferredLocationId">;
 export type SaveClubServiceInput = Mutable<ClubService>;
 export type CreateClubServiceTransactionInput = Omit<ClubServiceTransaction, "id" | "staffUserId" | "createdAt" | "updatedAt">;
 export type UpdateClubServiceTransactionInput = Pick<ClubServiceTransaction, "paymentStatus" | "fulfilmentStatus"> & Partial<Pick<ClubServiceTransaction, "paymentMethod" | "paymentReference" | "externalFulfilmentReference" | "metadata">>;

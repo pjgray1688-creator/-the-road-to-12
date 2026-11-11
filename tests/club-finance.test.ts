@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { calculateCommercialSettlement, calculateShiftMinutes, financeCsv, monthRange, summariseStaffSettlement } from "../lib/club-finance";
+import { completedCardTotalsByMerchant, type ReconciliationOrder, type ReconciliationPayment } from "../lib/club-reconciliation";
 import { hasClubCapability } from "../lib/club-capabilities";
 import { activeBalanceTopUpOffers, splitBalanceTopUp } from "../lib/club-promotions";
 
@@ -9,5 +10,10 @@ test("missing agreement is unresolved, never guessed", () => assert.equal(calcul
 test("staff settlement uses explicit direction", () => { const result = summariseStaffSettlement({ hoursMinor: 1000, ptPayableMinor: 2000, classPayableMinor: 0, gymCollectedForStaffMinor: 0, staffCollectedForGymMinor: 0, adjustmentsMinor: 0 }); assert.equal(result.direction, "gym_pays_staff"); assert.equal(summariseStaffSettlement({ ...result, hoursMinor: 0, ptPayableMinor: 0, staffCollectedForGymMinor: 5000 }).direction, "staff_owes_gym"); });
 test("finance CSV is stable and safely escaped", () => { const csv = financeCsv([{ occurredAt: "2026-09-01", reference: "A,1", category: "Shop", grossMinor: 100, source: "order" }]); assert.match(csv, /"A,1"/); assert.equal(monthRange(2026, 9).from, "2026-09-01T00:00:00.000Z"); });
 test("finance capabilities keep staff and management scopes separate", () => { assert.equal(hasClubCapability("gym_staff", "staff.work_submit"), true); assert.equal(hasClubCapability("gym_staff", "finance.view"), false); assert.equal(hasClubCapability("gym_admin", "finance.view"), true); });
+test("merchant card totals include only paid card payments on completed orders and keep routes distinct", () => {
+  const orders: ReconciliationOrder[] = [{ id: "p", created_at: "", status: "paid", subtotal_minor: 1000, discount_minor: 0, total_minor: 1000, currency: "GBP" }, { id: "pending", created_at: "", status: "pending_payment", subtotal_minor: 500, discount_minor: 0, total_minor: 500, currency: "GBP" }];
+  const payments: ReconciliationPayment[] = [{ id: "a", order_id: "p", created_at: "", method: "card", amount_minor: 1000, status: "paid", stripe_merchant_entity: "madhouse_products_services" }, { id: "b", order_id: "p", created_at: "", method: "card", amount_minor: 300, status: "paid", stripe_merchant_entity: "madhouse_franchise" }, { id: "c", order_id: "pending", created_at: "", method: "card", amount_minor: 500, status: "paid", stripe_merchant_entity: "madhouse_products_services" }, { id: "d", order_id: "p", created_at: "", method: "card", amount_minor: 400, status: "failed", stripe_merchant_entity: "madhouse_products_services" }];
+  assert.deepEqual(completedCardTotalsByMerchant(orders, payments), { madhouse_products_services: 1000, madhouse_franchise: 300 });
+});
 test("balance offers are tenant scoped and split funded versus promotional credit", () => { const offers = activeBalanceTopUpOffers([{ id: "x", organisationId: "a", payMinor: 2000, spendableMinor: 2500, active: true, startsAt: "2026-01-01" }, { id: "y", organisationId: "b", payMinor: 2000, spendableMinor: 2500, active: true, startsAt: "2026-01-01" }], "a", new Date("2026-09-01")); assert.equal(offers.length, 1); assert.deepEqual(splitBalanceTopUp(2000, 2500), { cashFundedMinor: 2000, promotionalBonusMinor: 500, spendableMinor: 2500 }); });
 test("shift duration is derived from start, finish and break", () => { assert.equal(calculateShiftMinutes("09:00", "17:30", 30), 480); assert.equal(calculateShiftMinutes("22:00", "02:00", 0), 240); assert.throws(() => calculateShiftMinutes("09:00", "09:00", 0)); assert.throws(() => calculateShiftMinutes("09:00", "10:00", 60)); });
