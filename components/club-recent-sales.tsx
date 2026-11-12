@@ -6,13 +6,13 @@ import { staffIssueRefundAction } from "@/app/club/shop/actions";
 import { refundLineAmount, refundSelectionTotal, type RefundableLine } from "@/lib/club-refund-allocation";
 
 type Tender = { id: string; method: string; status: string; amountMinor: number; refundedMinor: number; remainingMinor: number };
-type RefundRecord = { id: string; amountMinor: number; createdAt: string; reason: string; externalReference?: string; staffName: string; method: string; lines: Array<{ name: string; quantity: number; unit: string; amountMinor: number }> };
+type RefundRecord = { id: string; amountMinor: number; createdAt: string; reason: string; method: string; lines: Array<{ name: string; quantity: number; unit: string; amountMinor: number }> };
 export type RecentSale = { id: string; createdAt: string; totalMinor: number; currency: string; status: string; locationName: string; customerName: string; items: string[]; refundLines: RefundableLine[]; tenders: Tender[]; refunds: RefundRecord[] };
 
 const money = (minor: number) => new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(minor / 100);
 const methodName = (value: string) => ({ cash: "Cash", balance: "Madhouse Balance", card: "Card", wallet: "Wallet", direct_debit: "Direct Debit", bank_transfer: "Bank transfer", other: "Other", complimentary: "Complimentary" } as Record<string, string>)[value] ?? value;
 
-export function ClubRecentSales({ organisationId, sales }: { organisationId: string; sales: RecentSale[] }) {
+export function ClubRecentSales({ organisationId, sales, canApproveRefund = false }: { organisationId: string; sales: RecentSale[]; canApproveRefund?: boolean }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [selection, setSelection] = useState<Record<string, Record<string, number>>>({});
@@ -81,7 +81,7 @@ export function ClubRecentSales({ organisationId, sales }: { organisationId: str
         <header className="club-till-receipt-heading"><div><span className="eyebrow">RECEIPT {sale.id.slice(0, 8).toUpperCase()}</span><h3>{sale.customerName}</h3><small>{new Date(sale.createdAt).toLocaleString("en-GB", { timeZone: "Europe/London", dateStyle: "medium", timeStyle: "short" })} · {sale.locationName} · {sale.status}</small></div><div className="club-till-receipt-total"><strong>{money(sale.totalMinor)}</strong><small>{sale.tenders.map(tender => `${methodName(tender.method)} ${money(tender.amountMinor)}`).join(" + ") || "Payment details unavailable"}</small>{refundedTotal > 0 ? <small>Refunded {money(refundedTotal)} · remaining {money(Math.max(0, sale.totalMinor - refundedTotal))}</small> : <small>No refunds recorded</small>}</div></header>
         <details className="club-refund-lines club-till-receipt-details"><summary>Items, payments and refund details</summary>
           <div className="club-till-receipt-items"><strong>Items purchased</strong><span>{sale.items.join(" · ") || "Sale items unavailable"}</span></div>
-        <details className="club-refund-lines"><summary>Refund items</summary>
+        {canApproveRefund ? <details className="club-refund-lines"><summary>Refund items</summary>
           {sale.refundLines.length ? <div className="club-list">{sale.refundLines.map(line => {
             const selected = chosen[line.orderItemId] ?? 0;
             const lineEstimate = refundLineAmount(line, selected);
@@ -96,15 +96,15 @@ export function ClubRecentSales({ organisationId, sales }: { organisationId: str
               {selected > 0 ? <span className="muted">Refund value {money(lineEstimate)}</span> : null}
             </div>;
           })}</div> : <p className="muted">Line refund details are unavailable for this receipt.</p>}
-        </details>
+        </details> : null}
         {estimate > 0 ? <div className="club-refund-total"><span>Selected refund total</span><strong>{money(estimate)}</strong></div> : null}
-        {sale.refunds.length ? <details className="club-refund-lines"><summary>Refund history</summary>{sale.refunds.map(refund => <div className="club-refund-history" key={refund.id}><strong>{money(refund.amountMinor)} · {methodName(refund.method)}</strong><small>{new Date(refund.createdAt).toLocaleString("en-GB")} · {refund.staffName} · {refund.reason}{refund.externalReference ? ` · Ref ${refund.externalReference}` : ""}</small><small>{refund.lines.map(item => `${item.name} × ${item.quantity} ${item.unit} (${money(item.amountMinor)})`).join(" · ") || "Line details unavailable"}</small></div>)}</details> : null}
+        {sale.refunds.length ? <details className="club-refund-lines"><summary>Refund history</summary>{sale.refunds.map(refund => <div className="club-refund-history" key={refund.id}><strong>{money(refund.amountMinor)} · {methodName(refund.method)}</strong><small>{new Date(refund.createdAt).toLocaleString("en-GB")} · {refund.reason}</small>{canApproveRefund ? <small>{refund.lines.map(item => `${item.name} × ${item.quantity} ${item.unit} (${money(item.amountMinor)})`).join(" · ") || "Line details unavailable"}</small> : null}</div>)}</details> : null}
         {sale.tenders.map(tender => {
           const detail = detailFor(tender.id);
           const payable = estimate > 0 && estimate <= tender.remainingMinor && tender.remainingMinor > 0;
           return <div className="club-detail-row" key={tender.id}><span><strong>{methodName(tender.method)} · {money(tender.amountMinor)}</strong><small>{tender.status} · {money(tender.remainingMinor)} remaining{tender.refundedMinor ? ` · ${money(tender.refundedMinor)} already refunded` : ""}</small>
             {estimate > tender.remainingMinor && tender.remainingMinor > 0 ? <small>This selection exceeds this payment’s remaining refundable amount. Each refund is recorded against one original tender; reduce the selection or use a single tender with enough remaining value.</small> : null}
-            {payable ? <div className="club-profile-grid">
+            {canApproveRefund && payable ? <div className="club-profile-grid">
               <label>Reason<input aria-label="Refund reason" maxLength={240} value={detail.reason} onChange={event => setDetails(current => ({ ...current, [tender.id]: { ...detail, reason: event.target.value } }))} /></label>
               {tender.method !== "cash" && tender.method !== "balance" ? <label>Provider refund reference<input aria-label="Provider refund reference" maxLength={200} value={detail.reference} onChange={event => setDetails(current => ({ ...current, [tender.id]: { ...detail, reference: event.target.value } }))} /></label> : null}
               <button type="button" className="secondary" disabled={pending} onClick={() => submit(sale, tender)}>{pending ? "Recording…" : tender.method === "balance" ? "Refund to Balance" : tender.method === "cash" ? "Record cash refund" : "Record provider refund"}</button>

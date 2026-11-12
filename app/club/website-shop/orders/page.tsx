@@ -13,7 +13,7 @@ export default async function MadhouseApparelOrdersPage({searchParams}:{searchPa
   const client=await serverSupabase();const {data:{user}}=await client.auth.getUser();if(!user)redirect("/account?app=club&mode=signIn");
   const params=await searchParams;const context=await resolveClubOrganisationContext(client,user.id,params?.org);
   if(!context||context.organisation.id!==ORG||!(await context.repository.hasCapability(ORG,user.id,"commerce.pricing_manage")))return <AppShell className="module-page club-page"><PageHeader eyebrow="R12 CLUB" title="Website Shop · Orders"/><EmptyState title="Management access required">Madhouse Apparel customer orders are available to authorised commerce managers.</EmptyState><AppNav/></AppShell>;
-  const {data,error}=await client.rpc("club_list_madhouse_apparel_orders",{p_organisation_id:ORG});
+  const {data,error}=await client.rpc("club_list_madhouse_apparel_orders_secure",{p_organisation_id:ORG});
   const orders=error?[]:(Array.isArray(data)?data:[]) as ClubApparelOrder[];
   const query=`?org=${encodeURIComponent(ORG)}`;
   return <AppShell className="module-page club-page"><PageHeader eyebrow="R12 CLUB · MADHOUSE APPAREL" title="Website Shop · Orders" description="Made-to-order customer orders, payment state and fulfilment."/><ClubSectionNav organisation={context.organisation} role={context.role} contexts={context.availableContexts}/>

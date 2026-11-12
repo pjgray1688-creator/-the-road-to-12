@@ -22,7 +22,6 @@ export type GlowReceptionRequest = GlowSessionRequest & {
   customer_name: string;
   customer_email?: string | null;
   customer_phone?: string | null;
-  declared_date_of_birth?: string | null;
   balance_minutes: number;
   age_status: "verified" | "under_18" | "required";
 };

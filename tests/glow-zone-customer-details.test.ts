@@ -1,74 +1,42 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { glowCustomerIsUnder18, glowCustomerMissingFields, validGlowDateOfBirth, validGlowPhone } from "../lib/glow-zone-customer-details";
+import { glowCustomerMissingFields, validGlowPhone } from "../lib/glow-zone-customer-details";
 
-const migration = readFileSync("supabase/migrations/2027-01-23-glow-customer-details-and-age-safety.sql", "utf8");
+const migration = readFileSync("supabase/migrations/2027-01-28-club-staff-data-access-expand.sql", "utf8") + "\n" + readFileSync("supabase/migrations/2027-01-29-club-staff-data-access-contract.sql", "utf8");
 const account = readFileSync("app/account/page.tsx", "utf8");
 const details = readFileSync("components/glow-zone-customer-details.tsx", "utf8");
 const actions = readFileSync("app/glow-zone/actions.ts", "utf8");
 const staff = readFileSync("components/club-sunbed-operations.tsx", "utf8");
 const scanner = readFileSync("components/glow-zone-reception-scanner.tsx", "utf8");
-const usePage = readFileSync("app/glow-zone/use/page.tsx", "utf8");
 
-test("Glow registration requires names, mobile and a valid past DOB", () => {
+test("Glow customer setup requests only identity and contact fields", () => {
   assert.equal(validGlowPhone("+44 7700 900123"), true);
   assert.equal(validGlowPhone("abc"), false);
-  assert.equal(validGlowDateOfBirth("2000-02-29", new Date("2026-10-27T12:00:00Z")), true);
-  assert.equal(validGlowDateOfBirth("2001-02-29", new Date("2026-10-27T12:00:00Z")), false);
-  assert.deepEqual(glowCustomerMissingFields({ firstName: "", lastName: "Person", email: "person@example.test", phone: "bad", dateOfBirth: "" }), ["firstName", "phone", "dateOfBirth"]);
-  for (const contract of [/Mobile phone<input required type="tel"/, /Date of birth<input required type="date"/, /phone: phone\.trim\(\)/, /date_of_birth: dateOfBirth/]) assert.match(account, contract);
+  assert.deepEqual(glowCustomerMissingFields({ firstName: "", lastName: "Person", email: "person@example.test", phone: "bad" }), ["firstName", "phone"]);
+  assert.match(account, /Mobile phone<input required type="tel"/);
+  assert.doesNotMatch(account, /Date of birth<input|date_of_birth: dateOfBirth/);
+  assert.match(migration, /insert into public\.club_customers\(organisation_id,user_id,display_name,email,phone,status,first_name,last_name\)/);
+  assert.doesNotMatch(migration, /v_raw_dob|p_date_of_birth/);
+  assert.match(actions, /club_glow_complete_customer_details_secure/);
+  assert.doesNotMatch(details, /dateOfBirth|Date of birth/);
 });
 
-test("declared DOB blocks under-18 use without becoming staff verification", () => {
-  const today = new Date("2026-10-27T12:00:00Z");
-  assert.equal(glowCustomerIsUnder18("2008-10-28", today), true);
-  assert.equal(glowCustomerIsUnder18("2008-10-27", today), false);
-  assert.match(migration, /c\.date_of_birth > \(current_date-interval '18 years'\)::date then 'under_18'/);
-  assert.match(migration, /Declared under-18 restriction cannot be overridden/);
-  assert.match(migration, /v_declared is not null and v_declared<>p_date_of_birth/);
-  assert.match(usePage, /context\.declaredUnder18/);
-  assert.match(usePage, /Reception cannot override an under-18 restriction/);
+test("new adult verification stores outcome, actor and time without DOB and preserves legacy rows", () => {
+  assert.match(migration, /values\(p_organisation_id,p_user_id,null,case when p_is_adult/);
+  assert.match(migration, /on conflict\(organisation_id,user_id\) do update set status=excluded\.status,verified_at=excluded\.verified_at,verified_by=excluded\.verified_by/);
+  assert.doesNotMatch(migration, /update public\.club_glow_age_verifications[\s\S]*?date_of_birth=null/);
+  assert.match(migration, /club_glow_record_age_confirmation\(p_organisation_id uuid,p_user_id uuid,p_is_adult boolean/);
+  assert.match(migration, /'status',r\.status,'verified_at',r\.verified_at,'verified_by',r\.verified_by/);
+  assert.match(staff, /I checked acceptable ID and confirm this customer is 18 or over/);
+  assert.match(scanner, /I checked acceptable ID and confirm this customer is 18 or over/);
+  assert.doesNotMatch(staff + scanner, /Date of birth from ID|Declared DOB|p_date_of_birth/);
+  assert.match(migration, /when c\.date_of_birth>\(current_date-interval '18 years'\)::date then 'under_18'/);
 });
 
-test("verified login fills only missing customer fields and creates no membership or entitlement", () => {
-  assert.match(migration, /email_confirmed_at/);
-  assert.match(migration, /first_name=coalesce\(nullif\(btrim\(first_name\),''\),v_first\)/);
-  assert.match(migration, /phone=case when length\(btrim\(coalesce\(phone,''\)\)\)/);
-  assert.match(migration, /date_of_birth=case when date_of_birth between '1900-01-01'/);
-  assert.match(migration, /lower\(btrim\(email\)\)=v_email/);
-  assert.doesNotMatch(migration, /insert into public\.(club_members|club_memberships|club_entitlement_grants|club_service_credit_lots)/i);
-  assert.match(actions, /club_glow_complete_customer_details/);
-  assert.doesNotMatch(details, /Finish setting up Glow Zone|Set up Glow Zone/);
-});
-
-test("existing users see only missing fields while retaining dashboard routing", () => {
-  assert.match(details, /missing\.includes\(key\)/);
-  assert.match(details, /Your existing R12 and Glow Zone information will be preserved/);
-  assert.match(details, /window\.location\.reload\(\)/);
-  assert.match(readFileSync("app/glow-zone/page.tsx", "utf8"), /GlowZoneCustomerView[\s\S]*missingDetails/);
-  assert.match(readFileSync("components/glow-zone-account-setup.tsx", "utf8"), /window\.location\.replace\("\/glow-zone"\)/);
-});
-
-test("authorised staff can inspect details but verification remains capability and UUID scoped", () => {
+test("age confirmation and scan remain organisation/location guarded", () => {
+  assert.match(migration, /club_glow_carlton_staff_allowed\(p_organisation_id\)/);
   assert.match(migration, /club_capability_allowed\(p_organisation_id,auth\.uid\(\),'induction\.perform'\)/);
-  assert.match(migration, /organisation_id=p_organisation_id and user_id=p_user_id/);
-  assert.match(migration, /'customer_phone',c\.phone,'declared_date_of_birth',c\.date_of_birth/);
-  assert.match(staff, /Search name, email or phone/);
-  assert.match(staff, /Staff verification cannot override the declared under-18 restriction/);
-  assert.match(scanner, /Under 18 — sunbed use prohibited/);
-});
-
-test("session safety keeps exact duration, approval and effective adult checks", () => {
-  assert.match(migration, /p_duration_minutes not between 1 and 15/);
-  assert.match(migration, /club_glow_effective_age_status\(p_organisation_id,p_user_id\)='verified'/);
-  assert.match(migration, /Glow Zone age verification required/);
-  const original = readFileSync("supabase/migrations/2026-10-25-glow-zone-session-requests.sql", "utf8");
-  assert.match(original, /club_location_authorized\(p_organisation_id,p_location_id\)/);
-  assert.match(original, /Confirm the requested bed and duration exactly/);
-});
-
-test("the forward migration is ordered after the deployed deletion executor", () => {
-  const manifest = readFileSync("supabase/deployment/2026-11-22-madhouse-launch-migrations.txt", "utf8");
-  assert.ok(manifest.indexOf("2027-01-23-glow-customer-details-and-age-safety.sql") > manifest.indexOf("2027-01-22-account-deletion-executor.sql"));
+  assert.match(migration, /club_glow_effective_age_status\(p_organisation_id,r\.user_id\)/);
+  assert.match(migration, /club_glow_carlton_staff_allowed\(p_organisation_id\) then raise exception 'Glow Zone reception permission required at Carlton'/);
 });

@@ -11,12 +11,9 @@ export async function GET() {
   const context = await resolveGlowZoneCustomerContext(client, user.id);
   if (context.state === "unavailable") return privateJson({ customerState: "unavailable", ageStatus: "unavailable" }, { status: 503 });
   if (context.state === "unlinked") return privateJson({ customerState: "unlinked", ageStatus: "not_applicable" });
-  const { data, error } = await client.from("club_glow_age_verifications")
-    .select("status")
-    .eq("organisation_id", context.organisation.id)
-    .eq("user_id", user.id)
-    .maybeSingle();
+  const { data, error } = await client.rpc("club_glow_my_customer_account_secure", { p_organisation_id: context.organisation.id });
   if (error) return privateJson({ customerState: "ready", ageStatus: "unavailable" }, { status: 503 });
-  const ageStatus = context.declaredUnder18 ? "under_18" : data?.status === "verified" ? "verified" : data?.status === "under_18" ? "under_18" : "required";
+  const account = data && typeof data === "object" ? data as Record<string, unknown> : {};
+  const ageStatus = account.age_status === "verified" ? "verified" : account.age_status === "under_18" ? "under_18" : "required";
   return privateJson({ customerState: "ready", ageStatus, details: context.details, missingDetails: context.missingDetails });
 }

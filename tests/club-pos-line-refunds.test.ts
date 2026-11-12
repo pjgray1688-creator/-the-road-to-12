@@ -48,7 +48,7 @@ test("line refund RPC is quantity-based, locks receipt/lines/lots, and records a
   assert.match(rpc, /club_balance_entries/);
   assert.match(rpc, /payment\.refund_issued/);
   assert.match(migration, /revoke all on function public\.club_issue_staff_refund\(uuid,integer,text,text,text\) from public,anon,authenticated/);
-  assert.match(action, /club_issue_staff_line_refund/);
+  assert.match(action, /club_approve_staff_line_refund/);
   assert.match(action, /allocations: input\.allocations\.map/);
   assert.match(component, /Refund value/);
   assert.match(component, /Provider refund reference/);

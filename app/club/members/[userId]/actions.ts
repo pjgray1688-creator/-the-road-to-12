@@ -32,7 +32,7 @@ export async function updateMemberContactAction(input: { organisationId: string;
   const fields = [input.phone, input.addressLine1, input.addressLine2, input.townCity, input.postcode];
   const limits = [40, 160, 160, 100, 20];
   if (fields.some((value, index) => typeof value !== "string" || value.length > limits[index]!)) return { ok: false as const, error: "Check the contact details and try again." };
-  const { error } = await client.rpc("club_update_member_contact", {
+  const { error } = await client.rpc("club_update_member_contact_secure", {
     p_organisation_id: context.organisation.id, p_user_id: input.userId,
     p_phone: input.phone.trim() || null, p_address_line_1: input.addressLine1.trim() || null,
     p_address_line_2: input.addressLine2.trim() || null, p_town_city: input.townCity.trim() || null,

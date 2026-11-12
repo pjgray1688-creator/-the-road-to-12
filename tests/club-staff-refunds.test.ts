@@ -33,13 +33,15 @@ test("refund recording never fakes external provider refunds or silently alters 
   assert.match(view, /checked in separately/);
 });
 
-test("authorized reception staff can find recent sales and record tender-specific line refunds", () => {
-  assert.match(action, /hasCapability\(value\.organisation\.id, value\.userId, "refunds\.issue"\)/);
-  assert.match(action, /club_issue_staff_line_refund/);
-  assert.match(page, /loaded\.staff && loaded\.canIssueRefund && view === "cash" && tillView === "log"/);
+test("staff can view recent sales/refund status; refund execution remains management-only", () => {
+  assert.match(action, /hasCapability\(value\.organisation\.id, value\.userId, "refunds\.approve"\)/);
+  assert.match(action, /club_approve_staff_line_refund/);
+  assert.match(page, /loaded\.staff && loaded\.canViewTillLog && view === "cash" && tillView === "log"/);
+  assert.match(page, /canApproveRefund=\{loaded\.canApproveRefund\}/);
   assert.match(page, /\.eq\("channel", "staff_checkout"\)/);
   assert.match(view, /Refund to Balance/);
   assert.match(view, /Record cash refund/);
+  assert.match(view, /canApproveRefund \? <details/);
   assert.match(view, /Provider refund reference/);
   assert.match(view, /Choose the exact items or service units/);
   assert.match(view, /Selected refund total/);
@@ -50,8 +52,8 @@ test("Sell stays focused on checkout and receipts live under Cash & till", () =>
   assert.doesNotMatch(page, /loaded\.staff && view === "sell" \? <>[\s\S]*?ClubRecentSales/);
   assert.match(page, /view === "cash" \? <><nav className="club-shop-tabs club-till-subnav"/);
   assert.match(page, /till=log/);
-  assert.match(page, /<ClubRecentSales organisationId=\{loaded\.organisation\.id\} sales=\{recentSales\} \/>/);
-  assert.match(page, /loaded\.canIssueRefund \? "log"/);
+  assert.match(page, /<ClubRecentSales organisationId=\{loaded\.organisation\.id\} sales=\{recentSales\} canApproveRefund=\{loaded\.canApproveRefund\} \/>/);
+  assert.match(page, /loaded\.canViewTillLog \? "log"/);
   assert.match(page, /loaded\.canReconcile \? "close"/);
 });
 

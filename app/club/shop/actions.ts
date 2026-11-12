@@ -197,10 +197,10 @@ export async function staffIssueRefundAction(input: { organisationId: string; pa
   try {
     const value = await context(input.organisationId);
     const reason = input.reason.trim();
-    if (!value || !(await value.repository.hasCapability(value.organisation.id, value.userId, "refunds.issue")) || !input.paymentId || !input.allocations.length || input.allocations.length > 30 || input.allocations.some(line => !line.orderItemId || !Number.isSafeInteger(line.quantity) || line.quantity < 1) || reason.length < 3 || reason.length > 240 || !input.idempotencyKey.trim()) {
+    if (!value || !(await value.repository.hasCapability(value.organisation.id, value.userId, "refunds.approve")) || !input.paymentId || !input.allocations.length || input.allocations.length > 30 || input.allocations.some(line => !line.orderItemId || !Number.isSafeInteger(line.quantity) || line.quantity < 1) || reason.length < 3 || reason.length > 240 || !input.idempotencyKey.trim()) {
       return { ok: false, error: "Check your refund permission, selected items and reason." };
     }
-    const { error } = await (await serverSupabase()).rpc("club_issue_staff_line_refund", {
+    const { error } = await (await serverSupabase()).rpc("club_approve_staff_line_refund", {
       p_payment_id: input.paymentId,
       p_allocations: input.allocations.map(line => ({ order_item_id: line.orderItemId, quantity: line.quantity })),
       p_reason: reason,
