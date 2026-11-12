@@ -29,6 +29,10 @@ const normalizedStaffName = (value: string) => {
   const normalized = value.trim().split(/\s+/)[0]?.toLowerCase().replace(/[^a-z]/g, "") ?? "";
   return normalized === "amie" ? "aimee" : normalized;
 };
+const normalizedFullStaffName = (value: string) => value.trim().toLowerCase().replace(/[^a-z]/g, "").replace(/^amie/, "aimee");
+const matchesPreparedIdentity = (canonicalName: string, candidateName: string) => canonicalName.trim().split(/\s+/).length > 1
+  ? normalizedFullStaffName(canonicalName) === normalizedFullStaffName(candidateName)
+  : normalizedStaffName(canonicalName) === normalizedStaffName(candidateName);
 
 type StaffAccountRow = {
   member_id: string;
@@ -83,8 +87,8 @@ export default async function ClubStaffPage({ searchParams }: { searchParams?: P
   const activeStaff = staff.filter(person => person.active);
   const suspendedStaff = staff.filter(person => !person.active);
   const preparedAssignments = operationalAssignments.filter(row => {
-    const preparedName = normalizedStaffName(String(row.canonical_name ?? ""));
-    return preparedName !== "shannon" && !activeStaff.some(person => normalizedStaffName(person.display_name) === preparedName);
+    const preparedName = String(row.canonical_name ?? "");
+    return normalizedStaffName(preparedName) !== "shannon" && !activeStaff.some(person => matchesPreparedIdentity(preparedName, person.display_name));
   });
 
   return <AppShell className="module-page club-page staff-management-page">
@@ -102,7 +106,7 @@ export default async function ClubStaffPage({ searchParams }: { searchParams?: P
         return <article className="staff-person" key={member.member_id}>
           <div className="staff-person-avatar" aria-hidden="true">{initials(member.display_name)}</div>
           <div className="staff-person-main"><strong>{member.display_name}</strong><span>{member.email ?? "No profile email"}</span></div>
-          <div className="staff-person-access"><strong>{roleLabel(member.role)}</strong>{coachEnabled ? <span className="staff-badge">Coach / PT</span> : null}<small>{venueSummary}</small></div>
+          <div className="staff-person-access"><strong>{roleLabel(member.role)}</strong>{coachEnabled && member.role !== "trainer" ? <span className="staff-badge">Coach permission active</span> : null}<small>{venueSummary}</small></div>
           <span className={`staff-status ${member.active ? "is-active" : "is-suspended"}`}>{member.active ? "Active" : "Suspended"}</span>
           <ClubStaffManageAccess organisationId={context.organisation.id} userId={member.user_id} name={member.display_name} email={member.email} role={member.role} active={member.active} locationIds={staffLocations.get(member.user_id) ?? []} locations={locations} overrides={overrides} coachEnabled={coachEnabled} gymMembership={member.is_gym_member ? member.membership_name ?? "Active" : "None"} />
         </article>;
@@ -116,10 +120,11 @@ export default async function ClubStaffPage({ searchParams }: { searchParams?: P
         const assignmentId = String(row.assignment_id);
         const name = String(row.canonical_name);
         const locationsForAssignment = Array.isArray(row.location_ids) ? row.location_ids.map((id: unknown) => locationNames.get(String(id))).filter(Boolean).join(" + ") : "";
-        const matchedStaff = staff.find(person => normalizedStaffName(person.display_name) === normalizedStaffName(name));
+        const matchingStaff = staff.filter(person => matchesPreparedIdentity(name, person.display_name));
+        const matchedStaff = matchingStaff.length === 1 ? matchingStaff[0] : undefined;
         const linkedGrantId = row.staff_grant_id ? String(row.staff_grant_id) : "";
         const linkedGrant = linkedGrantId ? pendingRows.find(grant => String(grant.id) === linkedGrantId) : undefined;
-        const candidates = linkedGrantId || matchedStaff ? [] : pendingRows.filter(grant => normalizedStaffName(String(grant.display_name ?? "")) === normalizedStaffName(name));
+        const candidates = linkedGrantId || matchedStaff || matchingStaff.length > 1 ? [] : pendingRows.filter(grant => matchesPreparedIdentity(name, String(grant.display_name ?? "")));
         const linkedNotification = linkedGrant ? invitationStatus.get(String(linkedGrant.id)) : undefined;
         const linkedStatus = matchedStaff?.active ? "Active"
           : matchedStaff ? "Invitation accepted · account inactive"
@@ -133,7 +138,7 @@ export default async function ClubStaffPage({ searchParams }: { searchParams?: P
           <div className={staffStyles.preparedIdentity}><strong>{name}</strong><small>{roleLabel(String(linkedRole))}</small>{linkedEmail ? <small>{linkedEmail}</small> : null}</div>
           <div className={staffStyles.preparedLocation}><small>Normal work location</small><span>{locationsForAssignment || "Not assigned"}</span></div>
           <div className={staffStyles.preparedStatus}><span>{linkedStatus}</span><small>Gym entry depends on active staff access, not this rota location.</small></div>
-          {candidates.length ? <form className={staffStyles.preparedActions} action={async (formData: FormData) => { "use server"; const grantId = String(formData.get("grantId") ?? ""); if (grantId) await linkOperationalStaffInvitation({ organisationId: context.organisation.id, assignmentId, grantId }); }}><select name="grantId" aria-label={`Invitation for ${name}`} defaultValue=""><option value="" disabled>Choose matching invite</option>{candidates.map(grant => <option key={String(grant.id)} value={String(grant.id)}>{String(grant.email_normalized)}</option>)}</select><button className="secondary" type="submit">Link invitation</button></form> : <span />}
+          {candidates.length ? <form className={staffStyles.preparedActions} action={async (formData: FormData) => { "use server"; const grantId = String(formData.get("grantId") ?? ""); if (grantId) await linkOperationalStaffInvitation({ organisationId: context.organisation.id, assignmentId, grantId }); }}><label className={staffStyles.preparedInviteLabel}>Confirm the full invitee identity before linking<select name="grantId" aria-label={`Invitation for ${name}`} defaultValue=""><option value="" disabled>Choose matching invite</option>{candidates.map(grant => <option key={String(grant.id)} value={String(grant.id)}>{String(grant.display_name)} · {String(grant.email_normalized)}</option>)}</select></label><button className="secondary" type="submit">Link invitation</button></form> : matchingStaff.length > 1 ? <small>Several staff share this first name. No identity was matched.</small> : <span />}
         </article>;
       })}</div>
     </Surface> : null}

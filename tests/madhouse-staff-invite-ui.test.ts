@@ -46,13 +46,14 @@ test("failed invitation keeps fields and selection for correction", () => {
 test("linked prepared identity shows its email/status and suppresses duplicate link controls", () => {
   assert.match(page, /const linkedGrantId = row\.staff_grant_id/);
   assert.match(page, /String\(grant\.id\) === linkedGrantId/);
-  assert.match(page, /linkedGrantId \|\| matchedStaff \? \[\] : pendingRows\.filter/);
+  assert.match(page, /linkedGrantId \|\| matchedStaff \|\| matchingStaff\.length > 1 \? \[\] : pendingRows\.filter/);
   assert.match(page, /const linkedEmail = linkedGrant\?\.email_normalized \?\? matchedStaff\?\.email/);
   assert.match(page, /\{linkedEmail \? <small>\{linkedEmail\}<\/small> : null\}/);
   assert.match(page, /Verified · pending activation/);
   assert.match(page, /matchedStaff\?\.active \? "Active"/);
   assert.match(page, /\{candidates\.length \? <form className=\{staffStyles\.preparedActions\}/);
-  assert.match(page, /!activeStaff\.some\(person => normalizedStaffName\(person\.display_name\) === preparedName\)/);
+  assert.match(page, /matchesPreparedIdentity\(preparedName, person\.display_name\)/);
+  assert.match(page, /String\(grant\.display_name\).*String\(grant\.email_normalized\)/);
 });
 
 test("invitation attachment continues through the existing permission-checked idempotent RPC", () => {

@@ -1,0 +1,4 @@
+.page{width:min(100%,1440px)}
+.main{display:grid;gap:16px;min-width:0}
+.main>section{min-width:0}
+@media(max-width:700px){.main{gap:12px}}

@@ -5,9 +5,8 @@ import { ClubSectionNav } from "@/components/club-shell";
 import { serverSupabase } from "@/lib/supabase-server";
 import { resolveClubOperationalContext } from "@/lib/club-server-context";
 import { ClubSunbedOperations } from "@/components/club-sunbed-operations";
-import { GlowZoneOpeningHours } from "@/components/glow-zone-opening-hours";
-import type { GlowZoneHourRow } from "@/components/glow-zone-opening-hours";
 import { GlowZoneReceptionScanner } from "@/components/glow-zone-reception-scanner";
+import pageStyles from "@/app/club/sunbeds/page.module.css";
 
 type Search = { org?: string; view?: string };
 type GlowEvent = { id: string; at: string; userId: string; actorId?: string; label: string; minutes: number; amountMinor?: number; tender?: string; status?: string };
@@ -48,19 +47,26 @@ export default async function ClubSunbeds({ searchParams }: { searchParams?: Pro
   const params = await searchParams;
   const context = await resolveClubOperationalContext(client, user.id, params?.org);
   if (!context) return <AppShell className="module-page club-page"><PageHeader title="Glow Zone"/><EmptyState title="Club access required">Choose an authorised Club organisation.</EmptyState><AppNav/></AppShell>;
-  const [locations, hoursResult, canManageService, canVerifyAge, canRecordCash, canTakePayment, canViewFinance] = await Promise.all([
+  const capability = async (name: string) => {
+    const { data, error } = await client.rpc("club_capability_allowed", {
+      p_organisation_id: context.organisation.id,
+      p_user_id: user.id,
+      p_capability: name,
+    });
+    return !error && data === true;
+  };
+  const [locations, canManageService, canVerifyAge, canRecordCash, canTakePayment, canViewFinance, canAdjustBalance] = await Promise.all([
     context.repository.listLocations(context.organisation.id),
-    client.from("club_location_service_hours").select("weekday,opens_local,closes_local,confirmation_state,time_zone").eq("organisation_id",context.organisation.id).eq("location_name","Carlton").eq("service_key","sunbeds").order("weekday"),
-    context.repository.hasCapability(context.organisation.id,user.id,"services.manage"),
-    context.repository.hasCapability(context.organisation.id,user.id,"induction.perform"),
-    context.repository.hasCapability(context.organisation.id,user.id,"payments.record_cash"),
-    context.repository.hasCapability(context.organisation.id,user.id,"payments.take"),
-    context.repository.hasCapability(context.organisation.id,user.id,"finance.view"),
+    capability("services.manage"),
+    capability("induction.perform"),
+    capability("payments.record_cash"),
+    capability("payments.take"),
+    capability("finance.view"),
+    capability("services.manage"),
   ]);
   const carlton=locations.find(location=>location.active&&location.name.toLowerCase().includes("carlton"));
   const accessResult=carlton?await client.rpc("club_location_authorized",{p_organisation_id:context.organisation.id,p_location_id:carlton.id}):{data:false,error:null};
   if(!canManageService||!carlton||accessResult.error||accessResult.data!==true) return <AppShell className="module-page club-page"><PageHeader title="Glow Zone"/><ClubSectionNav organisation={context.organisation} role={context.role} contexts={context.availableContexts}/><EmptyState title="Carlton Glow Zone access required">This operation is available to authorised staff assigned to Carlton.</EmptyState><AppNav/></AppShell>;
-  const hours=(hoursResult.data??[]) as GlowZoneHourRow[];
   const managementView=params?.view==="management"&&canViewFinance;
-  return <AppShell className="module-page club-page"><PageHeader title={managementView?"Glow Zone management":"Glow Zone"}/><ClubSectionNav organisation={context.organisation} role={context.role} contexts={context.availableContexts}/><GlowZoneOpeningHours hours={hours}/><Surface><GlowZoneReceptionScanner organisationId={context.organisation.id} locationId={carlton.id} canVerifyAge={canVerifyAge}/></Surface><Surface><ClubSunbedOperations organisationId={context.organisation.id} locations={[carlton]} canAdjust={context.role==="owner"||context.role==="gym_admin"} canVerifyAge={canVerifyAge} canRecordCash={canRecordCash} canTakePayment={canTakePayment}/></Surface>{managementView?<GlowManagementReport client={client} context={context} locationId={carlton.id}/>:null}<AppNav/></AppShell>;
+  return <AppShell className={`module-page club-page ${pageStyles.page}`}><PageHeader title={managementView?"Glow Zone management":"Glow Zone"}/><ClubSectionNav organisation={context.organisation} role={context.role} contexts={context.availableContexts}/><main className={pageStyles.main}><GlowZoneReceptionScanner organisationId={context.organisation.id} locationId={carlton.id} canVerifyAge={canVerifyAge}/><ClubSunbedOperations organisationId={context.organisation.id} locations={[carlton]} canAdjust={canAdjustBalance&&(context.role==="owner"||context.role==="gym_admin")} canVerifyAge={canVerifyAge} canRecordCash={canRecordCash} canTakePayment={canTakePayment}/>{managementView?<GlowManagementReport client={client} context={context} locationId={carlton.id}/>:null}</main><AppNav/></AppShell>;
 }

@@ -74,6 +74,18 @@ export default async function ClubPage({ searchParams }: { searchParams?: Promis
       context.navigation.finance ? context.repository.hasCapability(context.organisation.id, user.id, "payments.take") : Promise.resolve(false),
       listLinkedInstructorIdentities(supabase, context.organisation.id),
     ]);
+    const glowCarlton = locations.find(location => location.active && location.name.toLowerCase().includes("carlton"));
+    const [glowCapability, glowLocationAccess] = await Promise.all([
+      supabase.rpc("club_capability_allowed", {
+        p_organisation_id: context.organisation.id,
+        p_user_id: user.id,
+        p_capability: "services.manage",
+      }),
+      glowCarlton
+        ? supabase.rpc("club_location_authorized", { p_organisation_id: context.organisation.id, p_location_id: glowCarlton.id })
+        : Promise.resolve({ data: false, error: null }),
+    ]);
+    const canOpenGlowZone = Boolean(!glowCapability.error && glowCapability.data === true && glowCarlton && !glowLocationAccess.error && glowLocationAccess.data === true);
     const billingResult = canReviewBilling ? await supabase.rpc("club_list_membership_billing_attention", { p_organisation_id: context.organisation.id }) : { data: null, error: null };
     const billingAttention = !billingResult.error && Array.isArray(billingResult.data) ? billingResult.data.length : 0;
     const shelfResult = await supabase.rpc("club_list_collection_shelf_checks", { p_organisation_id: context.organisation.id });
@@ -95,7 +107,7 @@ export default async function ClubPage({ searchParams }: { searchParams?: Promis
         <Surface><span className="eyebrow">UP NEXT</span>{upcoming.length ? upcoming.map(session => <div className="club-detail-row" key={session.id}><span>{session.title ?? "Scheduled class"}</span><span className="muted">{new Date(session.startsAt).toLocaleString("en-GB", { weekday: "short", hour: "2-digit", minute: "2-digit" })}</span></div>) : <p className="muted" style={{ marginTop: 12 }}>No upcoming classes scheduled.</p>}</Surface>
       </div>
       <section className={overviewStyles.desktopOverview} aria-label="Club management overview">
-        <Surface className="club-shift-actions"><div className={overviewStyles.panelHeading}><h3>Shift actions</h3></div><div className={overviewStyles.shiftActions}><Link className={overviewStyles.quickLink} href={`/club/work?org=${encodeURIComponent(context.organisation.id)}`}>My Shift <span aria-hidden="true">›</span></Link>{context.navigation.members ? <Link className={overviewStyles.quickLink} href={`/club/members?org=${encodeURIComponent(context.organisation.id)}`}>Members <span aria-hidden="true">›</span></Link> : null}<Link className={overviewStyles.quickLink} href={`/club/shop?org=${encodeURIComponent(context.organisation.id)}&view=sell`}>Till <span aria-hidden="true">›</span></Link><Link className={overviewStyles.quickLink} href={`/club/checks?org=${encodeURIComponent(context.organisation.id)}${params?.location ? `&location=${encodeURIComponent(params.location)}` : ""}`}>Daily Checks <span aria-hidden="true">›</span></Link></div></Surface>
+        <Surface className="club-shift-actions"><div className={overviewStyles.panelHeading}><h3>Shift actions</h3></div><div className={overviewStyles.shiftActions}><Link className={overviewStyles.quickLink} href={`/club/work?org=${encodeURIComponent(context.organisation.id)}`}>My Shift <span aria-hidden="true">›</span></Link>{context.navigation.members ? <Link className={overviewStyles.quickLink} href={`/club/members?org=${encodeURIComponent(context.organisation.id)}`}>Members <span aria-hidden="true">›</span></Link> : null}<Link className={overviewStyles.quickLink} href={`/club/shop?org=${encodeURIComponent(context.organisation.id)}&view=sell`}>Till <span aria-hidden="true">›</span></Link><Link className={overviewStyles.quickLink} href={`/club/checks?org=${encodeURIComponent(context.organisation.id)}${params?.location ? `&location=${encodeURIComponent(params.location)}` : ""}`}>Daily Checks <span aria-hidden="true">›</span></Link>{canOpenGlowZone ? <Link className={overviewStyles.quickLink} href={`/club/sunbeds?org=${encodeURIComponent(context.organisation.id)}`}>Glow Zone <span aria-hidden="true">›</span></Link> : null}</div></Surface>
         <div className={overviewStyles.mainGrid}>
           <div className={overviewStyles.column}>
             <Surface><div className={overviewStyles.panelHeading}><h3>Upcoming Classes &amp; PT</h3><Link href={`/club/classes?org=${encodeURIComponent(context.organisation.id)}`}>Timetable</Link></div>{nearestSessions.length ? <div className={overviewStyles.sessionList}>{nearestSessions.map(session => { const venue = locations.find(location => location.id === session.locationId)?.name ?? "Venue not recorded"; const type = classTypes.find(item => item.id === session.classTypeId); const instructor = resolveInstructorName(session.hostUserId, memberIdentities, session.instructorName); const title = type?.name === "Girls and Gains" && /^women\s+only$/i.test(session.title ?? "") ? type.name : session.title ?? type?.name ?? "Class"; return <div className={overviewStyles.session} key={session.id}><time dateTime={session.startsAt}>{new Date(session.startsAt).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</time><span><strong>{title}</strong><small>{venue} · {instructor}</small></span></div>; })}</div> : <p className={overviewStyles.emptyNote}>No upcoming sessions are scheduled.</p>}</Surface>
