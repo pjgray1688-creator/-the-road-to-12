@@ -33,7 +33,8 @@ test("desktop Club navigation gates management destinations through resolved cap
   assert.match(shell, /access\.finance \? \[\{ label: "Finance & sales"/);
   assert.match(shell, /access\.memberships \? \[\{ label: "Membership administration"/);
   assert.match(shell, /access\.staff \? \[\{ label: "Staff & permissions"/);
-  assert.match(shell, /access\.management \? <Link href=\{`\/club\/more/);
+  assert.match(shell, /access\.management \? <div className=\{styles\.managementGroup\}/);
+  assert.match(shell, /<Link href=\{`\/club\/more\$\{q\}`\}[^>]*title="Management"/);
   assert.match(shell, /if \(!selected \|\| !operational\) return \[\] as Item\[\]/);
   assert.doesNotMatch(shell, /role === "owner" \? \[.*Management/s);
 });
@@ -96,14 +97,14 @@ test("desktop Club sidebar keeps operational destinations primary and admin dest
   assert.match(shell, /managementLinks/);
   assert.match(shell, /Finance & sales/);
   assert.match(shell, /Membership administration/);
-  assert.match(shell, /Glow Zone management/);
+  assert.match(shell, /Glow Zone/);
 });
 
 test("desktop Club route matching keeps operational and management routes in their canonical groups", () => {
   const shell = read("components/club-desktop-shell.tsx");
   assert.match(shell, /routeInManagement = pathname\.startsWith\("\/club\/more"\)/);
   assert.match(shell, /path\.startsWith\("\/club\/classes"\)/);
-  assert.match(shell, /const shopRoutes = pathname\.startsWith\("\/club\/shop"\) \|\| pathname\.startsWith\("\/club\/products"\)/);
+  assert.match(shell, /const shopRoutes = pathname\.startsWith\("\/club\/shop"\) && !pathname\.startsWith\("\/club\/shop\/supplier-catalogue"\)/);
   assert.match(shell, /activeManagement = managementLinks\.some/);
   assert.match(shell, /access\.management/);
 });

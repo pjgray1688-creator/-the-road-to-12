@@ -33,6 +33,7 @@ type Props = {
   canVerifyAge?: boolean;
   canRecordCash?: boolean;
   canTakePayment?: boolean;
+  managementMode?: boolean;
 };
 
 const displayDate = (value: unknown) => {
@@ -48,6 +49,7 @@ export function ClubSunbedOperations({
   canVerifyAge = false,
   canRecordCash = false,
   canTakePayment = false,
+  managementMode = false,
 }: Props) {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<Customer | null>(null);
@@ -319,7 +321,7 @@ export function ClubSunbedOperations({
             <div className={styles.detailCard}><small>Loyalty progress</small><strong>{loyalty >= 9 ? "Reward earned" : `${loyalty} of 9 sessions`}</strong><progress aria-label="Glow Zone loyalty progress" max={9} value={Math.min(loyalty, 9)} /></div>
           </div>
 
-          {age === "required" && canVerifyAge ? (
+          {age === "required" && canVerifyAge && !managementMode ? (
             <div className={styles.confirmGroup}>
               <h3 className={styles.sectionTitle}>Verify age in person</h3>
               <label className={styles.check}><input type="checkbox" checked={adultConfirmed} onChange={event => setAdultConfirmed(event.target.checked)} />I checked acceptable ID and confirm this customer is 18 or over.</label>
@@ -327,15 +329,15 @@ export function ClubSunbedOperations({
               <small>Selecting the checkbox or leaving this section does not save anything.</small>
             </div>
           ) : null}
-          {age === "required" && !canVerifyAge ? <p className={styles.empty}>Age verification requires the authorised Carlton induction permission.</p> : null}
+          {age === "required" && !canVerifyAge && !managementMode ? <p className={styles.empty}>Age verification requires the authorised Carlton induction permission.</p> : null}
           {age === "under_18" ? <p className={styles.error}>The under-18 safeguarding restriction cannot be overridden by staff.</p> : null}
 
-          <div className={styles.subsection}>
+          {!managementMode ? <div className={styles.subsection}>
             <div className={styles.customerHead}><h3 className={styles.sectionTitle}>Contact telephone</h3><button className={styles.secondary} type="button" onClick={() => { setPhoneDraft(customerDetails.phone ?? selected.phone); setPhoneOpen(value => !value); }}>{phoneOpen ? "Cancel edit" : "Edit telephone"}</button></div>
             {phoneOpen ? <div className={styles.inlineForm}><label className={styles.field}>Telephone number<input type="tel" value={phoneDraft} onChange={event => setPhoneDraft(event.target.value)} autoComplete="tel" maxLength={25} /></label><button className={styles.button} type="button" disabled={pending || phoneDraft.trim().length < 7} onClick={savePhone}>{pending ? "Saving…" : "Save telephone"}</button></div> : <p className={styles.empty}>Telephone changes are audited. Email and account identity cannot be edited here.</p>}
-          </div>
+          </div> : null}
 
-          <div className={styles.subsection}>
+          {!managementMode ? <div className={styles.subsection}>
             <h3 className={styles.sectionTitle}>Sell minutes</h3>
             <button className={styles.button} type="button" aria-expanded={saleOpen} onClick={() => setSaleOpen(value => !value)}>{saleOpen ? "Close minute sale" : "Sell minutes"}</button>
             {saleOpen ? <div className={styles.managementBody}>
@@ -346,7 +348,7 @@ export function ClubSunbedOperations({
               {saleMinutes > 0 && (tender === "cash" ? canRecordCash : canTakePayment) ? <label className={styles.check}><input type="checkbox" checked={saleConfirmed} onChange={event => setSaleConfirmed(event.target.checked)} />{tender === "cash" ? "I have received the cash amount shown." : "I confirmed this amount was paid on the card terminal."}</label> : null}
               <button className={styles.button} type="button" disabled={pending || !saleMinutes || !saleConfirmed || (tender === "cash" ? !canRecordCash : !canTakePayment)} onClick={sell}>{pending ? "Recording payment…" : "Confirm payment and credit minutes"}</button>
             </div> : null}
-          </div>
+          </div> : null}
 
           <div className={styles.subsection}>
             <h3 className={styles.sectionTitle}>Recent minute purchases</h3>
@@ -359,7 +361,7 @@ export function ClubSunbedOperations({
           {otherHistory.length ? <div className={styles.subsection}><h3 className={styles.sectionTitle}>Other balance activity</h3><div className={styles.history}>{otherHistory.map((item, index) => <div className={styles.historyRow} key={`other-${index}`}><strong>Balance correction</strong><small>{displayDate(item.created_at)}{item.reason ? ` · ${String(item.reason)}` : ""}</small><span>{Number(item.minutes) > 0 ? "+" : ""}{Number(item.minutes)} min</span></div>)}</div></div> : null}
 
           {canAdjust ? <details className={`${styles.panel} ${styles.managementPanel}`}>
-            <summary><strong>Adjust minute balance</strong><span className={styles.statusPill}>Management only</span></summary>
+            <summary><strong>Adjust minute balance</strong></summary>
             <div className={styles.managementBody}>
               <p className={styles.empty}>Use only to correct a recorded balance. Minute sales belong in “Sell minutes”.</p>
               <label className={styles.field}>Minutes<input type="number" min="1" step="1" value={adjustMinutes} onChange={event => { setAdjustMinutes(event.target.value); setAdjustmentConfirmed(false); }} /></label>

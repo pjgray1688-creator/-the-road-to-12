@@ -13,6 +13,10 @@
 .familyControl { display: flex; align-items: center; gap: 10px; color: #655a6d; font-size: 12px; font-weight: 700; }
 .familyControl button, .saveRow > button { min-height: 38px; padding: 8px 13px; border: 0; border-radius: 9px; background: #6331aa; color: white; font: inherit; font-size: 12px; font-weight: 800; cursor: pointer; }
 .familyControl button:disabled, .saveRow button:disabled { opacity: .55; cursor: wait; }
+.workspace .family .familyControl button,.workspace .family .saveRow > button { color:#fff; }
+.workspace .family .familyControl button:hover:not(:disabled),.workspace .family .saveRow > button:hover:not(:disabled) { background:#51268f; }
+.workspace .family .familyControl button:focus-visible,.workspace .family .saveRow > button:focus-visible { outline:3px solid rgb(99 49 170 / 30%); outline-offset:2px; }
+.workspace .family .familyControl button:disabled,.workspace .family .saveRow > button:disabled { background:#e7e3ea; color:#625a68; opacity:1; cursor:not-allowed; }
 .colourways { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 18px; padding: 0 20px; }
 .colourway { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(150px, .8fr); align-items: center; gap: 13px 16px; padding: 16px 0; border-bottom: 1px solid #eeeaf1; }
 .productIdentity { display: flex; align-items: center; gap: 12px; min-width: 0; }

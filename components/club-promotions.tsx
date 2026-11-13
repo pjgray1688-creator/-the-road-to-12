@@ -12,6 +12,7 @@ type PromotionRow = {
   id: string; name: string; description?: string; status: string; starts_at?: string; ends_at?: string;
   location_ids?: string[]; eligibility?: Record<string, unknown>;
 };
+type MembershipPromotionRow = Pick<PromotionRow, "id" | "name" | "status" | "starts_at" | "ends_at"> & { timezone?: string };
 function statusOf(promotion: { status: string; starts_at?: string; ends_at?: string }, now = Date.now()) {
   if (promotion.ends_at && new Date(promotion.ends_at).getTime() <= now) return "Ended";
   if (promotion.status !== "active") return promotion.status === "draft" ? "Scheduled" : "Paused / disabled";
@@ -24,9 +25,10 @@ function localDate(value: string, timezone?: string) {
 }
 
 export function ClubPromotions({
-  organisationId, promotions = [],
+  organisationId, promotions = [], membershipPromotions = [], shopOffersUnavailable = false, membershipOffersUnavailable = false,
 }: {
-  organisationId: string; promotions?: PromotionRow[];
+  organisationId: string; promotions?: PromotionRow[]; membershipPromotions?: MembershipPromotionRow[];
+  shopOffersUnavailable?: boolean; membershipOffersUnavailable?: boolean;
 }) {
   const [selected, setSelected] = useState<string>();
   const [message, setMessage] = useState("");
@@ -47,7 +49,7 @@ export function ClubPromotions({
   return <section aria-label="Promotions and offers">
     <div className="card">
       <div className="section-heading"><div><span className="eyebrow">SHOP PROMOTION MANAGEMENT</span><h2>Current and upcoming shop offers</h2></div><button type="button" className="secondary" onClick={configureGsn} disabled={pending}>Configure GSN 10 for £32</button></div>
-      {["Live", "Scheduled", "Paused / disabled", "Ended"].map(group => <section key={group}>
+      {shopOffersUnavailable ? <p role="status">Shop offers could not be loaded. No offer has been changed.</p> : ["Live", "Scheduled", "Paused / disabled", "Ended"].map(group => <section key={group}>
         <h3>{group}</h3>
         {promotions.filter(promotion => statusOf(promotion) === group).map(promotion => {
           const eligibility = promotion.eligibility ?? {};
@@ -61,6 +63,11 @@ export function ClubPromotions({
         })}
       </section>)}
     </div>
+
+    <section className="card" aria-label="Membership offers">
+      <div className="section-heading"><div><h2>Membership offers</h2><p className="muted">Joining-fee offers use a separate membership promotion system.</p></div></div>
+      {membershipOffersUnavailable ? <p role="status">Membership offers could not be loaded. Their status is unknown.</p> : membershipPromotions.length ? <div className="club-promotion-list">{membershipPromotions.map(promotion => <article className="card" key={promotion.id}><div><strong>{promotion.name}</strong><p>{statusOf(promotion)}</p></div><small>{promotion.starts_at ? `Starts ${localDate(promotion.starts_at, promotion.timezone)}` : "Start date not recorded"}{promotion.ends_at ? ` · Ends ${localDate(promotion.ends_at, promotion.timezone)}` : " · No end date"}</small></article>)}</div> : <p className="muted">No membership offers are available to display.</p>}
+    </section>
 
     <details className="card"><summary>Create a promotion with Deal Maker</summary><form onSubmit={event => {
       event.preventDefault();

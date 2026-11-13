@@ -66,11 +66,10 @@ test("Club navigation exposes staff operations and gates management reporting", 
   assert.match(layout, /context\.navigation\.services&&carlton/);
   assert.match(layout, /club_location_authorized/);
   assert.match(layout, /access\.data===true/);
-  assert.match(shell, /access\.services && access\.management \? \[\{ label: "Glow Zone management"/);
-  assert.match(management, /context\.navigation\.services && context\.navigation\.management && !glowAccess\.error && glowAccess\.data === true/);
+  assert.match(management, /context\.navigation\.services && context\.navigation\.management && context\.navigation\.finance && !glowAccess\.error && glowAccess\.data === true/);
   assert.match(management, /club_location_authorized/);
-  assert.doesNotMatch(shell, /Glow Zone management[^\n]*access\.finance/);
-  assert.match(page, /params\?\.view==="management"&&canViewFinance/);
+  assert.match(shell, /access\.finance/);
+  assert.match(page, /managementRequested&&!canViewFinance/);
   assert.match(page, /club_location_authorized/);
 });
 

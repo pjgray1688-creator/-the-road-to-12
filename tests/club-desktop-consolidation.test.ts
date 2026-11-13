@@ -12,14 +12,14 @@ const work = readFileSync("app/club/work/page.tsx", "utf8");
 const workActions = readFileSync("app/club/work/actions.ts", "utf8");
 const supplierOrders = readFileSync("app/club/shop/supplier-orders/page.tsx", "utf8");
 
-test("desktop Shop navigation stays available across canonical routes without duplicating administration", () => {
+test("operational Shop navigation stays available while catalogue administration remains under Management", () => {
   for (const label of ["Shop", "Stock", "Cash & till", "Balance top-up", "Supplier orders", "Collections", "Offers"]) assert.match(shell, new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   assert.match(shell, /access\.suppliers \? \[\{ label: "Supplier catalogue"/);
   assert.doesNotMatch(shell.slice(shell.indexOf("const shopNavigation"), shell.indexOf("const classesNavigation")), /Supplier catalogue/);
-  assert.match(shell, /const shopRoutes = pathname\.startsWith\("\/club\/shop"\) \|\| pathname\.startsWith\("\/club\/products"\)/);
+  assert.match(shell, /const shopRoutes = pathname\.startsWith\("\/club\/shop"\) && !pathname\.startsWith\("\/club\/shop\/supplier-catalogue"\)/);
   assert.match(shell, /shopRoutes && pathname === "\/club\/shop"/);
-  assert.match(shell, /label: "Products & pricing".*href: `\/club\/products/);
-  assert.match(shell, /label: "Cash approvals".*cash-review/);
+  assert.match(shell, /\["Shop Administration", "shop"\]/);
+  assert.doesNotMatch(shell.slice(shell.indexOf("const shopNavigation"), shell.indexOf("const classesNavigation")), /Products & pricing|Supplier catalogue/);
   assert.match(shellCss, /operationalSubNavigation/);
   assert.match(shellCss, /@media \(min-width: 1100px\)/);
 });

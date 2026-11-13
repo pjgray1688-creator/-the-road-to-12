@@ -127,6 +127,8 @@ export function ClubDesktopShell({ contexts, locationsByOrganisation, identityCo
       { label: "Shop & Stock", href: `/club/shop${q}&view=sell`, icon: "shop", match: (path: string) => path.startsWith("/club/shop") && !path.startsWith("/club/shop/supplier-catalogue") && searchParams.get("view") !== "cash-review" && searchParams.get("till") !== "close" },
       ...(access.dailyChecks ? [{ label: "Daily Checks", href: `/club/checks${q}${searchParams.get("location") ? `&location=${encodeURIComponent(searchParams.get("location")!)}` : ""}`, icon: "operations", match: (path: string) => path.startsWith("/club/checks") }] : []),
       { label: "My Rota", href: `/club/schedule${q}&view=mine`, icon: "classes", match: (path: string) => path.startsWith("/club/schedule") },
+      { label: "My Shift", href: `/club/work${q}`, icon: "operations", match: (path: string) => path === "/club/work" },
+      ...(access.induction ? [{ label: "Inductions", href: `/club/induction${q}`, icon: "operations", match: (path: string) => path.startsWith("/club/induction") }] : []),
       ...(access.glowZone ? [{ label: "Glow Zone", href: `/club/sunbeds${q}`, icon: "operations", match: (path: string) => path.startsWith("/club/sunbeds") && searchParams.get("view") !== "management" }] : []),
     ];
   }, [selected, operational, searchParams]);
@@ -160,16 +162,25 @@ export function ClubDesktopShell({ contexts, locationsByOrganisation, identityCo
       ...(access.promotions ? [{ label: "Products & pricing", href: `/club/products${q}`, icon: "shop", match: (path: string) => path.startsWith("/club/products") }] : []),
       ...(access.promotions ? [{ label: "Website Shop", href: `/club/website-shop${q}`, icon: "shop", match: (path: string) => path.startsWith("/club/website-shop") }] : []),
       ...(access.suppliers ? [{ label: "Supplier catalogue", href: `/club/shop/supplier-catalogue${q}`, icon: "shop", match: (path: string) => path.startsWith("/club/shop/supplier-catalogue") }] : []),
-      ...(access.services && access.management ? [{ label: "Glow Zone management", href: `/club/sunbeds${q}&view=management`, icon: "operations", match: (path: string) => path.startsWith("/club/sunbeds") && searchParams.get("view") === "management" }] : []),
     ] },
     { label: "Venues & Settings", items: [
       ...(access.venues ? [{ label: "Venues & settings", href: `/club/locations${q}`, icon: "management", match: (path: string) => path.startsWith("/club/locations") }] : []),
       ...(access.stationAdmin ? [{ label: "Shared stations", href: `/club/stations${q}`, icon: "operations", match: (path: string) => path.startsWith("/club/stations") }] : []),
+      ...(access.doorAccess ? [{ label: "Door access administration", href: `/club/access${q}`, icon: "operations", match: (path: string) => path.startsWith("/club/access") }] : []),
       ...(access.services ? [{ label: "Services & configuration", href: `/club/services${q}`, icon: "management", match: (path: string) => path.startsWith("/club/services") }] : []),
     ] },
-  ].filter(group => group.items.length);
+  ];
   const managementLinks = managementGroups.flatMap(group => group.items);
   const activeManagement = managementLinks.some(item => activePath(pathname, item));
+  const managementCategoryRoutes = [
+    ["Finance & Payments", "finance"],
+    ["Staff & Rota", "staff"],
+    ["Membership Administration", "membership"],
+    ["Shop Administration", "shop"],
+    ["Venues & Settings", "venues"],
+  ] as const;
+  const managementCategoryHref = (section: string) => `/club/more${q}&section=${section}`;
+  const managementCategoryActive = (section: string) => pathname === "/club/more" && searchParams.get("section") === section;
   const venueOptions = (locationsByOrganisation[selected.organisation.id] ?? []).filter(location => location.active);
   const canAggregate = access.venues === true;
   const currentLocation = searchParams.get("location") ?? (canAggregate ? "all" : venueOptions[0]?.id ?? "");
@@ -202,7 +213,7 @@ export function ClubDesktopShell({ contexts, locationsByOrganisation, identityCo
     setManagementOverride({ pathname, open: !managementOpen });
   }
 
-  const shopRoutes = pathname.startsWith("/club/shop") || pathname.startsWith("/club/products");
+  const shopRoutes = pathname.startsWith("/club/shop") && !pathname.startsWith("/club/shop/supplier-catalogue");
   const shopNavigation: Item[] = [
     { label: "Shop", href: `/club/shop${q}&view=sell`, icon: "shop", match: path => path === "/club/shop" && (searchParams.get("view") ?? "sell") === "sell" },
     { label: "Stock", href: `/club/shop${q}&view=stock`, icon: "shop", match: path => path === "/club/shop" && searchParams.get("view") === "stock" },
@@ -217,18 +228,10 @@ export function ClubDesktopShell({ contexts, locationsByOrganisation, identityCo
     ...(access.coachDiary ? [{ label: "PT diary", href: `/club/classes/diary${q}`, icon: "classes", match: (path: string) => path.startsWith("/club/classes/diary") }] : []),
     ...(access.classReports ? [{ label: "Cancellation & credit reports", href: `/club/classes/reports${q}`, icon: "finance", match: (path: string) => path.startsWith("/club/classes/reports") }] : []),
   ];
-  const membersNavigation: Item[] = [
-    ...(access.doorAccess ? [{ label: "Door access", href: `/club/access${q}`, icon: "operations", match: (path: string) => path.startsWith("/club/access") }] : []),
-  ];
-  const dailyNavigation: Item[] = [
-    { label: "My shift", href: `/club/work${q}`, icon: "operations", match: path => path === "/club/work" },
-    ...(access.induction ? [{ label: "Inductions", href: `/club/induction${q}`, icon: "operations", match: (path: string) => path.startsWith("/club/induction") }] : []),
-  ];
   const mobileNavigation = [
-    ...links.filter(item => ["Overview", "Members", "Classes & PT", "Shop & Stock", "Daily Checks", "My Rota"].includes(item.label)),
+    ...links.filter(item => ["Overview", "Members", "Classes & PT", "Shop & Stock", "Daily Checks", "My Rota", "My Shift", "Inductions"].includes(item.label)),
     ...(access.coachDiary ? [{ label: "PT Diary", href: `/club/classes/diary${q}`, icon: "classes", match: (path: string) => path.startsWith("/club/classes/diary") }] : []),
     ...(access.classReports ? [{ label: "Cancellation & credit reports", href: `/club/classes/reports${q}`, icon: "finance", match: (path: string) => path.startsWith("/club/classes/reports") }] : []),
-    ...(access.induction ? [{ label: "Inductions", href: `/club/induction${q}`, icon: "operations", match: (path: string) => path.startsWith("/club/induction") }] : []),
   ];
   const isGroupOpen = (name: string, routeActive: boolean) => expandedGroups[name] ?? routeActive;
 
@@ -270,20 +273,17 @@ export function ClubDesktopShell({ contexts, locationsByOrganisation, identityCo
             return <Link key={item.label} href={item.href} onClick={() => setMobileOpenPath(null)} className={activePath(pathname, item) ? styles.active : undefined} aria-current={activePath(pathname, item) ? "page" : undefined} title={item.label}><Icon name={item.icon} /><span>{item.label}</span></Link>;
           })}
           {access.management ? <div className={styles.managementGroup}>
-            <button type="button" className={activeManagement || pathname.startsWith("/club/more") ? styles.active : undefined} aria-expanded={managementOpen} aria-controls="club-mobile-management-links" onClick={toggleManagement} title="Management"><Icon name="management" /><span>Management</span><b aria-hidden="true" className={managementOpen ? styles.chevronOpen : ""}>⌄</b></button>
+            <div className={styles.groupRow}><Link href={`/club/more${q}`} onClick={() => setMobileOpenPath(null)} className={pathname.startsWith("/club/more") || activeManagement ? styles.active : undefined} aria-current={pathname === "/club/more" && !searchParams.has("section") ? "page" : undefined} title="Management"><Icon name="management"/><span>Management</span></Link><button type="button" aria-label={`${managementOpen ? "Collapse" : "Expand"} Management links`} aria-expanded={managementOpen} aria-controls="club-mobile-management-links" onClick={toggleManagement}>⌄</button></div>
             {managementOpen ? <div id="club-mobile-management-links" className={styles.subNavigation}>
-              <Link href={`/club/more${q}`} onClick={() => setMobileOpenPath(null)} className={pathname.startsWith("/club/more") ? styles.subActive : undefined}>Management home</Link>
-              {managementGroups.map(group => <section className={styles.managementSection} key={group.label}><h2>{group.label}</h2>{group.items.map(item => <Link key={item.label} href={item.href} onClick={() => setMobileOpenPath(null)} className={activePath(pathname, item) ? styles.subActive : undefined} aria-current={activePath(pathname, item) ? "page" : undefined} title={item.label}>{item.label}</Link>)}</section>)}
+              {managementCategoryRoutes.map(([label, section]) => <Link key={section} href={managementCategoryHref(section)} onClick={() => setMobileOpenPath(null)} className={managementCategoryActive(section) ? styles.subActive : undefined} aria-current={managementCategoryActive(section) ? "page" : undefined}>{label}</Link>)}
             </div> : null}
           </div> : null}
         </> : links.map(item => {
-          const membersGroup = item.label === "Members";
           const classGroup = item.label === "Classes & PT";
           const shopGroup = item.label === "Shop & Stock";
-          const dailyGroup = item.label === "Daily Checks";
-          if (membersGroup || classGroup || shopGroup || dailyGroup) {
+          if (classGroup || shopGroup) {
             const name = item.label;
-            const children = membersGroup ? membersNavigation : classGroup ? classesNavigation : shopGroup ? shopNavigation : dailyNavigation;
+            const children = classGroup ? classesNavigation : shopNavigation;
             const active = activePath(pathname, item) || children.some(child => activePath(pathname, child));
             const open = isGroupOpen(name, active);
             return <div className={styles.operationalGroup} key={name}>
@@ -294,10 +294,9 @@ export function ClubDesktopShell({ contexts, locationsByOrganisation, identityCo
           return <Link key={item.label} href={item.href} className={activePath(pathname, item) ? styles.active : undefined} aria-current={activePath(pathname, item) ? "page" : undefined} title={item.label}><Icon name={item.icon} /><span>{item.label}</span></Link>;
         })}
         {!mobileOpen && access.management ? <div className={styles.managementGroup}>
-          <button type="button" className={activeManagement || pathname.startsWith("/club/more") ? styles.active : undefined} aria-expanded={managementOpen} aria-controls="club-management-links" onClick={toggleManagement} title="Management"><Icon name="management" /><span>Management</span><b aria-hidden="true" className={managementOpen ? styles.chevronOpen : ""}>⌄</b></button>
+          <div className={styles.groupRow}><Link href={`/club/more${q}`} className={activeManagement || pathname.startsWith("/club/more") ? styles.active : undefined} aria-current={pathname === "/club/more" && !searchParams.has("section") ? "page" : undefined} title="Management"><Icon name="management"/><span>Management</span></Link><button type="button" aria-label={`${managementOpen ? "Collapse" : "Expand"} Management links`} aria-expanded={managementOpen} aria-controls="club-management-links" onClick={toggleManagement}>⌄</button></div>
           {managementOpen ? <div id="club-management-links" className={styles.subNavigation}>
-            {access.management ? <Link href={`/club/more${q}`} onClick={() => setMobileOpenPath(null)} className={pathname.startsWith("/club/more") ? styles.subActive : undefined}>Management home</Link> : null}
-            {managementGroups.map(group => <section className={styles.managementSection} key={group.label}><h2>{group.label}</h2>{group.items.map(item => <Link key={item.label} href={item.href} onClick={() => setMobileOpenPath(null)} className={activePath(pathname, item) ? styles.subActive : undefined} aria-current={activePath(pathname, item) ? "page" : undefined} title={item.label}>{item.label}</Link>)}</section>)}
+            {managementCategoryRoutes.map(([label, section]) => <Link key={section} href={managementCategoryHref(section)} className={managementCategoryActive(section) ? styles.subActive : undefined} aria-current={managementCategoryActive(section) ? "page" : undefined}>{label}</Link>)}
           </div> : null}
         </div> : null}
       </nav>

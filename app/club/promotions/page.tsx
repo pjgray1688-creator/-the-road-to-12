@@ -9,6 +9,9 @@ export default async function ClubPromotionsPage({searchParams}:{searchParams?:P
   const client=await serverSupabase(); const {data:{user}}=await client.auth.getUser(); if(!user) redirect("/account?app=club&mode=signIn");
   const context=await resolveClubOrganisationContext(client,user.id,(await searchParams)?.org);
   if(!context || !(await context.repository.hasCapability(context.organisation.id,user.id,"commerce.pricing_manage"))) return <AppShell className="module-page club-page"><PageHeader eyebrow="R12 CLUB" title="Promotions & offers"/><EmptyState title="Promotion access required">Only authorised Club managers can create offers.</EmptyState><AppNav/></AppShell>;
-  const {data}=await client.from("club_promotions").select("id,name,description,status,starts_at,ends_at,location_ids,eligibility,effects").eq("organisation_id",context.organisation.id).order("starts_at",{ascending:false});
-  return <AppShell className="module-page club-page"><PageHeader eyebrow="R12 CLUB · SHOP" title="Promotions & offers" description="Manage live, scheduled and past customer offers."/><ClubSectionNav organisation={context.organisation} role={context.role} contexts={context.availableContexts}/><ClubPromotions organisationId={context.organisation.id} promotions={Array.isArray(data)?data:[]}/><AppNav/></AppShell>;
+  const [shopResult, membershipResult] = await Promise.all([
+    client.from("club_promotions").select("id,name,description,status,starts_at,ends_at,location_ids,eligibility,effects").eq("organisation_id",context.organisation.id).order("starts_at",{ascending:false}),
+    client.from("club_membership_joining_fee_promotions").select("id,name,status,starts_at,ends_at,timezone").eq("organisation_id",context.organisation.id).order("starts_at",{ascending:false}),
+  ]);
+  return <AppShell className="module-page club-page"><PageHeader eyebrow="R12 CLUB · SHOP" title="Promotions"/><ClubSectionNav organisation={context.organisation} role={context.role} contexts={context.availableContexts}/><ClubPromotions organisationId={context.organisation.id} promotions={Array.isArray(shopResult.data)?shopResult.data:[]} membershipPromotions={Array.isArray(membershipResult.data)?membershipResult.data:[]} shopOffersUnavailable={Boolean(shopResult.error)} membershipOffersUnavailable={Boolean(membershipResult.error)}/><AppNav/></AppShell>;
 }

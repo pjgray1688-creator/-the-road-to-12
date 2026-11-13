@@ -9,7 +9,7 @@ import { serverSupabase } from "@/lib/supabase-server";
 import { londonDateKey, type ScheduleEvent, type WeeklyWorkingHours } from "@/lib/club-scheduling";
 import { filterRotaStaff, resolveRotaScope } from "@/lib/club-rota-scope";
 
-type ScheduleParams = { org?: string; date?: string; view?: string };
+type ScheduleParams = { org?: string; date?: string; view?: string; location?: string };
 type StaffChoice = { userId: string; name: string };
 
 export default async function ClubSchedulePage({ searchParams }: { searchParams?: Promise<ScheduleParams> }) {
@@ -29,18 +29,19 @@ export default async function ClubSchedulePage({ searchParams }: { searchParams?
   const anchor = new Date(`${requestedDate}T12:00:00Z`);
   const from = new Date(anchor.getTime() - 28 * 86400000).toISOString();
   const to = new Date(anchor.getTime() + 28 * 86400000).toISOString();
+  const locations = await context.repository.listLocations(context.organisation.id);
+  const selectedLocationId = params?.location && locations.some(location => location.id === params.location && location.active) ? params.location : null;
 
-  const [eventsResult, staffResult, hoursResult, locations] = await Promise.all([
+  const [eventsResult, staffResult, hoursResult] = await Promise.all([
     supabase.rpc("club_list_shared_schedule", {
       p_organisation_id: context.organisation.id,
       p_from: from,
       p_to: to,
       p_staff_user_id: scope === "team" ? null : user.id,
-      p_location_id: null,
+      p_location_id: selectedLocationId,
     }),
     supabase.rpc("club_list_schedule_staff", { p_organisation_id: context.organisation.id }),
     canManageRota ? supabase.rpc("club_list_shared_working_hours", { p_organisation_id: context.organisation.id }) : Promise.resolve({ data: [], error: null }),
-    context.repository.listLocations(context.organisation.id),
   ]);
 
   if (eventsResult.error || staffResult.error || hoursResult.error) {
@@ -56,7 +57,7 @@ export default async function ClubSchedulePage({ searchParams }: { searchParams?
   const rotaStaff = Array.isArray(rotaStaffResult?.data) ? rotaStaffResult.data as StaffChoice[] : [];
   const org = encodeURIComponent(context.organisation.id);
   const date = encodeURIComponent(requestedDate);
-  const scopeHref = (next: "mine" | "team") => `/club/schedule?org=${org}&view=${next}&date=${date}`;
+  const scopeHref = (next: "mine" | "team") => `/club/schedule?org=${org}&view=${next}&date=${date}${selectedLocationId ? `&location=${encodeURIComponent(selectedLocationId)}` : ""}`;
 
   return <AppShell className="module-page club-page club-rota-page">
     <PageHeader title={scope === "team" ? "Staff Rota" : "My Rota"}/>
@@ -65,7 +66,7 @@ export default async function ClubSchedulePage({ searchParams }: { searchParams?
       <Link href={scopeHref("team")} aria-current={scope === "team" ? "page" : undefined}>Team rota</Link>
     </nav> : null}
     <ClubSectionNav organisation={context.organisation} role={context.role} contexts={context.availableContexts}/>
-    <ClubScheduleCalendar key={`${context.organisation.id}-${requestedDate}-${scope}`} organisationId={context.organisation.id} events={rotaEvents} staff={staff} rotaStaff={rotaStaff} locations={locations} initialDate={requestedDate} workingHours={workingHours} currentUserId={user.id} canManageTeamHours={canManageRota} canManageRota={canManageRota} rotaMode/>
+    <ClubScheduleCalendar key={`${context.organisation.id}-${requestedDate}-${scope}-${selectedLocationId ?? "all"}`} organisationId={context.organisation.id} events={rotaEvents} staff={staff} rotaStaff={rotaStaff} locations={locations} initialDate={requestedDate} initialLocationId={selectedLocationId ?? undefined} rotaView={scope} workingHours={workingHours} currentUserId={user.id} canManageTeamHours={canManageRota} canManageRota={canManageRota} rotaMode/>
     <BackButton href={`/club?org=${org}`}>Back to Overview</BackButton><AppNav/>
   </AppShell>;
 }

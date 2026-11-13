@@ -9,6 +9,7 @@ import { cookies } from "next/headers";
 import { CLUB_STATION_COOKIE, stationCookieValue, stationSessionTtlSeconds } from "@/lib/club-station";
 import { headers } from "next/headers";
 import { hasPlayReviewerEntitlement } from "@/lib/play-reviewer";
+import { listLinkedInstructorIdentities } from "@/lib/club-instructor-name";
 
 export async function generateMetadata(): Promise<Metadata> {
   try {
@@ -27,10 +28,15 @@ export default async function ClubLayout({ children }: Readonly<{ children: Reac
   const reviewer=hasPlayReviewerEntitlement(user);
   const profile=user&&!reviewer?await client.from("profiles").select("first_name,last_name,display_name").eq("id",user.id).maybeSingle():{data:null};
   const lockRoute=(await headers()).get("x-r12-club-lock-route")==="1";
-  const firstName=reviewer?"Google Play reviewer":profile.data?.first_name||user?.user_metadata?.first_name||user?.email?.split("@")[0]||"Staff";
-  const fullName=reviewer?"Google Play reviewer":[profile.data?.first_name,profile.data?.last_name].filter(Boolean).join(" ")||profile.data?.display_name||user?.user_metadata?.display_name||firstName;
   const contexts=user&&!reviewer&&!(station&&lockRoute)?await listClubOrganisationContexts(client,user.id).catch(()=>[]):[];
   const staffContexts=contexts.filter(context=>isClubStaffRole(context.role));
+  const linkedIdentities = user && staffContexts[0]
+    ? await listLinkedInstructorIdentities(client, staffContexts[0].organisation.id).catch(() => [])
+    : [];
+  const linkedName = linkedIdentities.find(identity => identity.userId === user?.id)?.displayName?.trim();
+  const profileName = [profile.data?.first_name, profile.data?.last_name].filter(Boolean).join(" ").trim();
+  const firstName=reviewer?"Google Play reviewer":profile.data?.first_name||profile.data?.display_name?.trim().split(/\s+/)[0]||linkedName?.split(/\s+/)[0]||user?.user_metadata?.first_name||"Staff";
+  const fullName=reviewer?"Google Play reviewer":profileName||profile.data?.display_name||linkedName||user?.user_metadata?.display_name||firstName;
   const locationsByOrganisation:Record<string,DesktopClubLocation[]>={};
   const glowZoneAccess = new Map<string, boolean>();
   await Promise.all(staffContexts.map(async context=>{

@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AppNav } from "@/components/app-nav";
 import { ClubMemberOnboarding } from "@/components/club-member-onboarding";
@@ -15,13 +14,12 @@ export default async function ClubMembersPage({ searchParams }: { searchParams?:
   const params = await searchParams;
   const context = await resolveClubOperationalContext(supabase, user.id, params?.org);
   if (!context || !(await context.repository.hasCapability(context.organisation.id, user.id, "members.view"))) return <AppShell className="module-page club-page"><PageHeader title="Members" /><EmptyState title="Member access required">Choose an authorised Club organisation.</EmptyState><AppNav /></AppShell>;
-  const [members, customers, products, locations, canAssign, canImport, canExtendGrace, canReviewPayments] = await Promise.all([
+  const [members, customers, products, locations, canAssign, canExtendGrace, canReviewPayments] = await Promise.all([
     context.repository.listMemberSummaries(context.organisation.id),
     context.repository.listCustomers(context.organisation.id),
     context.repository.listProducts(context.organisation.id, true),
     context.repository.listLocations(context.organisation.id),
     context.repository.hasCapability(context.organisation.id, user.id, "memberships.assign"),
-    context.repository.hasCapability(context.organisation.id, user.id, "members.import"),
     context.repository.hasCapability(context.organisation.id, user.id, "payments.extend_grace"),
     context.repository.hasCapability(context.organisation.id, user.id, "payments.take"),
   ]);
@@ -61,7 +59,6 @@ export default async function ClubMembersPage({ searchParams }: { searchParams?:
     }),
     ...unlinkedMembershipCustomers.map(customer => [customer.id, { id: customer.id, displayName: customer.displayName, email: customer.email, phone: customer.phone }] as const),
   ]).values()];
-  const query = `?org=${encodeURIComponent(context.organisation.id)}`;
   const allowedStatuses = new Set(["all", "active", "pending", "inactive", "paused", "suspended", "cancelled", "expired", "arrears"]);
   const sort = ["name", "home", "plan", "status", "ends"].includes(params?.sort ?? "") ? params?.sort as "name" | "home" | "plan" | "status" | "ends" : "name";
   const page = Math.max(1, Math.min(100000, Number.parseInt(params?.page ?? "1", 10) || 1));
@@ -69,8 +66,8 @@ export default async function ClubMembersPage({ searchParams }: { searchParams?:
   return <AppShell className="module-page club-page">
     <PageHeader title="Members" description="Search member records, manage memberships and open access or billing details." />
     <ClubSectionNav organisation={context.organisation} role={context.role} contexts={context.availableContexts} />
-    <Surface><div className="club-members-toolbar">{canImport ? <Link className="secondary club-member-import" href={`/club/members/import${query}`}>Member imports</Link> : null}</div><ClubMembersDirectory members={directoryMembers} customers={unlinkedMembershipCustomers} organisationId={context.organisation.id} billingStatusAvailable={billingStatusAvailable} arrearsUserIds={arrearsUserIds} initialQuery={params?.q ?? ""} initialStatus={allowedStatuses.has(params?.status ?? "") ? params?.status : "all"} initialAccess={allowedAccess.has(params?.access ?? "") ? params?.access : "all"} initialHome={params?.home ?? "all"} initialPlan={params?.plan ?? "all"} initialSort={sort} initialDirection={params?.dir === "desc" ? "desc" : "asc"} initialPage={page} /></Surface>
     {canAssign ? <Surface><ClubMemberOnboarding organisationId={context.organisation.id} organisationSlug={context.organisation.slug} customers={onboardingCustomers} products={products} locations={locations.filter(location => location.active).map(location => ({ id: location.id, name: location.name }))} role={context.role} canAssign={canAssign} /></Surface> : null}
+    <Surface><ClubMembersDirectory members={directoryMembers} customers={unlinkedMembershipCustomers} organisationId={context.organisation.id} billingStatusAvailable={billingStatusAvailable} arrearsUserIds={arrearsUserIds} initialQuery={params?.q ?? ""} initialStatus={allowedStatuses.has(params?.status ?? "") ? params?.status : "all"} initialAccess={allowedAccess.has(params?.access ?? "") ? params?.access : "all"} initialHome={params?.home ?? "all"} initialPlan={params?.plan ?? "all"} initialSort={sort} initialDirection={params?.dir === "desc" ? "desc" : "asc"} initialPage={page} /></Surface>
     {canExtendGrace ? <Surface><h2>Authorised payment grace</h2><p className="muted">Open a member profile to review failed or overdue obligations. Payment remains outstanding until genuinely recovered.</p></Surface> : null}
     <AppNav />
   </AppShell>;

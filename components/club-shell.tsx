@@ -54,7 +54,6 @@ export function ClubSectionNav({ organisation, role, contexts = [], locations = 
   const secondaryByGroup: Partial<Record<NavigationGroup, NavigationLink[]>> = operational ? {
     Members: membersAllowed ? [
       { label: "Member directory", href: `/club/members${query()}`, group: "Members" },
-      ...(navigation?.memberships ? [{ label: "Member imports", href: `/club/members/import${query()}`, group: "Members" as const }] : []),
     ] : [],
     "Classes & PT": [
       { label: "Classes", href: `/club/classes${query()}`, group: "Classes & PT" },
@@ -63,24 +62,15 @@ export function ClubSectionNav({ organisation, role, contexts = [], locations = 
     ],
     "Daily Operations": [
       { label: "Check-in", href: `/club/check-in${query()}`, group: "Daily Operations" },
-      { label: "Door access", href: `/club/access${query()}`, group: "Daily Operations" },
-      { label: "Inductions", href: `/club/induction${query()}`, group: "Daily Operations" },
       { label: "Daily checks", href: `/club/checks${query()}`, group: "Daily Operations" },
       ...(navigation?.services ? [{ label: "Glow Zone", href: `/club/sunbeds${query()}`, group: "Daily Operations" as const }] : []),
     ],
     Management: managementAllowed ? [
-      { label: "Management home", href: `/club/more${query()}`, group: "Management" },
-      ...(navigation?.finance ? [{ label: "Finance & reconciliation", href: `/club/payments${query()}`, group: "Management" as const }] : []),
-      ...(navigation?.finance ? [{ label: "Cash collections", href: `/club/payments/cash-collections${query()}`, group: "Management" as const }] : []),
-      ...(navigation?.memberships ? [{ label: "Membership administration", href: `/club/memberships${query()}`, group: "Management" as const }] : []),
-      ...(navigation?.promotions ? [{ label: "Promotions & pricing", href: `/club/promotions${query()}`, group: "Management" as const }] : []),
-      ...(navigation?.promotions ? [{ label: "Website Shop", href: `/club/website-shop${query()}`, group: "Management" as const }] : []),
-      ...(navigation?.promotions ? [{ label: "Website Shop · Orders", href: `/club/website-shop/orders${query()}`, group: "Management" as const }] : []),
-      ...(navigation?.suppliers ? [{ label: "Suppliers & purchasing", href: `/club/suppliers${query()}`, group: "Management" as const }] : []),
-      ...(navigation?.staff ? [{ label: "Staff & permissions", href: `/club/staff${query()}`, group: "Management" as const }] : []),
-      ...(navigation?.venues ? [{ label: "Venues & settings", href: `/club/locations${query()}`, group: "Management" as const }, { label: "Shared stations", href: `/club/stations${query()}`, group: "Management" as const }] : []),
-      ...(navigation?.reports ? [{ label: "Reports & audit", href: `/club/reports${query()}`, group: "Management" as const }] : []),
-      ...(navigation?.services ? [{ label: "Services & configuration", href: `/club/services${query()}`, group: "Management" as const }] : []),
+      { label: "Finance & Payments", href: `/club/more${query()}&section=finance`, group: "Management" },
+      { label: "Staff & Rota", href: `/club/more${query()}&section=staff`, group: "Management" },
+      { label: "Membership Administration", href: `/club/more${query()}&section=membership`, group: "Management" },
+      { label: "Shop Administration", href: `/club/more${query()}&section=shop`, group: "Management" },
+      { label: "Venues & Settings", href: `/club/more${query()}&section=venues`, group: "Management" },
     ] : [],
   } : {};
   const secondaryLinks = secondaryByGroup[activeGroup] ?? [];

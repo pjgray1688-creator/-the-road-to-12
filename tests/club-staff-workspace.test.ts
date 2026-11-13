@@ -61,17 +61,18 @@ test("desktop and mobile navigation expose management destinations only through 
   const mobileRender = shell.slice(shell.indexOf("{mobileOpen ? <>"), shell.indexOf("</> : links.map"));
   assert.match(mobileRender, /access\.management \? <div className=\{styles\.managementGroup\}/);
   assert.match(mobileRender, /club-mobile-management-links/);
-  assert.match(mobileRender, /managementGroups\.map/);
+  assert.match(mobileRender, /managementCategoryRoutes\.map/);
   assert.match(mobileRender, /shopNavigation, \(\) => setMobileOpenPath\(null\)/);
-  for (const label of ["Finance & sales", "Membership billing", "Staff & permissions", "Promotions & pricing", "Products & pricing", "Rota & daily check setup"]) {
-    assert.ok(shell.includes(`label: "${label}"`), `management destination exists: ${label}`);
+  for (const label of ["Finance & Payments", "Staff & Rota", "Membership Administration", "Shop Administration", "Venues & Settings"]) {
+    assert.ok(shell.includes(`"${label}"`), `management destination exists: ${label}`);
   }
+  assert.match(shell, /managementCategoryRoutes = \[/);
   assert.match(context, /management: finance \|\| cashControls[\s\S]*workReview \}/);
   const css = read("components/club-desktop-shell.module.css");
   assert.match(css, /@media \(max-width: 1099px\)[\s\S]*?\.managementGroup > button/);
   assert.match(css, /\.subNavigation > a:focus-visible/);
   assert.match(shell, /access\.stationAdmin \? \[\{ label: "Shared stations"/);
-  assert.match(shell, /access\.doorAccess \? \[\{ label: "Door access"/);
+  assert.match(shell, /access\.doorAccess \? \[\{ label: "Door access administration"/);
   assert.match(shell, /pathname\.startsWith\("\/club\/shop\/supplier-catalogue"\)/);
   assert.match(css, /@media \(max-width: 1099px\)/);
   assert.match(css, /env\(safe-area-inset-top\)/);
