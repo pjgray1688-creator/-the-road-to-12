@@ -30,9 +30,25 @@ test("finance warning identifies incomplete consolidated sales without suppressi
   assert.match(page, /Franchise \/ membership income/);
   assert.match(page, /Total business income\", value: \"Incomplete\"/);
   assert.match(page, /Financial report is incomplete/);
-  assert.match(page, /Glow Zone sales · Products &amp; Services/);
+  assert.match(page, /title: "Glow Zone sales"/);
+  assert.match(page, /Products &amp; Services income excludes Glow Zone sales/);
   assert.match(page, /club_finance_member_counts_secure/);
   assert.match(page, /Previous equivalent period/);
+});
+
+test("Glow Zone is a headline KPI and is excluded from commerce income without an orphan summary", async () => {
+  const [page, styles] = await Promise.all([read("app/club/payments/page.tsx"), read("app/globals.css")]);
+  assert.match(page, /title: "Glow Zone sales", value: glowSalesUnavailable \? "Unavailable" : `£\$\{\(glowSalesMinor \/ 100\)\.toFixed\(2\)\}`/);
+  assert.match(page, /freshReceiptTotal\(payments\) - summary\.refundMinor;/);
+  assert.doesNotMatch(page, /freshReceiptTotal\(payments\) - summary\.refundMinor \+ glowSalesMinor/);
+  assert.match(page, /Confirmed non-balance commerce receipts[^"\n]*Glow Zone sales and membership income are excluded/);
+  assert.doesNotMatch(page, /Glow Zone sales · Products &amp; Services/);
+  assert.match(page, /title: "Total business income", value: "Incomplete"/);
+  assert.match(page, /\{!attemptsOnly \? <>.*club-profile-grid club-finance-kpis.*cards\.map\(card=>/s);
+  assert.doesNotMatch(page, /Glow Zone sales are unavailable because their secure report did not load/);
+  assert.match(styles, /\.club-finance-kpis>section\{min-width:0\}/);
+  assert.match(styles, /\.club-profile-grid\.club-finance-kpis>section:last-child\{grid-column:auto\}/);
+  assert.match(page, /if \(glowSalesResult\.error\) console\.error\("R12_FINANCE_READ_FAILED"/);
 });
 
 test("missing and contradictory Glow report payloads are not converted into zero revenue", () => {

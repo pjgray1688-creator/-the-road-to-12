@@ -83,14 +83,17 @@ test("cash minute sales use existing authorized catalogue RPC; direct balance sp
   assert.doesNotMatch(ui, /recordSunbedUseAction|club_glow_spend/);
 });
 
-test("finance labels Glow Zone as an included Products & Services breakdown", async () => {
+test("finance reports Glow Zone as its own headline category separate from commerce income", async () => {
   const page = await readFile(financePagePath, "utf8");
   const migration = await readFile(new URL("../supabase/migrations/2026-11-13-club-glow-finance-report-rpc.sql", import.meta.url), "utf8");
   assert.match(page, /club_list_glow_finance_report/);
   assert.match(migration, /s\.status='completed'/);
   assert.match(migration, /club_capability_allowed\(p_organisation_id,auth\.uid\(\),'finance\.view'\)/);
-  assert.match(page, /Glow Zone sales · Products &amp; Services/);
-  assert.match(page, /freshReceiptTotal\(payments\) - summary\.refundMinor \+ glowSalesMinor/);
+  assert.match(page, /title: "Glow Zone sales"/);
+  assert.match(page, /Products &amp; Services income excludes Glow Zone sales/);
+  assert.match(page, /freshReceiptTotal\(payments\) - summary\.refundMinor;/);
+  assert.doesNotMatch(page, /freshReceiptTotal\(payments\) - summary\.refundMinor \+ glowSalesMinor/);
+  assert.doesNotMatch(page, /Glow Zone sales · Products &amp; Services/);
   assert.match(page, /\["balance", "wallet"\]/);
   assert.match(page, /Total business income/);
 });
