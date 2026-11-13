@@ -125,10 +125,7 @@ export function ClubDesktopShell({ contexts, locationsByOrganisation, identityCo
       ...(access.members ? [{ label: "Members", href: `/club/members${q}`, icon: "members", match: (path: string) => (path.startsWith("/club/members") && !path.startsWith("/club/members/import")) || path.startsWith("/club/join") }] : []),
       { label: "Classes & PT", href: `/club/classes${q}`, icon: "classes", match: (path: string) => path.startsWith("/club/classes") && !path.startsWith("/club/classes/setup") },
       { label: "Shop & Stock", href: `/club/shop${q}&view=sell`, icon: "shop", match: (path: string) => path.startsWith("/club/shop") && !path.startsWith("/club/shop/supplier-catalogue") && searchParams.get("view") !== "cash-review" && searchParams.get("till") !== "close" },
-      ...(access.dailyChecks ? [{ label: "Daily Checks", href: `/club/checks${q}${searchParams.get("location") ? `&location=${encodeURIComponent(searchParams.get("location")!)}` : ""}`, icon: "operations", match: (path: string) => path.startsWith("/club/checks") }] : []),
-      { label: "My Rota", href: `/club/schedule${q}&view=mine`, icon: "classes", match: (path: string) => path.startsWith("/club/schedule") },
-      { label: "My Shift", href: `/club/work${q}`, icon: "operations", match: (path: string) => path === "/club/work" },
-      ...(access.induction ? [{ label: "Inductions", href: `/club/induction${q}`, icon: "operations", match: (path: string) => path.startsWith("/club/induction") }] : []),
+      { label: "Staff Operations", href: `/club/staff-operations${q}`, icon: "operations", match: (path: string) => path.startsWith("/club/staff-operations") || path.startsWith("/club/checks") || path.startsWith("/club/work") || path.startsWith("/club/schedule") || path.startsWith("/club/induction") },
       ...(access.glowZone ? [{ label: "Glow Zone", href: `/club/sunbeds${q}`, icon: "operations", match: (path: string) => path.startsWith("/club/sunbeds") && searchParams.get("view") !== "management" }] : []),
     ];
   }, [selected, operational, searchParams]);
@@ -228,8 +225,14 @@ export function ClubDesktopShell({ contexts, locationsByOrganisation, identityCo
     ...(access.coachDiary ? [{ label: "PT diary", href: `/club/classes/diary${q}`, icon: "classes", match: (path: string) => path.startsWith("/club/classes/diary") }] : []),
     ...(access.classReports ? [{ label: "Cancellation & credit reports", href: `/club/classes/reports${q}`, icon: "finance", match: (path: string) => path.startsWith("/club/classes/reports") }] : []),
   ];
+  const staffOperationsNavigation: Item[] = [
+    ...(access.dailyChecks ? [{ label: "Daily Checks", href: `/club/checks${q}${searchParams.get("location") ? `&location=${encodeURIComponent(searchParams.get("location")!)}` : ""}`, icon: "operations", match: (path: string) => path.startsWith("/club/checks") }] : []),
+    { label: "My shift", href: `/club/work${q}`, icon: "operations", match: path => path === "/club/work" },
+    { label: "My Rota", href: `/club/schedule${q}&view=mine`, icon: "classes", match: (path: string) => path.startsWith("/club/schedule") },
+    ...(access.induction ? [{ label: "Inductions", href: `/club/induction${q}`, icon: "operations", match: (path: string) => path.startsWith("/club/induction") }] : []),
+  ];
   const mobileNavigation = [
-    ...links.filter(item => ["Overview", "Members", "Classes & PT", "Shop & Stock", "Daily Checks", "My Rota", "My Shift", "Inductions"].includes(item.label)),
+    ...links.filter(item => ["Overview", "Members", "Classes & PT", "Shop & Stock", "Staff Operations"].includes(item.label)),
     ...(access.coachDiary ? [{ label: "PT Diary", href: `/club/classes/diary${q}`, icon: "classes", match: (path: string) => path.startsWith("/club/classes/diary") }] : []),
     ...(access.classReports ? [{ label: "Cancellation & credit reports", href: `/club/classes/reports${q}`, icon: "finance", match: (path: string) => path.startsWith("/club/classes/reports") }] : []),
   ];
@@ -270,6 +273,14 @@ export function ClubDesktopShell({ contexts, locationsByOrganisation, identityCo
                 {open ? renderSubnav(shopNavigation, () => setMobileOpenPath(null)) : null}
               </div>;
             }
+            if (item.label === "Staff Operations") {
+              const active = activePath(pathname, item) || staffOperationsNavigation.some(child => activePath(pathname, child));
+              const open = isGroupOpen(item.label, active);
+              return <div className={styles.operationalGroup} key={item.label}>
+                <div className={styles.groupRow}><Link href={item.href} onClick={() => setMobileOpenPath(null)} className={activePath(pathname, item) ? styles.active : undefined} aria-current={activePath(pathname, item) ? "page" : undefined} title={item.label}><Icon name={item.icon} /><span>{item.label}</span></Link><button type="button" aria-label={`${open ? "Collapse" : "Expand"} Staff Operations links`} aria-expanded={open} onClick={() => toggleGroup(item.label, active)}>⌄</button></div>
+                {open ? renderSubnav(staffOperationsNavigation, () => setMobileOpenPath(null)) : null}
+              </div>;
+            }
             return <Link key={item.label} href={item.href} onClick={() => setMobileOpenPath(null)} className={activePath(pathname, item) ? styles.active : undefined} aria-current={activePath(pathname, item) ? "page" : undefined} title={item.label}><Icon name={item.icon} /><span>{item.label}</span></Link>;
           })}
           {access.management ? <div className={styles.managementGroup}>
@@ -281,9 +292,10 @@ export function ClubDesktopShell({ contexts, locationsByOrganisation, identityCo
         </> : links.map(item => {
           const classGroup = item.label === "Classes & PT";
           const shopGroup = item.label === "Shop & Stock";
-          if (classGroup || shopGroup) {
+          const staffOperationsGroup = item.label === "Staff Operations";
+          if (classGroup || shopGroup || staffOperationsGroup) {
             const name = item.label;
-            const children = classGroup ? classesNavigation : shopNavigation;
+            const children = classGroup ? classesNavigation : shopGroup ? shopNavigation : staffOperationsNavigation;
             const active = activePath(pathname, item) || children.some(child => activePath(pathname, child));
             const open = isGroupOpen(name, active);
             return <div className={styles.operationalGroup} key={name}>

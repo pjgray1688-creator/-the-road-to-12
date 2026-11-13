@@ -15,7 +15,7 @@ test("desktop Overview starts with the five operational actions and omits manage
   assert.match(desktop, /Upcoming Classes &amp; PT[\s\S]*?>Timetable<\/Link>/);
   for (const removed of ["Active members", "Membership payments to review", "Cash declarations", "Membership mix"]) assert.doesNotMatch(desktop.toLowerCase(), new RegExp(removed.toLowerCase()));
   assert.ok(desktop.indexOf("Shift actions") < desktop.indexOf("Upcoming Classes &amp; PT"));
-  assert.match(desktop, /resolveInstructorName\(session\.hostUserId, memberIdentities, session\.instructorName\)/);
+  assert.match(desktop, /resolveInstructorName\(session\.hostUserId, session\.instructorAssignmentId, memberIdentities, session\.instructorName\)/);
   assert.match(page, /upcomingSessions\.slice\(0, 6\)/);
   assert.match(desktop, /Operational alerts/);
 });

@@ -64,7 +64,7 @@ test("finance separates completed sales and checkout attempts", () => {
 });
 
 test("operational and management destinations follow existing role capability fixtures", () => {
-  for (const label of ["Overview", "Classes & PT", "Shop & Stock", "Daily Checks", "My Rota"]) assert.match(shell, new RegExp(`label: "${label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"`));
+  for (const label of ["Overview", "Classes & PT", "Shop & Stock", "Staff Operations"]) assert.match(shell, new RegExp(`label: "${label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"`));
   for (const role of ["gym_staff", "trainer"] as const) {
     const capabilities = resolveClubCapabilities(role);
     assert.equal(capabilities.includes("members.view"), true);

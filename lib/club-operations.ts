@@ -6,7 +6,7 @@ export type ClubClassType = { id: string; organisationId: string; name: string; 
 export type ClubClassSessionStatus = "scheduled" | "cancelled" | "completed";
 export type ClubClassSessionVisibility = "public" | "members_only" | "private";
 export type ClubClassSession = {
-  id: string; organisationId: string; locationId: string; classTypeId: string; hostUserId?: string; title?: string;
+  id: string; organisationId: string; locationId: string; classTypeId: string; hostUserId?: string; instructorAssignmentId?: string; title?: string;
   startsAt: string; endsAt: string; capacity?: number; bookingOpensAt?: string; bookingClosesAt?: string; cancellationClosesAt?: string;
   visibility: ClubClassSessionVisibility; status: ClubClassSessionStatus; instructorName?: string; recurrenceMetadata?: Record<string, unknown>; createdAt: string; updatedAt: string;
 };

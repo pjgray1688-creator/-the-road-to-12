@@ -93,7 +93,7 @@ test("Club venue context is explicit, role-aware and preserved in navigation", (
 
 test("desktop Club sidebar keeps operational destinations primary and admin destinations grouped", () => {
   const shell = read("components/club-desktop-shell.tsx");
-  for (const label of ["Overview", "Members", "Classes & PT", "Shop & Stock", "Daily Checks", "My Rota"]) assert.match(shell, new RegExp(`label: "${label}"`));
+  for (const label of ["Overview", "Members", "Classes & PT", "Shop & Stock", "Staff Operations"]) assert.match(shell, new RegExp(`label: "${label}"`));
   assert.match(shell, /managementLinks/);
   assert.match(shell, /Finance & sales/);
   assert.match(shell, /Membership administration/);

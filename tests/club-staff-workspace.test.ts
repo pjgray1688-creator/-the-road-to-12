@@ -44,6 +44,7 @@ test("desktop and mobile navigation expose management destinations only through 
   const shell = read("components/club-desktop-shell.tsx");
   const context = read("lib/club-server-context.ts");
   assert.match(shell, /access\.members \? \[\{ label: "Members"/);
+  assert.match(shell, /label: "Staff Operations", href: `\/club\/staff-operations/);
   assert.match(shell, /access\.dailyChecks \? \[\{ label: "Daily Checks"/);
   assert.match(shell, /access\.finance \? \[\{ label: "Finance & sales"/);
   assert.match(shell, /access\.staff \? \[\{ label: "Staff & permissions"/);
@@ -54,9 +55,9 @@ test("desktop and mobile navigation expose management destinations only through 
   assert.match(context, /management: finance \|\| cashControls[\s\S]*workReview \}/);
   assert.doesNotMatch(context, /management: [^\n]*\|\| services/);
   const mobileBlock = shell.slice(shell.indexOf("const mobileNavigation"), shell.indexOf("const isGroupOpen"));
-  assert.match(mobileBlock, /Daily Checks/);
+  assert.match(mobileBlock, /Staff Operations/);
   assert.match(mobileBlock, /Shop & Stock/);
-  assert.match(mobileBlock, /My Rota/);
+  assert.doesNotMatch(mobileBlock, /label: "My Rota"/);
   assert.doesNotMatch(mobileBlock, /Glow Zone|Door access|Check-in station|Member imports|Supplier catalogue/);
   const mobileRender = shell.slice(shell.indexOf("{mobileOpen ? <>"), shell.indexOf("</> : links.map"));
   assert.match(mobileRender, /access\.management \? <div className=\{styles\.managementGroup\}/);
@@ -124,11 +125,12 @@ test("staff Offers view shows both existing offer sources while management editi
 test("class titles and instructors use current linked identities", () => {
   assert.equal(displayClassTitle("Women Only", "Girls and Gains"), "Girls and Gains");
   assert.equal(displayClassTitle("Circuit", "Circuit"), "Circuit");
-  assert.equal(resolveInstructorName("u1", [{ userId: "u1", displayName: "Luke Morris" }], "Luke"), "Luke Morris");
-  assert.equal(resolveInstructorName("u2", [{ userId: "u1", displayName: "Luke Morris" }], "Luke"), "Instructor name unavailable");
+  assert.equal(resolveInstructorName("u1", null, [{ userId: "u1", displayName: "Luke Morris" }], "Luke"), "Luke Morris");
+  assert.equal(resolveInstructorName("u2", null, [{ userId: "u1", displayName: "Luke Morris" }], "Luke"), "Instructor name unavailable");
   assert.match(read("app/club/page.tsx"), /resolveInstructorName\(session\.hostUserId/);
   assert.match(read("app/club/classes/page.tsx"), /resolveInstructorName\(session\.hostUserId/);
   assert.match(read("lib/club-instructor-name.ts"), /club_list_member_identities/);
+  assert.match(read("lib/club-instructor-name.ts"), /club_list_class_instructor_identities/);
   assert.doesNotMatch(read("app/club/classes/setup/page.tsx"), /showTypeLibrary=\{true\}/);
   assert.doesNotMatch(read("components/club-desktop-shell.module.css"), /club-main-timetable \.club-class-library\)/);
 });
