@@ -271,6 +271,10 @@ export async function searchStaffCustomersAction(input: { organisationId: string
   } catch { return { ok: false, error: "Customer search could not be completed." }; }
 }
 
+export async function createManagementCustomerAction(input:{organisationId:string;displayName:string;email?:string;phone?:string;idempotencyKey:string}):Promise<{ok:true;customer:{id:string;displayName:string;email?:string};replayed:boolean}|{ok:false;error:string}>{
+  try{const value=await context(input.organisationId);const name=input.displayName.trim();const email=input.email?.trim().toLocaleLowerCase();const phone=input.phone?.trim();if(!value||!(await value.repository.hasCapability(value.organisation.id,value.userId,"finance.manage"))||!(await value.repository.hasCapability(value.organisation.id,value.userId,"members.create")))return{ok:false,error:"Customer creation is not authorised."};if(name.length<2||name.length>160||email&&(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||email.length>254)||phone&&phone.length>40||!input.idempotencyKey.trim())return{ok:false,error:"Check the customer name, email and phone."};const {data,error}=await(await serverSupabase()).rpc("club_management_create_customer_secure",{p_organisation_id:value.organisation.id,p_display_name:name,p_email:email??null,p_phone:phone??null,p_idempotency_key:input.idempotencyKey.trim()});if(error||!data||typeof data!=="object")return{ok:false,error:error?.code==="23505"?"A customer already uses that email. Search and select the existing record.":"Customer record could not be created."};const row=data as Record<string,unknown>;revalidatePath("/club/orders");return{ok:true,customer:{id:String(row.id),displayName:String(row.display_name),...(typeof row.email==="string"?{email:row.email}:{})},replayed:row.replayed===true};}catch{return{ok:false,error:"Customer record could not be created."};}
+}
+
 /** Ensure a real member has the commerce identity required by order APIs. */
 export async function ensureStaffMemberCustomerAction(input: { organisationId: string; memberId: string }): Promise<{ ok: true; customerId: string } | { ok: false; error: string }> {
   try {
@@ -291,6 +295,92 @@ export async function ensureStaffMemberCustomerAction(input: { organisationId: s
       return retry ? ensureBalance(retry.id) : { ok: false, error: "This member could not be prepared for checkout." };
     }
   } catch { return { ok: false, error: "This member could not be prepared for checkout." }; }
+}
+
+export type ManagementOrderProduct = { id: string; name: string; sku?: string; category?: string; priceMinor: number; currency: string; stockTracked: boolean; serviceCreditQuantity?: number };
+export type ManagementPaymentAccount = { id: string; provider: string; purpose: string; externalAccountReference?: string };
+export type ProductReportingCategory = "pt_transformation"|"apparel"|"supplements"|"food_drink_consumables"|"classes"|"other_products_services"|"uncategorized";
+export type ManagementOrderRecord = { id: string; reference: string; customerId: string; customerName: string; customerEmail?: string; status: string; financialStatus: string; totalMinor: number; confirmedMinor: number; reservedMinor: number; outstandingMinor: number; createdAt: string; locationId?: string; locationName?: string; items: Array<{ productId: string; name: string; quantity: number; unitPriceMinor: number; lineTotalMinor: number }>; payments: Array<{ id: string; amountMinor: number; processorFeeMinor?: number; settlementAmountMinor?: number; paymentAccountId?: string; currency: string; method: string; externalMethod?: string; externalReference?: string; receivingAccountLabel?: string; receivedAt?: string; status: string; verificationStatus?: string; merchantEntity?: string }> };
+
+export async function searchManagementOrderProductsAction(input: { organisationId: string; query: string }): Promise<{ ok: true; products: ManagementOrderProduct[] } | { ok: false; error: string }> {
+  try {
+    const value = await context(input.organisationId);
+    if (!value || !(await value.repository.hasCapability(value.organisation.id,value.userId,"finance.manage"))) return { ok:false,error:"Order management access is required." };
+    if (input.query.trim().length<2) return { ok:true,products:[] };
+    const {data,error}=await (await serverSupabase()).rpc("club_management_search_order_products_secure",{p_organisation_id:value.organisation.id,p_search:input.query.trim().slice(0,80),p_limit:30});
+    if(error||!Array.isArray(data)) return {ok:false,error:"Product search is temporarily unavailable."};
+    return {ok:true,products:data.map((raw)=>{const p=raw as Record<string,unknown>;return{id:String(p.id),name:String(p.name),...(typeof p.sku==="string"?{sku:p.sku}:{}),...(typeof p.category==="string"?{category:p.category}:{}),priceMinor:Number(p.price_minor),currency:String(p.currency),stockTracked:p.stock_tracked===true,...(Number.isInteger(p.service_credit_quantity)?{serviceCreditQuantity:Number(p.service_credit_quantity)}:{})};})};
+  } catch { return {ok:false,error:"Product search is temporarily unavailable."}; }
+}
+
+export async function listManagementPaymentAccountsAction(input:{organisationId:string}):Promise<{ok:true;accounts:ManagementPaymentAccount[]}|{ok:false;error:string}>{
+  try{const value=await context(input.organisationId);if(!value||!(await value.repository.hasCapability(value.organisation.id,value.userId,"finance.manage")))return{ok:false,error:"Payment account access is required."};const {data,error}=await(await serverSupabase()).rpc("club_management_list_payment_accounts_secure",{p_organisation_id:value.organisation.id});if(error||!Array.isArray(data))return{ok:false,error:"Payment accounts are unavailable."};return{ok:true,accounts:data.map(raw=>{const row=raw as Record<string,unknown>;return{id:String(row.id),provider:String(row.provider),purpose:String(row.purpose),...(typeof row.external_account_reference==="string"?{externalAccountReference:row.external_account_reference}:{})};})};}catch{return{ok:false,error:"Payment accounts are unavailable."};}
+}
+export async function configureManagementPaymentAccountAction(input:{organisationId:string;provider:"bank_transfer"|"paypal"|"external_card_terminal"|"other";externalAccountReference:string}):Promise<{ok:true}|{ok:false;error:string}>{
+  try{const value=await context(input.organisationId);if(!value||!(await value.repository.hasCapability(value.organisation.id,value.userId,"finance.manage"))||input.externalAccountReference.length>120)return{ok:false,error:"Payment-account setup requires finance management access."};const{error}=await(await serverSupabase()).rpc("club_management_configure_payment_account_secure",{p_organisation_id:value.organisation.id,p_provider:input.provider,p_external_account_reference:input.externalAccountReference.trim()||null});if(error)return{ok:false,error:"Receiving account could not be saved."};revalidatePath("/club/orders");return{ok:true};}catch{return{ok:false,error:"Receiving account could not be saved."};}
+}
+export async function searchReportingProductsAction(input:{organisationId:string;query?:string}):Promise<{ok:true;products:Array<{id:string;name:string;sku?:string;category:ProductReportingCategory}>}|{ok:false;error:string}>{
+  try{const value=await context(input.organisationId);if(!value||!(await value.repository.hasCapability(value.organisation.id,value.userId,"commerce.pricing_manage")))return{ok:false,error:"Product classification access is required."};const {data,error}=await(await serverSupabase()).rpc("club_management_list_reporting_products_secure",{p_organisation_id:value.organisation.id,p_search:input.query?.trim()||null,p_limit:100});if(error||!Array.isArray(data))return{ok:false,error:"Product list is unavailable."};return{ok:true,products:data.map(raw=>{const row=raw as Record<string,unknown>;return{id:String(row.id),name:String(row.name),...(typeof row.sku==="string"?{sku:row.sku}:{}),category:String(row.reporting_category??"uncategorized") as ProductReportingCategory};})};}catch{return{ok:false,error:"Product list is unavailable."};}
+}
+export async function setReportingCategoryAction(input:{organisationId:string;productId:string;category:ProductReportingCategory;reason:string}):Promise<{ok:true}|{ok:false;error:string}>{
+  const allowed:ProductReportingCategory[]=["pt_transformation","apparel","supplements","food_drink_consumables","classes","other_products_services","uncategorized"];
+  try{const value=await context(input.organisationId);if(!value||!(await value.repository.hasCapability(value.organisation.id,value.userId,"commerce.pricing_manage"))||!allowed.includes(input.category)||input.reason.trim().length<3)return{ok:false,error:"Classification requires product-pricing permission and an audit reason."};const {error}=await(await serverSupabase()).rpc("club_set_product_reporting_category_secure",{p_organisation_id:value.organisation.id,p_product_id:input.productId,p_reporting_category:input.category,p_reason:input.reason.trim()});if(error)return{ok:false,error:"Product reporting category was not changed."};revalidatePath("/club/products/reporting-categories");revalidatePath("/club/payments");return{ok:true};}catch{return{ok:false,error:"Product reporting category was not changed."};}
+}
+
+export async function createManagementOrderAction(input: { organisationId:string; locationId:string; customerId?:string; memberId?:string; items:Array<{productId:string;quantity:number}>; idempotencyKey:string }): Promise<{ok:true;orderId:string;totalMinor:number;replayed:boolean}|{ok:false;error:string}> {
+  try {
+    const value=await context(input.organisationId);
+    if(!value||!(await value.repository.hasCapability(value.organisation.id,value.userId,"finance.manage"))||!(await locationAuthorized(value.organisation.id,input.locationId))) return {ok:false,error:"Order management access is not available for this venue."};
+    if(!Array.isArray(input.items)||!input.items.length||input.items.length>50||input.items.some(i=>!i.productId||!Number.isInteger(i.quantity)||i.quantity<1||i.quantity>50)||!input.idempotencyKey.trim()) return {ok:false,error:"Check the selected products and quantities."};
+    let customerId=input.customerId;
+    if(!customerId&&input.memberId){
+      if(!(await value.repository.hasCapability(value.organisation.id,value.userId,"members.create"))) return {ok:false,error:"A customer record must be linked before this order can be created."};
+      const member=(await value.repository.listMemberSummaries(value.organisation.id)).find(m=>m.id===input.memberId&&m.active);
+      if(!member)return{ok:false,error:"Select an active Madhouse member."};
+      let customer=(await value.repository.listCustomers(value.organisation.id)).find(c=>c.userId===member.userId);
+      if(!customer){
+        try{customer=await value.repository.createCustomer({organisationId:value.organisation.id,userId:member.userId,displayName:member.displayName,email:member.email,status:"member"});}
+        catch{customer=(await value.repository.listCustomers(value.organisation.id)).find(c=>c.userId===member.userId);}
+      }
+      if(!customer)return{ok:false,error:"The member’s customer record could not be linked."};
+      customerId=customer.id;
+    }
+    if(!customerId||!(await value.repository.listCustomers(value.organisation.id)).some(c=>c.id===customerId&&c.organisationId===value.organisation.id)) return {ok:false,error:"Select an existing customer in this organisation."};
+    const {data,error}=await(await serverSupabase()).rpc("club_management_create_order_secure",{p_organisation_id:value.organisation.id,p_location_id:input.locationId,p_customer_id:customerId,p_items:input.items.map(i=>({product_id:i.productId,quantity:i.quantity})),p_idempotency_key:input.idempotencyKey.trim()});
+    if(error||!data||typeof data!=="object")return{ok:false,error:"The order could not be created. Refresh and check whether it appears in Orders."};
+    const payload=data as Record<string,unknown>;const order=payload.order as Record<string,unknown>;
+    revalidatePath("/club/orders");revalidatePath("/club/payments");revalidatePath("/club/shop");
+    return{ok:true,orderId:String(order.id),totalMinor:Number(order.total_minor),replayed:payload.replayed===true};
+  }catch{return{ok:false,error:"The order could not be created. Refresh and check whether it appears in Orders."};}
+}
+export async function confirmManagementOrderAction(input:{organisationId:string;orderId:string}):Promise<{ok:true}|{ok:false;error:string}>{
+  try{const value=await context(input.organisationId);if(!value||!(await value.repository.hasCapability(value.organisation.id,value.userId,"finance.manage")))return{ok:false,error:"Order confirmation requires finance management access."};const{error}=await(await serverSupabase()).rpc("club_management_confirm_order_secure",{p_organisation_id:value.organisation.id,p_order_id:input.orderId});if(error)return{ok:false,error:"Order could not be confirmed. Check venue access and stock, then refresh."};revalidatePath("/club/orders");revalidatePath("/club/payments");revalidatePath("/club/shop");return{ok:true};}catch{return{ok:false,error:"Order could not be confirmed. Check venue access and stock, then refresh."};}
+}
+
+export async function recordManagementOrderPaymentAction(input:{organisationId:string;orderId:string;amountMinor:number;processorFeeMinor:number;method:"cash"|"bank_transfer"|"paypal"|"paypal_pay_in_3_settlement"|"external_card_terminal"|"other";receivedAt:string;receivingAccountLabel:string;externalReference?:string;paymentAccountId?:string;idempotencyKey:string}):Promise<{ok:true;paymentId:string;verificationStatus:string}|{ok:false;error:string}>{
+  try{
+    const value=await context(input.organisationId);
+    if(!value||!(await value.repository.hasCapability(value.organisation.id,value.userId,"finance.manage"))||!Number.isSafeInteger(input.amountMinor)||input.amountMinor<=0||!Number.isSafeInteger(input.processorFeeMinor)||input.processorFeeMinor<0||input.processorFeeMinor>input.amountMinor||!Number.isFinite(Date.parse(input.receivedAt))||!input.receivingAccountLabel.trim()||!input.idempotencyKey.trim())return{ok:false,error:"Check the payment details and management permission."};
+    const {data,error}=await(await serverSupabase()).rpc("club_management_record_order_payment_secure",{p_organisation_id:value.organisation.id,p_order_id:input.orderId,p_amount_minor:input.amountMinor,p_method:input.method,p_received_at:new Date(input.receivedAt).toISOString(),p_receiving_account_label:input.receivingAccountLabel.trim(),p_external_reference:input.externalReference?.trim()||null,p_payment_account_id:input.paymentAccountId||null,p_processor_fee_minor:input.processorFeeMinor,p_idempotency_key:input.idempotencyKey.trim()});
+    if(error||!data||typeof data!=="object")return{ok:false,error:error?.code==="22023"?"The payment exceeds the verified balance due or the order is no longer open.":"Payment could not be recorded. Refresh and check the order before retrying."};
+    const payload=data as Record<string,unknown>;const payment=payload.payment as Record<string,unknown>;
+    revalidatePath("/club/orders");revalidatePath("/club/payments");revalidatePath("/club/shop");
+    return{ok:true,paymentId:String(payment.id),verificationStatus:String(payment.verification_status)};
+  }catch{return{ok:false,error:"Payment could not be recorded. Refresh and check the order before retrying."};}
+}
+
+export async function verifyManagementOrderPaymentAction(input:{organisationId:string;paymentId:string;decision:"confirmed"|"rejected";reason:string}):Promise<{ok:true;status:string}|{ok:false;error:string}>{
+  try{
+    const value=await context(input.organisationId);
+    if(!value||!(await value.repository.hasCapability(value.organisation.id,value.userId,"finance.manage"))||input.reason.trim().length<3)return{ok:false,error:"Payment verification requires management access and a reason."};
+    const {data,error}=await(await serverSupabase()).rpc("club_management_verify_order_payment_secure",{p_organisation_id:value.organisation.id,p_payment_id:input.paymentId,p_decision:input.decision,p_reason:input.reason.trim().slice(0,240)});
+    if(error||!data||typeof data!=="object")return{ok:false,error:"The payment decision could not be recorded."};
+    const payload=data as Record<string,unknown>;revalidatePath("/club/orders");revalidatePath("/club/payments");revalidatePath("/club/shop");
+    return{ok:true,status:String(payload.verification_status)};
+  }catch{return{ok:false,error:"The payment decision could not be recorded."};}
+}
+export async function cancelManagementOrderAction(input:{organisationId:string;orderId:string;reason:string}):Promise<{ok:true}|{ok:false;error:string}>{
+  try{const value=await context(input.organisationId);if(!value||!(await value.repository.hasCapability(value.organisation.id,value.userId,"finance.manage"))||input.reason.trim().length<3)return{ok:false,error:"Order cancellation requires management access and a reason."};const{error}=await(await serverSupabase()).rpc("club_management_cancel_order_secure",{p_organisation_id:value.organisation.id,p_order_id:input.orderId,p_reason:input.reason.trim()});if(error)return{ok:false,error:"This order has a recorded receipt or active checkout, or is otherwise not cancellable."};revalidatePath("/club/orders");revalidatePath("/club/payments");revalidatePath("/club/shop");return{ok:true};}catch{return{ok:false,error:"Order could not be cancelled."};}
 }
 
 /** Resolve the member's stored-value account before payment is chosen. */

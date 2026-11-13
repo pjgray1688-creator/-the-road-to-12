@@ -87,11 +87,11 @@ test("period changes avoid fabricated percentages for a zero baseline", () => {
   assert.equal(comparePeriodValues(Number.NaN, 10), undefined);
 });
 
-test("management finance destinations do not link to a nonexistent order route", async () => {
+test("management finance destinations link to the capability-gated order workflow", async () => {
   const page = await read("app/club/more/page.tsx");
   assert.match(page, /Checkout attempts/);
   assert.match(page, /\/club\/payments\?org=.*view=attempts/);
-  assert.doesNotMatch(page, /href: `\/club\/orders/);
+  assert.match(page, /canManageOrders \? \[\{ label: "Orders & external payments", href: `\/club\/orders/);
   assert.match(page, /Cash close & verification/);
   assert.match(page, /Cash approvals/);
   assert.match(page, /Physical cash collections/);

@@ -20,9 +20,11 @@ export default async function ClubMorePage({ searchParams }: { searchParams?: Pr
   const context = await resolveClubOrganisationContext(client, user.id, (await searchParams)?.org);
   if (!context?.navigation.management) return <AppShell className="module-page club-page"><PageHeader title="Management" description="Restricted Club administration and configuration." /><EmptyState title="Management access required">Your Club capabilities do not include a management area.</EmptyState><AppNav /></AppShell>;
   const q = `?org=${encodeURIComponent(context.organisation.id)}`;
-  const [canImport, canClassSetup] = await Promise.all([
+  const [canImport, canClassSetup, canManagePricing, canManageOrders] = await Promise.all([
     context.repository.hasCapability(context.organisation.id, user.id, "members.import"),
     Promise.resolve(["gym_admin", "owner"].includes(context.role)),
+    context.repository.hasCapability(context.organisation.id,user.id,"commerce.pricing_manage"),
+    context.repository.hasCapability(context.organisation.id,user.id,"finance.manage"),
   ]);
   const glowLocations = context.organisation.slug === "madhouse-gym" && context.navigation.services
     ? await context.repository.listLocations(context.organisation.id).catch(() => [])
@@ -35,6 +37,7 @@ export default async function ClubMorePage({ searchParams }: { searchParams?: Pr
   const groups: Array<{ title: string; key: string; items: Destination[] }> = [
     { title: sectionLabels.finance, key: "finance", items: [
       ...(context.navigation.finance ? [{ label: "Finance & Sales", href: `/club/payments${q}` }, { label: "Membership Billing", href: `/club/membership-billing${q}` }, { label: "Checkout attempts", href: `/club/payments?org=${encodeURIComponent(context.organisation.id)}&view=attempts` }] : []),
+      ...(canManageOrders ? [{ label: "Orders & external payments", href: `/club/orders${q}` }] : []),
       ...(context.navigation.cashControls ? [{ label: "Cash close & verification", href: `/club/shop?org=${encodeURIComponent(context.organisation.id)}&view=cash&till=close` }, { label: "Cash approvals", href: `/club/shop?org=${encodeURIComponent(context.organisation.id)}&view=cash-review` }, { label: "Physical cash collections", href: `/club/payments/cash-collections${q}` }] : []),
       ...(context.navigation.cashTill ? [{ label: "Till history & refunds", href: `/club/shop?org=${encodeURIComponent(context.organisation.id)}&view=cash&till=log` }] : []),
       ...(canManageGlowZone ? [{ label: "Glow Zone reporting & balances", href: `/club/sunbeds?org=${encodeURIComponent(context.organisation.id)}&view=management` }] : []),
@@ -52,6 +55,7 @@ export default async function ClubMorePage({ searchParams }: { searchParams?: Pr
     { title: sectionLabels.shop, key: "shop", items: [
       ...(context.navigation.suppliers ? [{ label: "Supplier catalogue", href: `/club/shop/supplier-catalogue${q}` }] : []),
       ...(context.navigation.promotions ? [{ label: "Products & pricing", href: `/club/products${q}` }, { label: "Website Shop", href: `/club/website-shop${q}` }, { label: "Promotions & offers", href: `/club/promotions${q}` }] : []),
+      ...(canManagePricing ? [{ label: "Product reporting categories", href: `/club/products/reporting-categories${q}` }] : []),
     ] },
     { title: sectionLabels.venues, key: "venues", items: [
       ...(context.navigation.venues ? [{ label: "Venues & settings", href: `/club/locations${q}` }] : []),

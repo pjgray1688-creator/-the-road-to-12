@@ -1,0 +1,342 @@
+.root {
+  display: grid;
+  gap: 20px;
+  width: 100%;
+  min-width: 0;
+}
+
+.root :global(.club-order-create),
+.root :global(.club-management-order) {
+  min-width: 0;
+  padding: clamp(16px, 2.2vw, 24px);
+  border: 1px solid var(--club-border, #d8d2e3);
+  border-radius: 14px;
+  background: var(--club-surface, #fff);
+  color: var(--club-text, #211a2e);
+  box-shadow: 0 4px 16px rgb(28 18 42 / 5%);
+}
+
+.root :global(.club-order-section-heading) {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.root :global(.club-order-section-heading h2) {
+  margin: 4px 0 0;
+  color: inherit;
+  font-size: clamp(20px, 2vw, 26px);
+}
+
+.root :global(.club-order-section-heading > span),
+.root :global(.club-order-section-heading .eyebrow),
+.root :global(.club-order-create small),
+.root :global(.club-order-payment span),
+.root :global(.club-management-order header span) {
+  color: #625a70;
+  font-size: 13px;
+}
+
+.root :global(.club-order-form-grid),
+.root :global(.club-order-filters),
+.root :global(.club-order-payment-form) {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.root :global(.club-order-create label),
+.root :global(.club-order-filters label),
+.root :global(.club-order-payment-form label),
+.root :global(.club-order-verify label) {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+  color: #342a45;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.root :global(.club-order-create input),
+.root :global(.club-order-create select),
+.root :global(.club-order-filters input),
+.root :global(.club-order-filters select),
+.root :global(.club-order-payment-form input),
+.root :global(.club-order-payment-form select),
+.root :global(.club-order-verify input) {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 42px;
+  padding: 9px 11px;
+  border: 1px solid #c9c0d5;
+  border-radius: 8px;
+  background: #fff;
+  color: #211a2e;
+  font: inherit;
+}
+
+.root :global(.club-order-create input:focus-visible),
+.root :global(.club-order-create select:focus-visible),
+.root :global(.club-order-filters input:focus-visible),
+.root :global(.club-order-filters select:focus-visible),
+.root :global(.club-order-payment-form input:focus-visible),
+.root :global(.club-order-payment-form select:focus-visible),
+.root :global(.club-order-verify input:focus-visible) {
+  outline: 3px solid rgb(126 68 196 / 30%);
+  border-color: #7540b3;
+}
+
+.root :global(.club-order-search-results),
+.root :global(.club-order-product-results) {
+  display: grid;
+  max-height: 280px;
+  overflow: auto;
+  border: 1px solid #e0dbe8;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.root :global(.club-order-search-results button),
+.root :global(.club-order-product-results button) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  padding: 11px 13px;
+  border: 0;
+  border-bottom: 1px solid #eeeaf3;
+  background: #fff;
+  color: #241b32;
+  text-align: left;
+  cursor: pointer;
+}
+
+.root :global(.club-order-search-results button:hover),
+.root :global(.club-order-product-results button:hover) {
+  background: #f5effb;
+}
+
+.root :global(.club-order-search-results button:focus-visible),
+.root :global(.club-order-product-results button:focus-visible) {
+  position: relative;
+  z-index: 1;
+  outline: 3px solid #7946b7;
+  outline-offset: -3px;
+}
+
+.root :global(.club-order-product-results button > span),
+.root :global(.club-order-selected) {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.root :global(.club-order-product-results small) {
+  color: #6c6477;
+}
+
+.root :global(.club-order-selected) {
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 9px;
+  background: #f4effa;
+}
+
+.root :global(.club-order-basket) {
+  display: grid;
+  gap: 10px;
+  margin: 16px 0;
+  padding: 14px;
+  border: 1px solid #e0dbe8;
+  border-radius: 10px;
+  background: #faf8fc;
+}
+
+.root :global(.club-order-basket h3) {
+  margin: 0;
+  font-size: 16px;
+}
+
+.root :global(.club-order-line),
+.root :global(.club-order-total),
+.root :global(.club-order-items > div),
+.root :global(.club-order-balance),
+.root :global(.club-order-payment),
+.root :global(.club-management-order header) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.root :global(.club-order-line > span),
+.root :global(.club-order-payment > div:first-child),
+.root :global(.club-management-order header > div) {
+  display: grid;
+  gap: 4px;
+}
+
+.root :global(.club-order-line small) {
+  color: #6c6477;
+}
+
+.root :global(.club-order-line > div) {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.root :global(.club-order-line button) {
+  width: 30px;
+  height: 30px;
+  border: 1px solid #c8bed5;
+  border-radius: 7px;
+  background: #fff;
+  color: #342046;
+  cursor: pointer;
+}
+
+.root :global(.club-order-total) {
+  margin: 0;
+  padding-top: 10px;
+  border-top: 1px solid #ded7e8;
+}
+
+.root :global(.club-order-create > .primary),
+.root :global(.club-order-payment-form > .primary),
+.root :global(.club-order-verify .primary) {
+  min-height: 42px;
+  padding: 9px 15px;
+  border: 1px solid #60309a;
+  border-radius: 8px;
+  background: #713caf;
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.root :global(.club-order-create > .primary:hover),
+.root :global(.club-order-payment-form > .primary:hover),
+.root :global(.club-order-verify .primary:hover) {
+  background: #5d2d91;
+}
+
+.root :global(.club-order-create > .primary:focus-visible),
+.root :global(.club-order-payment-form > .primary:focus-visible),
+.root :global(.club-order-verify button:focus-visible) {
+  outline: 3px solid rgb(126 68 196 / 35%);
+  outline-offset: 2px;
+}
+
+.root :global(button:disabled) {
+  opacity: .55;
+  cursor: not-allowed;
+}
+
+.root :global(.club-orders-list) {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.root :global(.club-management-order) {
+  display: grid;
+  gap: 13px;
+}
+
+.root :global(.club-order-status) {
+  padding: 5px 9px;
+  border: 1px solid #d6cbe4;
+  border-radius: 999px;
+  background: #f5f0fa;
+  color: #45325a;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.root :global(.club-order-items) {
+  display: grid;
+  gap: 7px;
+  padding-block: 10px;
+  border-block: 1px solid #ece7f1;
+}
+
+.root :global(.club-order-balance) {
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  color: #40364e;
+  font-size: 13px;
+}
+
+.root :global(.club-order-payment) {
+  flex-wrap: wrap;
+  padding: 10px;
+  border-radius: 9px;
+  background: #f8f6fa;
+}
+
+.root :global(.club-order-verify) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 8px;
+  width: 100%;
+}
+
+.root :global(.club-order-verify label) {
+  flex: 1 1 220px;
+}
+
+.root :global(.club-order-verify .secondary) {
+  min-height: 40px;
+  padding: 8px 12px;
+  border: 1px solid #bcb1ca;
+  border-radius: 8px;
+  background: #fff;
+  color: #30233f;
+}
+
+.root :global(.club-order-add-payment) {
+  padding-top: 10px;
+  border-top: 1px solid #ece7f1;
+}
+
+.root :global(.club-order-add-payment summary) {
+  width: fit-content;
+  padding: 8px 0;
+  color: #60309a;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.root :global(.club-order-add-payment > small) {
+  display: block;
+  margin-top: 9px;
+  color: #625a70;
+}
+
+@media (max-width: 700px) {
+  .root :global(.club-order-form-grid),
+  .root :global(.club-order-filters),
+  .root :global(.club-order-payment-form) {
+    grid-template-columns: 1fr;
+  }
+
+  .root :global(.club-order-section-heading),
+  .root :global(.club-management-order header) {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .root :global(.club-order-line),
+  .root :global(.club-order-items > div) {
+    align-items: flex-start;
+  }
+}
