@@ -20,8 +20,8 @@ test("shop sub-pages have Back to Shop and Promotions stays in Shop administrati
 });
 
 test("staff management is consolidated under Management", () => {
-  assert.match(read("app/club/more/page.tsx"), /Staff &amp; permissions/);
-  assert.match(read("app/club/more/page.tsx"), /\/club\/staff/);
+  assert.match(read("components/club-desktop-shell.tsx"), /label: "Staff & permissions", href: `\/club\/staff/);
+  assert.match(read("app/club/more/page.tsx"), /Staff & Rota/);
   assert.match(read("components/club-shell.tsx"), /label: "Management"/);
   assert.doesNotMatch(read("components/club-shell.tsx"), /label: "More"/);
 });

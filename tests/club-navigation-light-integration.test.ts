@@ -4,18 +4,19 @@ import test from "node:test";
 
 const read = (path: string) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 
-test("Club navigation exposes six coherent groups and capability-aware Management", () => {
-  const shell = read("components/club-shell.tsx"); const context = read("lib/club-server-context.ts");
-  for (const label of ["Overview", "Members", "Shop", "Classes & PT", "Daily Operations", "Management"]) assert.match(shell, new RegExp(`label: "${label}"`));
+test("Club navigation exposes coherent workspace groups and capability-aware Management", () => {
+  const shell = read("components/club-desktop-shell.tsx"); const context = read("lib/club-server-context.ts");
+  for (const label of ["Overview", "Members", "Shop & Stock", "Classes & PT", "Daily Checks", "My Rota"]) assert.match(shell, new RegExp(`label: "${label}"`));
+  assert.match(shell, /title="Management"/);
   assert.doesNotMatch(shell, /label: "Payments"/);
-  assert.match(shell, /managementAllowed/);
+  assert.match(context, /management: finance \|\| cashControls/);
   for (const capability of ["finance.view", "memberships.manage", "commerce.pricing_manage", "supplier.catalogue_manage", "staff.permissions_manage", "services.manage"]) assert.match(context, new RegExp(capability.replace(".", "\\.")));
-  assert.match(shell, /Finance & reconciliation/);
+  assert.match(shell, /Finance & Payments/);
   assert.match(shell, /Membership administration/);
   assert.match(shell, /Promotions & pricing/);
-  assert.match(shell, /Suppliers & purchasing/);
+  assert.match(shell, /Supplier catalogue/);
   assert.match(shell, /Staff & permissions/);
-  assert.match(shell, /Venues & settings/);
+  assert.match(shell, /Venues & Settings/);
   assert.match(shell, /Reports & audit/);
   assert.match(shell, /Services & configuration/);
 });

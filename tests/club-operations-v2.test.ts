@@ -33,7 +33,7 @@ test("desktop Club navigation gates management destinations through resolved cap
   assert.match(shell, /access\.finance \? \[\{ label: "Finance & sales"/);
   assert.match(shell, /access\.memberships \? \[\{ label: "Membership administration"/);
   assert.match(shell, /access\.staff \? \[\{ label: "Staff & permissions"/);
-  assert.match(shell, /access\.management \? \[\{ label: "Management home"/);
+  assert.match(shell, /access\.management \? <Link href=\{`\/club\/more/);
   assert.match(shell, /if \(!selected \|\| !operational\) return \[\] as Item\[\]/);
   assert.doesNotMatch(shell, /role === "owner" \? \[.*Management/s);
 });
@@ -92,7 +92,7 @@ test("Club venue context is explicit, role-aware and preserved in navigation", (
 
 test("desktop Club sidebar keeps operational destinations primary and admin destinations grouped", () => {
   const shell = read("components/club-desktop-shell.tsx");
-  for (const label of ["Overview", "Members", "Classes & PT", "Shop & Stock", "Daily Operations"]) assert.match(shell, new RegExp(`label: "${label}"`));
+  for (const label of ["Overview", "Members", "Classes & PT", "Shop & Stock", "Daily Checks", "My Rota"]) assert.match(shell, new RegExp(`label: "${label}"`));
   assert.match(shell, /managementLinks/);
   assert.match(shell, /Finance & sales/);
   assert.match(shell, /Membership administration/);
@@ -103,7 +103,7 @@ test("desktop Club route matching keeps operational and management routes in the
   const shell = read("components/club-desktop-shell.tsx");
   assert.match(shell, /routeInManagement = pathname\.startsWith\("\/club\/more"\)/);
   assert.match(shell, /path\.startsWith\("\/club\/classes"\)/);
-  assert.match(shell, /path\.startsWith\("\/club\/shop"\) \|\| path\.startsWith\("\/club\/products"\)/);
+  assert.match(shell, /const shopRoutes = pathname\.startsWith\("\/club\/shop"\) \|\| pathname\.startsWith\("\/club\/products"\)/);
   assert.match(shell, /activeManagement = managementLinks\.some/);
   assert.match(shell, /access\.management/);
 });

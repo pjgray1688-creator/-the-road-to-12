@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { AppNav } from "@/components/app-nav";
 import { ClubSectionNav } from "@/components/club-shell";
 import { ClubWebsiteShop, type WebsiteShopRow } from "@/components/club-website-shop";
+import { ClubWebsiteShopNav } from "@/components/club-website-shop-nav";
 import { AppShell, EmptyState, PageHeader } from "@/components/ui";
 import { resolveClubOrganisationContext } from "@/lib/club-server-context";
 import { serverSupabase } from "@/lib/supabase-server";
@@ -83,5 +84,5 @@ export default async function ClubWebsiteShopPage({ searchParams }: { searchPara
   });
   const families = familyMeta.map(family => ({ ...family, visible: familyVisibility.get(family.id) ?? true }));
   const query = `?org=${encodeURIComponent(context.organisation.id)}`;
-  return <AppShell className="module-page club-page"><PageHeader eyebrow="R12 CLUB · MADHOUSE APPAREL" title="Madhouse Apparel — Website Shop" description="Manage public colourways, prices and made-to-order sizes. These settings do not change member-shop pricing." /><ClubSectionNav organisation={context.organisation} role={context.role} contexts={context.availableContexts} /><ClubWebsiteShop organisationId={context.organisation.id} rows={rows} families={families} /><a className="text-button" href={`/club/products${query}`}>Return to Products & Pricing</a><AppNav /></AppShell>;
+  return <AppShell className="module-page club-page"><PageHeader eyebrow="R12 CLUB · MADHOUSE APPAREL" title="Madhouse Apparel — Website Shop" description="Manage public colourways, prices and made-to-order sizes. These settings do not change member-shop pricing." /><ClubSectionNav organisation={context.organisation} role={context.role} contexts={context.availableContexts} /><ClubWebsiteShopNav organisationId={context.organisation.id} section="products"/><ClubWebsiteShop organisationId={context.organisation.id} rows={rows} families={families} /><a className="text-button" href={`/club/products${query}`}>Return to Products & Pricing</a><AppNav /></AppShell>;
 }

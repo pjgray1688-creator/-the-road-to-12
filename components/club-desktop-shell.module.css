@@ -1,6 +1,7 @@
 .inactive { display: contents; }
 .frame { display: contents; }
 .sidebar,.toolbar { display: none; }
+.mobileHeader,.mobileBackdrop { display: none; }
 .workspace { min-width: 0; }
 .content { min-width: 0; }
 :global(.club-desktop-mobile-identity) { display: contents; }
@@ -13,7 +14,8 @@
   :global(.club-checklist-submit:focus-visible) { outline:3px solid rgb(117 66 155 / 28%); outline-offset:2px; }
   .frame { --sidebar-width: 258px; display: block; min-height: 100dvh; background: #f5f4f7; }
   .frame[data-collapsed="true"] { --sidebar-width: 76px; }
-  .sidebar { position: fixed; z-index: 60; inset: 0 auto 0 0; display: flex; flex-direction: column; width: var(--sidebar-width); padding: 18px 12px 14px; overflow: visible; color: #f6f2fa; background: #211c2a; border-right: 1px solid #342c40; transition: width 180ms ease-out; }
+  .sidebar { position: fixed; z-index: 60; inset: 0 auto 0 0; display: flex; flex-direction: column; width: var(--sidebar-width); padding: 18px 12px 14px; overflow: visible; visibility:visible; color: #f6f2fa; background: #211c2a; border-right: 1px solid #342c40; transition: width 180ms ease-out; }
+  .mobileContextControls { display:none; }
   .brand { display: flex; align-items: center; gap: 11px; min-width: 0; height: 54px; margin: 0 0 23px; padding: 5px 7px; color: inherit; text-decoration: none; }
   .brandLogo { display: grid; flex: 0 0 40px; width: 40px; height: 40px; place-items: center; overflow: hidden; border-radius: 12px; background: #fff; }
   .brandLogo img { width: 100%; height: 100%; object-fit: contain; }
@@ -23,6 +25,15 @@
   .navigation { display: grid; align-content: start; gap: 4px; min-height: 0; overflow: auto; scrollbar-width: thin; }
   .navCaption { padding: 0 11px 7px; color: #91879d; font-size: 9px; font-weight: 800; letter-spacing: .13em; }
   .operationalGroup { display: grid; gap: 2px; }
+  .groupRow { display:grid; grid-template-columns:minmax(0,1fr) 32px; align-items:center; gap:2px; }
+  .groupRow > a { position:relative; display:flex; align-items:center; gap:12px; min-width:0; min-height:42px; padding:0 11px; border:1px solid transparent; border-radius:9px; color:#c6bfce; font-size:12px; font-weight:650; text-decoration:none; }
+  .groupRow > a svg { flex:0 0 19px; color:#a79cb4; }
+  .groupRow > a > span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .groupRow > a:hover { background:#30283a; color:#fff; }
+  .groupRow > a:focus-visible { outline:2px solid #d4a7ff; outline-offset:2px; }
+  .groupRow > a.active { color:#fff; background:color-mix(in srgb,var(--tenant-accent) 20%,#30283a); border-color:color-mix(in srgb,var(--tenant-accent) 42%,#342c40); }
+  .groupRow > button { display:grid; width:30px; height:30px; place-items:center; border:0; border-radius:7px; background:transparent; color:#b8afc3; font-size:14px; cursor:pointer; }
+  .groupRow > button:hover,.groupRow > button:focus-visible { background:#30283a; color:#fff; outline:2px solid #d4a7ff; outline-offset:1px; }
   .navigation > .operationalGroup > a { position: relative; display: flex; align-items: center; gap: 12px; width: 100%; min-width: 0; min-height: 42px; padding: 0 11px; border: 1px solid transparent; border-radius: 9px; background: transparent; color: #c6bfce; font: inherit; font-size: 12px; font-weight: 650; text-align: left; text-decoration: none; transition: background-color 150ms ease-out, color 150ms ease-out; }
   .operationalGroup > a svg { flex: 0 0 19px; color: #a79cb4; }
   .operationalGroup > a > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -52,6 +63,9 @@
   .subNavigation a:hover,.subNavigation a:focus-visible { color: #fff; background: #30283a; outline: none; }
   .subNavigation a:focus-visible { box-shadow: 0 0 0 2px #d4a7ff; }
   .subNavigation a.subActive { color: #f0ddff; background: #352840; }
+  .managementSection { display:grid; gap:2px; margin-top:9px; }
+  .managementSection:first-child { margin-top:0; }
+  .managementSection h2 { margin:0 0 3px; padding:0 9px; color:#93899f; font-size:9px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }
   .sidebarBottom { display: grid; gap: 12px; margin-top: auto; padding: 14px 3px 0; border-top: 1px solid #3a3144; }
   .roleBadge { width: fit-content; max-width: 100%; padding: 5px 9px; overflow: hidden; border: 1px solid #51405e; border-radius: 999px; color: #d3b7eb; font-size: 10px; font-weight: 750; text-overflow: ellipsis; white-space: nowrap; }
   .collapseButton { display: flex; align-items: center; gap: 11px; min-height: 38px; padding: 0 8px; border: 0; border-radius: 8px; background: transparent; color: #aaa0b6; font-size: 11px; text-align: left; cursor: pointer; }
@@ -92,6 +106,7 @@
   .content :global(.club-page .surface) { border-radius: 12px; box-shadow: 0 2px 8px rgb(34 25 45 / 3%); }
   .content :global(.club-page > .app-nav) { display: none !important; }
   .content :global(.club-shop-tabs[aria-label="Shop areas"]) { display: none !important; }
+  .content :global(.club-class-tools-desktop) { display:none!important; }
   .content :global(.club-member-history-note) { display: none; }
   .content :global(.club-legacy-overview),.content :global(.club-brand-banner) { display: none !important; }
   .inactive { display: contents; }
@@ -107,6 +122,12 @@
   :global(.club-class-tools) { display:flex; flex-wrap:wrap; gap:8px; margin-top:2px; }
   :global(.club-class-tools a) { display:inline-flex; align-items:center; min-height:36px; padding:7px 11px; border:1px solid #ded5e6; border-radius:8px; background:#fff; color:#56336b; font-size:11px; font-weight:700; text-decoration:none; }
   :global(.club-class-tools a:hover),:global(.club-class-tools a:focus-visible) { background:#f8f1fc; outline:2px solid rgb(152 86 216 / 18%); }
+  :global(.club-website-shop-nav),:global(.club-rota-scope) { display:flex; align-items:center; gap:5px; width:fit-content; max-width:100%; margin:0 0 14px; padding:4px; border:1px solid #e8e2ec; border-radius:10px; background:#f8f6fa; }
+  :global(.club-website-shop-nav a),:global(.club-rota-scope a) { display:inline-flex; align-items:center; min-height:32px; padding:0 11px; border-radius:7px; color:#64566d; font-size:11px; font-weight:700; text-decoration:none; }
+  :global(.club-website-shop-nav a[aria-current="page"]),:global(.club-rota-scope a[aria-current="page"]) { background:#75429b; color:#fff; box-shadow:0 1px 2px rgb(38 22 48 / 12%); }
+  :global(.club-website-shop-nav a:hover),:global(.club-rota-scope a:hover) { color:#4b2861; background:#eee5f4; }
+  :global(.club-website-shop-nav a[aria-current="page"]:hover),:global(.club-rota-scope a[aria-current="page"]:hover) { color:#fff; background:#633582; }
+  :global(.club-website-shop-nav a:focus-visible),:global(.club-rota-scope a:focus-visible) { outline:3px solid rgb(117 66 155 / 28%); outline-offset:2px; }
   :global(.club-shop-offers) { display:grid; gap:8px; }
   :global(.club-shop-offers article) { display:flex; align-items:center; justify-content:space-between; gap:18px; padding:14px 16px; border:1px solid #e6e0ea; border-radius:10px; background:#fff; }
   :global(.club-shop-offers article > div:first-child) { min-width:0; }
@@ -130,7 +151,7 @@
   :global(.club-work-heading a:hover),:global(.club-work-heading a:focus-visible) { background:#f8f1fc; outline:2px solid rgb(152 86 216 / 18%); }
   :global(.club-classes-page .workspaceIntro) { display:none; }
   :global(.club-classes-page .workspace > .toolbar > div:first-child > p) { display:none; }
-  :global(.club-main-timetable .club-class-library),:global(.club-main-timetable .club-create-type) { display:none!important; }
+  :global(.club-main-timetable .club-create-type) { display:none!important; }
   :global(.club-page.club-main-timetable .workspace) { gap:10px; }
   :global(.club-class-tools-mobile) { display:none!important; }
   :global(.club-main-timetable .sessionCard) { grid-template-columns:64px minmax(0,1fr); border:1px solid #e6e1e9; border-radius:11px; background:#fff; box-shadow:0 2px 8px rgb(34 25 45 / 4%); }
@@ -234,6 +255,12 @@
   :global(.club-page .club-stock-row b) { color:#302638; font-size:15px; }
   :global(.club-page .club-stock-row small) { color:#706777; font-size:10px; }
   :global(.club-page .club-stock-row button) { min-height:30px; padding:4px 9px; font-size:10px; }
+  :global(.club-page [data-testid="stock-panel"] .toolbar-actions) { display:flex; align-items:center; flex-wrap:wrap; gap:8px; min-width:0; }
+  :global(.club-page [data-testid="stock-panel"] .stock-view-toggle) { display:inline-flex; flex:0 0 auto; gap:3px; padding:3px; border:1px solid #e1dbe7; border-radius:9px; background:#f5f2f7; }
+  :global(.club-page [data-testid="stock-panel"] .stock-view-toggle button) { min-height:32px; padding:5px 10px; border:1px solid transparent; border-radius:6px; font-size:10px; font-weight:750; white-space:nowrap; }
+  :global(.club-page [data-testid="stock-panel"] .stock-view-toggle button.active) { border-color:#633582; background:#75429b; color:#fff; }
+  :global(.club-page [data-testid="stock-panel"] .stock-view-toggle button.secondary) { border-color:transparent; background:transparent; color:#5d5365; }
+  :global(.club-page [data-testid="stock-panel"] .stock-view-toggle button.secondary:hover) { border-color:#ded3e8; background:#fff; color:#4b2861; }
   :global(.club-page .balance-topup) { display:grid; grid-template-columns:minmax(200px,1fr) minmax(160px,.7fr) auto; align-items:end; gap:10px; width:100%; max-width:none; padding:16px; border:1px solid #e4dfe8; border-radius:11px; background:#fff; }
   :global(.club-page .balance-topup h2) { grid-column:1/-1; margin:0; font-size:15px; }
   :global(.club-page .balance-topup label) { margin:0; color:#5d5365; }
@@ -256,19 +283,72 @@
 
 @media (min-width: 1100px) {
   .frame[data-collapsed="true"] .brand { justify-content: center; padding-inline: 0; }
-  .frame[data-collapsed="true"] .brandText,.frame[data-collapsed="true"] .navCaption,.frame[data-collapsed="true"] .navigation > a > span,.frame[data-collapsed="true"] .operationalGroup > a > span,.frame[data-collapsed="true"] .operationalSubNavigation,.frame[data-collapsed="true"] .managementGroup > button > span,.frame[data-collapsed="true"] .managementGroup > button > b,.frame[data-collapsed="true"] .subNavigation,.frame[data-collapsed="true"] .roleBadge,.frame[data-collapsed="true"] .collapseButton > span:last-child { display: none; }
-  .frame[data-collapsed="true"] .navigation > a,.frame[data-collapsed="true"] .operationalGroup > a,.frame[data-collapsed="true"] .managementGroup > button { justify-content: center; padding-inline: 0; }
+  .frame[data-collapsed="true"] .brandText,.frame[data-collapsed="true"] .navCaption,.frame[data-collapsed="true"] .navigation > a > span,.frame[data-collapsed="true"] .operationalGroup > a > span,.frame[data-collapsed="true"] .groupRow > a > span,.frame[data-collapsed="true"] .groupRow > button,.frame[data-collapsed="true"] .operationalSubNavigation,.frame[data-collapsed="true"] .managementGroup > button > span,.frame[data-collapsed="true"] .managementGroup > button > b,.frame[data-collapsed="true"] .subNavigation,.frame[data-collapsed="true"] .roleBadge,.frame[data-collapsed="true"] .collapseButton > span:last-child { display: none; }
+  .frame[data-collapsed="true"] .navigation > a,.frame[data-collapsed="true"] .operationalGroup > a,.frame[data-collapsed="true"] .groupRow > a,.frame[data-collapsed="true"] .managementGroup > button { justify-content: center; padding-inline: 0; }
   .frame[data-collapsed="true"] .sidebarBottom { justify-items: center; }
   .frame[data-collapsed="true"] .collapseButton { justify-content: center; width: 42px; padding: 0; }
 }
 
 @media (max-width: 1099px) {
-  .frame,.inactive { display: contents; }
+  .frame { position:relative; display:block; min-height:100dvh; background:#f5f4f7; }
+  .workspace { display:block; min-height:calc(100dvh - 58px); }
+  .mobileHeader { position:sticky; z-index:120; top:0; display:flex; align-items:center; gap:9px; min-height:58px; padding:calc(6px + env(safe-area-inset-top)) 12px 6px; border-bottom:1px solid #e7e2eb; background:rgb(255 255 255 / 96%); color:#302638; backdrop-filter:blur(12px); }
+  .mobileBrand { display:flex; align-items:center; gap:8px; min-width:0; flex:1; color:#302638; text-decoration:none; }
+  .mobileBrand .brandLogo { flex-basis:34px; width:34px; height:34px; border:1px solid #ebe6ef; border-radius:9px; }
+  .mobileBrand strong { overflow:hidden; font-size:12px; text-overflow:ellipsis; white-space:nowrap; }
+  .mobileIdentity { flex:0 1 auto; min-width:0; }
+  .mobileIdentity :global(button) { min-height:36px; }
+  .mobileMenuButton { display:grid; flex:0 0 40px; width:40px; height:40px; place-items:center; border:1px solid #ddd5e4; border-radius:10px; background:#fff; color:#432859; font-size:22px; line-height:1; cursor:pointer; }
+  .mobileMenuButton:hover,.mobileMenuButton:focus-visible { border-color:#9b71b5; background:#f7f1fa; outline:3px solid rgb(117 66 155 / 18%); outline-offset:1px; }
+  .mobileBackdrop { position:fixed; z-index:130; inset:calc(58px + env(safe-area-inset-top)) 0 0; display:block; border:0; background:rgb(22 16 29 / 48%); }
+  .sidebar { position:fixed; z-index:140; inset:calc(58px + env(safe-area-inset-top)) auto 0 0; display:flex; flex-direction:column; width:min(88vw,350px); padding:10px 12px calc(12px + env(safe-area-inset-bottom)); overflow:hidden; visibility:hidden; color:#f6f2fa; background:#211c2a; border-right:1px solid #342c40; box-shadow:14px 0 36px rgb(18 12 25 / 18%); transform:translateX(-105%); transition:transform 180ms ease-out,visibility 180ms; }
+  .frame[data-mobile-open="true"] .sidebar { visibility:visible; transform:translateX(0); }
+  .sidebar .brand { display:none; }
+  .mobileContextControls { display:grid; gap:8px; padding:3px 2px 10px; }
+  .mobileContextLabel { display:grid; gap:4px; color:#bcb4c7; font-size:10px; font-weight:700; }
+  .mobileContextLabel select { width:100%; min-width:0; min-height:38px; padding:7px 9px; border:1px solid #51465e; border-radius:8px; background:#2c2535; color:#fff; font:inherit; font-size:12px; }
+  .navigation { flex:1; gap:4px; padding:2px 1px 10px; overflow-y:auto; overscroll-behavior:contain; }
+  :global(.club-page [data-testid="stock-panel"] .toolbar-actions) { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); align-items:stretch; gap:8px; }
+  :global(.club-page [data-testid="stock-panel"] .stock-view-toggle) { grid-column:1/-1; display:flex; width:100%; }
+  :global(.club-page [data-testid="stock-panel"] .stock-view-toggle button) { flex:1; min-height:38px; padding-inline:8px; font-size:11px; }
+  :global(.club-page [data-testid="stock-panel"] .toolbar-actions > input),:global(.club-page [data-testid="stock-panel"] .toolbar-actions > form),:global(.club-page [data-testid="stock-panel"] .toolbar-actions > button) { min-width:0; width:100%; }
+  :global(.club-page [data-testid="stock-panel"] .toolbar-actions > form input) { width:100%; }
+  .navigation > a,.operationalGroup > .groupRow > a { min-height:46px; font-size:13px; }
+  .managementGroup { display:grid; gap:3px; }
+  .managementGroup > button { position:relative; display:flex; align-items:center; gap:12px; width:100%; min-width:0; min-height:46px; padding:0 11px; border:1px solid transparent; border-radius:9px; background:transparent; color:#c6bfce; font:inherit; font-size:13px; font-weight:650; text-align:left; cursor:pointer; }
+  .managementGroup > button svg { flex:0 0 19px; color:#a79cb4; }
+  .managementGroup > button > span { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .managementGroup > button b { margin-left:auto; color:#958aa0; font-size:13px; font-weight:500; transition:transform 150ms ease-out; }
+  .managementGroup > button b.chevronOpen { transform:rotate(180deg); }
+  .managementGroup > button:hover { background:#30283a; color:#fff; }
+  .managementGroup > button:focus-visible { outline:2px solid #d4a7ff; outline-offset:2px; }
+  .managementGroup > button.active { border-color:color-mix(in srgb,var(--tenant-accent) 42%,#342c40); background:color-mix(in srgb,var(--tenant-accent) 20%,#30283a); color:#fff; }
+  .subNavigation { display:grid; gap:2px; margin:0 0 4px 21px; padding-left:10px; border-left:1px solid #4a3e55; }
+  .subNavigation > a { min-width:0; padding:8px 9px; border-radius:7px; color:#b8afc3; font-size:12px; line-height:1.3; text-decoration:none; }
+  .subNavigation > a:hover,.subNavigation > a:focus-visible { background:#30283a; color:#fff; outline:none; }
+  .subNavigation > a:focus-visible { box-shadow:0 0 0 2px #d4a7ff; }
+  .subNavigation > a.subActive { background:#352840; color:#f0ddff; }
+  .managementSection { display:grid; gap:2px; margin-top:9px; }
+  .managementSection:first-child { margin-top:0; }
+  .managementSection h2 { margin:0 0 3px; padding:0 9px; color:#93899f; font-size:9px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }
+  .groupRow > button { min-height:40px; }
+  .operationalSubNavigation { margin-left:22px; }
+  .operationalSubNavigation a { padding:9px 10px; font-size:12px; }
+  .sidebarBottom { padding-bottom:2px; }
+  .sidebarBottom .collapseButton { display:none; }
+  .sidebarBottom .roleBadge { color:#ead7fa; }
+  .content :global(.club-section-nav) { display:none!important; }
+  .content :global(.club-shop-tabs[aria-label="Shop areas"]),.content :global(.club-class-tools) { display:none!important; }
+  :global(.club-website-shop-nav),:global(.club-rota-scope) { display:flex; flex-wrap:wrap; gap:5px; margin:0 0 12px; }
+  :global(.club-website-shop-nav a),:global(.club-rota-scope a) { min-height:36px; padding:0 10px; border:1px solid #e8e2ec; border-radius:8px; background:#fff; color:#594767; font-size:12px; text-decoration:none; }
+  :global(.club-website-shop-nav a[aria-current="page"]),:global(.club-rota-scope a[aria-current="page"]) { border-color:#75429b; background:#75429b; color:#fff; }
+  .content :global(.club-page > .app-nav) { display:none!important; }
+  .shopNavigation { display:none!important; }
+  .frame[data-collapsed="true"] .brandText,.frame[data-collapsed="true"] .navCaption,.frame[data-collapsed="true"] .navigation > a > span,.frame[data-collapsed="true"] .groupRow > a > span,.frame[data-collapsed="true"] .managementGroup > button > span,.frame[data-collapsed="true"] .managementGroup > button > b,.frame[data-collapsed="true"] .subNavigation,.frame[data-collapsed="true"] .operationalSubNavigation,.frame[data-collapsed="true"] .roleBadge,.frame[data-collapsed="true"] .collapseButton > span:last-child { display:initial; }
+  .frame[data-collapsed="true"] .navigation > a,.frame[data-collapsed="true"] .groupRow > a,.frame[data-collapsed="true"] .managementGroup > button { justify-content:flex-start; padding-inline:11px; }
 }
 
-@media (min-width: 1100px) {
-  :global(body:has(.club-desktop-shell-active) .club-desktop-mobile-identity) { display: none; }
-}
+:global(body:has(.club-desktop-shell-active) .club-desktop-mobile-identity) { display: none!important; }
 
 @media (max-width: 1260px) and (min-width: 1100px) {
   .toolbarControls { gap: 8px; }
@@ -281,4 +361,4 @@
   .sidebar,.workspace,.managementGroup > button b { transition: none; }
 }
 
-:global(html[data-r12-shell="club-ios"]) .frame { display: contents !important; }
+:global(html[data-r12-shell="club-ios"]) .frame { display: block !important; }

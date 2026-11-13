@@ -26,30 +26,31 @@ export default async function ClubMorePage({ searchParams }: { searchParams?: Pr
     : { data: false, error: null };
   const canManageGlowZone = context.navigation.services && context.navigation.management && !glowAccess.error && glowAccess.data === true;
   const groups: Array<{ title: string; items: Destination[] }> = [
-    { title: "Finance & cash", items: [
+    { title: "Finance & Payments", items: [
       ...(context.navigation.finance ? [{ label: "Finance & sales", href: `/club/payments${q}` }] : []),
       ...(context.navigation.finance ? [{ label: "Checkout attempts", href: `/club/payments?org=${encodeURIComponent(context.organisation.id)}&view=attempts` }, { label: "Membership billing", href: `/club/membership-billing${q}` }] : []),
       ...(context.navigation.cashControls ? [{ label: "Cash close & verification", href: `/club/shop?org=${encodeURIComponent(context.organisation.id)}&view=cash&till=close` }, { label: "Cash approvals", href: `/club/shop?org=${encodeURIComponent(context.organisation.id)}&view=cash-review` }, { label: "Cash collections", href: `/club/payments/cash-collections${q}` }] : []),
       ...(context.navigation.cashTill ? [{ label: "Refunds & till history", href: `/club/shop?org=${encodeURIComponent(context.organisation.id)}&view=cash&till=log` }] : []),
+      ...(context.navigation.reports ? [{ label: "Reports & audit", href: `/club/reports${q}` }] : []),
     ] },
-    { title: "People", items: [
+    { title: "Staff & Rota", items: [
+      ...(context.navigation.staff ? [{ label: "Staff & permissions", href: `/club/staff${q}` }] : []),
+      ...(context.navigation.workReview ? [{ label: "Work submissions", href: `/club/work/review${q}` }] : []),
+      ...(canClassSetup ? [{ label: "Recurring classes, rota & checks", href: `/club/classes/setup${q}` }] : []),
+    ] },
+    { title: "Membership Administration", items: [
       ...(context.navigation.memberships ? [{ label: "Membership administration", href: `/club/memberships${q}` }] : []),
       ...(canImport ? [{ label: "Member imports", href: `/club/members/import${q}` }] : []),
-      ...(context.navigation.staff ? [{ label: "Staff & permissions", href: `/club/staff${q}` }] : []),
     ] },
-    { title: "Shop", items: [
+    { title: "Shop Administration", items: [
       ...(context.navigation.suppliers ? [{ label: "Supplier catalogue", href: `/club/shop/supplier-catalogue${q}` }] : []),
-      ...(context.navigation.promotions ? [{ label: "Products & pricing", href: `/club/products${q}` }, { label: "Website Shop products", href: `/club/website-shop${q}` }, { label: "Website Shop orders", href: `/club/website-shop/orders${q}` }, { label: "Manage offers", href: `/club/promotions${q}` }] : []),
+      ...(context.navigation.promotions ? [{ label: "Products & pricing", href: `/club/products${q}` }, { label: "Website Shop", href: `/club/website-shop${q}` }, { label: "Promotions & offers", href: `/club/promotions${q}` }] : []),
     ] },
-    { title: "Operations & settings", items: [
+    { title: "Venues & Settings", items: [
       ...(canManageGlowZone ? [{ label: "Glow Zone management & sales", href: `/club/sunbeds?org=${encodeURIComponent(context.organisation.id)}&view=management` }] : []),
-      ...(context.navigation.workReview ? [{ label: "Work submissions", href: `/club/work/review${q}` }] : []),
-      ...(context.navigation.venues ? [{ label: "Venues & settings", href: `/club/locations${q}` }, { label: "Shared stations", href: `/club/stations${q}` }] : []),
-      ...(canClassSetup ? [{ label: "Class, rota & daily-check setup", href: `/club/classes/setup${q}` }] : []),
+      ...(context.navigation.venues ? [{ label: "Venues & settings", href: `/club/locations${q}` }] : []),
+      ...(context.navigation.staff ? [{ label: "Shared stations", href: `/club/stations${q}` }] : []),
       ...(context.navigation.services ? [{ label: "Services & configuration", href: `/club/services${q}` }] : []),
-    ] },
-    { title: "Reports & audit", items: [
-      ...(context.navigation.reports ? [{ label: "Reports & audit", href: `/club/reports${q}` }] : []),
     ] },
   ].filter(group => group.items.length > 0);
   return <AppShell className="module-page club-page club-management-home">

@@ -12,15 +12,15 @@ const work = readFileSync("app/club/work/page.tsx", "utf8");
 const workActions = readFileSync("app/club/work/actions.ts", "utf8");
 const supplierOrders = readFileSync("app/club/shop/supplier-orders/page.tsx", "utf8");
 
-test("desktop Shop navigation stays available across all canonical shop routes", () => {
-  for (const label of ["Sell", "Stock", "Cash & till", "Balance top-up", "Supplier orders", "Collections", "Offers"]) assert.match(shell, new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
-  assert.match(shell, /access\.suppliers \? \[\{ label: "Supplier Catalogue"/);
-  assert.doesNotMatch(shell.slice(shell.indexOf("const shopNavigation")), /label: "Supplier catalogue"/);
+test("desktop Shop navigation stays available across canonical routes without duplicating administration", () => {
+  for (const label of ["Shop", "Stock", "Cash & till", "Balance top-up", "Supplier orders", "Collections", "Offers"]) assert.match(shell, new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.match(shell, /access\.suppliers \? \[\{ label: "Supplier catalogue"/);
+  assert.doesNotMatch(shell.slice(shell.indexOf("const shopNavigation"), shell.indexOf("const classesNavigation")), /Supplier catalogue/);
   assert.match(shell, /const shopRoutes = pathname\.startsWith\("\/club\/shop"\) \|\| pathname\.startsWith\("\/club\/products"\)/);
-  assert.match(shell, /\{shopRoutes \? <nav ref=\{shopNavigationRef\} className=\{styles\.shopNavigation\}/);
+  assert.match(shell, /shopRoutes && pathname === "\/club\/shop"/);
   assert.match(shell, /label: "Products & pricing".*href: `\/club\/products/);
   assert.match(shell, /label: "Cash approvals".*cash-review/);
-  assert.match(shellCss, /\.shopNavigation \{ display:none; \}/);
+  assert.match(shellCss, /operationalSubNavigation/);
   assert.match(shellCss, /@media \(min-width: 1100px\)/);
 });
 
@@ -33,7 +33,7 @@ test("overview does not promote scanner use or duplicate member search and staff
 
 test("class setup and coach diary use existing authorised routes", () => {
   assert.match(classes, /showTypeLibrary=\{true\}/);
-  assert.match(shellCss, /club-main-timetable \.club-class-library/);
+  assert.doesNotMatch(shellCss, /club-class-library[^}]*display:\s*none/);
   assert.match(classes, /coach_has_access/);
   assert.match(classes, /\/club\/classes\/diary/);
   const diary = readFileSync("app/club/classes/diary/page.tsx", "utf8");
@@ -41,7 +41,7 @@ test("class setup and coach diary use existing authorised routes", () => {
   assert.match(diary, /club_list_shared_schedule/);
   assert.match(diary, /coach_has_access/);
   assert.match(diary, /canManageRota=\{false\}/);
-  assert.match(shell, /label: "Recurring classes, rota & checks"/);
+  assert.match(shell, /label: "Rota & daily check setup"/);
   assert.doesNotMatch(classes, /club-class-tools-mobile[\s\S]*club\/classes\/setup/);
   assert.match(classes, /club-class-tools-desktop[\s\S]*PT diary/);
   const clubDiary = readFileSync("app/club/classes/diary/page.tsx", "utf8");
@@ -64,7 +64,7 @@ test("finance separates completed sales and checkout attempts", () => {
 });
 
 test("operational and management destinations follow existing role capability fixtures", () => {
-  for (const label of ["Overview", "Classes & PT", "Shop & Stock", "Daily Operations"]) assert.match(shell, new RegExp(`label: "${label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"`));
+  for (const label of ["Overview", "Classes & PT", "Shop & Stock", "Daily Checks", "My Rota"]) assert.match(shell, new RegExp(`label: "${label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"`));
   for (const role of ["gym_staff", "trainer"] as const) {
     const capabilities = resolveClubCapabilities(role);
     assert.equal(capabilities.includes("members.view"), true);

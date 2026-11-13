@@ -35,7 +35,12 @@ export default async function ClubLayout({ children }: Readonly<{ children: Reac
   const glowZoneAccess = new Map<string, boolean>();
   await Promise.all(staffContexts.map(async context=>{
     const locations=await context.repository.listLocations(context.organisation.id).catch(()=>[]);
-    locationsByOrganisation[context.organisation.id]=locations.map(location=>({id:location.id,name:location.name,active:location.active}));
+    const authorised = await Promise.all(locations.filter(location=>location.active).map(async location=>{
+      const result=await client.rpc("club_location_authorized",{p_organisation_id:context.organisation.id,p_location_id:location.id});
+      return !result.error&&result.data===true?location.id:null;
+    }));
+    const permittedIds=new Set(authorised.filter((id):id is string=>Boolean(id)));
+    locationsByOrganisation[context.organisation.id]=locations.map(location=>({id:location.id,name:location.name,active:location.active&&permittedIds.has(location.id)}));
     const carlton=locations.find(location=>location.active&&location.name.toLocaleLowerCase("en-GB").includes("carlton"));
     if(context.organisation.slug==="madhouse-gym"&&context.navigation.services&&carlton){
       const access=await client.rpc("club_location_authorized",{p_organisation_id:context.organisation.id,p_location_id:carlton.id});

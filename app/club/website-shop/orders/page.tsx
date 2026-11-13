@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { AppNav } from "@/components/app-nav";
 import { ClubSectionNav } from "@/components/club-shell";
 import { ClubMadhouseApparelOrders, type ClubApparelOrder } from "@/components/club-madhouse-apparel-orders";
+import { ClubWebsiteShopNav } from "@/components/club-website-shop-nav";
 import { AppShell, EmptyState, PageHeader } from "@/components/ui";
 import { resolveClubOrganisationContext } from "@/lib/club-server-context";
 import { serverSupabase } from "@/lib/supabase-server";
@@ -16,7 +17,7 @@ export default async function MadhouseApparelOrdersPage({searchParams}:{searchPa
   const {data,error}=await client.rpc("club_list_madhouse_apparel_orders_secure",{p_organisation_id:ORG});
   const orders=error?[]:(Array.isArray(data)?data:[]) as ClubApparelOrder[];
   const query=`?org=${encodeURIComponent(ORG)}`;
-  return <AppShell className="module-page club-page"><PageHeader eyebrow="R12 CLUB · MADHOUSE APPAREL" title="Website Shop · Orders" description="Made-to-order customer orders, payment state and fulfilment."/><ClubSectionNav organisation={context.organisation} role={context.role} contexts={context.availableContexts}/>
+  return <AppShell className="module-page club-page"><PageHeader eyebrow="R12 CLUB · MADHOUSE APPAREL" title="Website Shop · Orders" description="Made-to-order customer orders, payment state and fulfilment."/><ClubSectionNav organisation={context.organisation} role={context.role} contexts={context.availableContexts}/><ClubWebsiteShopNav organisationId={ORG} section="orders"/>
     {error?<EmptyState title="Orders are not available yet">The Website Apparel orders database migration must be deployed before the order list can load.</EmptyState>:<ClubMadhouseApparelOrders organisationId={ORG} orders={orders} initialOrderId={params?.order}/>}
     <a className="text-button" href={`/club/website-shop${query}`}>Products &amp; Pricing</a><AppNav/></AppShell>;
 }

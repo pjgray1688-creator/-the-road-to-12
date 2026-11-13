@@ -10,7 +10,7 @@ export type ClubOrganisationContext = {
   members: OrganisationMember[];
   member: OrganisationMember;
   role: ClubRole;
-  navigation: { members: boolean; payments: boolean; management?: boolean; finance?: boolean; cashControls?: boolean; cashTill?: boolean; classSetup?: boolean; memberships?: boolean; memberImports?: boolean; promotions?: boolean; suppliers?: boolean; staff?: boolean; venues?: boolean; reports?: boolean; services?: boolean; workReview?: boolean };
+  navigation: { members: boolean; payments: boolean; management?: boolean; finance?: boolean; cashControls?: boolean; cashTill?: boolean; balanceTopUp?: boolean; collections?: boolean; classSetup?: boolean; memberships?: boolean; memberImports?: boolean; promotions?: boolean; suppliers?: boolean; supplierOrders?: boolean; staff?: boolean; stationAdmin?: boolean; venues?: boolean; reports?: boolean; services?: boolean; workSubmit?: boolean; workReview?: boolean; dailyChecks?: boolean; classReports?: boolean; coachDiary?: boolean; induction?: boolean; doorAccess?: boolean };
   availableContexts?: Array<Pick<ClubOrganisationContext, "organisation" | "role" | "navigation">>;
 };
 
@@ -25,23 +25,32 @@ export async function listClubOrganisationContexts(client: SupabaseClient, userI
     const members = await repository.listMembers(organisation.id);
     const member = members.find(item => item.userId === userId && item.active);
     if (!member) return undefined;
-    const [canViewMembers, finance, cashControls, refunds, memberships, memberImports, promotions, suppliers, staff, venues, reports, services, workReview] = await Promise.all([
+    const [canViewMembers, finance, cashControls, memberships, memberImports, promotions, suppliers, supplierOrders, supplierReceive, staff, venues, reports, services, workSubmit, workReview, classManagement, cashTaking, induction, coachDiary] = await Promise.all([
       repository.hasCapability(organisation.id, userId, "members.view"),
       repository.hasCapability(organisation.id, userId, "finance.view"),
       repository.hasCapability(organisation.id, userId, "cash.reconcile"),
-      repository.hasCapability(organisation.id, userId, "refunds.issue"),
       repository.hasCapability(organisation.id, userId, "memberships.manage"),
       repository.hasCapability(organisation.id, userId, "members.import"),
       repository.hasCapability(organisation.id, userId, "commerce.pricing_manage"),
       repository.hasCapability(organisation.id, userId, "supplier.catalogue_manage"),
+      repository.hasCapability(organisation.id, userId, "supplier.orders_manage"),
+      repository.hasCapability(organisation.id, userId, "supplier.receive"),
       repository.hasCapability(organisation.id, userId, "staff.permissions_manage"),
       repository.hasCapability(organisation.id, userId, "induction.manage_policy"),
       repository.hasCapability(organisation.id, userId, "finance.export"),
       repository.hasCapability(organisation.id, userId, "services.manage"),
+      repository.hasCapability(organisation.id, userId, "staff.work_submit"),
       repository.hasCapability(organisation.id, userId, "staff.work_review"),
+      repository.hasCapability(organisation.id, userId, "classes.manage"),
+      repository.hasCapability(organisation.id, userId, "payments.record_cash"),
+      repository.hasCapability(organisation.id, userId, "induction.perform"),
+      ["trainer", "gym_staff", "gym_admin", "owner"].includes(member.role)
+        ? client.rpc("coach_has_access", { p_client_user_id: null }).then(result => !result.error && result.data === true)
+        : Promise.resolve(false),
     ]);
     const classSetup = member.role === "gym_admin" || member.role === "owner";
-    const navigation = { members: canViewMembers, payments: finance, finance, cashControls, cashTill: refunds, classSetup, memberships, memberImports, promotions, suppliers, staff, venues, reports, services, workReview, management: finance || cashControls || classSetup || memberships || memberImports || promotions || suppliers || staff || venues || reports || services || workReview };
+    const classReports = classManagement && (cashTaking || cashControls);
+    const navigation = { members: canViewMembers, doorAccess: canViewMembers, payments: finance, finance, cashControls, cashTill: canViewMembers, balanceTopUp: cashTaking, collections: supplierReceive, classSetup, memberships, memberImports, promotions, suppliers, supplierOrders, staff, stationAdmin: staff, venues, reports, services, workSubmit, workReview, dailyChecks: workSubmit || workReview, classReports, coachDiary, induction, management: finance || cashControls || classSetup || memberships || memberImports || promotions || suppliers || staff || venues || reports || workReview };
     return { repository, organisation, members, member, role: member.role, navigation } satisfies ClubOrganisationContext;
   }));
   return contexts.filter((context): context is ClubOrganisationContext => Boolean(context));

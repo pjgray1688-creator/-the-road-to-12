@@ -24,7 +24,7 @@ test("existing capabilities gate finance, management, supplier administration an
   const shell = read("components/club-desktop-shell.tsx");
   const context = read("lib/club-server-context.ts");
   assert.match(shell, /access\.finance \? \[\{ label: "Finance & sales"/);
-  assert.match(shell, /access\.suppliers \? \[\{ label: "Supplier Catalogue"/);
+  assert.match(shell, /access\.suppliers \? \[\{ label: "Supplier catalogue"/);
   assert.match(shell, /access\.workReview \? \[\{ label: "Work submissions"/);
   assert.match(context, /hasCapability\(organisation\.id, userId, "staff\.work_review"\)/);
   assert.equal(resolveClubCapabilities("gym_staff").includes("finance.view"), false);

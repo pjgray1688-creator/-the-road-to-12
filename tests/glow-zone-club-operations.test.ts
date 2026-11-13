@@ -60,7 +60,9 @@ test("Club navigation exposes staff operations and gates management reporting", 
   const [shell, layout, management, page] = await Promise.all([
     readFile(shellPath, "utf8"), readFile(layoutPath, "utf8"), readFile(managementPath, "utf8"), readFile(pagePath, "utf8"),
   ]);
-  assert.match(shell, /access\.glowZone \? <div className=\{styles\.operationalSubNavigation\}/);
+  assert.match(shell, /access\.glowZone \? \[\{ label: "Glow Zone", href: `\/club\/sunbeds/);
+  assert.match(shell, /mobileNavigation = \[/);
+  assert.doesNotMatch(shell.slice(shell.indexOf("const mobileNavigation"), shell.indexOf("const isGroupOpen")), /Glow Zone/);
   assert.match(layout, /context\.navigation\.services&&carlton/);
   assert.match(layout, /club_location_authorized/);
   assert.match(layout, /access\.data===true/);

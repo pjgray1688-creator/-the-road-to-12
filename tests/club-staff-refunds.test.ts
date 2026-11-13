@@ -50,8 +50,8 @@ test("staff can view recent sales/refund status; refund execution remains manage
 test("Sell stays focused on checkout and receipts live under Cash & till", () => {
   assert.match(page, /loaded\.staff && view === "sell" \? <ClubStaffCheckout/);
   assert.doesNotMatch(page, /loaded\.staff && view === "sell" \? <>[\s\S]*?ClubRecentSales/);
-  assert.match(page, /view === "cash" \? <><nav className="club-shop-tabs club-till-subnav"/);
-  assert.match(page, /till=log/);
+  assert.doesNotMatch(page, /club-till-subnav|club-shop-tabs club-till-subnav/);
+  assert.match(page, /view === "cash" \? <>\{tillView === "log" && loaded\.canViewTillLog/);
   assert.match(page, /<ClubRecentSales organisationId=\{loaded\.organisation\.id\} sales=\{recentSales\} canApproveRefund=\{loaded\.canApproveRefund\} \/>/);
   assert.match(page, /loaded\.canViewTillLog \? "log"/);
   assert.match(page, /loaded\.canReconcile \? "close"/);
