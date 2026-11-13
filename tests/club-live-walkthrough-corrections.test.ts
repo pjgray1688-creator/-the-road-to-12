@@ -86,9 +86,10 @@ test("Website Shop management uses the approved local apparel image manifest ass
   assert.doesNotMatch(page, /Return to Products & Pricing/);
 });
 
-test("Finance marks Glow Zone totals unavailable instead of silently presenting them as complete", () => {
+test("Finance marks Glow Zone totals incomplete instead of silently presenting them as complete", () => {
   const page = read("app/club/payments/page.tsx");
   assert.match(page, /R12_FINANCE_READ_FAILED/);
-  assert.match(page, /Glow Zone excluded \(report unavailable\)/);
+  assert.match(page, /Financial report is incomplete/);
+  assert.match(page, /club_list_glow_finance_report/);
   assert.match(page, /Finance data unavailable/);
 });

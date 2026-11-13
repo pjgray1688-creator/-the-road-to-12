@@ -65,7 +65,7 @@ export function ClubRecentSales({ organisationId, sales, canApproveRefund = fals
   };
 
   return <section aria-label="Till log" className="club-till-log">
-    <div className="section-heading"><div><span className="eyebrow">STAFF TILL</span><h2>Till log</h2><p className="muted">Recent receipts, payment details and authorised refunds. Choose the exact items or service units to refund; values are calculated from the original receipt.</p></div></div>
+    <p className="muted">Choose the exact items or service units to refund; values are calculated from the original receipt.</p>
     <div className="club-till-log-filters" aria-label="Filter receipts">
       <label>Search receipts<input aria-label="Search receipts" placeholder="Receipt, customer or item" value={search} onChange={event => setSearch(event.target.value)} /></label>
       <label>Date<input aria-label="Filter receipts by date" type="date" value={date} onChange={event => setDate(event.target.value)} /></label>

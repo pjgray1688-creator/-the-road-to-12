@@ -85,8 +85,25 @@ test("cash minute sales use existing authorized catalogue RPC; direct balance sp
 
 test("finance labels Glow Zone as an included Products & Services breakdown", async () => {
   const page = await readFile(financePagePath, "utf8");
-  assert.match(page, /club_glow_sales/);
-  assert.match(page, /\.eq\("status", "completed"\)/);
-  assert.match(page, /Glow Zone minute sales · Products &amp; Services/);
-  assert.match(page, /summary\.netMinor \+ \(glowSalesUnavailable \? 0 : glowSalesMinor\)/);
+  const migration = await readFile(new URL("../supabase/migrations/2026-11-13-club-glow-finance-report-rpc.sql", import.meta.url), "utf8");
+  assert.match(page, /club_list_glow_finance_report/);
+  assert.match(migration, /s\.status='completed'/);
+  assert.match(migration, /club_capability_allowed\(p_organisation_id,auth\.uid\(\),'finance\.view'\)/);
+  assert.match(page, /Glow Zone sales · Products &amp; Services/);
+  assert.match(page, /freshReceiptTotal\(payments\) - summary\.refundMinor \+ glowSalesMinor/);
+  assert.match(page, /\["balance", "wallet"\]/);
+  assert.match(page, /Total business income/);
+});
+
+test("Glow Zone management reads activity and minute balances through the guarded projection", async () => {
+  const [page, migration] = await Promise.all([
+    readFile(pagePath, "utf8"),
+    readFile(new URL("../supabase/migrations/2026-11-13-club-glow-management-report-rpc.sql", import.meta.url), "utf8"),
+  ]);
+  assert.match(page, /club_glow_management_report_secure/);
+  assert.doesNotMatch(page, /from\("club_glow_sales"\)|from\("club_service_credit_usage"\)|from\("club_glow_adjustments"\)|from\("club_service_credit_lots"\)/);
+  assert.match(migration, /finance\.view/);
+  assert.match(migration, /club_location_authorized\(p_organisation_id,p_location_id\)/);
+  assert.match(migration, /lower\(l\.name\) like '%carlton%'/);
+  assert.match(migration, /grant execute on function public\.club_glow_management_report_secure\(uuid,uuid\) to authenticated/);
 });

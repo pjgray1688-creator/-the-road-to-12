@@ -34,12 +34,11 @@ export default async function ClubMorePage({ searchParams }: { searchParams?: Pr
   const canManageGlowZone = context.navigation.services && context.navigation.management && context.navigation.finance && !glowAccess.error && glowAccess.data === true;
   const groups: Array<{ title: string; key: string; items: Destination[] }> = [
     { title: sectionLabels.finance, key: "finance", items: [
-      ...(context.navigation.finance ? [{ label: "Finance & sales", href: `/club/payments${q}` }] : []),
-      ...(context.navigation.finance ? [{ label: "Checkout attempts", href: `/club/payments?org=${encodeURIComponent(context.organisation.id)}&view=attempts` }, { label: "Membership billing", href: `/club/membership-billing${q}` }] : []),
-      ...(context.navigation.cashControls ? [{ label: "Cash close & verification", href: `/club/shop?org=${encodeURIComponent(context.organisation.id)}&view=cash&till=close` }, { label: "Cash approvals", href: `/club/shop?org=${encodeURIComponent(context.organisation.id)}&view=cash-review` }, { label: "Cash collections", href: `/club/payments/cash-collections${q}` }] : []),
-      ...(context.navigation.cashTill ? [{ label: "Refunds & till history", href: `/club/shop?org=${encodeURIComponent(context.organisation.id)}&view=cash&till=log` }] : []),
+      ...(context.navigation.finance ? [{ label: "Finance & Sales", href: `/club/payments${q}` }, { label: "Membership Billing", href: `/club/membership-billing${q}` }, { label: "Checkout attempts", href: `/club/payments?org=${encodeURIComponent(context.organisation.id)}&view=attempts` }] : []),
+      ...(context.navigation.cashControls ? [{ label: "Cash close & verification", href: `/club/shop?org=${encodeURIComponent(context.organisation.id)}&view=cash&till=close` }, { label: "Cash approvals", href: `/club/shop?org=${encodeURIComponent(context.organisation.id)}&view=cash-review` }, { label: "Physical cash collections", href: `/club/payments/cash-collections${q}` }] : []),
+      ...(context.navigation.cashTill ? [{ label: "Till history & refunds", href: `/club/shop?org=${encodeURIComponent(context.organisation.id)}&view=cash&till=log` }] : []),
       ...(canManageGlowZone ? [{ label: "Glow Zone reporting & balances", href: `/club/sunbeds?org=${encodeURIComponent(context.organisation.id)}&view=management` }] : []),
-      ...(context.navigation.reports ? [{ label: "Reports & audit", href: `/club/reports${q}` }] : []),
+      ...(context.navigation.reports ? [{ label: "Refunds & Audit", href: `/club/reports${q}` }] : []),
     ] },
     { title: sectionLabels.staff, key: "staff", items: [
       ...(context.navigation.staff ? [{ label: "Staff & permissions", href: `/club/staff${q}` }] : []),
@@ -67,8 +66,7 @@ export default async function ClubMorePage({ searchParams }: { searchParams?: Pr
   return <AppShell className="module-page club-page club-management-home">
     <PageHeader title={selectedGroup?.title ?? "Management"} />
     <ClubSectionNav organisation={context.organisation} role={context.role} contexts={context.availableContexts} />
-    {selectedGroup ? <Link className="secondary club-management-back" href={`/club/more${q}`}>Back to Management</Link> : null}
-    {visibleGroups.length ? <div className="club-management-groups">{visibleGroups.map(group => <Surface key={group.key}><h2>{group.title}</h2><div className="club-management-links">{group.items.map(item => <Link key={item.href} href={item.href}>{item.label}<span aria-hidden="true">›</span></Link>)}</div></Surface>)}</div> : <EmptyState title="No actions available">Your current management permissions do not include actions in this section.</EmptyState>}
+    {visibleGroups.length ? <div className="club-management-groups">{visibleGroups.map(group => <Surface key={group.key}>{!selectedGroup ? <h2>{group.title}</h2> : null}<div className="club-management-links">{group.items.map((item,index) => <Link key={`${item.label}:${index}`} href={item.href}>{item.label}<span aria-hidden="true">›</span></Link>)}</div></Surface>)}</div> : <EmptyState title="No actions available">Your current management permissions do not include actions in this section.</EmptyState>}
     <AppNav />
   </AppShell>;
 }

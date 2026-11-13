@@ -168,3 +168,6 @@ supabase/migrations/2027-01-22-account-deletion-executor.sql
 supabase/migrations/2027-01-23-glow-customer-details-and-age-safety.sql
 # 2027-01-24 catalogue SQL is production-state-specific and intentionally manual.
 # Do not add the superseded migration or its reviewed deployment scripts to this automatic manifest.
+supabase/migrations/2026-11-13-club-glow-management-report-rpc.sql
+supabase/migrations/2026-11-13-club-glow-finance-report-rpc.sql
+supabase/migrations/2026-11-13-club-finance-member-counts-rpc.sql
