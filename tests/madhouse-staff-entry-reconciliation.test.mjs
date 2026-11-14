@@ -26,11 +26,11 @@ test("Madhouse active staff entry identity is organisation-scoped, derived, and 
   assert.doesNotMatch(migration, /insert into public\.club_memberships|update public\.club_memberships|delete from public\.club_memberships/);
 });
 
-test("staff access status includes shared evaluator and Club directory separates paid membership", () => {
+test("staff access is distinct from paid membership and the Club directory shows resolved access status", () => {
   assert.match(migration, /return jsonb_build_object\('state','active','reason','active_staff'/);
   assert.match(migration, /v_access->>'reason'='active_staff'/);
-  assert.match(membersDirectory, /Staff · no paid membership/);
-  assert.match(membersDirectory, /accessLabel\(member\.accessState\)/);
+  assert.match(staffManage, /Staff gym access: Rotherham and Carlton\. This is separate from any paid membership\./);
+  assert.match(membersDirectory, /row\.accessState === "active" \? "Access active"/);
 });
 
 test("staff Manage panel is light, readable, and distinguishes role, Coach, entry, and paid membership", () => {

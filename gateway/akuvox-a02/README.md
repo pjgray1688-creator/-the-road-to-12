@@ -147,6 +147,25 @@ physical lock.
   operate independently of R12, the gateway, and internet connectivity. Do
   not rely on software for emergency egress or alter the wiring.
 
+## Offline authorization status
+
+Automatic offline member/staff authorization is **not implemented**. When the
+gateway cannot reach the authenticated R12 decision endpoint, it denies the
+request; it does not consult a local credential cache. Do not describe or
+configure the installation as offline-capable. Enabling offline decisions
+requires a separately reviewed authenticated sync, protected local key
+provisioning, rollback-resistant freshness state, bounded revocation policy,
+and local emergency-revocation procedure. Those pieces are not provisioned by
+the current gateway. A stale offline copy could otherwise continue to admit a
+revoked member or staff account. No local emergency credential or permanent
+backdoor is configured.
+
+Online attendance is already recorded by the authoritative R12 access-decision
+transaction and its attendance trigger. It uses the actual registered device
+location; the existing database deduplicates rapid retries and attendance
+visits within its configured repeat window. An offline event queue is not
+implemented, and no failed request is replayed as an unlock later.
+
 ## Access policy prerequisite
 
 The R12 device decision remains authoritative: the registered device selects
