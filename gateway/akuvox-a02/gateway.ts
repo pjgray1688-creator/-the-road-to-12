@@ -17,7 +17,7 @@ const HEADERS = {
 const PIN_PATTERN = /^\d{8}$/;
 
 type Config = {
-  akuvoxDeviceId: string;
+  akuvoxHardwareDeviceId: string;
   r12DeviceId: string;
   r12DeviceSecret: string;
   basicUsername: string;
@@ -89,7 +89,11 @@ export function createAkuvoxA02Handler(config: Config) {
     const pin = input.url.searchParams.get("pin");
     const deviceTime = input.url.searchParams.get("time");
     const credentials = decodeBasic(input.authorization);
-    const permittedDevice = deviceId !== null && secureEqual(deviceId, config.akuvoxDeviceId);
+    // Akuvox's {DeviceID} is a hardware identifier, not the R12 database UUID.
+    // It is pinned in gateway configuration and maps to the separately
+    // provisioned R12 device ID used for server-side authentication.
+    const permittedDevice = deviceId !== null && deviceId.length > 0
+      && secureEqual(deviceId, config.akuvoxHardwareDeviceId);
     const permittedAuth = credentials !== null
       && secureEqual(credentials.username, config.basicUsername)
       && secureEqual(credentials.password, config.basicPassword);
@@ -101,7 +105,7 @@ export function createAkuvoxA02Handler(config: Config) {
       return { status: 200, body: DENY };
     }
 
-    const pinFingerprint = createHash("sha256").update(`${config.akuvoxDeviceId}:${pin}`).digest("hex");
+    const pinFingerprint = createHash("sha256").update(`${config.akuvoxHardwareDeviceId}:${pin}`).digest("hex");
     for (const [fingerprint, expiresAt] of recentPins) if (expiresAt <= instant) recentPins.delete(fingerprint);
     if ((recentPins.get(pinFingerprint) ?? 0) > instant) return { status: 200, body: DENY };
 
@@ -171,7 +175,7 @@ function loadConfig(): Config {
     throw new Error("Configure exact IPv4 source address(es) for the keypad");
   }
   return {
-    akuvoxDeviceId: required("AKUVOX_DEVICE_ID"),
+    akuvoxHardwareDeviceId: required("AKUVOX_DEVICE_ID"),
     r12DeviceId: required("R12_DEVICE_ID"),
     r12DeviceSecret: deviceSecret,
     basicUsername: username,

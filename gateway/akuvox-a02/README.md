@@ -48,13 +48,18 @@ never commit a populated env file:
 | `AKUVOX_TLS_CERT_FILE` / `AKUVOX_TLS_KEY_FILE` | TLS server certificate/key; certificate must be trusted by the keypad |
 | `AKUVOX_BASIC_USERNAME` / `AKUVOX_BASIC_PASSWORD` | Unique high-entropy Basic credentials configured on the keypad |
 | `AKUVOX_ALLOWED_SOURCE_IPS` | Comma-separated exact static keypad IPv4 addresses |
-| `AKUVOX_DEVICE_ID` | Exact ID configured in Akuvox and substituted as `{DeviceID}` |
+| `AKUVOX_DEVICE_ID` | Exact hardware identifier emitted by the keypad as `{DeviceID}`; pinned in gateway configuration |
 | `R12_DEVICE_ID` | UUID of the pre-registered Rotherham row in `club_access_devices` |
 | `R12_DEVICE_SECRET` | Secret corresponding to that row's existing SHA-256 `secret_hash` |
 | `AKUVOX_GATEWAY_PORT` | Optional HTTPS listener port; default `8443` |
 
-Use the **same UUID** for `AKUVOX_DEVICE_ID` and `R12_DEVICE_ID`. The Club
-Locations page provisions this exact Rotherham row for an active Madhouse
+The Akuvox hardware identifier and R12 device UUID are separate values. Set
+`AKUVOX_DEVICE_ID` to the exact identifier the installed keypad sends in
+`{DeviceID}` (confirm it with the installer/device configuration), and set
+`R12_DEVICE_ID` to the UUID returned by R12 provisioning. The gateway accepts
+only an exact match to its configured hardware identifier and always forwards
+the separately configured R12 UUID; the request cannot select an R12 device.
+The Club Locations page provisions this exact Rotherham row for an active Madhouse
 owner/gym admin, initially disabled. It returns the 32-byte random device
 secret once; the database stores only its SHA-256 digest. The secret is not
 recoverable after closing the one-time display. The keyring/service-role
@@ -84,8 +89,10 @@ browser, temporary laptop session, or an internet-facing Vercel Function.
 2. Sign in to Club as an active Madhouse owner or gym admin. Open Management →
    Venues & Settings (`/club/locations`) for the Madhouse organisation.
 3. In **Akuvox gateway**, verify the displayed venue is Rotherham and inspect
-   its current access mode. Choose **Register disabled gateway**. The returned
-   UUID is both the Akuvox Device ID and `R12_DEVICE_ID`.
+   its current access mode. Choose **Register disabled gateway**. Record its
+   returned UUID as `R12_DEVICE_ID`. Separately obtain the exact `{DeviceID}`
+   value emitted by the physical keypad and configure that as `AKUVOX_DEVICE_ID`.
+   These values need not match; do not guess or derive one from the other.
 4. Copy the generated gateway secret immediately into the gateway host's
    protected environment. It is displayed once. The database holds only its
    digest; if the response is lost, resubmit the same form while it remains

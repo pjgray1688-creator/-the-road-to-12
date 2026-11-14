@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-const migration = readFileSync("supabase/migrations/2027-01-31-rotherham-akuvox-device-admin.sql", "utf8");
+const migration = readFileSync("supabase/migrations/2026-11-14-rotherham-akuvox-device-admin.sql", "utf8");
 const api = readFileSync("app/api/club/access-devices/route.ts", "utf8");
 const locationsPage = readFileSync("app/club/locations/page.tsx", "utf8");
 const ui = readFileSync("components/club-akuvox-device-admin.tsx", "utf8");

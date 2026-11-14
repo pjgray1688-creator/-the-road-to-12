@@ -30,7 +30,7 @@ function mockFetch(payload: unknown, options: { status?: number; reject?: Error;
 test("gateway forwards the member PIN to the existing authoritative R12 device decision", async () => {
   let captured: { input?: RequestInfo | URL; init?: RequestInit } = {};
   const handler = createAkuvoxA02Handler({
-    akuvoxDeviceId: akuvoxId,
+    akuvoxHardwareDeviceId: akuvoxId,
     r12DeviceId: "00000000-0000-4000-8000-000000000001",
     r12DeviceSecret: secret,
     basicUsername: deviceUser,
@@ -45,6 +45,7 @@ test("gateway forwards the member PIN to the existing authoritative R12 device d
   assert.equal(captured.input, "https://app.r12.live/api/club/access/decision");
   assert.equal(captured.init?.method, "POST");
   assert.equal((captured.init?.headers as Record<string, string>).authorization, `Bearer ${secret}`);
+  assert.equal((captured.init?.headers as Record<string, string>)["x-r12-device-id"], "00000000-0000-4000-8000-000000000001");
   assert.deepEqual(JSON.parse(String(captured.init?.body)), { credential: "12345678", credentialType: "pin" });
   assert.ok((captured.init?.headers as Record<string, string>)["x-r12-request-nonce"]);
 });
@@ -55,19 +56,20 @@ test("denied, ineligible-for-unlock and malformed backend decisions fail closed"
     { allowed: true, decision: "allow", unlockPermitted: false },
     { allowed: true, decision: "allow" },
   ]) {
-    const handler = createAkuvoxA02Handler({ akuvoxDeviceId: akuvoxId, r12DeviceId: "device", r12DeviceSecret: secret, basicUsername: deviceUser, basicPassword: devicePassword, allowedIps: new Set([allowedIp]), fetcher: mockFetch(payload) });
+    const handler = createAkuvoxA02Handler({ akuvoxHardwareDeviceId: akuvoxId, r12DeviceId: "device", r12DeviceSecret: secret, basicUsername: deviceUser, basicPassword: devicePassword, allowedIps: new Set([allowedIp]), fetcher: mockFetch(payload) });
     assert.deepEqual(JSON.parse((await handler(makeRequest())).body), { isvalid: false });
   }
 });
 
 test("invalid credentials, unexpected source/device, methods and PIN shape never call R12", async () => {
   let calls = 0;
-  const handler = createAkuvoxA02Handler({ akuvoxDeviceId: akuvoxId, r12DeviceId: "device", r12DeviceSecret: secret, basicUsername: deviceUser, basicPassword: devicePassword, allowedIps: new Set([allowedIp]), fetcher: mockFetch({ allowed: true, decision: "allow", unlockPermitted: true }, { capture: () => { calls += 1; } }) });
+  const handler = createAkuvoxA02Handler({ akuvoxHardwareDeviceId: akuvoxId, r12DeviceId: "device", r12DeviceSecret: secret, basicUsername: deviceUser, basicPassword: devicePassword, allowedIps: new Set([allowedIp]), fetcher: mockFetch({ allowed: true, decision: "allow", unlockPermitted: true }, { capture: () => { calls += 1; } }) });
   const invalid = [
     makeRequest({ authorization: null }),
     makeRequest({ authorization: `Basic ${Buffer.from(`${deviceUser}:wrong`).toString("base64")}` }),
     makeRequest({ remoteAddress: "192.168.10.21" }),
     makeRequest({ url: new URL(`https://gateway.test/akuvox/a02/pin?pin=12345678&deviceId=other`) }),
+    makeRequest({ url: new URL("https://gateway.test/akuvox/a02/pin?pin=12345678&time=2026-11-14T12%3A00%3A00Z") }),
     makeRequest({ url: new URL(`https://gateway.test/akuvox/a02/pin?pin=1234&deviceId=${akuvoxId}`) }),
     makeRequest({ method: "POST" }),
   ];
@@ -82,14 +84,14 @@ test("backend HTTP errors, invalid JSON and timeout/network failures fail closed
     mockFetch(null, { reject: new Error("simulated backend unavailable") }),
   ];
   for (const fetcher of fetchers) {
-    const handler = createAkuvoxA02Handler({ akuvoxDeviceId: akuvoxId, r12DeviceId: "device", r12DeviceSecret: secret, basicUsername: deviceUser, basicPassword: devicePassword, allowedIps: new Set([allowedIp]), fetcher });
+    const handler = createAkuvoxA02Handler({ akuvoxHardwareDeviceId: akuvoxId, r12DeviceId: "device", r12DeviceSecret: secret, basicUsername: deviceUser, basicPassword: devicePassword, allowedIps: new Set([allowedIp]), fetcher });
     assert.deepEqual(JSON.parse((await handler(makeRequest()).catch(() => ({ status: 200, body: "{\"isvalid\":false}" }))).body), { isvalid: false });
   }
 });
 
 test("per-source request limiter denies excess scans without forwarding", async () => {
   let calls = 0;
-  const handler = createAkuvoxA02Handler({ akuvoxDeviceId: akuvoxId, r12DeviceId: "device", r12DeviceSecret: secret, basicUsername: deviceUser, basicPassword: devicePassword, allowedIps: new Set([allowedIp]), rateLimit: 1, now: () => 1_000, fetcher: mockFetch({ allowed: false, decision: "deny", unlockPermitted: false }, { capture: () => { calls += 1; } }) });
+  const handler = createAkuvoxA02Handler({ akuvoxHardwareDeviceId: akuvoxId, r12DeviceId: "device", r12DeviceSecret: secret, basicUsername: deviceUser, basicPassword: devicePassword, allowedIps: new Set([allowedIp]), rateLimit: 1, now: () => 1_000, fetcher: mockFetch({ allowed: false, decision: "deny", unlockPermitted: false }, { capture: () => { calls += 1; } }) });
   await handler(makeRequest());
   await handler(makeRequest());
   assert.equal(calls, 1);
@@ -97,7 +99,7 @@ test("per-source request limiter denies excess scans without forwarding", async 
 
 test("replayed successful PIN is temporarily denied without another R12 decision", async () => {
   let calls = 0;
-  const handler = createAkuvoxA02Handler({ akuvoxDeviceId: akuvoxId, r12DeviceId: "device", r12DeviceSecret: secret, basicUsername: deviceUser, basicPassword: devicePassword, allowedIps: new Set([allowedIp]), now: () => 1_000, fetcher: mockFetch({ allowed: true, decision: "allow", unlockPermitted: true }, { capture: () => { calls += 1; } }) });
+  const handler = createAkuvoxA02Handler({ akuvoxHardwareDeviceId: akuvoxId, r12DeviceId: "device", r12DeviceSecret: secret, basicUsername: deviceUser, basicPassword: devicePassword, allowedIps: new Set([allowedIp]), now: () => 1_000, fetcher: mockFetch({ allowed: true, decision: "allow", unlockPermitted: true }, { capture: () => { calls += 1; } }) });
   const first = await handler(makeRequest());
   const replay = await handler(makeRequest({ url: new URL(`https://gateway.test/akuvox/a02/pin?pin=12345678&deviceId=${akuvoxId}&time=changed`) }));
   assert.deepEqual(JSON.parse(first.body), { isvalid: true });
@@ -109,7 +111,7 @@ test("upstream deadline aborts the request and returns a deny response", async (
   const fetcher = ((_input: RequestInfo | URL, init?: RequestInit) => new Promise<Response>((_resolve, reject) => {
     init?.signal?.addEventListener("abort", () => reject(new Error("aborted")), { once: true });
   })) as typeof fetch;
-  const handler = createAkuvoxA02Handler({ akuvoxDeviceId: akuvoxId, r12DeviceId: "device", r12DeviceSecret: secret, basicUsername: deviceUser, basicPassword: devicePassword, allowedIps: new Set([allowedIp]), fetcher });
+  const handler = createAkuvoxA02Handler({ akuvoxHardwareDeviceId: akuvoxId, r12DeviceId: "device", r12DeviceSecret: secret, basicUsername: deviceUser, basicPassword: devicePassword, allowedIps: new Set([allowedIp]), fetcher });
   const result = await handler(makeRequest());
   assert.deepEqual(JSON.parse(result.body), { isvalid: false });
 });
