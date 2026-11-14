@@ -46,14 +46,10 @@ export default async function MemberGymAccessPage({ searchParams }: { searchPara
   return <AccessShell>
     <PageHeader title="Gym Access" description={organisationName}/>
     {pass ? <MemberAccessPass pass={pass}/> : <Surface className="member-hub-section"><EmptyState title="Your access pass could not be loaded">Refresh to try again. R12 will not display an old or unverified PIN or QR.</EmptyState><Link className="member-hub-link" href={`/member-hub/access?org=${encodeURIComponent(organisationId)}`}><strong>Try again</strong></Link></Surface>}
-    <Surface className="member-hub-section">
-      <h2>24-hour access eligibility</h2>
-      <Suspense fallback={<p role="status" className="muted">Checking venue eligibility…</p>}><MemberAccessVenueEligibility organisationId={organisationId}/></Suspense>
-    </Surface>
-    <Link className="member-hub-link" href="/member-hub"><strong>Back to Member Area</strong></Link>
+    <Suspense fallback={<p role="status" className="muted">Checking venue eligibility…</p>}><MemberAccessVenueEligibility organisationId={organisationId}/></Suspense>
   </AccessShell>;
 }
 
 function AccessShell({ children }: { children: ReactNode }) {
-  return <AppShell className="module-page member-hub-page member-area-page member-access-page">{children}</AppShell>;
+  return <AppShell className="module-page member-hub-page member-area-page member-access-page" showMemberAreaReturn={false}>{children}</AppShell>;
 }

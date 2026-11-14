@@ -262,6 +262,13 @@ h1 em, .day, .topline button, .text-button, .plan-row b, .coach-callout span { c
 .loading-indicator { width: 28px; height: 3px; border-radius: 999px; background: linear-gradient(90deg, transparent, var(--accent-bright), transparent); animation: loading-sweep 1.2s ease-in-out infinite; }
 @keyframes loading-sweep { 0%,100% { opacity: .25; transform: scaleX(.55); } 50% { opacity: 1; transform: scaleX(1); } }
 @media (prefers-reduced-motion: reduce) { .loading-indicator { animation: none; opacity: .7; } }
+.member-startup-shell { min-height: 100svh; align-content: start; padding-top: calc(18px + env(safe-area-inset-top)); padding-bottom: calc(94px + env(safe-area-inset-bottom)); }
+.member-startup-brand { display: flex; align-items: center; gap: 12px; min-height: 44px; }
+.member-startup-brand .eyebrow { color: var(--color-text-secondary); }
+.member-startup-status { display: flex; align-items: center; justify-content: space-between; gap: 18px; min-height: 88px; }
+.member-startup-status p { margin: 6px 0 0; color: var(--color-text-secondary); }
+.member-startup-status .loading-indicator { flex: 0 0 32px; }
+@media (max-width: 480px) { .member-startup-status { align-items: flex-start; } }
 
 /* Shared product geometry: one rhythm for every module, from training to future nutrition. */
 :root {

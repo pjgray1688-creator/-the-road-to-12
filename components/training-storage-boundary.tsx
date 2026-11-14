@@ -5,49 +5,73 @@ import { browserSupabase } from "@/lib/supabase-browser";
 import { loadData, saveData, setStorageUserId } from "@/lib/storage";
 import { hasAssignedTrainingProgramme } from "@/lib/training-entry";
 
-const AssignedProgrammeContext = createContext(false);
+const AssignedProgrammeContext = createContext<boolean | null>(null);
+const TrainingProfileErrorContext = createContext(false);
 export function useHasAssignedTrainingProgramme() { return useContext(AssignedProgrammeContext); }
+export function useTrainingProfileLoadFailed() { return useContext(TrainingProfileErrorContext); }
 
+/**
+ * Training profile and workout state are secondary app data. Render the
+ * authenticated route immediately and hydrate these independently so a slow
+ * training request cannot hold the Member shell or its navigation hostage.
+ */
 export function TrainingStorageBoundary({ userId, children }: { userId: string; children: ReactNode }) {
-  const [state, setState] = useState<"loading" | "ready" | "error">("loading");
-  const [hasProgramme, setHasProgramme] = useState(false);
+  const [hasProgramme, setHasProgramme] = useState<boolean | null>(null);
+  const [profileLoadFailed, setProfileLoadFailed] = useState(false);
+
   useEffect(() => {
     setStorageUserId(userId);
     let alive = true;
     const supabase = browserSupabase();
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!session || session.user.id !== userId) {
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_OUT" || (session && session.user.id !== userId)) {
         setStorageUserId(null);
         window.location.replace("/account?mode=signIn");
       }
     });
-    void (async () => {
+
+    const loadProfile = async () => {
       try {
-        const profileResponse = await fetch("/api/training-profile", { credentials: "same-origin", cache: "no-store" });
-        if (profileResponse.status === 401) { window.location.replace("/account?mode=signIn"); return; }
-        if (!profileResponse.ok) throw new Error("Training profile unavailable");
-        const profile = await profileResponse.json();
+        const response = await fetch("/api/training-profile", { credentials: "same-origin", cache: "no-store" });
+        if (response.status === 401) { window.location.replace("/account?mode=signIn"); return; }
+        if (!response.ok) throw new Error("Training profile unavailable");
+        const profile = await response.json();
+        if (!alive) return;
         const assigned = hasAssignedTrainingProgramme(profile);
-        if (alive) setHasProgramme(assigned);
         const data = loadData();
-        if (hasAssignedTrainingProgramme(profile)) {
-          saveData({ ...data, trainingProfile: profile.training_profile, ...(profile.generated_programme ? { generatedProgramme: profile.generated_programme } : { generatedProgramme: undefined }), activeProgrammeId: profile.active_programme_id });
+        if (assigned) {
+          saveData({
+            ...data,
+            trainingProfile: profile.training_profile,
+            ...(profile.generated_programme ? { generatedProgramme: profile.generated_programme } : { generatedProgramme: undefined }),
+            activeProgrammeId: profile.active_programme_id,
+          });
         }
-        const stateResponse = await fetch("/api/training-state", { credentials: "same-origin", cache: "no-store" });
-        if (stateResponse.status === 401) { window.location.replace("/account?mode=signIn"); return; }
-        if (!stateResponse.ok) throw new Error("Training state unavailable");
-        const trainingState = await stateResponse.json();
-        const latest = loadData();
-        saveData({ ...latest, sessionStatusOverrides: trainingState.sessionStatusOverrides ?? latest.sessionStatusOverrides, salvageAdjustments: trainingState.salvageAdjustments ?? latest.salvageAdjustments });
-        if (alive) setState("ready");
+        setHasProgramme(assigned);
+        setProfileLoadFailed(false);
       } catch {
-        if (alive) setState("error");
+        if (alive) setProfileLoadFailed(true);
       }
-    })();
+    };
+
+    const loadTrainingState = async () => {
+      const response = await fetch("/api/training-state", { credentials: "same-origin", cache: "no-store" });
+      if (response.status === 401) { window.location.replace("/account?mode=signIn"); return; }
+      if (!response.ok) return;
+      const trainingState = await response.json();
+      if (!alive) return;
+      const latest = loadData();
+      saveData({
+        ...latest,
+        sessionStatusOverrides: trainingState.sessionStatusOverrides ?? latest.sessionStatusOverrides,
+        salvageAdjustments: trainingState.salvageAdjustments ?? latest.salvageAdjustments,
+      });
+    };
+
+    // These requests do not depend on one another. Neither blocks children.
+    void Promise.allSettled([loadProfile(), loadTrainingState()]);
     return () => { alive = false; listener.subscription.unsubscribe(); };
   }, [userId]);
 
-  if (state === "loading") return <main className="shell auth-splash" aria-busy="true"><p>Loading your training…</p></main>;
-  if (state === "error") return <main className="shell auth-splash"><p>Your training is temporarily unavailable. Please try again.</p></main>;
-  return <AssignedProgrammeContext.Provider value={hasProgramme}>{children}</AssignedProgrammeContext.Provider>;
+  return <AssignedProgrammeContext.Provider value={hasProgramme}><TrainingProfileErrorContext.Provider value={profileLoadFailed}>{children}</TrainingProfileErrorContext.Provider></AssignedProgrammeContext.Provider>;
 }
