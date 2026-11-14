@@ -18,6 +18,7 @@ export default async function ClubLocationsPage({ searchParams }: { searchParams
     const locations = await context.repository.listLocations(context.organisation.id);
     const canManageAkuvox = context.role === "owner" || context.role === "gym_admin";
     let akuvoxData: { location: { id: string; name: string; active: boolean; accessMode: string } | null; devices: Array<{ id: string; name: string; status: "active" | "disabled"; locationId: string; createdAt: string; lastSeenAt: string | null }> } | null = null;
+    let durationSetting: { requestedSeconds: number; saved: boolean; hardwareVerified: boolean; hardwareVerifiedAt: string | null; hardwareReadbackSeconds: number | null } | null = null;
     if (canManageAkuvox) {
       const { data } = await client.rpc("club_list_rotherham_akuvox_devices", { p_organisation_id: context.organisation.id });
       if (data && typeof data === "object") {
@@ -35,7 +36,20 @@ export default async function ClubLocationsPage({ searchParams }: { searchParams
         });
         akuvoxData = { location, devices };
       }
+      const { data: durationData } = await client.rpc("club_get_rotherham_door_duration_request", { p_organisation_id: context.organisation.id });
+      if (durationData && typeof durationData === "object") {
+        const value = durationData as Record<string, unknown>;
+        if (typeof value.requestedSeconds === "number" && value.requestedSeconds >= 3 && value.requestedSeconds <= 10) {
+          durationSetting = {
+            requestedSeconds: value.requestedSeconds,
+            saved: value.saved === true,
+            hardwareVerified: value.hardwareVerified === true,
+            hardwareVerifiedAt: typeof value.hardwareVerifiedAt === "string" ? value.hardwareVerifiedAt : null,
+            hardwareReadbackSeconds: typeof value.hardwareReadbackSeconds === "number" ? value.hardwareReadbackSeconds : null,
+          };
+        }
+      }
     }
-    return <AppShell className="module-page club-page"><PageHeader eyebrow="R12 CLUB · LOCATIONS" title="Locations" description="Active sites and operational location context." /><ClubSectionNav organisation={context.organisation} role={context.role} contexts={context.availableContexts} /><Surface>{locations.length ? locations.map(location => <div className="club-detail-row" key={location.id}><div><strong>{location.name}</strong><span className="muted">{location.active ? "Available for operations" : "Inactive location"}</span></div><span className={`${styles.status} ${location.active ? "" : styles.statusMuted}`}>{location.active ? "Active" : "Inactive"}</span></div>) : <EmptyState title="No locations configured">Add a location before scheduling site-based sales.</EmptyState>}</Surface>{canManageAkuvox ? <Surface>{akuvoxData ? <ClubAkuvoxDeviceAdmin organisationId={context.organisation.id} location={akuvoxData.location} devices={akuvoxData.devices} /> : <EmptyState title="Akuvox device administration unavailable">The authorised device list could not be loaded. Retry the page; no device was provisioned.</EmptyState>}</Surface> : null}<BackButton href={`/club?org=${encodeURIComponent(context.organisation.id)}`}>Back to overview</BackButton><AppNav /></AppShell>;
+    return <AppShell className="module-page club-page"><PageHeader eyebrow="R12 CLUB · LOCATIONS" title="Locations" description="Active sites and operational location context." /><ClubSectionNav organisation={context.organisation} role={context.role} contexts={context.availableContexts} /><Surface>{locations.length ? locations.map(location => <div className="club-detail-row" key={location.id}><div><strong>{location.name}</strong><span className="muted">{location.active ? "Available for operations" : "Inactive location"}</span></div><span className={`${styles.status} ${location.active ? "" : styles.statusMuted}`}>{location.active ? "Active" : "Inactive"}</span></div>) : <EmptyState title="No locations configured">Add a location before scheduling site-based sales.</EmptyState>}</Surface>{canManageAkuvox ? <Surface>{akuvoxData ? <ClubAkuvoxDeviceAdmin organisationId={context.organisation.id} location={akuvoxData.location} devices={akuvoxData.devices} durationSetting={durationSetting} /> : <EmptyState title="Akuvox device administration unavailable">The authorised device list could not be loaded. Retry the page; no device was provisioned.</EmptyState>}</Surface> : null}<BackButton href={`/club?org=${encodeURIComponent(context.organisation.id)}`}>Back to overview</BackButton><AppNav /></AppShell>;
   } catch { return <AppShell className="module-page club-page"><PageHeader eyebrow="R12 CLUB" title="Locations" description="Location context." /><EmptyState title="Locations couldn’t be loaded.">Try again shortly.</EmptyState><BackButton href="/club">Back to Club</BackButton><AppNav /></AppShell>; }
 }

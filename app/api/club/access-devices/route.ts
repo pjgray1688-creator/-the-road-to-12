@@ -60,5 +60,35 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, device: data }, { headers: noStore });
   }
 
+  if (body.action === "doorDuration") {
+    if (!Number.isInteger(body.seconds) || typeof body.seconds !== "number" || body.seconds < 3 || body.seconds > 10) {
+      return fail("Choose a door duration from 3 to 10 seconds.", 400);
+    }
+    const { data, error } = await client.rpc("club_set_rotherham_door_duration_request", {
+      p_organisation_id: organisationId,
+      p_seconds: body.seconds,
+    });
+    if (error) {
+      const forbidden = error.code === "42501";
+      return fail(forbidden ? "Only an active Madhouse owner or gym admin can change the Rotherham door setting." : "The R12 door-duration request could not be saved.", forbidden ? 403 : 409);
+    }
+    return NextResponse.json({ ok: true, setting: data }, { headers: noStore });
+  }
+
+  if (body.action === "confirmDoorDurationReadback") {
+    if (!Number.isInteger(body.seconds) || typeof body.seconds !== "number" || body.seconds < 3 || body.seconds > 10) {
+      return fail("Enter the observed A02S hold delay from 3 to 10 seconds.", 400);
+    }
+    const { data, error } = await client.rpc("club_confirm_rotherham_door_duration_readback", {
+      p_organisation_id: organisationId,
+      p_observed_seconds: body.seconds,
+    });
+    if (error) {
+      const forbidden = error.code === "42501";
+      return fail(forbidden ? "Only an active Madhouse owner or gym admin can record the hardware read-back." : "The observed duration must match the saved request and the active Rotherham setting.", forbidden ? 403 : 409);
+    }
+    return NextResponse.json({ ok: true, setting: data }, { headers: noStore });
+  }
+
   return fail("Unsupported device action.", 400);
 }

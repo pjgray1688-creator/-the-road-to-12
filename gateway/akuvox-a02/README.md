@@ -86,29 +86,93 @@ browser, temporary laptop session, or an internet-facing Vercel Function.
 
 1. Apply the reviewed additive device-admin migration through the normal
    controlled release process. Do not provision by direct table writes.
-2. Sign in to Club as an active Madhouse owner or gym admin. Open Management →
+2. Apply `2026-11-14-rotherham-door-duration-request.sql` before using the
+   Door Access duration controls. The R12 value is a requested relay hold
+   duration; the UI does not send settings to the A02S. Only record the manual
+   read-back after an owner/admin has viewed the device's saved value.
+3. Sign in to Club as an active Madhouse owner or gym admin. Open Management →
    Venues & Settings (`/club/locations`) for the Madhouse organisation.
-3. In **Akuvox gateway**, verify the displayed venue is Rotherham and inspect
+4. In **Akuvox gateway**, verify the displayed venue is Rotherham and inspect
    its current access mode. Choose **Register disabled gateway**. Record its
    returned UUID as `R12_DEVICE_ID`. Separately obtain the exact `{DeviceID}`
    value emitted by the physical keypad and configure that as `AKUVOX_DEVICE_ID`.
    These values need not match; do not guess or derive one from the other.
-4. Copy the generated gateway secret immediately into the gateway host's
+5. Copy the generated gateway secret immediately into the gateway host's
    protected environment. It is displayed once. The database holds only its
    digest; if the response is lost, resubmit the same form while it remains
    open to rotate the still-disabled record's secret. Never send the secret to
    the installer or enter it into the keypad.
-5. Keep the database device status disabled until the gateway is installed,
+6. Keep the database device status disabled until the gateway is installed,
    TLS/network checks pass, and a controlled test is ready. An owner/admin can
    enable it for decision testing only while Rotherham is explicitly
    `CHECKIN_ONLY`; the secure RPC rejects activation in `DOOR_CONTROLLED` mode.
    In Check-in only mode R12 returns `unlockPermitted: false`, so the gateway
    responds deny to the keypad even for an otherwise eligible member.
-6. After separate physical commissioning and approval, an owner/admin may use
+7. After separate physical commissioning and approval, an owner/admin may use
    the existing `club_set_location_access_mode(organisation_id, location_id,
    'DOOR_CONTROLLED')` RPC to change the existing venue setting. No code in
    this preparation changes that setting. Revoke the device immediately from
    Club if the gateway is lost or compromised.
+
+The A02/A02S relay's local **Hold Delay** is configured in its device
+interface. Akuvox lists the unified HTTP API for A01/A02 from firmware
+`101.30.11.131`, including configuration retrieval and relay monitoring/control,
+but the available specification summary does not establish a supported
+write-and-read-back operation for this exact Hold Delay setting. Therefore R12 stores a requested value only.
+It remains **Not synchronized** until an owner/admin and installer manually
+set and read back the matching relay value; R12's audited confirmation records
+that manual check and does not poll the device. Do not interpret it as live
+hardware telemetry.
+
+The Akuvox relay Hold Delay controls relay activation duration. If the door
+sensor / **Relock When Door Closed** option is configured, Akuvox documents
+that a detected physical closure can relock before the Hold Delay expires.
+The installer must verify relay mode, door sensor, relock behaviour, output
+polarity and the maglock connection. No website timer can hold or release the
+physical lock.
+
+## Network and power failure behaviour
+
+- If the internet, gateway, or R12 decision service is unavailable, the
+  gateway times out and returns a deny response. The software does not bypass
+  membership, venue, access-window, device, or credential checks.
+- If the keypad loses power or network connectivity, it cannot obtain a new
+  PIN decision. Confirm the power supply and battery-backed runtime with the
+  installer; runtime cannot be inferred from the software.
+- A fail-safe maglock releases when its lock power is removed. Whether the
+  installed battery keeps it energised, and how the supply is isolated by fire
+  alarm or emergency controls, must be confirmed and physically tested by the
+  installer/electrician.
+- Fire alarm release, green exit button, and reception/manual release must
+  operate independently of R12, the gateway, and internet connectivity. Do
+  not rely on software for emergency egress or alter the wiring.
+
+## Access policy prerequisite
+
+The R12 device decision remains authoritative: the registered device selects
+the physical organisation/location, validates the device secret and nonce,
+then resolves the existing PIN and membership projection. Home gym is not a
+membership restriction; explicit entitlement location scopes still apply.
+The current local single-window Off-Peak source only represents Monday–Friday
+10:00–15:00 and is marked superseded for Production. It cannot represent the
+approved overnight periods. The forward-only
+`2026-11-14-madhouse-off-peak-access-windows.sql` migration adds the confirmed
+Europe/London windows to the existing membership policy guard. Its prerequisite
+is exactly one sellable `madhouse.membership.off-peak.v1` product rule; it fails
+closed if that product rule is absent. Do not move Rotherham to
+`DOOR_CONTROLLED` until the migration has been applied through release control
+and the live decision path has been verified.
+
+For a controlled release, first verify the migration prerequisites against the
+live schema. Apply
+`2026-11-14-madhouse-off-peak-access-windows.sql` only after confirming the
+single sellable Madhouse Off-Peak product rule, then apply
+`2026-11-14-rotherham-akuvox-device-admin.sql` and
+`2026-11-14-rotherham-door-duration-request.sql`. Deploy the matching
+application only after all three migrations complete successfully. If the
+Off-Peak prerequisite is absent or ambiguous, stop and resolve that separately;
+do not switch Rotherham to door-controlled mode. None of these migration files
+has been applied by this preparation task.
 
 Configure customized PIN integration using the A02/A02S variable spelling
 published for this model, with a URL equivalent to:
@@ -129,7 +193,7 @@ source-IP restriction and network controls protect the incoming keypad request.
 From repository root, run:
 
 ```sh
-npx tsx --test tests/akuvox-a02-gateway.test.ts tests/member-fast-gym-access.test.ts
+npx tsx --test tests/akuvox-a02-gateway.test.ts tests/akuvox-device-provisioning.test.ts tests/akuvox-door-duration.test.ts tests/madhouse-off-peak-access-windows.test.ts tests/member-fast-gym-access.test.ts tests/member-pin-qr-access.test.ts
 ```
 
 Tests use a mocked upstream. They never call Production, read a real PIN, or
@@ -148,21 +212,29 @@ operate a door.
    secure network design; do not send PINs over an untrusted network.
 4. Assign a static DHCP reservation to the keypad and provide its IP, gateway,
    subnet/VLAN and DNS/time configuration to the R12 operator.
-5. Use the Club owner/admin flow to register the disabled Rotherham device;
+5. Confirm the Off-Peak product rule and live time-window guard before the
+   Rotherham mode can be changed. The approved policy is Mon–Fri 10:00–15:00
+   and 22:00–03:00 across the following calendar day, with no Saturday night,
+   Sunday, or Monday 00:00–03:00 access. Times are Europe/London local time.
+6. Use the Club owner/admin flow to register the disabled Rotherham device;
    verify its organisation, location and UUID. Keep the one-time secret on the
    gateway host only.
-6. Install the gateway host on the trusted LAN, install a trusted TLS
+7. Install the gateway host on the trusted LAN, install a trusted TLS
    certificate, restrict inbound firewall access to the keypad IP and outbound
    access to `app.r12.live:443`, and verify logs do not include query strings.
-7. Test first with relay disabled and a dedicated test member in an approved
+8. In the Akuvox interface, set Relay A Hold Delay to the R12 requested value
+   (default 5 seconds), check the installer-selected monostable/door-sensor
+   behavior, read the saved value back, then record that manual read-back in
+   Club. This is not remote synchronization.
+9. Test first with relay disabled and a dedicated test member in an approved
    non-production environment: valid active entitlement, invalid PIN, expired
    membership, wrong venue, disabled device, gateway down, backend timeout,
    bad Basic credentials and stale/repeated calls. Confirm every failure denies.
-8. With the installer present, conduct real entry tests only after explicit
+10. With the installer present, conduct real entry tests only after explicit
    operational approval. Confirm unlock/audit result and inspect mechanical
    release, exit button and fire-system behaviour independently. This software
    does not configure or override any physical safety circuit.
-9. Keep the existing QR system unchanged. Record rollback steps: disable the
+11. Keep the existing QR system unchanged. Record rollback steps: disable the
    Akuvox third-party integration/relay path and use the existing approved
    entry process. Never alter the member's existing R12 PIN.
 
