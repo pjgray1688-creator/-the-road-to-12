@@ -52,7 +52,8 @@ test("existing device access keeps its nonce replay, timestamp and attempt guard
 });
 
 test("Akuvox response adapter maps only an authoritative allow decision to success", () => {
-  assert.deepEqual(JSON.parse(akuvoxA02Response({ allowed: true, decision: "allow" })), { isvalid: true });
-  assert.deepEqual(JSON.parse(akuvoxA02Response({ allowed: false, decision: "deny" })), { isvalid: false });
-  assert.deepEqual(JSON.parse(akuvoxA02Response({ allowed: true, decision: "deny" })), { isvalid: false });
+  assert.deepEqual(JSON.parse(akuvoxA02Response({ allowed: true, decision: "allow", unlockPermitted: true })), { isvalid: true });
+  assert.deepEqual(JSON.parse(akuvoxA02Response({ allowed: true, decision: "allow", unlockPermitted: false })), { isvalid: false });
+  assert.deepEqual(JSON.parse(akuvoxA02Response({ allowed: false, decision: "deny", unlockPermitted: false })), { isvalid: false });
+  assert.deepEqual(JSON.parse(akuvoxA02Response({ allowed: true, decision: "deny", unlockPermitted: true })), { isvalid: false });
 });

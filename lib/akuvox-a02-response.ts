@@ -6,9 +6,15 @@
 export type AuthoritativeAccessDecision = {
   allowed: boolean;
   decision: "allow" | "deny";
+  unlockPermitted: boolean;
 };
 
 export function akuvoxA02Response(decision: AuthoritativeAccessDecision): string {
-  const isvalid = decision.allowed === true && decision.decision === "allow";
+  // A membership can be eligible for staffed check-in while the location is
+  // not configured to unlock a physical door. Require the explicit server
+  // unlock decision as well as the access decision.
+  const isvalid = decision.allowed === true
+    && decision.decision === "allow"
+    && decision.unlockPermitted === true;
   return JSON.stringify({ isvalid });
 }
