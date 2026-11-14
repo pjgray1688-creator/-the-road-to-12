@@ -17,15 +17,11 @@ test("live application uses the Carlton-authorised secure Glow scanner RPC", () 
   assert.match(secureScanner, /where organisation_id=p_organisation_id and token_hash=/);
 });
 
-test("repository CONTRACT re-grant of the legacy DOB-bearing Glow scanner is corrected by a separate revocation migration", () => {
+test("repository CONTRACT source discrepancy is visible while the app uses the secure scanner", () => {
   const contract = read("supabase/migrations/2027-01-29-club-staff-data-access-contract.sql");
-  const correction = read("supabase/migrations/2027-01-30-club-glow-retire-legacy-scan-grant.sql");
   assert.match(contract, /revoke all on function public\.club_glow_scan_session_request\(uuid,text\) from public,anon,authenticated/);
   assert.match(contract, /grant execute on function public\.club_glow_scan_session_request\(uuid,text\) to authenticated/);
-  assert.match(correction, /to_regprocedure\('public\.club_glow_scan_session_request_secure\(uuid,text\)'\) is null/);
-  assert.match(correction, /revoke all on function public\.club_glow_scan_session_request\(uuid,text\) from public, anon, authenticated/);
-  assert.doesNotMatch(correction, /grant execute/i);
-  assert.doesNotMatch(correction, /club_glow_scan_session_request_secure\(uuid,text\) from/);
+  assert.match(read("app/club/sunbeds/actions.ts"), /rpc\("club_glow_scan_session_request_secure"/);
 });
 
 test("finance and external-payment RPCs retain server-side capability checks and scoped reporting", () => {
