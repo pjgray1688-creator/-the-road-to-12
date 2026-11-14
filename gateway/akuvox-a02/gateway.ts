@@ -5,6 +5,7 @@ import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { isIPv4, type AddressInfo } from "node:net";
+import { akuvoxA02Response } from "../../lib/akuvox-a02-response";
 
 const UPSTREAM = "https://app.r12.live/api/club/access/decision";
 const DENY = JSON.stringify({ isvalid: false });
@@ -127,7 +128,14 @@ export function createAkuvoxA02Handler(config: Config) {
         && decision.decision === "allow"
         && decision.unlockPermitted === true;
       if (isvalid) recentPins.set(pinFingerprint, instant + 10_000);
-      return { status: 200, body: JSON.stringify({ isvalid }) };
+      return {
+        status: 200,
+        body: akuvoxA02Response({
+          allowed: decision.allowed === true,
+          decision: decision.decision === "allow" ? "allow" : "deny",
+          unlockPermitted: decision.unlockPermitted === true,
+        }),
+      };
     } catch {
       // Do not log the incoming URL, PIN, Authorization value, or upstream
       // request. The keypad receives a deterministic deny on any failure.
