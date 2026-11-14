@@ -53,11 +53,11 @@ never commit a populated env file:
 | `R12_DEVICE_SECRET` | Secret corresponding to that row's existing SHA-256 `secret_hash` |
 | `AKUVOX_GATEWAY_PORT` | Optional HTTPS listener port; default `8443` |
 
-The device UUID and matching secret require authorised provisioning of the
-existing `club_access_devices` row for the Madhouse organisation and Rotherham
-location. This repository currently has no supported device-provisioning UI or
-command. Do not invent a row or hash manually: complete this through the
-approved operations process before commissioning. The keyring/service-role
+Use the **same UUID** for `AKUVOX_DEVICE_ID` and `R12_DEVICE_ID`. The Club
+Locations page provisions this exact Rotherham row for an active Madhouse
+owner/gym admin, initially disabled. It returns the 32-byte random device
+secret once; the database stores only its SHA-256 digest. The secret is not
+recoverable after closing the one-time display. The keyring/service-role
 credential must never be installed on the keypad or gateway.
 
 ## Run and configure
@@ -67,6 +67,41 @@ Use a supported maintained Node.js LTS runtime. Start with:
 ```sh
 npx tsx gateway/akuvox-a02/gateway.ts
 ```
+
+For unattended operation, install it as a system service on an always-on
+on-premises host: start automatically at boot, restart automatically after
+failure, run as a dedicated unprivileged account, and monitor process/host
+health without request logging. Protect the environment file and TLS key with
+owner-only filesystem permissions. The host, switch and router must stay
+powered and network-connected while the gym is unattended; a UPS is
+recommended for the gateway/network equipment. Do not run this in a staff
+browser, temporary laptop session, or an internet-facing Vercel Function.
+
+### Owner/admin provisioning procedure
+
+1. Apply the reviewed additive device-admin migration through the normal
+   controlled release process. Do not provision by direct table writes.
+2. Sign in to Club as an active Madhouse owner or gym admin. Open Management →
+   Venues & Settings (`/club/locations`) for the Madhouse organisation.
+3. In **Akuvox gateway**, verify the displayed venue is Rotherham and inspect
+   its current access mode. Choose **Register disabled gateway**. The returned
+   UUID is both the Akuvox Device ID and `R12_DEVICE_ID`.
+4. Copy the generated gateway secret immediately into the gateway host's
+   protected environment. It is displayed once. The database holds only its
+   digest; if the response is lost, resubmit the same form while it remains
+   open to rotate the still-disabled record's secret. Never send the secret to
+   the installer or enter it into the keypad.
+5. Keep the database device status disabled until the gateway is installed,
+   TLS/network checks pass, and a controlled test is ready. An owner/admin can
+   enable it for decision testing only while Rotherham is explicitly
+   `CHECKIN_ONLY`; the secure RPC rejects activation in `DOOR_CONTROLLED` mode.
+   In Check-in only mode R12 returns `unlockPermitted: false`, so the gateway
+   responds deny to the keypad even for an otherwise eligible member.
+6. After separate physical commissioning and approval, an owner/admin may use
+   the existing `club_set_location_access_mode(organisation_id, location_id,
+   'DOOR_CONTROLLED')` RPC to change the existing venue setting. No code in
+   this preparation changes that setting. Revoke the device immediately from
+   Club if the gateway is lost or compromised.
 
 Configure customized PIN integration using the A02/A02S variable spelling
 published for this model, with a URL equivalent to:
@@ -106,9 +141,9 @@ operate a door.
    secure network design; do not send PINs over an untrusted network.
 4. Assign a static DHCP reservation to the keypad and provide its IP, gateway,
    subnet/VLAN and DNS/time configuration to the R12 operator.
-5. Provision/register the Rotherham device row through the authorised process;
-   verify its organisation, location, active status, device UUID and secret
-   pairing without exposing the secret to the installer or keypad.
+5. Use the Club owner/admin flow to register the disabled Rotherham device;
+   verify its organisation, location and UUID. Keep the one-time secret on the
+   gateway host only.
 6. Install the gateway host on the trusted LAN, install a trusted TLS
    certificate, restrict inbound firewall access to the keypad IP and outbound
    access to `app.r12.live:443`, and verify logs do not include query strings.
