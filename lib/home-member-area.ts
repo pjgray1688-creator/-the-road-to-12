@@ -6,7 +6,7 @@ export function homeMemberAreaCard(organisation: HomeMemberOrganisation) {
   const organisationQuery = encodeURIComponent(organisation.id);
   const shortcuts: HomeMemberShortcut[] = isMadhouse ? [
     { label: "Classes", icon: "calendar", href: `/member-hub/classes?org=${organisationQuery}` },
-    { label: "Gym Access", icon: "access", href: `/member-hub#membership-access-${organisationQuery}` },
+    { label: "Gym Access", icon: "access", href: `/member-hub/access?org=${organisationQuery}` },
     { label: "Shop", icon: "bag", href: `/member-hub/shop?org=${organisationQuery}` },
   ] : [];
   return {

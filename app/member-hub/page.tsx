@@ -2,7 +2,6 @@ import { redirect } from "next/navigation";
 import { serverSupabase } from "@/lib/supabase-server";
 import { clubRepository } from "@/lib/club-repository";
 import { MemberHub, type MemberHubData } from "@/components/member-hub";
-import type { MemberAccessPassData } from "@/components/member-access-pass";
 import { hasPlayReviewerEntitlement } from "@/lib/play-reviewer";
 import { reviewerMemberHubData } from "@/lib/play-reviewer-member-data";
 
@@ -18,21 +17,13 @@ export default async function MemberHubPage() {
     const organisation = { id: String(org.id), name: String(org.name), slug: String(org.slug), active: org.active !== false, branding: org.branding as never };
     try {
       const profile = await repository.getMemberOperationalProfile(organisation.id, user.id);
-      const accessPassPromise = organisation.slug.toLowerCase().includes("madhouse")
-        ? supabase.rpc("club_get_my_access_pass", { p_organisation_id: organisation.id })
-        : Promise.resolve({ data: null, error: null });
       const schedulePromise = supabase.rpc("club_list_my_schedule", { p_organisation_id: organisation.id });
-      const accessEligibilityPromise = organisation.slug.toLowerCase().includes("madhouse")
-        ? supabase.rpc("club_get_my_access_eligibility", { p_organisation_id: organisation.id })
-        : Promise.resolve({ data: null, error: null });
-      const [balance, sessions, allBookings, orders, accessPassResult, scheduleResult, accessEligibilityResult, products] = await Promise.all([
+      const [balance, sessions, allBookings, orders, scheduleResult, products] = await Promise.all([
         profile.customer ? repository.getBalanceAccountForCustomer(organisation.id, profile.customer.id) : undefined,
         repository.listClassSessions(organisation.id),
         profile.customer ? repository.listClassBookings(organisation.id) : [],
         repository.listOrders(organisation.id),
-        accessPassPromise,
         schedulePromise,
-        accessEligibilityPromise,
         repository.listProducts(organisation.id, true),
       ]);
       const balanceHistoryResult = balance ? await supabase.from("club_balance_entries")
@@ -43,12 +34,8 @@ export default async function MemberHubPage() {
         return { id: String(entry.id), entryType: String(entry.entry_type), amountMinor: Number(entry.amount_delta_minor), createdAt: String(entry.created_at) };
       }) : [];
       const bookings = allBookings.filter((booking) => booking.customerId === profile.customer?.id).map((booking) => ({ sessionId: booking.sessionId, status: booking.status }));
-      const accessPass = accessPassResult.error || !accessPassResult.data ? undefined : accessPassResult.data as MemberAccessPassData;
       const schedule = !scheduleResult.error && Array.isArray(scheduleResult.data) ? scheduleResult.data as MemberHubData["schedule"] : [];
-      const accessEligibility = !accessEligibilityResult.error && Array.isArray(accessEligibilityResult.data)
-        ? accessEligibilityResult.data as MemberHubData["accessEligibility"]
-        : undefined;
-      loaded.push({ organisation, profile, balance, balanceHistory, accessEligibility, sessions, bookings, orders, accessPass, schedule, lifetimeProductIds: products.filter(product => product.isLifetime).map(product => product.id) });
+      loaded.push({ organisation, profile, balance, balanceHistory, sessions, bookings, orders, schedule, lifetimeProductIds: products.filter(product => product.isLifetime).map(product => product.id) });
     } catch { /* An invalid/inactive relationship is not exposed. */ }
   }
   return <MemberHub data={loaded}/>;

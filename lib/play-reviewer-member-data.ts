@@ -58,5 +58,5 @@ export function reviewerMemberHubData(): MemberHubData[] {
     entitlements: [], serviceCredits: [], access: { state: "unavailable", reason: "no_membership" },
   };
   const schedule = [reviewerSessions[0], reviewerSessions[4]].map(session => ({ id: session.id, eventType: "class" as const, title: session.title ?? "Class", startsAt: session.startsAt, endsAt: session.endsAt, status: "scheduled" as const, staffName: session.instructorName, locationName: session.title === "Boxing" ? "Rotherham" : "Rotherham" }));
-  return [{ organisation, profile, balance: { id: "demo-balance", organisationId: REVIEWER_ORG_ID, customerId: REVIEWER_CUSTOMER_ID, currency: "GBP", status: "active", balanceMinor: 1250 }, balanceHistory: [], sessions: reviewerSessions, bookings: [{ sessionId: reviewerBookings[0].sessionId, status: "confirmed" }], orders: [], accessPass: undefined, schedule, lifetimeProductIds: [] }];
+  return [{ organisation, profile, balance: { id: "demo-balance", organisationId: REVIEWER_ORG_ID, customerId: REVIEWER_CUSTOMER_ID, currency: "GBP", status: "active", balanceMinor: 1250 }, balanceHistory: [], sessions: reviewerSessions, bookings: [{ sessionId: reviewerBookings[0].sessionId, status: "confirmed" }], orders: [], schedule, lifetimeProductIds: [] }];
 }

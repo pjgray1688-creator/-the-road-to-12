@@ -24,7 +24,7 @@ const accessStateLabel: Record<string, string> = {
 };
 
 export function MemberAccessPass({ pass }: { pass: MemberAccessPassData }) {
-  const matrix = accessQrMatrix(pass.qrToken);
+  const matrix = pass.accessAllowed ? accessQrMatrix(pass.qrToken) : [];
   const quietZone = 4;
   const size = matrix.length + quietZone * 2;
   const modules = matrix.flatMap((row, y) => row.map((dark, x) => dark ? `M${x + quietZone} ${y + quietZone}h1v1h-1z` : "")).join("");
@@ -33,16 +33,29 @@ export function MemberAccessPass({ pass }: { pass: MemberAccessPassData }) {
       <div><span className="eyebrow">ACCESS PASS</span><h2>{accessStateLabel[pass.accessState] ?? "No access"}</h2></div>
       <strong>{pass.accessAllowed ? "READY" : "NOT ACTIVE"}</strong>
     </div>
-    <div style={{ display: "grid", placeItems: "center", padding: "16px 0" }}>
+    {pass.accessAllowed ? <><div style={{ display: "grid", placeItems: "center", padding: "16px 0" }}>
       <svg aria-label="Your Madhouse QR access pass" role="img" viewBox={`0 0 ${size} ${size}`} width={320} height={320} shapeRendering="crispEdges" style={{ background: "white", borderRadius: 12, width: "min(78vw, 320px)", height: "auto" }}>
         <rect width={size} height={size} fill="white"/>
         <path d={modules} fill="black"/>
       </svg>
     </div>
     <p className="muted">Show this QR at check-in. Access is always confirmed live.</p>
-    <div className="club-detail-row"><span>Personal access PIN</span><strong style={{ fontSize: "1.7rem", letterSpacing: "0.18em" }}>{pass.pin}</strong></div>
+    <div className="club-detail-row"><span>Personal access PIN</span><strong style={{ fontSize: "1.7rem", letterSpacing: "0.18em" }}>{pass.pin}</strong></div></> : <p role="status" className="muted">Your PIN and QR are hidden because access is not currently active. {accessReason(pass.reason)}</p>}
     {pass.accessState === "grace" ? <p className="muted">Access remains active during the current payment grace or retry period.</p> : null}
     {pass.validUntil ? <p className="muted">Current access valid until {new Date(pass.validUntil).toLocaleString("en-GB")}.</p> : null}
     <p className="muted">Your PIN and QR stay the same when your membership or preferred gym changes. They work at any enabled Madhouse venue while you have valid access.</p>
   </div>;
+}
+
+function accessReason(reason: string) {
+  const labels: Record<string, string> = {
+    membership_expired: "Your membership has expired.",
+    membership_paused: "Your membership is paused.",
+    membership_inactive: "Your membership is not active.",
+    membership_cancelled: "Your membership has ended.",
+    payment_action_required: "Please contact the gym about your membership payment.",
+    induction_incomplete: "Complete the required induction before using gym access.",
+    no_membership: "Link or activate a gym membership to use this pass.",
+  };
+  return labels[reason] ?? "Check your membership or contact your gym.";
 }

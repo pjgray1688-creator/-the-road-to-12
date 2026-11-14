@@ -14,7 +14,7 @@ test("linked Madhouse Home card uses the canonical gym name, real asset and scop
   assert.deepEqual(card.shortcuts.map(item => item.icon), ["calendar", "access", "bag"]);
   assert.deepEqual(card.shortcuts.map(item => item.href), [
     "/member-hub/classes?org=gym%2Fid",
-    "/member-hub#membership-access-gym%2Fid",
+    "/member-hub/access?org=gym%2Fid",
     "/member-hub/shop?org=gym%2Fid",
   ]);
   assert.ok(existsSync("public/club-branding/madhouse-rotherham-wall-logo.jpg"));
@@ -33,12 +33,14 @@ test("unlinked members see no fabricated Home gym card and unknown gyms receive 
   assert.equal(homeMemberAreaCard({ id: "madhouse", name: "Madhouse Gym", slug: "madhouse-gym" }).shortcuts.length, 3);
 });
 
-test("Gym Access shortcut targets the existing membership and access section without changing access authority", () => {
+test("Gym Access shortcut opens the dedicated member-scoped pass and keeps access authority server-side", () => {
   const memberHub = read("components/member-hub.tsx");
-  assert.match(memberHub, /id=\{`membership-access-\$\{item\.organisation\.id\}`\}/);
   assert.match(memberHub, /MEMBERSHIP &amp; ACCESS/);
   assert.match(read("components/member-access-pass.tsx"), /pass\.accessAllowed/);
-  assert.match(read("app/member-hub/page.tsx"), /club_get_my_access_pass/);
+  const access = read("app/member-hub/access/page.tsx");
+  assert.match(access, /auth\.getUser\(\)/);
+  assert.match(access, /club_get_my_access_pass/);
+  assert.match(access, /club_list_my_memberships/);
 });
 
 test("Madhouse shortcuts keep member routes organisation-scoped and use compact mobile tiles", () => {
@@ -46,7 +48,7 @@ test("Madhouse shortcuts keep member routes organisation-scoped and use compact 
   const css = read("app/globals.css");
   assert.match(model, /\/member-hub\/classes\?org=/);
   assert.match(model, /\/member-hub\/shop\?org=/);
-  assert.match(model, /\/member-hub#membership-access-/);
+  assert.match(model, /\/member-hub\/access\?org=/);
   assert.match(css, /\.member-gym-shortcuts\{display:grid;grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
   assert.match(css, /\.member-gym-photo[^}]*object-fit:cover/);
   assert.match(css, /@media\(max-width:360px\)\{\.member-gym-shortcut\.home-member-area/);

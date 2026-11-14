@@ -4,7 +4,7 @@ import test from "node:test";
 import { accessQrMatrix } from "@/lib/qr-code";
 
 const sql = readFileSync("supabase/migrations/2026-12-04-member-pin-qr-access-pass.sql", "utf8");
-const memberPage = readFileSync("app/member-hub/page.tsx", "utf8");
+const memberPage = readFileSync("app/member-hub/access/page.tsx", "utf8");
 const memberPass = readFileSync("components/member-access-pass.tsx", "utf8");
 const consoleUi = readFileSync("components/club-access-console.tsx", "utf8");
 const deviceApi = readFileSync("app/api/club/access/decision/route.ts", "utf8");
