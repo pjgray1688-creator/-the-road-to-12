@@ -60,9 +60,9 @@ test("one-time recovery credentials are removed without losing Glow context", ()
   );
 });
 
-test("email-link preview only moves the token out of the server-visible query and does not consume it", () => {
+test("email-link preview only moves the token out of the server-visible query and does not consume it", async () => {
   const request = new NextRequest("https://app.r12.live/account/reset?token_hash=hashed-secret&type=recovery&redirect_to=https%3A%2F%2Fapp.r12.live%2Faccount%2Freset%3Fapp%3Dglow%26next%3D%252Fglow-zone");
-  const response = proxy(request);
+  const response = await proxy(request);
   assert.equal(response.status, 307);
   const redirected = new URL(response.headers.get("location")!);
   assert.equal(redirected.searchParams.has("token_hash"), false);

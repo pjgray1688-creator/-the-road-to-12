@@ -23,7 +23,7 @@ test("reviewer Club requests are isolated to synthetic routes and every Club wri
   assert.equal(playReviewerClubRequestPolicy("manager@example.test", "/club/classes", "POST"), "allow");
   assert.equal(playReviewerClubRequestPolicy("staff@r12.live", "/account", "POST"), "allow");
   const proxy = read("proxy.ts");
-  assert.match(proxy, /playReviewerClubRequestPolicy\(claims\?\.email, pathname, request\.method\)/);
+  assert.match(proxy, /playReviewerClubRequestPolicy\(verifiedUser\?\.email, pathname, request\.method\)/);
   assert.match(proxy, /reviewerPolicy === "deny"[\s\S]*?pathname === "\/api\/club"/);
   assert.match(proxy, /url\.pathname = `\/club\/reviewer/);
   assert.match(proxy, /"\/club\/:path\*", "\/api\/club\/:path\*"/);
