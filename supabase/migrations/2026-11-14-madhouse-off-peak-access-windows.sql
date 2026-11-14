@@ -14,14 +14,20 @@ begin
   if to_regprocedure('public.club_access_decide_customer(uuid,uuid,uuid,text,text,uuid,text)') is null then
     raise exception 'Authoritative Club access-decision function is missing';
   end if;
+  if pg_get_function_result(to_regprocedure('public.club_access_decide_customer(uuid,uuid,uuid,text,text,uuid,text)'))<>'jsonb' then
+    raise exception 'Authoritative Club access-decision return type does not match the deployed contract';
+  end if;
   if not exists(select 1 from information_schema.columns where table_schema='public' and table_name='club_access_decisions' and column_name='membership_id')
      or not exists(select 1 from information_schema.columns where table_schema='public' and table_name='club_access_decisions' and column_name='decision')
      or not exists(select 1 from information_schema.columns where table_schema='public' and table_name='club_access_decisions' and column_name='decided_at')
      or not exists(select 1 from information_schema.columns where table_schema='public' and table_name='club_membership_product_rules' and column_name='catalogue_code')
+     or not exists(select 1 from information_schema.columns where table_schema='public' and table_name='club_membership_product_rules' and column_name='product_id' and data_type='uuid')
+     or not exists(select 1 from information_schema.columns where table_schema='public' and table_name='club_membership_product_rules' and column_name='organisation_id' and data_type='uuid')
      or not exists(select 1 from information_schema.columns where table_schema='public' and table_name='club_membership_product_rules' and column_name='access_timezone')
      or not exists(select 1 from information_schema.columns where table_schema='public' and table_name='club_membership_product_rules' and column_name='access_weekdays')
      or not exists(select 1 from information_schema.columns where table_schema='public' and table_name='club_membership_product_rules' and column_name='access_opens_at')
-     or not exists(select 1 from information_schema.columns where table_schema='public' and table_name='club_membership_product_rules' and column_name='access_closes_at') then
+     or not exists(select 1 from information_schema.columns where table_schema='public' and table_name='club_membership_product_rules' and column_name='access_closes_at')
+     or not exists(select 1 from information_schema.columns where table_schema='public' and table_name='club_membership_product_rules' and column_name='updated_at') then
     raise exception 'Off-Peak access-window columns do not match the deployed contract';
   end if;
   if not exists(select 1 from information_schema.columns where table_schema='public' and table_name='club_organisations' and column_name='id' and data_type='uuid')
@@ -51,6 +57,10 @@ begin
      and p.kind='membership' and p.sellable and p.archived_at is null;
   if product_count<>1 or rules_count<>1 then
     raise exception 'Exactly one sellable Madhouse Off-Peak membership rule is required before installing its door windows';
+  end if;
+  if not exists(select 1 from pg_constraint c where c.conrelid='public.club_products'::regclass and c.contype='u'
+     and pg_get_constraintdef(c.oid)='UNIQUE (id, organisation_id)') then
+    raise exception 'Organisation-scoped club_products key is missing';
   end if;
 end;
 $$;

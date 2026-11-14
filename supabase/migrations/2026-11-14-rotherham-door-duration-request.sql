@@ -11,6 +11,9 @@ begin
      or to_regprocedure('public.club_has_active_role(uuid,text[])') is null then
     raise exception 'Rotherham door-duration prerequisites are missing';
   end if;
+  if pg_get_function_result(to_regprocedure('public.club_has_active_role(uuid,text[])'))<>'boolean' then
+    raise exception 'Active Club role checker return type does not match the deployed contract';
+  end if;
   if not exists(select 1 from information_schema.columns where table_schema='public' and table_name='club_locations' and column_name='id' and data_type='uuid')
      or not exists(select 1 from information_schema.columns where table_schema='public' and table_name='club_locations' and column_name='organisation_id' and data_type='uuid')
      or not exists(select 1 from information_schema.columns where table_schema='public' and table_name='club_locations' and column_name='name')
@@ -33,6 +36,13 @@ begin
      or not exists(select 1 from information_schema.columns where table_schema='public' and table_name='club_audit_events' and column_name='location_id')
      or not exists(select 1 from information_schema.columns where table_schema='public' and table_name='club_audit_events' and column_name='metadata') then
     raise exception 'Rotherham door-duration organisation/audit dependencies do not match the deployed contract';
+  end if;
+  if not exists(select 1 from pg_constraint c where c.conrelid='public.club_locations'::regclass and c.contype='u'
+     and pg_get_constraintdef(c.oid)='UNIQUE (id, organisation_id)') then
+    raise exception 'Organisation-scoped club_locations key is missing';
+  end if;
+  if to_regclass('auth.users') is null then
+    raise exception 'Supabase auth.users is unavailable for audited actor references';
   end if;
 end;
 $$;

@@ -21,6 +21,9 @@ function approvedWindowModel(instant: string) {
 test("Off-Peak migration installs the approved weekday windows at the decision audit boundary", () => {
   assert.match(migration, /madhouse\.membership\.off-peak\.v1/);
   assert.match(migration, /Exactly one sellable Madhouse Off-Peak membership rule is required/);
+  assert.match(migration, /pg_get_function_result\(to_regprocedure\('public\.club_access_decide_customer\(uuid,uuid,uuid,text,text,uuid,text\)'\)\)<>'jsonb'/);
+  assert.match(migration, /club_membership_product_rules' and column_name='updated_at'/);
+  assert.match(migration, /Organisation-scoped club_products key is missing/);
   assert.match(migration, /\(1,'10:00'::time,'15:00'::time\),\(1,'22:00'::time,'03:00'::time\)/);
   assert.match(migration, /\(5,'10:00'::time,'15:00'::time\),\(5,'22:00'::time,'03:00'::time\)/);
   assert.match(migration, /p_at at time zone tz/);
