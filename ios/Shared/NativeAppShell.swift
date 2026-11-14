@@ -27,7 +27,7 @@ struct NativeAppShell: View {
                         .navigationTitle(destination.title)
                         .navigationBarTitleDisplayMode(.inline)
                         .toolbar(
-                            configuration.scheme == "r12-glowzone" ? .hidden : .visible,
+                            configuration.scheme == "r12-training" || configuration.scheme == "r12-glowzone" ? .hidden : .visible,
                             for: .navigationBar
                         )
                         .toolbar {

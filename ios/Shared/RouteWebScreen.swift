@@ -63,31 +63,33 @@ struct RouteWebScreen: View {
         }
         .background(Color(red: 0.035, green: 0.04, blue: 0.055))
         .toolbar {
-            ToolbarItemGroup(placement: .topBarTrailing) {
-                Button(action: state.goBack) {
-                    Image(systemName: "chevron.left")
-                }
-                .disabled(!state.canGoBack)
-                .accessibilityLabel("Go back")
-
-                Button(action: state.reload) {
-                    Image(systemName: "arrow.clockwise")
-                }
-                .disabled(state.isLoading || state.errorMessage != nil)
-                .accessibilityLabel("Reload page")
-
-                Button {
-                    safariURL = configuration.url(for: configuration.privacyPath)
-                } label: {
-                    Image(systemName: "hand.raised")
-                }
-                .accessibilityLabel("Privacy policy")
-
-                if let shareURL = state.shareURL {
-                    ShareLink(item: shareURL) {
-                        Image(systemName: "square.and.arrow.up")
+            if configuration.scheme != "r12-training" {
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    Button(action: state.goBack) {
+                        Image(systemName: "chevron.left")
                     }
-                    .accessibilityLabel("Share current page")
+                    .disabled(!state.canGoBack)
+                    .accessibilityLabel("Go back")
+
+                    Button(action: state.reload) {
+                        Image(systemName: "arrow.clockwise")
+                    }
+                    .disabled(state.isLoading || state.errorMessage != nil)
+                    .accessibilityLabel("Reload page")
+
+                    Button {
+                        safariURL = configuration.url(for: configuration.privacyPath)
+                    } label: {
+                        Image(systemName: "hand.raised")
+                    }
+                    .accessibilityLabel("Privacy policy")
+
+                    if let shareURL = state.shareURL {
+                        ShareLink(item: shareURL) {
+                            Image(systemName: "square.and.arrow.up")
+                        }
+                        .accessibilityLabel("Share current page")
+                    }
                 }
             }
         }

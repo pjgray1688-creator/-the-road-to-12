@@ -19,6 +19,8 @@ const check = (condition, message) => {
 
 const source = readFileSync(resolve(root, "Shared/RouteWebScreen.swift"), "utf8");
 const configuration = readFileSync(resolve(root, "Shared/AppConfiguration.swift"), "utf8");
+const nativeShell = readFileSync(resolve(root, "Shared/NativeAppShell.swift"), "utf8");
+const memberAccount = readFileSync(resolve(root, "../app/account/page.tsx"), "utf8");
 check(source.includes("webConfiguration.websiteDataStore = .default()"), "web views use WKWebView's persistent default website store");
 check(source.includes('url.host == "app.r12.live"'), "first-party web navigation is restricted to app.r12.live");
 check(source.includes("SFSafariViewController"), "external HTTPS destinations use in-app Safari");
@@ -26,6 +28,11 @@ check(source.includes('"Check your connection and try again."'), "failed page lo
 check(source.indexOf("R12WebView(url:") < source.indexOf("if let error = state.errorMessage"), "web view remains mounted beneath retry UI");
 check(source.includes("UIRefreshControl()") && source.includes("keyboardDismissMode = .interactive"), "native pull-to-refresh and interactive keyboard dismissal are configured");
 check(source.includes("webViewWebContentProcessDidTerminate"), "terminated web content has a recovery path");
+check(nativeShell.includes('configuration.scheme == "r12-training" || configuration.scheme == "r12-glowzone" ? .hidden : .visible'), "R12 Member hides the native navigation bar while other app chrome is preserved");
+check(source.includes('if configuration.scheme != "r12-training" {') && source.includes("ToolbarItemGroup(placement: .topBarTrailing)"), "R12 Member omits native toolbar actions without changing other native apps");
+check(source.includes("webView.allowsBackForwardNavigationGestures = true"), "R12 Member retains WKWebView edge-swipe back/forward gestures");
+check(source.includes("contentInsetAdjustmentBehavior = .automatic"), "web content continues to respect iOS safe-area insets");
+check(memberAccount.includes('href={authApps[authApp].privacyPath} label="Privacy"'), "R12 privacy policy remains available from Account settings");
 const iconHashes = [];
 
 for (const app of appSpecs) {
