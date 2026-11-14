@@ -340,3 +340,9 @@
     align-items: flex-start;
   }
 }
+
+.root :global(.club-order-manual-line){margin-top:14px;padding:12px;border:1px solid #e6e0e9;border-radius:10px;background:#faf9fb}
+.root :global(.club-order-manual-line > summary){min-height:44px;display:flex;align-items:center;cursor:pointer;color:#39294a;font-size:13px;font-weight:750}
+.root :global(.club-order-manual-line > p){margin:0 0 12px;color:#625a70;font-size:12px;line-height:1.45}
+.root :global(.club-order-manual-line .club-order-form-grid){margin-bottom:10px}
+.root :global(.club-order-manual-line small){display:block;margin-top:5px;color:#625a70;font-size:11px;line-height:1.4}

@@ -8,6 +8,15 @@
 .brandLogo img { display:block; width:100%; height:100%; max-width:100%; max-height:100%; object-fit:contain; }
 :global(.club-desktop-mobile-identity) { display: contents; }
 :global(.club-finance-desktop-only) { display:none; }
+:global(.club-page .club-management-groups) { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr)); align-items:stretch; gap:12px; min-width:0; }
+:global(.club-management-groups > section) { min-width:0; padding:16px!important; }
+:global(.club-management-groups h2) { margin:0 0 10px; color:#33283c; font-size:14px; }
+:global(.club-page .club-management-links) { display:grid; gap:0; min-width:0; border:1px solid #e9e3ed; border-radius:9px; background:#fff; overflow:hidden; }
+:global(.club-page .club-management-links a) { display:flex; align-items:center; justify-content:space-between; gap:12px; min-width:0; min-height:48px; padding:9px 12px; border:0; border-bottom:1px solid #eee9f1; border-radius:0; background:#fff; color:#3d3047; font-size:13px; font-weight:700; line-height:1.35; text-decoration:none; }
+:global(.club-page .club-management-links a:last-child) { border-bottom:0; }
+:global(.club-page .club-management-links a:hover) { background:#faf7fc; color:#43265a; }
+:global(.club-page .club-management-links a:focus-visible) { position:relative; z-index:1; outline:3px solid #b68bd0; outline-offset:-3px; }
+:global(.club-page .club-management-links a svg) { flex:0 0 16px; width:16px; height:16px; fill:none; stroke:#795a8d; stroke-width:1.8; }
 
 @media (min-width: 1100px) {
   :global(.club-camera-scan) { display:none!important; }
@@ -110,13 +119,7 @@
   .content :global(.club-member-history-note) { display: none; }
   .content :global(.club-legacy-overview),.content :global(.club-brand-banner) { display: none !important; }
   .inactive { display: contents; }
-  :global(.club-management-groups) { display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); grid-auto-rows:1fr; align-items:stretch; gap:14px; }
-  :global(.club-management-groups > section) { height:100%; padding:16px!important; }
-  :global(.club-management-groups h2) { margin:0 0 10px; color:#33283c; font-size:14px; }
-  :global(.club-management-links) { display:grid; gap:5px; }
-  :global(.club-management-links a) { display:flex; align-items:center; justify-content:space-between; gap:10px; min-height:39px; padding:8px 10px; border:1px solid #eee8f2; border-radius:8px; color:#4b3b56; font-size:12px; font-weight:700; text-decoration:none; }
-  :global(.club-management-links a:hover),:global(.club-management-links a:focus-visible) { border-color:#d8c3e7; background:#faf6fd; outline:none; }
-  :global(.club-management-links a span) { color:#8e63a8; font-size:18px; }
+  :global(.club-management-groups > section) { height:100%; }
   :global(.club-members-toolbar) { display:flex; justify-content:flex-end; margin-bottom:8px; }
   :global(.club-member-import) { display:none!important; }
   :global(.club-class-tools) { display:flex; flex-wrap:wrap; gap:8px; margin-top:2px; }
@@ -136,7 +139,7 @@
   :global(.club-shop-offers article p) { margin:0; color:#716878; font-size:11px; }
   :global(.club-shop-offers article > div:last-child) { display:grid; justify-items:end; gap:4px; white-space:nowrap; }
   :global(.club-shop-offers article strong) { color:#6e4386; font-size:11px; text-transform:capitalize; }
-  :global(.club-class-tools),:global(.club-management-groups),:global(.club-shop-offers) { min-width:0; }
+  :global(.club-class-tools),:global(.club-page .club-management-groups),:global(.club-shop-offers) { min-width:0; }
   :global(.club-finance-kpis) { grid-template-columns:repeat(4,minmax(0,1fr)); gap:9px; }
   :global(.club-finance-kpis > section) { min-width:0; padding:13px!important; }
   :global(.club-finance-kpis .eyebrow) { font-size:9px; }

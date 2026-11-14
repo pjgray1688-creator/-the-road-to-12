@@ -37,7 +37,6 @@ export default async function ClubMorePage({ searchParams }: { searchParams?: Pr
   const groups: Array<{ title: string; key: string; items: Destination[] }> = [
     { title: sectionLabels.finance, key: "finance", items: [
       ...(context.navigation.finance ? [{ label: "Finance & Sales", href: `/club/payments${q}` }, { label: "Membership Billing", href: `/club/membership-billing${q}` }, { label: "Checkout attempts", href: `/club/payments?org=${encodeURIComponent(context.organisation.id)}&view=attempts` }] : []),
-      ...(canManageOrders ? [{ label: "Orders & external payments", href: `/club/orders${q}` }] : []),
       ...(context.navigation.cashControls ? [{ label: "Cash close & verification", href: `/club/shop?org=${encodeURIComponent(context.organisation.id)}&view=cash&till=close` }, { label: "Cash approvals", href: `/club/shop?org=${encodeURIComponent(context.organisation.id)}&view=cash-review` }, { label: "Physical cash collections", href: `/club/payments/cash-collections${q}` }] : []),
       ...(context.navigation.cashTill ? [{ label: "Till history & refunds", href: `/club/shop?org=${encodeURIComponent(context.organisation.id)}&view=cash&till=log` }] : []),
       ...(canManageGlowZone ? [{ label: "Glow Zone reporting & balances", href: `/club/sunbeds?org=${encodeURIComponent(context.organisation.id)}&view=management` }] : []),
@@ -53,6 +52,7 @@ export default async function ClubMorePage({ searchParams }: { searchParams?: Pr
       ...(canImport ? [{ label: "Member imports", href: `/club/members/import${q}` }] : []),
     ] },
     { title: sectionLabels.shop, key: "shop", items: [
+      ...(canManageOrders ? [{ label: "Customer orders & payments", href: `/club/orders${q}` }] : []),
       ...(context.navigation.suppliers ? [{ label: "Supplier catalogue", href: `/club/shop/supplier-catalogue${q}` }] : []),
       ...(context.navigation.promotions ? [{ label: "Products & pricing", href: `/club/products${q}` }, { label: "Website Shop", href: `/club/website-shop${q}` }, { label: "Promotions & offers", href: `/club/promotions${q}` }] : []),
       ...(canManagePricing ? [{ label: "Product reporting categories", href: `/club/products/reporting-categories${q}` }] : []),
@@ -70,7 +70,7 @@ export default async function ClubMorePage({ searchParams }: { searchParams?: Pr
   return <AppShell className="module-page club-page club-management-home">
     <PageHeader title={selectedGroup?.title ?? "Management"} />
     <ClubSectionNav organisation={context.organisation} role={context.role} contexts={context.availableContexts} />
-    {visibleGroups.length ? <div className="club-management-groups">{visibleGroups.map(group => <Surface key={group.key}>{!selectedGroup ? <h2>{group.title}</h2> : null}<div className="club-management-links">{group.items.map((item,index) => <Link key={`${item.label}:${index}`} href={item.href}>{item.label}<span aria-hidden="true">›</span></Link>)}</div></Surface>)}</div> : <EmptyState title="No actions available">Your current management permissions do not include actions in this section.</EmptyState>}
+    {visibleGroups.length ? <div className="club-management-groups">{visibleGroups.map(group => <Surface key={group.key}>{!selectedGroup ? <h2>{group.title}</h2> : null}<div className="club-management-links">{group.items.map((item,index) => <Link key={`${item.label}:${index}`} href={item.href} aria-label={item.label}><span>{item.label}</span><svg aria-hidden="true" viewBox="0 0 16 16"><path d="m6 3 5 5-5 5" /></svg></Link>)}</div></Surface>)}</div> : <EmptyState title="No actions available">Your current management permissions do not include actions in this section.</EmptyState>}
     <AppNav />
   </AppShell>;
 }

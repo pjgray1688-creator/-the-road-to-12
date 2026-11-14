@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { serverSupabase } from "@/lib/supabase-server";
 import { resolveClubOrganisationContext } from "@/lib/club-server-context";
 import { parseMinorUnits } from "@/lib/club-money";
+import { validateManagementOrderLines, type ManagementOrderLineInput } from "@/lib/club-management-order-lines";
 import { normalizeBarcode, OpenFoodFactsBarcodeProvider } from "@/lib/club-barcode";
 import { searchStaffMemberRecords, type StaffMemberSearchResult } from "@/lib/club-member-search";
 import { adminSupabase } from "@/lib/supabase-admin";
@@ -327,11 +328,13 @@ export async function setReportingCategoryAction(input:{organisationId:string;pr
   try{const value=await context(input.organisationId);if(!value||!(await value.repository.hasCapability(value.organisation.id,value.userId,"commerce.pricing_manage"))||!allowed.includes(input.category)||input.reason.trim().length<3)return{ok:false,error:"Classification requires product-pricing permission and an audit reason."};const {error}=await(await serverSupabase()).rpc("club_set_product_reporting_category_secure",{p_organisation_id:value.organisation.id,p_product_id:input.productId,p_reporting_category:input.category,p_reason:input.reason.trim()});if(error)return{ok:false,error:"Product reporting category was not changed."};revalidatePath("/club/products/reporting-categories");revalidatePath("/club/payments");return{ok:true};}catch{return{ok:false,error:"Product reporting category was not changed."};}
 }
 
-export async function createManagementOrderAction(input: { organisationId:string; locationId:string; customerId?:string; memberId?:string; items:Array<{productId:string;quantity:number}>; idempotencyKey:string }): Promise<{ok:true;orderId:string;totalMinor:number;replayed:boolean}|{ok:false;error:string}> {
+export async function createManagementOrderAction(input: { organisationId:string; locationId:string; customerId?:string; memberId?:string; items:ManagementOrderLineInput[]; idempotencyKey:string }): Promise<{ok:true;orderId:string;totalMinor:number;replayed:boolean}|{ok:false;error:string}> {
   try {
     const value=await context(input.organisationId);
     if(!value||!(await value.repository.hasCapability(value.organisation.id,value.userId,"finance.manage"))||!(await locationAuthorized(value.organisation.id,input.locationId))) return {ok:false,error:"Order management access is not available for this venue."};
-    if(!Array.isArray(input.items)||!input.items.length||input.items.length>50||input.items.some(i=>!i.productId||!Number.isInteger(i.quantity)||i.quantity<1||i.quantity>50)||!input.idempotencyKey.trim()) return {ok:false,error:"Check the selected products and quantities."};
+    if(!input.idempotencyKey.trim()||input.idempotencyKey.length>120) return {ok:false,error:"Check the order idempotency key."};
+    const validation=validateManagementOrderLines(input.items);if(!validation.ok)return{ok:false,error:validation.error};
+    if(validation.needsManualPricing&&!(await value.repository.hasCapability(value.organisation.id,value.userId,"commerce.pricing_manage")))return{ok:false,error:"Manual price entry requires product-pricing permission."};
     let customerId=input.customerId;
     if(!customerId&&input.memberId){
       if(!(await value.repository.hasCapability(value.organisation.id,value.userId,"members.create"))) return {ok:false,error:"A customer record must be linked before this order can be created."};
@@ -346,7 +349,8 @@ export async function createManagementOrderAction(input: { organisationId:string
       customerId=customer.id;
     }
     if(!customerId||!(await value.repository.listCustomers(value.organisation.id)).some(c=>c.id===customerId&&c.organisationId===value.organisation.id)) return {ok:false,error:"Select an existing customer in this organisation."};
-    const {data,error}=await(await serverSupabase()).rpc("club_management_create_order_secure",{p_organisation_id:value.organisation.id,p_location_id:input.locationId,p_customer_id:customerId,p_items:input.items.map(i=>({product_id:i.productId,quantity:i.quantity})),p_idempotency_key:input.idempotencyKey.trim()});
+    const rpcName=validation.needsManualPricing?"club_management_create_order_with_manual_lines_secure":"club_management_create_order_secure";
+    const {data,error}=await(await serverSupabase()).rpc(rpcName,{p_organisation_id:value.organisation.id,p_location_id:input.locationId,p_customer_id:customerId,p_items:validation.lines.map(i=>i.kind==="catalogue"?{product_id:i.productId,quantity:i.quantity}:{kind:i.kind,description:i.description.trim(),quantity:i.quantity,unit_price_minor:i.unitPriceMinor,notes:i.notes?.trim()||null,stock_product_id:i.stockProductId||null}),p_idempotency_key:input.idempotencyKey.trim()});
     if(error||!data||typeof data!=="object")return{ok:false,error:"The order could not be created. Refresh and check whether it appears in Orders."};
     const payload=data as Record<string,unknown>;const order=payload.order as Record<string,unknown>;
     revalidatePath("/club/orders");revalidatePath("/club/payments");revalidatePath("/club/shop");

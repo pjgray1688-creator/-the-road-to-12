@@ -817,6 +817,48 @@ body:has(.club-page){
   color:#6e32a7;
 }
 
+/* Club action contrast: keep the base state readable without hover. */
+.club-page:not(.glow-zone-page) button.primary,
+.club-page:not(.glow-zone-page) a.primary{
+  border:1px solid #633582;
+  background:#75429b;
+  color:#fff;
+  opacity:1;
+  font-weight:750;
+}
+.club-page:not(.glow-zone-page) button.primary:hover:not(:disabled),
+.club-page:not(.glow-zone-page) a.primary:hover:not([aria-disabled="true"]){background:#603382;color:#fff}
+.club-page:not(.glow-zone-page) button.secondary,
+.club-page:not(.glow-zone-page) a.secondary{
+  border:1px solid #bdb2c7;
+  background:#fff;
+  color:#39294a;
+  opacity:1;
+  font-weight:700;
+}
+.club-page:not(.glow-zone-page) button.secondary:hover:not(:disabled),
+.club-page:not(.glow-zone-page) a.secondary:hover:not([aria-disabled="true"]){border-color:#8b6a9e;background:#f5eff8;color:#342044}
+.club-page:not(.glow-zone-page) button.danger,
+.club-page:not(.glow-zone-page) a.danger{border:1px solid #a43a45;background:#fff;color:#8c2632;opacity:1;font-weight:700}
+.club-page:not(.glow-zone-page) button.danger:hover:not(:disabled),
+.club-page:not(.glow-zone-page) a.danger:hover:not([aria-disabled="true"]){background:#fff0f1;color:#76202b}
+.club-page:not(.glow-zone-page) button.primary:disabled,
+.club-page:not(.glow-zone-page) button.secondary:disabled,
+.club-page:not(.glow-zone-page) button.danger:disabled,
+.club-page:not(.glow-zone-page) button[aria-disabled="true"]{border-color:#c9c2cf;background:#e7e3ea;color:#625a68;opacity:1;cursor:not-allowed}
+.club-page:not(.glow-zone-page) :is(button,a).primary:focus-visible,
+.club-page:not(.glow-zone-page) :is(button,a).secondary:focus-visible,
+.club-page:not(.glow-zone-page) :is(button,a).danger:focus-visible{outline:3px solid #b68bd0;outline-offset:2px}
+
+.club-checks-config-venues{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:14px 0;padding:10px 12px;border:1px solid #e9e3ed;border-radius:10px;background:#faf9fb}
+.club-checks-config-venues>strong{margin-right:4px;color:#5c5262;font-size:12px}
+.club-checks-config-venues a{display:inline-flex;align-items:center;justify-content:space-between;gap:10px;min-height:42px;padding:7px 11px;border:1px solid #ded5e6;border-radius:8px;background:#fff;color:#473651;font-size:12px;font-weight:700;text-decoration:none}
+.club-checks-config-venues a span{color:#74667d;font-size:11px;font-weight:600}
+.club-checks-config-venues a[aria-current="page"]{border-color:#8656a3;background:#f4edf8;color:#43265a}
+.club-checks-config-venues a:hover{border-color:#a982c7;background:#f8f3fb}
+.club-checks-config-venues a:focus-visible{outline:3px solid #b68bd0;outline-offset:2px}
+@media(max-width:600px){.club-checks-config-venues{align-items:stretch}.club-checks-config-venues>strong{width:100%}.club-checks-config-venues a{flex:1 1 100%;min-height:46px}}
+
 /* Light separation instead of old dark blocks */
 .club-page:not(.glow-zone-page) .surface,
 .club-page:not(.glow-zone-page) .card{
