@@ -74,6 +74,7 @@ export function createAkuvoxA02Handler(config: Config) {
     remoteAddress: string;
   }): Promise<{ status: number; body: string }> => {
     const source = normalizedIp(input.remoteAddress);
+    if (!config.allowedIps.has(source)) return { status: 200, body: DENY };
     const instant = now();
     let bucket = buckets.get(source);
     if (!bucket || instant - bucket.start >= 60_000) {
@@ -87,13 +88,12 @@ export function createAkuvoxA02Handler(config: Config) {
     const pin = input.url.searchParams.get("pin");
     const deviceTime = input.url.searchParams.get("time");
     const credentials = decodeBasic(input.authorization);
-    const permittedSource = config.allowedIps.has(source);
     const permittedDevice = deviceId !== null && secureEqual(deviceId, config.akuvoxDeviceId);
     const permittedAuth = credentials !== null
       && secureEqual(credentials.username, config.basicUsername)
       && secureEqual(credentials.password, config.basicPassword);
 
-    if (input.method !== "GET" || input.url.href.length > 1_024 || !permittedSource || !permittedDevice || !permittedAuth
+    if (input.method !== "GET" || input.url.href.length > 1_024 || !permittedDevice || !permittedAuth
       || input.authorization!.length > 512 || input.url.searchParams.getAll("pin").length !== 1
       || input.url.searchParams.getAll("deviceId").length !== 1 || input.url.searchParams.getAll("time").length !== 1
       || !deviceTime || deviceTime.length > 64 || !pin || !PIN_PATTERN.test(pin)) {
