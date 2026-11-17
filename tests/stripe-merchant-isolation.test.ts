@@ -199,6 +199,8 @@ test("signed webhook routes and durable event ledger are isolated by legal merch
   assert.match(franchiseWebhook, /club_record_stripe_membership_event_for_account/);
   assert.match(productsWebhook, /readStripeMerchantConfig\("madhouse_products_services"\)/);
   assert.match(productsWebhook, /club_record_stripe_commerce_event/);
+  assert.match(productsWebhook, /stripeEventId: event\.id[\s\S]*stripeEventType: event\.type[\s\S]*paymentAttemptId: attemptId[\s\S]*code: error\.code[\s\S]*message: error\.message[\s\S]*details: error\.details[\s\S]*hint: error\.hint/);
+  assert.match(productsWebhook, /Stripe event could not be reconciled[\s\S]*status: 500/);
   assert.match(migration, /provider_event_key text not null unique/);
   assert.match(migration, /club_payment_attempts_stripe_session_uq/);
   assert.match(migration, /club_payment_attempts_stripe_intent_uq/);

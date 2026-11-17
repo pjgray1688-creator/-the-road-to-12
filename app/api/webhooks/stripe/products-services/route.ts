@@ -73,6 +73,19 @@ export async function POST(request: NextRequest) {
     p_payment_intent_id: paymentIntentId, p_customer_id: customerId, p_amount_minor: amountMinor,
     p_refunded_minor: refundedMinor, p_currency: currency, p_status: status,
   });
-  if (error) return NextResponse.json({ error: "Stripe event could not be reconciled" }, { status: 500 });
+  if (error) {
+    console.error("Products and Services Stripe event reconciliation failed", {
+      stripeEventId: event.id,
+      stripeEventType: event.type,
+      paymentAttemptId: attemptId,
+      supabaseError: {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+      },
+    });
+    return NextResponse.json({ error: "Stripe event could not be reconciled" }, { status: 500 });
+  }
   return new NextResponse(null, { status: 204 });
 }
