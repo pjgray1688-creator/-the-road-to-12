@@ -5,10 +5,6 @@ import { serverSupabase } from "@/lib/supabase-server";
 import { resolveClubOperationalContext } from "@/lib/club-server-context";
 import { clubCapabilities, resolveClubCapabilities } from "@/lib/club-capabilities";
 import { nudgeNotificationWorker } from "@/lib/notification-nudge";
-import { adminSupabase } from "@/lib/supabase-admin";
-import { MADHOUSE_PRODUCTION_ORGANISATION_ID } from "@/lib/madhouse-catalogue";
-import { R12_CANONICAL_AUTH_ORIGIN } from "@/lib/auth-return";
-import { canManagerResetStaffPassword } from "@/lib/club-staff-password-policy";
 
 async function staffManager(organisationId: string) {
   const client = await serverSupabase();
@@ -17,53 +13,6 @@ async function staffManager(organisationId: string) {
   const context = await resolveClubOperationalContext(client, user.id, organisationId);
   if (!context || !(await context.repository.hasCapability(context.organisation.id, user.id, "staff.permissions_manage"))) return undefined;
   return { client, context, user };
-}
-
-export async function sendStaffPasswordReset(input: { organisationId: string; targetUserId: string }) {
-  try {
-    const manager = await staffManager(input.organisationId);
-    if (!manager || manager.context.organisation.id !== MADHOUSE_PRODUCTION_ORGANISATION_ID
-      || !["owner", "gym_admin"].includes(manager.context.role)
-      || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(input.targetUserId)) {
-      return { ok: false as const, code: "not_authorized" as const };
-    }
-
-    const { data: staffRows, error: staffError } = await manager.client.rpc("club_list_staff_accounts", { p_organisation_id: manager.context.organisation.id });
-    if (staffError || !Array.isArray(staffRows)) return { ok: false as const, code: "failed" as const };
-    const target = (staffRows as Array<Record<string, unknown>>).find(row => row.user_id === input.targetUserId);
-    const targetRole = typeof target?.role === "string" ? target.role : "";
-    if (!target || !canManagerResetStaffPassword(manager.context.role, targetRole, manager.user.id, input.targetUserId)) {
-      return { ok: false as const, code: "not_authorized" as const };
-    }
-
-    const authUser = await adminSupabase().auth.admin.getUserById(input.targetUserId);
-    const email = authUser.data.user?.email?.trim();
-    const emailVerified = Boolean(authUser.data.user?.email_confirmed_at);
-    if (authUser.error || !email || !emailVerified) return { ok: false as const, code: "no_verified_email" as const };
-
-    // Audit the actor and target before asking Supabase Auth to send its
-    // rate-limited, expiring recovery email. Tokens never enter this server action.
-    const { error: auditError } = await manager.client.rpc("club_append_audit_event", {
-      p_organisation_id: manager.context.organisation.id,
-      p_action: "staff.password_reset.initiated",
-      p_target_type: "staff_account",
-      p_target_id: input.targetUserId,
-      p_location_id: null,
-      p_reason: null,
-      p_metadata: { delivery: "supabase_auth_recovery" },
-    });
-    if (auditError) return { ok: false as const, code: "failed" as const };
-
-    const params = new URLSearchParams({ app: "club", next: "/club" });
-    const { error } = await manager.client.auth.resetPasswordForEmail(email, {
-      redirectTo: `${R12_CANONICAL_AUTH_ORIGIN}/account/reset?${params.toString()}`,
-    });
-    if (error) return { ok: false as const, code: "failed" as const };
-    revalidatePath("/club/staff");
-    return { ok: true as const };
-  } catch {
-    return { ok: false as const, code: "failed" as const };
-  }
 }
 
 export async function createStaffAccessGrant(input: { organisationId: string; email: string; displayName: string; role: "gym_staff" | "gym_admin" | "trainer"; locationIds: string[]; coachRequested: boolean; memberIntent: boolean }) {

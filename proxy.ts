@@ -7,6 +7,11 @@ function hasSupabaseAuthCookie(request: NextRequest) {
   return request.cookies.getAll().some(cookie => /^sb-.+-auth-token(?:\.\d+)?$/.test(cookie.name));
 }
 
+function isPasswordChangeRequiredRoute(pathname: string) {
+  return ["/account", "/api", "/member-hub", "/training", "/history", "/nutrition", "/progress", "/personal-bests", "/onboarding", "/coach", "/club", "/glow-zone"]
+    .some(prefix => pathname === prefix || pathname.startsWith(`${prefix}/`));
+}
+
 export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   if (pathname === "/account/reset" && request.nextUrl.searchParams.get("type") === "recovery" && request.nextUrl.searchParams.has("token_hash")) {
@@ -19,11 +24,12 @@ export async function proxy(request: NextRequest) {
   }
 
   let response = NextResponse.next({ request });
-  let verifiedUser: { id: string; email?: string | null } | undefined;
+  let verifiedUser: { id: string; email?: string | null; app_metadata?: Record<string, unknown> } | undefined;
   const isClubRequest = pathname.startsWith("/club") || pathname === "/api/club" || pathname.startsWith("/api/club/");
   const isCoachRequest = pathname.startsWith("/coach") || pathname === "/api/coach" || pathname.startsWith("/api/coach/");
   const needsVerifiedIdentity = (isClubRequest && pathname !== "/club/privacy")
-    || (isCoachRequest && pathname !== "/coach/privacy");
+    || (isCoachRequest && pathname !== "/coach/privacy")
+    || isPasswordChangeRequiredRoute(pathname);
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (needsVerifiedIdentity && hasSupabaseAuthCookie(request) && supabaseUrl && supabaseAnonKey) {
@@ -39,7 +45,7 @@ export async function proxy(request: NextRequest) {
     });
     try {
       const { data, error } = await supabase.auth.getUser();
-      if (!error && data.user) verifiedUser = { id: data.user.id, email: data.user.email };
+      if (!error && data.user) verifiedUser = { id: data.user.id, email: data.user.email, app_metadata: data.user.app_metadata };
     } catch {
       // Unavailable or invalid sessions are treated as unauthenticated here.
     }
@@ -49,6 +55,21 @@ export async function proxy(request: NextRequest) {
     if (result !== response) response.cookies.getAll().forEach(cookie => result.cookies.set(cookie));
     return result;
   };
+  const passwordChangeAllowedPaths = new Set(["/account/required-password-change", "/account/reset"]);
+  if (verifiedUser?.app_metadata?.password_change_required === true && !passwordChangeAllowedPaths.has(pathname)) {
+    if (pathname.startsWith("/api/")) {
+      return finish(new NextResponse(JSON.stringify({ error: "password_change_required" }), {
+        status: 423,
+        headers: { "Cache-Control": "private, no-store", "Content-Type": "application/json" },
+      }));
+    }
+    const url = request.nextUrl.clone();
+    url.pathname = "/account/required-password-change";
+    url.search = "";
+    const redirect = NextResponse.redirect(url);
+    redirect.headers.set("Cache-Control", "private, no-store");
+    return finish(redirect);
+  }
   const coachReviewerPolicy = playReviewerCoachRequestPolicy(verifiedUser?.email, pathname, request.method);
   if (coachReviewerPolicy === "deny") {
     const denied = new NextResponse("Coach changes and API access are disabled for the read-only review account.", { status: 403, headers: { "Cache-Control": "private, no-store" } });
@@ -81,4 +102,4 @@ export async function proxy(request: NextRequest) {
   return finish(redirected);
 }
 
-export const config = { matcher: ["/account/reset", "/club/:path*", "/api/club/:path*", "/coach/:path*", "/api/coach/:path*"] };
+export const config = { matcher: ["/account/:path*", "/api/:path*", "/member-hub/:path*", "/training/:path*", "/history/:path*", "/nutrition/:path*", "/progress/:path*", "/personal-bests/:path*", "/onboarding/:path*", "/coach/:path*", "/club/:path*", "/glow-zone/:path*"] };

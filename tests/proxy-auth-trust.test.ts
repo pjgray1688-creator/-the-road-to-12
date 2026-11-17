@@ -6,7 +6,7 @@ const proxy = readFileSync("proxy.ts", "utf8");
 
 test("proxy reviewer and station decisions use Supabase-verified identity, never decoded JWT claims", () => {
   assert.match(proxy, /supabase\.auth\.getUser\(\)/);
-  assert.match(proxy, /verifiedUser = \{ id: data\.user\.id, email: data\.user\.email \}/);
+  assert.match(proxy, /verifiedUser = \{ id: data\.user\.id, email: data\.user\.email, app_metadata: data\.user\.app_metadata \}/);
   assert.match(proxy, /playReviewerClubRequestPolicy\(verifiedUser\?\.email/);
   assert.match(proxy, /playReviewerCoachRequestPolicy\(verifiedUser\?\.email/);
   assert.match(proxy, /verifyClubStationSession\(stationSession, subject, station\.id\)/);
@@ -21,7 +21,9 @@ test("proxy avoids verification network calls for routes outside Club/Coach and 
   assert.match(proxy, /needsVerifiedIdentity && hasSupabaseAuthCookie\(request\)/);
   assert.match(proxy, /pathname !== "\/club\/privacy"/);
   assert.match(proxy, /pathname !== "\/coach\/privacy"/);
-  assert.match(proxy, /export const config = \{ matcher: \["\/account\/reset", "\/club\/:path\*", "\/api\/club\/:path\*", "\/coach\/:path\*", "\/api\/coach\/:path\*"\] \}/);
+  assert.match(proxy, /password_change_required === true/);
+  assert.match(proxy, /"\/account\/required-password-change"/);
+  assert.match(proxy, /"\/api\/:path\*"/);
 });
 
 test("station cookie verification remains signed, user-bound, station-bound and time-limited", () => {

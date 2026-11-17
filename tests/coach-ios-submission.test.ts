@@ -135,5 +135,6 @@ test("review identity cannot call Coach APIs or mutate Coach routes", () => {
   assert.equal(playReviewerCoachRequestPolicy("staff@r12.live", "/api/coach/programmes", "POST"), "allow");
   const proxy = read("proxy.ts");
   assert.match(proxy, /playReviewerCoachRequestPolicy/);
-  assert.match(proxy, /"\/coach\/:path\*", "\/api\/coach\/:path\*"/);
+  assert.match(proxy, /"\/coach\/:path\*"/);
+  assert.match(proxy, /"\/api\/:path\*"/);
 });
