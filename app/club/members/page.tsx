@@ -34,15 +34,18 @@ export default async function ClubMembersPage({ searchParams }: { searchParams?:
       const row = value as Record<string, unknown>;
       if (typeof row.id !== "string" || typeof row.display_name !== "string") return [];
       const customer = customers.find(item => item.id === row.id);
-      const savedHome = locations.find(location => location.id === customer?.preferredLocationId);
+      const home = row.home_location && typeof row.home_location === "object" ? row.home_location as Record<string, unknown> : {};
+      const savedHome = typeof home.id === "string" && typeof home.name === "string" ? { id: home.id, name: home.name } : locations.find(location => location.id === customer?.preferredLocationId);
       return [{
         id: row.id,
+        ...(typeof row.user_id === "string" ? { userId: row.user_id } : {}),
         displayName: row.display_name,
         ...(typeof row.email === "string" ? { email: row.email } : {}),
         ...(typeof row.membership_name === "string" ? { membershipName: row.membership_name } : {}),
         ...(typeof row.membership_status === "string" ? { membershipStatus: row.membership_status } : {}),
+        ...(typeof row.directory_status === "string" ? { directoryStatus: row.directory_status } : {}),
         ...(typeof row.membership_ends_at === "string" ? { membershipEndsAt: row.membership_ends_at } : {}),
-        ...(customer?.phone ? { phone: customer.phone } : {}),
+        ...(typeof row.phone === "string" ? { phone: row.phone } : customer?.phone ? { phone: customer.phone } : {}),
         ...(savedHome ? { homeLocation: { id: savedHome.id, name: savedHome.name } } : {}),
       }];
     })
@@ -59,7 +62,7 @@ export default async function ClubMembersPage({ searchParams }: { searchParams?:
     }),
     ...unlinkedMembershipCustomers.map(customer => [customer.id, { id: customer.id, displayName: customer.displayName, email: customer.email, phone: customer.phone }] as const),
   ]).values()];
-  const allowedStatuses = new Set(["all", "active", "pending", "inactive", "paused", "suspended", "cancelled", "expired", "arrears"]);
+  const allowedStatuses = new Set(["all", "active", "lapsed", "former", "pending_review", "arrears"]);
   const sort = ["name", "home", "plan", "status", "ends"].includes(params?.sort ?? "") ? params?.sort as "name" | "home" | "plan" | "status" | "ends" : "name";
   const page = Math.max(1, Math.min(100000, Number.parseInt(params?.page ?? "1", 10) || 1));
   const allowedAccess = new Set(["all", "active", "needs_attention", "unavailable"]);

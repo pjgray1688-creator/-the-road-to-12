@@ -15,6 +15,7 @@ import type { GraceExtensionContext } from "@/lib/club-payment-grace";
 import { serverSupabase } from "@/lib/supabase-server";
 import { resolveClubOrganisationContext, isClubStaffRole } from "@/lib/club-server-context";
 import { membershipSupportsAdditionalPerson } from "@/lib/madhouse-catalogue";
+import { formatClubMemberDisplayName } from "@/lib/club-member-directory";
 
 export default async function ClubCustomerProfilePage({ params, searchParams }: { params: Promise<{ customerId: string }>; searchParams?: Promise<{ org?: string; returnTo?: string }> }) {
   const supabase = await serverSupabase(); const { data: { user } } = await supabase.auth.getUser(); if (!user) redirect("/account?app=club&mode=signIn");
@@ -44,7 +45,7 @@ export default async function ClubCustomerProfilePage({ params, searchParams }: 
   const physicalLocations = locations.filter(location => location.active);
   const locationId = physicalLocations.length === 1 ? physicalLocations[0].id : undefined;
   return <AppShell className="module-page club-page">
-    <PageHeader eyebrow="R12 CLUB · CUSTOMER" title={customer.displayName} description={customer.email ?? "Customer record"} />
+    <PageHeader eyebrow="R12 CLUB · CUSTOMER" title={formatClubMemberDisplayName(customer.displayName)} description={customer.email ?? "Customer record"} />
     <ClubSectionNav organisation={context.organisation} role={context.role} contexts={context.availableContexts} />
     <div className="club-profile-grid">
       <Surface><span className="eyebrow">IDENTITY</span><p className="muted">{customer.email ?? "No email recorded"}</p><p className="muted">{customer.userId ? "R12 account linked" : "No R12 account linked"}</p>{!customer.userId ? <><p className="muted">A person’s Club Manager email does not prove the email or R12 login belongs to that person. Never merge profiles by email alone.</p><ClubCustomerLink organisationId={context.organisation.id} customerId={customer.id} /><ClubMemberPersonalEmailVerification organisationId={context.organisation.id} customerId={customer.id} currentEmail={customer.email} />{canLinkAccounts && activationState === "ready_for_activation" ? <ClubMemberActivationEmail organisationId={context.organisation.id} customerId={customer.id} /> : canLinkAccounts && customer.email ? <p className="muted">Activation is held until staff verify this as the member’s own personal email.</p> : null}</> : null}</Surface>

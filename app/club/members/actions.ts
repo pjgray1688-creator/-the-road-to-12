@@ -62,6 +62,19 @@ export async function setFamilyContractTermsAction(input: { organisationId: stri
   } catch { return { ok: false, error: "Family terms could not be saved; no billing or access was changed." }; }
 }
 
+export async function saveLegacyMembershipReviewAction(input: { organisationId: string; importRowId: string; decision: Record<string, unknown> }): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const client = await serverSupabase(); const { data: { user } } = await client.auth.getUser();
+    if (!user) return { ok: false, error: "Sign in to review historical memberships." };
+    const context = await resolveClubOperationalContext(client, user.id, input.organisationId);
+    if (!context || !(await context.repository.hasCapability(input.organisationId, user.id, "members.import"))) return { ok: false, error: "Historical membership review is not permitted." };
+    const { error } = await client.rpc("club_save_legacy_membership_review", { p_organisation_id: input.organisationId, p_import_row_id: input.importRowId, p_decision: input.decision });
+    if (error) return { ok: false, error: error.code === "42501" ? "Historical membership review is not permitted." : "The review was not saved; no membership, billing or access was changed." };
+    revalidatePath("/club/memberships"); revalidatePath("/club/members");
+    return { ok: true };
+  } catch { return { ok: false, error: "The review was not saved; no membership, billing or access was changed." }; }
+}
+
 export async function extendMembershipPaymentGraceAction(input: { organisationId: string; obligationId: string; newGraceExpiresAt: string; agreedPaymentDate?: string; reason: string; idempotencyKey: string }): Promise<{ ok: boolean; error?: string }> {
   try {
     const supabase = await serverSupabase();

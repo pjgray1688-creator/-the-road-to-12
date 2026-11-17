@@ -1,4 +1,9 @@
 .directory { display: grid; gap: 12px; min-width: 0; }
+.statusViews { display: flex; flex-wrap: wrap; gap: 6px; }
+.statusViews button { min-height: 35px; padding: 7px 11px; border: 1px solid #ded9e4; border-radius: 8px; background: #fff; color: #443b4c; font: inherit; font-size: 11px; font-weight: 700; cursor: pointer; }
+.statusViews button:hover { border-color: #b99bd2; background: #fbf8fe; }
+.statusViews button[aria-pressed="true"] { border-color: #75429b; background: #75429b; color: #fff; }
+.statusViews button:focus-visible { outline: 3px solid rgb(150 84 212 / 25%); outline-offset: 2px; }
 .filters { display: grid; grid-template-columns: minmax(220px, 1.4fr) repeat(3, minmax(145px, .7fr)); gap: 8px; }
 .filters label { display: block; min-width: 0; }
 .filters input,.filters select { width: 100%; min-width: 0; min-height: 40px; margin: 0; padding: 8px 10px; border: 1px solid #ded9e4; border-radius: 8px; background: #fff; color: #302a37; font: inherit; font-size: 12px; }
@@ -28,8 +33,10 @@
 .status { display: inline-flex; min-height: 22px; align-items: center; padding: 3px 7px; border: 1px solid #e3dfe8; border-radius: 999px; background: #f6f5f7; color: #635b69; font-size: 9px; font-weight: 750; text-transform: capitalize; }
 .status[data-state="active"] { border-color: #cce8d6; background: #eff9f2; color: #286b43; }
 .status[data-state="pending"] { border-color: #f0dfb9; background: #fff9e8; color: #806014; }
+.status[data-state="pending_review"] { border-color: #f0dfb9; background: #fff9e8; color: #806014; }
 .status[data-state="paused"],.status[data-state="suspended"] { border-color: #e7d8f3; background: #f8f2fc; color: #684180; }
 .status[data-state="expired"],.status[data-state="cancelled"] { border-color: #e8dfe3; background: #f7f3f5; color: #77636d; }
+.status[data-state="lapsed"],.status[data-state="former"] { border-color: #e8dfe3; background: #f7f3f5; color: #77636d; }
 .paymentFlag { color: #9b382e; font-size: 10px; font-weight: 750; }
 .paymentClear { color: #59816a; font-size: 10px; }
 .notRecorded { color: #938c99; font-size: 10px; }

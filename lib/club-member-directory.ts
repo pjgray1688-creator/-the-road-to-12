@@ -26,8 +26,16 @@ export function clubMembershipStatusMatches(status: string | undefined, filter: 
   if (filter === "all") return true;
   if (filter === "arrears") return Boolean(userId && arrearsUserIds.has(userId));
   const value = (status ?? "").toLowerCase();
+  if (filter === "lapsed") return ["expired", "lapsed"].includes(value);
+  if (filter === "former") return ["cancelled", "ended", "former", "inactive"].includes(value);
+  if (filter === "pending_review") return ["", "pending", "pending_review", "needs_review", "unmapped"].includes(value);
   if (filter === "inactive") return ["paused", "suspended", "inactive"].includes(value);
   return value === filter;
+}
+
+export function formatClubMemberDisplayName(value?: string) {
+  // Presentation-only cleanup: preserve Unicode spelling and letter case.
+  return value?.normalize("NFC").trim().replace(/\s+/g, " ") || "Member";
 }
 
 export function matchesClubMemberDirectoryFilters(row: ClubDirectoryRow, filters: ClubDirectoryFilters) {

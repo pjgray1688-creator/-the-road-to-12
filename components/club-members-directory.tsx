@@ -3,11 +3,11 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ClubMemberSummaryRead } from "@/lib/club-operational";
-import { clubDirectoryPageCount, compareClubMemberDirectoryRows, matchesClubMemberDirectoryFilters, type ClubDirectoryRow, type ClubDirectorySortField } from "@/lib/club-member-directory";
+import { clubDirectoryPageCount, compareClubMemberDirectoryRows, formatClubMemberDisplayName, matchesClubMemberDirectoryFilters, type ClubDirectoryRow, type ClubDirectorySortField } from "@/lib/club-member-directory";
 import styles from "./club-members-directory.module.css";
 
 type DirectoryMember = ClubMemberSummaryRead & { phone?: string };
-type ImportedMember = { id: string; displayName: string; email?: string; phone?: string; membershipName?: string; membershipStatus?: string; membershipEndsAt?: string; homeLocation?: { id: string; name: string } };
+type ImportedMember = { id: string; userId?: string; displayName: string; email?: string; phone?: string; membershipName?: string; membershipStatus?: string; directoryStatus?: string; membershipEndsAt?: string; homeLocation?: { id: string; name: string } };
 type SortField = ClubDirectorySortField;
 type Props = {
   members: DirectoryMember[];
@@ -26,11 +26,8 @@ type Props = {
 };
 
 const pageSize = 25;
-const statusOptions = [
-  ["all", "All membership statuses"], ["active", "Active"], ["pending", "Pending"],
-  ["inactive", "Paused / suspended"], ["cancelled", "Cancelled"], ["expired", "Expired"], ["arrears", "Arrears"],
-] as const;
-const labelStatus = (value?: string) => value ? value.replace(/_/g, " ").replace(/\b\w/g, letter => letter.toUpperCase()) : "Status unavailable";
+const statusOptions = [["all", "All Members"], ["active", "Active"], ["lapsed", "Lapsed"], ["former", "Former"], ["pending_review", "Pending Review"], ["arrears", "Arrears"]] as const;
+const labelStatus = (value?: string) => value ? ({ expired: "Lapsed", lapsed: "Lapsed", cancelled: "Former", ended: "Former", former: "Former", pending_review: "Pending Review" } as Record<string, string>)[value.toLowerCase()] ?? value.replace(/_/g, " ").replace(/\b\w/g, letter => letter.toUpperCase()) : "Pending Review";
 const formatDate = (value?: string) => value ? new Date(value).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—";
 const normaliseStatus = (value?: string) => (value ?? "").toLowerCase();
 
@@ -54,14 +51,14 @@ export function ClubMembersDirectory({ members, organisationId, customers = [], 
   const rows = useMemo<Row[]>(() => [
     ...members.map(member => ({
       key: `member:${member.id}`, id: member.customerId ?? member.id, userId: member.userId,
-      displayName: member.displayName?.trim() || "Member", email: member.email, phone: member.phone,
+      displayName: formatClubMemberDisplayName(member.displayName), email: member.email, phone: member.phone,
       plan: member.membershipName, status: member.membershipStatus, endsAt: member.membershipEndsAt,
       homeId: member.homeLocation?.id, homeName: member.homeLocation?.name,
       ref: (member.customerId ?? member.id).slice(0, 8).toUpperCase(), accessState: member.accessState, imported: false,
     })),
     ...customers.map(customer => ({
-      key: `customer:${customer.id}`, id: customer.id, displayName: customer.displayName?.trim() || "Member",
-      email: customer.email, phone: customer.phone, plan: customer.membershipName, status: customer.membershipStatus,
+      key: `customer:${customer.id}`, id: customer.id, userId: customer.userId, displayName: formatClubMemberDisplayName(customer.displayName),
+      email: customer.email, phone: customer.phone, plan: customer.membershipName, status: customer.directoryStatus ?? customer.membershipStatus ?? "pending_review",
       endsAt: customer.membershipEndsAt, homeId: customer.homeLocation?.id, homeName: customer.homeLocation?.name,
       ref: customer.id.slice(0, 8).toUpperCase(), imported: true,
     })),
@@ -110,12 +107,13 @@ export function ClubMembersDirectory({ members, organisationId, customers = [], 
       <label><span className="sr-only">Filter home gym</span><select aria-label="Filter home gym" value={homeFilter} onChange={event => changeFilter(setHomeFilter, event.target.value)}><option value="all">All home gyms</option>{homes.map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></label>
       <label><span className="sr-only">Filter membership plan</span><select aria-label="Filter membership plan" value={planFilter} onChange={event => changeFilter(setPlanFilter, event.target.value)}><option value="all">All membership plans</option>{plans.map(plan => <option key={plan} value={plan}>{plan}</option>)}</select></label>
     </div>
+    <div className={styles.statusViews} role="group" aria-label="Member directory views">{statusOptions.slice(0, 5).map(([value, label]) => <button type="button" key={value} aria-pressed={statusFilter === value} onClick={() => changeFilter(setStatusFilter, value)}>{label}</button>)}</div>
     <div className={styles.mobileFilters}>
       <label className={styles.mobileSearch}><span className="sr-only">Search by name or email</span><input type="search" aria-label="Search by name or email" placeholder="Search by name or email" value={query} onChange={event => { setQuery(event.target.value); setPage(1); }} /></label>
       <label><span className="sr-only">Filter access</span><select aria-label="Filter access" value={accessFilter} onChange={event => changeFilter(setAccessFilter, event.target.value)}><option value="all">All access</option><option value="active">Access active</option><option value="needs_attention">Needs attention</option><option value="unavailable">Access unavailable</option></select></label>
       <label><span className="sr-only">Filter membership</span><select aria-label="Filter membership" value={statusFilter} onChange={event => changeFilter(setStatusFilter, event.target.value)}><option value="all">All membership history</option>{[...new Set(rows.map(row => row.status).filter((value): value is string => Boolean(value)))].sort().map(value => <option value={value} key={value}>{labelStatus(value)}</option>)}</select></label>
     </div>
-    <div className={styles.resultSummary}><strong>{filtered.length.toLocaleString("en-GB")}</strong><span>{filtered.length === 1 ? "membership record" : "membership records"}</span><span className={styles.mobilePeople}>{filtered.length.toLocaleString("en-GB")} {filtered.length === 1 ? "person" : "people"}</span><span className={`${styles.dataNote} club-member-history-note`}>Only people with membership history appear here.</span></div>
+    <div className={styles.resultSummary}><strong>{filtered.length.toLocaleString("en-GB")}</strong><span>{filtered.length === 1 ? "member profile" : "member profiles"}</span><span className={styles.mobilePeople}>{filtered.length.toLocaleString("en-GB")} {filtered.length === 1 ? "person" : "people"}</span><span className={`${styles.dataNote} club-member-history-note`}>Imported profiles remain pending review until evidence is reconciled; a profile alone grants no access.</span></div>
     {filtered.length ? <>
       <div className={styles.desktopTableWrap}>
         <table className={styles.table}>
