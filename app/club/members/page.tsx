@@ -40,12 +40,12 @@ export default async function ClubMembersPage({ searchParams }: { searchParams?:
         id: row.id,
         ...(typeof row.user_id === "string" ? { userId: row.user_id } : {}),
         displayName: row.display_name,
-        ...(typeof row.email === "string" ? { email: row.email } : {}),
+        ...(typeof row.email === "string" && row.email.trim() ? { email: row.email } : customer?.email ? { email: customer.email } : {}),
         ...(typeof row.membership_name === "string" ? { membershipName: row.membership_name } : {}),
         ...(typeof row.membership_status === "string" ? { membershipStatus: row.membership_status } : {}),
         ...(typeof row.directory_status === "string" ? { directoryStatus: row.directory_status } : {}),
         ...(typeof row.membership_ends_at === "string" ? { membershipEndsAt: row.membership_ends_at } : {}),
-        ...(typeof row.phone === "string" ? { phone: row.phone } : customer?.phone ? { phone: customer.phone } : {}),
+        ...(typeof row.phone === "string" && row.phone.trim() ? { phone: row.phone } : customer?.phone ? { phone: customer.phone } : {}),
         ...(savedHome ? { homeLocation: { id: savedHome.id, name: savedHome.name } } : {}),
       }];
     })
