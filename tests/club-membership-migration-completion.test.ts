@@ -58,6 +58,7 @@ test("historical directory includes profiles with no membership as pending revie
 });
 
 test("migration checks import, family contract, membership and audit prerequisites before defining RPCs", () => {
+  assert.match(migration, /to_regclass\('auth\.users'\) is null/);
   for (const [table, column] of [
     ["club_member_import_rows", "source_row_number"], ["club_member_import_rows", "imported_membership_id"],
     ["club_member_import_identities", "source_member_reference"], ["club_member_import_package_mappings", "source_package"],
@@ -78,4 +79,8 @@ test("legacy reviews preserve source evidence and are explicitly non-operational
   assert.match(migration, /operational_effect','review_only_no_membership_no_billing_no_access/);
   assert.doesNotMatch(migration, /delete from public\.club_customers|update public\.club_customers|delete from public\.club_memberships|update public\.club_memberships|insert into public\.club_entitlement_grants/);
   assert.doesNotMatch(migration, /insert into public\.club_member_import_package_mappings|update public\.club_member_import_package_mappings/);
+});
+
+test("legacy review projection closes the nested CASE before the aggregate ORDER BY", () => {
+  assert.match(migration, /'review',\s*case when rev\.id is null then null else jsonb_build_object\([\s\S]*?'review_state',rev\.review_state\) end\s*\) order by r\.source_row_number\)/);
 });

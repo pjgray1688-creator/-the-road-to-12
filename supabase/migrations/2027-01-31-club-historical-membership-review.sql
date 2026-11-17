@@ -16,6 +16,9 @@ begin
       raise exception 'Required membership-review table public.% is missing; migration made no changes',t;
     end if;
   end loop;
+  if to_regclass('auth.users') is null then
+    raise exception 'Required Supabase Auth table auth.users is missing; migration made no changes';
+  end if;
   if to_regprocedure('public.club_capability_allowed(uuid,uuid,text)') is null then
     raise exception 'Membership-review capability function is missing; migration made no changes';
   end if;
@@ -209,7 +212,7 @@ begin
     'original_promotional_rate',coalesce(r.normalized_values->>'promotionalRate',r.raw_values->>'promotional_rate',r.raw_values->>'promo_rate'),
     'original_package_wording',coalesce(r.normalized_values->>'historicPackageWording',r.raw_values->>'package_wording',r.raw_values->>'membership_description'),
     'mapping_product_id',pm.club_product_id,'mapping_status',pm.status,
-    'review',case when rev.id is null then null else jsonb_build_object('id',rev.id,'canonical_product_id',rev.canonical_product_id,'home_location_id',rev.home_location_id,'person_identity_state',rev.person_identity_state,'billing_evidence_state',rev.billing_evidence_state,'joining_fee_waived',rev.joining_fee_waived,'promotional_rate_minor',rev.promotional_rate_minor,'promotion_label',rev.promotion_label,'billing_interval',rev.billing_interval,'historic_package_wording',rev.historic_package_wording,'verified_recurring_amount_minor',rev.verified_recurring_amount_minor,'source_membership_reference',rev.source_membership_reference,'household_reference',rev.household_reference,'responsible_payer_reference',rev.responsible_payer_reference,'responsible_payer_customer_id',rev.responsible_payer_customer_id,'evidence_note',rev.evidence_note,'review_state',rev.review_state)
+    'review',case when rev.id is null then null else jsonb_build_object('id',rev.id,'canonical_product_id',rev.canonical_product_id,'home_location_id',rev.home_location_id,'person_identity_state',rev.person_identity_state,'billing_evidence_state',rev.billing_evidence_state,'joining_fee_waived',rev.joining_fee_waived,'promotional_rate_minor',rev.promotional_rate_minor,'promotion_label',rev.promotion_label,'billing_interval',rev.billing_interval,'historic_package_wording',rev.historic_package_wording,'verified_recurring_amount_minor',rev.verified_recurring_amount_minor,'source_membership_reference',rev.source_membership_reference,'household_reference',rev.household_reference,'responsible_payer_reference',rev.responsible_payer_reference,'responsible_payer_customer_id',rev.responsible_payer_customer_id,'evidence_note',rev.evidence_note,'review_state',rev.review_state) end
   ) order by r.source_row_number)
   from public.club_member_import_rows r
   join public.club_member_import_batches b on b.id=r.batch_id and b.organisation_id=r.organisation_id
