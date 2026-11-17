@@ -1,0 +1,19 @@
+.card {
+  width: min(100%, 700px);
+  margin-inline: auto;
+  border: 1px solid rgba(88, 50, 145, .18);
+  border-radius: 18px;
+  padding: clamp(18px, 4vw, 30px);
+  background: linear-gradient(160deg, #fff 0%, #fbf9fe 100%);
+  box-shadow: 0 14px 34px rgba(35, 20, 54, .08);
+}
+.qrWrap { display: grid; place-items: center; padding: 18px 0; }
+.qrWrap svg { display: block; width: min(78vw, 320px); height: auto; border: 1px solid #e3dcec; border-radius: 14px; background: #fff; }
+.venues { border-left: 3px solid #7041a6; padding: 8px 12px; color: #332641; background: #f7f2fc; }
+.pinControls { margin-top: 18px; }
+.pinValue { font-variant-numeric: tabular-nums; letter-spacing: .18em; }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+@media (max-width: 520px) {
+  .card { border-radius: 14px; padding: 18px 15px; }
+  .actions > button { flex: 1 1 145px; min-height: 46px; }
+}
