@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { authoriseMemberImportAction, executeMemberImportAction, getMemberImportBatchAction, mapMemberImportPackageAction, stageMemberImportAction } from "@/app/club/members/import/actions";
+import { useEffect, useState, useTransition } from "react";
+import { authoriseMemberImportAction, executeMemberImportAction, getApprovedMemberImportRecoveryStatusAction, getMemberImportBatchAction, mapMemberImportPackageAction, recoverApprovedMemberImportBatchAction, stageMemberImportAction } from "@/app/club/members/import/actions";
 import { stageMemberCsv, type MemberImportMapping } from "@/lib/club-member-import";
 
 const fields: Array<[string, string]> = [["firstName", "First name"], ["lastName", "Last name"], ["fullName", "Full name"], ["email", "Email"], ["phone", "Phone"], ["legacyReference", "External member ID"], ["membershipName", "Membership/package"], ["membershipStatus", "Membership status"], ["startDate", "Start date"], ["endDate", "End/expiry date"], ["nextPaymentDate", "Next payment date"], ["paidThroughDate", "Paid-through date"], ["homeLocation", "Home location"], ["billingMethod", "Payment method"], ["householdReference", "Shared contract ID"], ["householdRole", "Covered person role"], ["responsiblePayerReference", "Responsible payer member ID"], ["billingAmount", "Recurring amount"], ["providerCustomerReference", "Provider customer reference"], ["providerSubscriptionReference", "Mandate/subscription reference"]];
 type ServerRow = { source_row_number?: number; normalized_values?: Record<string, string>; warnings?: string[]; blockers?: string[]; action?: string; outcome?: string };
+type RecoverySummary = { state: "eligible" | "completed" | "not_eligible"; total: number; imported: number; linked: number; recovered: number; skipped: number | null; rejected: number; failed: number | null; memberships: number };
 export function ClubMemberImport({ organisationId, membershipProducts = [] }: { organisationId: string; membershipProducts?: Array<{ id: string; name: string; isLifetime?: boolean; legacyImportCategory?: string; archived?: boolean; fixedTermValue?: number; fixedTermUnit?: "day" | "week" | "month" }> }) {
   const [filename, setFilename] = useState("");
   const [source, setSource] = useState("");
@@ -14,8 +15,23 @@ export function ClubMemberImport({ organisationId, membershipProducts = [] }: { 
   const [batch, setBatch] = useState<Record<string, unknown>>({});
   const [serverRows, setServerRows] = useState<ServerRow[]>([]);
   const [message, setMessage] = useState("");
+  const [recoverySummary, setRecoverySummary] = useState<RecoverySummary | null>(null);
+  const [recoveryError, setRecoveryError] = useState("");
+  const [recoveryLoading, setRecoveryLoading] = useState(true);
+  const [recoveryAttempted, setRecoveryAttempted] = useState(false);
   const [pending, startTransition] = useTransition();
   const batchId = String(batch.id ?? "");
+
+  useEffect(() => {
+    let active = true;
+    void getApprovedMemberImportRecoveryStatusAction(organisationId).then(result => {
+      if (!active) return;
+      if (result.ok) setRecoverySummary(result.summary);
+      else setRecoveryError(result.error);
+      setRecoveryLoading(false);
+    });
+    return () => { active = false; };
+  }, [organisationId]);
 
   const load = (text: string, name: string) => {
     const next = stageMemberCsv(text, mapping);
@@ -57,8 +73,41 @@ export function ClubMemberImport({ organisationId, membershipProducts = [] }: { 
     setMessage(result.ok ? "Import completed. No account invitations, activation emails or marketing were sent or queued." : result.error ?? "Import could not be completed.");
     if (result.ok) applyReport(result.batch);
   });
+  const recoverBatch = () => {
+    if (pending || recoverySummary?.state !== "eligible") return;
+    const confirmed = window.confirm(
+      "Run the one-time recovery for the verified 702-row Madhouse batch? This preserves its 225 completed rows, attempts only the 477 rejected rows, and will stop if its safety checks do not match. It does not create billing records or subscriptions. Continue?",
+    );
+    if (!confirmed) return;
+    setRecoveryAttempted(true);
+    setRecoveryError("");
+    startTransition(async () => {
+      const result = await recoverApprovedMemberImportBatchAction(organisationId);
+      if ("summary" in result && result.summary) setRecoverySummary(result.summary);
+      if (!result.ok) {
+        setRecoveryError(result.error ?? "Recovery could not be confirmed. Refresh the batch status before taking any further action.");
+        return;
+      }
+      setRecoverySummary(result.summary);
+      setRecoveryError("");
+    });
+  };
 
   return <section aria-label="Member CSV import"><div className="card">
+    <div className="card" aria-labelledby="approved-recovery-title">
+      <span className="eyebrow">APPROVED RECOVERY</span>
+      <h3 id="approved-recovery-title">Recover the verified Madhouse batch</h3>
+      <p className="muted">One-time recovery for batch 6bf9d303-525a-4565-88a4-b4121fac7f98. It calls the dedicated recovery RPC, never the ordinary import execution action.</p>
+      {recoveryLoading ? <p className="muted" role="status">Checking recovery status…</p> : null}
+      {!recoveryLoading && recoveryError && !recoverySummary ? <p className="error-text" role="alert">{recoveryError}</p> : null}
+      {recoverySummary ? <>
+        <p className="muted" aria-live="polite">Batch rows: {recoverySummary.total} · Imported: {recoverySummary.imported} · Linked: {recoverySummary.linked} · Skipped: {recoverySummary.skipped ?? "not reported"} · Rejected: {recoverySummary.rejected} · Failed: {recoverySummary.failed ?? "not reported"} · Membership records: {recoverySummary.memberships}</p>
+        {recoverySummary.state === "completed" ? <p role="status">Recovery complete: {recoverySummary.recovered} rows recovered; {recoverySummary.skipped ?? "not reported"} previously completed rows skipped; {recoverySummary.rejected} rejected; {recoverySummary.failed ?? "not reported"} failed.</p> : null}
+        {recoverySummary.state === "eligible" ? <button type="button" className="primary" disabled={pending || recoveryLoading || recoveryAttempted} onClick={recoverBatch}>{pending ? "Recovering batch…" : recoveryAttempted ? "Recovery attempted · refresh status" : "Run approved one-time recovery"}</button> : null}
+        {recoverySummary.state === "not_eligible" ? <p className="muted">The batch does not match the recovery preflight. No recovery action is available.</p> : null}
+      </> : null}
+      {recoveryError && recoverySummary ? <p className="error-text" role="alert">{recoveryError}</p> : null}
+    </div>
     <span className="eyebrow">MEMBER MIGRATION</span><h2>Existing member import</h2>
     <p className="muted">Upload a CSV, map its columns, then review every proposed change. Staging is a dry run and creates no accounts, payments, memberships or access.</p>
     <p className="muted">For Couples or Family contracts, give every covered person the same shared contract ID and identify one responsible payer. This creates one membership and one reviewed billing obligation; importing never charges or resubscribes anyone.</p>

@@ -15,9 +15,13 @@ const fixedTermPath = join(
   process.cwd(),
   "supabase/migrations/2027-02-02-club-fixed-term-memberships.sql",
 );
+const actionPath = join(process.cwd(), "app/club/members/import/actions.ts");
+const componentPath = join(process.cwd(), "components/club-member-import.tsx");
 const sql = readFileSync(migrationPath, "utf8");
 const existingRecovery = readFileSync(recoveryPath, "utf8");
 const fixedTerm = readFileSync(fixedTermPath, "utf8");
+const action = readFileSync(actionPath, "utf8");
+const component = readFileSync(componentPath, "utf8");
 
 test("exception recovery replaces the installed RPC signature and keeps prerequisites ordered", () => {
   assert.match(sql, /to_regprocedure\('public\.club_recover_rejected_member_import_batch\(uuid,uuid\)'\)/);
@@ -92,4 +96,25 @@ test("recovery never writes billing records, preserves only safe counts in its r
   assert.match(sql, /'billing_records_created',false/);
   assert.match(sql, /revoke all on function public\.club_recover_rejected_member_import_batch\(uuid,uuid\) from public,anon/);
   assert.match(sql, /grant execute on function public\.club_recover_rejected_member_import_batch\(uuid,uuid\) to authenticated/);
+});
+
+test("Club recovery action is capability-checked and hard-scoped to the dedicated RPC and exact batch", () => {
+  assert.match(action, /hasCapability\(org, user\.id, "members\.import"\)/);
+  assert.match(action, /const APPROVED_RECOVERY_BATCH_ID = "6bf9d303-525a-4565-88a4-b4121fac7f98"/);
+  assert.match(action, /recoverApprovedMemberImportBatchAction\(organisationId: string\)/);
+  assert.match(action, /rpc\("club_recover_rejected_member_import_batch"/);
+  const recoveryAction = action.slice(action.indexOf("export async function recoverApprovedMemberImportBatchAction"), action.indexOf("export async function stageMemberImportAction"));
+  assert.doesNotMatch(recoveryAction, /rpc\("club_execute_member_import_batch"/);
+});
+
+test("recovery UI confirms once, locks duplicate submission, and renders actual final outcome counts", () => {
+  assert.match(component, /window\.confirm\(/);
+  assert.match(component, /setRecoveryAttempted\(true\)/);
+  assert.match(component, /disabled=\{pending \|\| recoveryLoading \|\| recoveryAttempted\}/);
+  assert.match(component, /\{recoverySummary\.recovered\} rows recovered/);
+  assert.match(component, /Skipped: \{recoverySummary\.skipped \?\? "not reported"\}/);
+  assert.match(component, /Rejected: \{recoverySummary\.rejected\}/);
+  assert.match(component, /Failed: \{recoverySummary\.failed \?\? "not reported"\}/);
+  assert.match(action, /error\.code === "55000"/);
+  assert.doesNotMatch(action, /setMessage\(.*error\.message/);
 });
