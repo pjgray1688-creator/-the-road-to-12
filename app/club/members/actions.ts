@@ -99,7 +99,7 @@ export async function extendMembershipPaymentGraceAction(input: { organisationId
   }
 }
 
-export async function assignMembershipAction(input: { organisationId: string; productId: string; holderUserIds?: string[]; customerId?: string; startsAt: string; endsAt?: string; idempotencyKey?: string }): Promise<ActionResult> {
+export async function assignMembershipAction(input: { organisationId: string; productId: string; holderUserIds?: string[]; customerId?: string; startsAt: string; endsAt?: string; grantType?: "prepaid" | "complimentary"; grantReason?: string; idempotencyKey?: string }): Promise<ActionResult> {
   try {
     const supabase = await serverSupabase();
     const { data: { user } } = await supabase.auth.getUser();
@@ -107,12 +107,29 @@ export async function assignMembershipAction(input: { organisationId: string; pr
     const context = await resolveClubOperationalContext(supabase, user.id, input.organisationId);
     if (!context || !(await context.repository.hasCapability(context.organisation.id, user.id, "memberships.assign"))) return { ok: false, error: "You don’t have permission to assign memberships." };
     const holders = [...new Set((input.holderUserIds ?? []).filter(Boolean))];
-    if (!input.productId || (!holders.length && !input.customerId) || !Number.isFinite(Date.parse(input.startsAt)) || (input.endsAt && (!Number.isFinite(Date.parse(input.endsAt)) || Date.parse(input.endsAt) <= Date.parse(input.startsAt)))) return { ok: false, error: "Check the membership details and dates." };
+    if (!input.productId || (!holders.length && !input.customerId) || !/^\d{4}-\d{2}-\d{2}$/.test(input.startsAt) || !Number.isFinite(Date.parse(input.startsAt)) || (input.endsAt && (!/^\d{4}-\d{2}-\d{2}$/.test(input.endsAt) || !Number.isFinite(Date.parse(input.endsAt)) || Date.parse(input.endsAt) < Date.parse(input.startsAt)))) return { ok: false, error: "Check the membership details and dates." };
     const products = await context.repository.listProducts(context.organisation.id, true);
     const product = products.find(item => item.id === input.productId && item.organisationId === context.organisation.id && item.kind === "membership" && !item.archivedAt);
     if (!product) return { ok: false, error: "Choose an available membership or pass." };
     if (product.isLifetime && input.endsAt) return { ok: false, error: "Golden Ticket — Lifetime Membership cannot have an end date. Remove the end date and try again." };
     if (product.pricingOnRequest) return { ok: false, error: "Family Membership requires authorised negotiated contract terms before activation." };
+    if (product.fixedTermValue && product.fixedTermUnit) {
+      if (!input.grantType || !input.grantReason || input.grantReason.trim().length < 8) return { ok: false, error: "Choose prepaid or complimentary and record the evidence or approval reason." };
+      if (product.priceMinor === 0 && input.grantType === "prepaid") return { ok: false, error: "A zero-priced product must be recorded as complimentary." };
+      if (context.role !== "owner" && context.role !== "gym_admin") return { ok: false, error: "Only authorised management can issue prepaid or complimentary fixed-term memberships." };
+      const { data, error } = await supabase.rpc("club_assign_fixed_term_membership", {
+        p_organisation_id: context.organisation.id, p_product_id: product.id, p_customer_id: input.customerId ?? null,
+        p_holder_user_ids: holders, p_starts_on: input.startsAt, p_expires_on: input.endsAt || null,
+        p_grant_type: input.grantType, p_reason: input.grantReason.trim(), p_idempotency_key: input.idempotencyKey ?? crypto.randomUUID(),
+      });
+      if (error) return { ok: false, error: error.code === "42501" ? "Fixed-term membership issuance is not authorised for this account." : "The fixed-term membership could not be issued; no payment was taken." };
+      const payload = data && typeof data === "object" ? data as { membership?: { id?: string } } : {};
+      const membershipId = payload.membership?.id;
+      if (!membershipId) return { ok: false, error: "The fixed-term membership response could not be verified." };
+      revalidatePath(`/club/members?org=${encodeURIComponent(context.organisation.id)}`);
+      if (holders[0]) revalidatePath(`/club/members/${encodeURIComponent(holders[0])}?org=${encodeURIComponent(context.organisation.id)}`);
+      return { ok: true, membershipId: String(membershipId) };
+    }
     if (requiresMadhouseProviderCheckout(context.organisation.slug, product)) return { ok: false, error: "Paid Madhouse memberships must use the joining checkout so card payment and Direct Debit setup are confirmed before activation." };
     const members = await context.repository.listMembers(context.organisation.id);
     if (holders.some(holder => !members.some(member => member.userId === holder && member.active))) return { ok: false, error: "Every holder must be an active organisation member." };

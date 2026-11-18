@@ -10,6 +10,7 @@ export function membershipManagementGroups(products: ClubProduct[]): MembershipM
     { key: "couples", label: "Couples", products: [] },
     { key: "standard", label: "Standard", products: [] },
     { key: "lifetime", label: "Lifetime", products: [] },
+    { key: "fixed_term", label: "Fixed-term offers", products: [] },
     { key: "passes", label: "Passes", products: [] },
     { key: "other", label: "Other membership products", products: [] },
   ];
@@ -20,6 +21,7 @@ export function membershipManagementGroups(products: ClubProduct[]): MembershipM
       : /family/.test(name) ? "family"
       : /couple/.test(name) ? "couples"
       : /\bstandard\b|unlimited gym/.test(name) ? "standard"
+      : product.fixedTermValue !== undefined && !/\bpass\b/.test(name) ? "fixed_term"
       : product.durationDays !== undefined || /\bpass\b/.test(name) ? "passes"
       : "other";
     groups.find(group => group.key === key)!.products.push(product);
