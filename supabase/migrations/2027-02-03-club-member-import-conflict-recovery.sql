@@ -133,7 +133,7 @@ revoke all on function public.club_execute_member_import_batch_individual_base(u
 -- customer or membership records. A later call after success is a read-only no-op.
 create or replace function public.club_recover_rejected_member_import_batch(p_organisation_id uuid,p_batch_id uuid)
 returns jsonb language plpgsql security definer set search_path=pg_catalog,public as $$
-declare b public.club_member_import_batches%rowtype; rejected_count integer; success_count integer; target_count integer; result jsonb;
+declare b public.club_member_import_batches%rowtype; rejected_count integer; success_count integer; imported_count integer; linked_count integer; target_count integer; result jsonb;
 begin
   if auth.uid() is null or not public.club_capability_allowed(p_organisation_id,auth.uid(),'members.import') then
     raise exception 'Member import recovery is not permitted' using errcode='42501';
@@ -145,16 +145,19 @@ begin
   if not found or b.source_system<>'clubmanager' then raise exception 'Import batch is unavailable' using errcode='P0002'; end if;
   select count(*) filter(where outcome in ('imported','linked')),
          count(*) filter(where outcome='rejected'),
+         count(*) filter(where outcome='imported'),
+         count(*) filter(where outcome='linked'),
          count(*) filter(where outcome='rejected' and imported_membership_id is null
            and normalized_values ? 'membershipName' and nullif(btrim(normalized_values->>'membershipName'),'') is not null
            and blockers='["Import failed safely; review this row"]'::jsonb)
-    into success_count,rejected_count,target_count from public.club_member_import_rows
+    into success_count,rejected_count,imported_count,linked_count,target_count from public.club_member_import_rows
     where organisation_id=p_organisation_id and batch_id=p_batch_id;
 
   if b.status='completed' and success_count=702 and rejected_count=0 and b.row_count=702 then
     return public.club_list_member_import_batch(p_organisation_id,p_batch_id);
   end if;
-  if b.status<>'completed' or success_count<>225 or rejected_count<>477 or target_count<>477
+  if b.status<>'completed' or success_count<>225 or imported_count<>16 or linked_count<>209
+     or rejected_count<>477 or target_count<>477
      or b.row_count<>702 then
     raise exception 'Recovery preflight mismatch; no rows were changed' using errcode='55000';
   end if;

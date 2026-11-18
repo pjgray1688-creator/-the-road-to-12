@@ -21,7 +21,8 @@ test("import counters come from committed outcomes and errors expose SQLSTATE on
 test("recovery is capability-checked, exact-batch guarded, idempotent, and excludes successes", () => {
   assert.match(sql, /club_capability_allowed\(p_organisation_id,auth\.uid\(\),'members\.import'\)/);
   assert.match(sql, /6bf9d303-525a-4565-88a4-b4121fac7f98/);
-  assert.match(sql, /success_count<>225 or rejected_count<>477 or target_count<>477/);
+  assert.match(sql, /success_count<>225 or imported_count<>16 or linked_count<>209/);
+  assert.match(sql, /rejected_count<>477 or target_count<>477/);
   assert.match(sql, /outcome='rejected'\s+and imported_membership_id is null/);
   assert.match(sql, /blockers='\["Import failed safely; review this row"\]'::jsonb/);
   assert.match(sql, /if r\.outcome in \('imported','linked','skipped_existing'\) then skipped:=skipped\+1; continue; end if/);
