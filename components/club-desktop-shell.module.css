@@ -309,32 +309,35 @@
   .sidebar .brand { display:none; }
   .mobileContextControls { display:grid; gap:8px; padding:3px 2px 10px; }
   .mobileContextLabel { display:grid; gap:4px; color:#bcb4c7; font-size:10px; font-weight:700; }
-  .mobileContextLabel select { width:100%; min-width:0; min-height:38px; padding:7px 9px; border:1px solid #51465e; border-radius:8px; background:#2c2535; color:#fff; font:inherit; font-size:12px; }
-  .navigation { flex:1; gap:4px; padding:2px 1px 10px; overflow-y:auto; overscroll-behavior:contain; }
+  .mobileContextLabel select { width:100%; min-width:0; min-height:40px; padding:7px 9px; border:1px solid #51465e; border-radius:8px; background:#2c2535; color:#fff; color-scheme:dark; font:inherit; font-size:12px; }
+  .navigation { display:grid; flex:1; align-content:start; gap:4px; min-height:0; padding:2px 1px 10px; overflow-y:auto; overscroll-behavior:contain; }
+  .navCaption { padding:0 11px 7px; color:#91879d; font-size:9px; font-weight:800; letter-spacing:.13em; }
   :global(.club-page [data-testid="stock-panel"] .toolbar-actions) { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); align-items:stretch; gap:8px; }
   :global(.club-page [data-testid="stock-panel"] .stock-view-toggle) { grid-column:1/-1; display:flex; width:100%; }
   :global(.club-page [data-testid="stock-panel"] .stock-view-toggle button) { flex:1; min-height:38px; padding-inline:8px; font-size:11px; }
   :global(.club-page [data-testid="stock-panel"] .toolbar-actions > input),:global(.club-page [data-testid="stock-panel"] .toolbar-actions > form),:global(.club-page [data-testid="stock-panel"] .toolbar-actions > button) { min-width:0; width:100%; }
   :global(.club-page [data-testid="stock-panel"] .toolbar-actions > form input) { width:100%; }
-  .navigation > a,.operationalGroup > .groupRow > a { min-height:46px; font-size:13px; }
-  .managementGroup { display:grid; gap:3px; }
-  .managementGroup > button { position:relative; display:flex; align-items:center; gap:12px; width:100%; min-width:0; min-height:46px; padding:0 11px; border:1px solid transparent; border-radius:9px; background:transparent; color:#c6bfce; font:inherit; font-size:13px; font-weight:650; text-align:left; cursor:pointer; }
-  .managementGroup > button svg { flex:0 0 19px; color:#a79cb4; }
-  .managementGroup > button > span { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .managementGroup > button b { margin-left:auto; color:#958aa0; font-size:13px; font-weight:500; transition:transform 150ms ease-out; }
-  .managementGroup > button b.chevronOpen { transform:rotate(180deg); }
-  .managementGroup > button:hover { background:#30283a; color:#fff; }
-  .managementGroup > button:focus-visible { outline:2px solid #d4a7ff; outline-offset:2px; }
-  .managementGroup > button.active { border-color:color-mix(in srgb,var(--tenant-accent) 42%,#342c40); background:color-mix(in srgb,var(--tenant-accent) 20%,#30283a); color:#fff; }
-  .subNavigation { display:grid; gap:2px; margin:0 0 4px 21px; padding-left:10px; border-left:1px solid #4a3e55; }
-  .subNavigation > a { min-width:0; padding:8px 9px; border-radius:7px; color:#b8afc3; font-size:12px; line-height:1.3; text-decoration:none; }
-  .subNavigation > a:hover,.subNavigation > a:focus-visible { background:#30283a; color:#fff; outline:none; }
-  .subNavigation > a:focus-visible { box-shadow:0 0 0 2px #d4a7ff; }
-  .subNavigation > a.subActive { background:#352840; color:#f0ddff; }
+  .operationalGroup { display:grid; gap:2px; min-width:0; }
+  .groupRow { display:grid; grid-template-columns:minmax(0,1fr) 44px; align-items:center; gap:3px; min-width:0; }
+  .navigation > a,.groupRow > a { position:relative; display:flex; align-items:center; gap:12px; width:100%; min-width:0; min-height:48px; padding:0 11px; border:1px solid transparent; border-radius:9px; background:transparent; color:#c6bfce; font:inherit; font-size:13px; font-weight:650; line-height:1.3; text-align:left; text-decoration:none; -webkit-tap-highlight-color:transparent; }
+  .navigation > a svg,.groupRow > a svg { flex:0 0 19px; color:#a79cb4; }
+  .navigation > a > span,.groupRow > a > span { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .navigation > a:hover,.groupRow > a:hover { background:#30283a; color:#fff; }
+  .navigation > a:focus-visible,.groupRow > a:focus-visible { outline:2px solid #d4a7ff; outline-offset:1px; }
+  .navigation > a.active,.groupRow > a.active { border-color:color-mix(in srgb,var(--tenant-accent) 42%,#342c40); background:color-mix(in srgb,var(--tenant-accent) 20%,#30283a); color:#fff; }
+  .navigation > a.active::before,.groupRow > a.active::before { position:absolute; inset:8px auto 8px -1px; width:3px; border-radius:0 3px 3px 0; background:var(--tenant-accent); content:""; }
+  .groupRow > button { display:grid; width:44px; height:44px; min-height:44px; padding:0; place-items:center; appearance:none; -webkit-appearance:none; border:1px solid transparent; border-radius:9px; background:transparent; color:#b8afc3; font:inherit; font-size:17px; line-height:1; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+  .groupRow > button:hover { background:#30283a; color:#fff; }
+  .groupRow > button:focus-visible { outline:2px solid #d4a7ff; outline-offset:1px; }
+  .managementGroup { display:grid; gap:3px; min-width:0; }
+  .subNavigation,.operationalSubNavigation { display:grid; gap:2px; min-width:0; margin:0 0 5px 21px; padding:0 0 0 10px; border-left:1px solid #4a3e55; }
+  .subNavigation > a,.operationalSubNavigation > a { display:flex; align-items:center; min-width:0; min-height:42px; padding:8px 9px; border-radius:7px; color:#b8afc3; font-size:12px; line-height:1.3; text-decoration:none; overflow-wrap:anywhere; -webkit-tap-highlight-color:transparent; }
+  .subNavigation > a:hover,.operationalSubNavigation > a:hover,.subNavigation > a:focus-visible,.operationalSubNavigation > a:focus-visible { background:#30283a; color:#fff; outline:none; }
+  .subNavigation > a:focus-visible,.operationalSubNavigation > a:focus-visible { box-shadow:0 0 0 2px #d4a7ff; }
+  .subNavigation > a.subActive,.operationalSubNavigation > a.subActive { background:#352840; color:#f0ddff; }
   .managementSection { display:grid; gap:2px; margin-top:9px; }
   .managementSection:first-child { margin-top:0; }
   .managementSection h2 { margin:0 0 3px; padding:0 9px; color:#93899f; font-size:9px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }
-  .groupRow > button { min-height:40px; }
   .operationalSubNavigation { margin-left:22px; }
   .operationalSubNavigation a { padding:9px 10px; font-size:12px; }
   .sidebarBottom { padding-bottom:2px; }
