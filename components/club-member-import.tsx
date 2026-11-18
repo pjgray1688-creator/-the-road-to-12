@@ -6,9 +6,7 @@ import { stageMemberCsv, type MemberImportMapping } from "@/lib/club-member-impo
 
 const fields: Array<[string, string]> = [["firstName", "First name"], ["lastName", "Last name"], ["fullName", "Full name"], ["email", "Email"], ["phone", "Phone"], ["legacyReference", "External member ID"], ["membershipName", "Membership/package"], ["membershipStatus", "Membership status"], ["startDate", "Start date"], ["endDate", "End/expiry date"], ["nextPaymentDate", "Next payment date"], ["paidThroughDate", "Paid-through date"], ["homeLocation", "Home location"], ["billingMethod", "Payment method"], ["householdReference", "Shared contract ID"], ["householdRole", "Covered person role"], ["responsiblePayerReference", "Responsible payer member ID"], ["billingAmount", "Recurring amount"], ["providerCustomerReference", "Provider customer reference"], ["providerSubscriptionReference", "Mandate/subscription reference"]];
 type ServerRow = { source_row_number?: number; normalized_values?: Record<string, string>; warnings?: string[]; blockers?: string[]; action?: string; outcome?: string };
-type ActivationSummary = Record<string, number>;
-
-export function ClubMemberImport({ organisationId, membershipProducts = [] }: { organisationId: string; membershipProducts?: Array<{ id: string; name: string; isLifetime?: boolean }> }) {
+export function ClubMemberImport({ organisationId, membershipProducts = [] }: { organisationId: string; membershipProducts?: Array<{ id: string; name: string; isLifetime?: boolean; legacyImportCategory?: string; archived?: boolean }> }) {
   const [filename, setFilename] = useState("");
   const [source, setSource] = useState("");
   const [mapping, setMapping] = useState<MemberImportMapping>({});
@@ -16,7 +14,6 @@ export function ClubMemberImport({ organisationId, membershipProducts = [] }: { 
   const [batch, setBatch] = useState<Record<string, unknown>>({});
   const [serverRows, setServerRows] = useState<ServerRow[]>([]);
   const [message, setMessage] = useState("");
-  const [activationSummary, setActivationSummary] = useState<ActivationSummary | null>(null);
   const [pending, startTransition] = useTransition();
   const batchId = String(batch.id ?? "");
 
@@ -27,7 +24,7 @@ export function ClubMemberImport({ organisationId, membershipProducts = [] }: { 
       const hit = next.headers.find(header => header.replace(/[^a-z]/gi, "").toLowerCase().includes(key.toLowerCase().replace(/[^a-z]/g, "")));
       if (hit) suggested[key] = hit;
     }
-    setSource(text); setFilename(name); setMapping(suggested); setPreview(stageMemberCsv(text, suggested)); setBatch({}); setServerRows([]); setActivationSummary(null);
+    setSource(text); setFilename(name); setMapping(suggested); setPreview(stageMemberCsv(text, suggested)); setBatch({}); setServerRows([]);
   };
   const applyReport = (value: unknown) => {
     const report = value as { batch?: Record<string, unknown>; rows?: ServerRow[] } | null;
@@ -57,12 +54,7 @@ export function ClubMemberImport({ organisationId, membershipProducts = [] }: { 
   };
   const execute = () => startTransition(async () => {
     const result = await executeMemberImportAction(organisationId, batchId);
-    setActivationSummary(result.ok ? result.activationNotifications ?? null : null);
-    const n = result.ok ? result.activationNotifications : null;
-    setMessage(result.ok ? n
-      ? `Import completed. Account activation queue: ${n.queued ?? 0} queued · ${n.alreadyLinked ?? 0} already linked · ${n.missingEmail ?? 0} missing email · ${n.alreadyInvited ?? 0} already invited · ${n.failed ?? 0} queue issues.`
-      : "Import completed. Activation queue status could not be confirmed; the import remains complete."
-      : result.error ?? "Import could not be completed.");
+    setMessage(result.ok ? "Import completed. No account invitations, activation emails or marketing were sent or queued." : result.error ?? "Import could not be completed.");
     if (result.ok) applyReport(result.batch);
   });
 
@@ -76,13 +68,13 @@ export function ClubMemberImport({ organisationId, membershipProducts = [] }: { 
       <h3>2. Browser preview</h3><p><strong>{preview.rows.length}</strong> source rows · <strong>{preview.rows.filter(row => row.blockers.length).length}</strong> rejected/conflicted · <strong>{preview.rows.reduce((count, row) => count + row.warnings.length, 0)}</strong> warnings</p>
       <div className="club-catalogue-list">{preview.rows.slice(0, 12).map(row => <article className="club-catalogue-row" key={row.rowNumber}><div><strong>Row {row.rowNumber} · {(row.normalized.fullName ?? [row.normalized.firstName, row.normalized.lastName].filter(Boolean).join(" ")) || "Unnamed"}</strong><small>{row.normalized.email ?? "No email"} · {row.normalized.goldenTicketLifetimeCandidate ? "Golden Ticket — Lifetime Membership" : row.normalized.membershipName ?? "No membership"}</small>{row.normalized.goldenTicketLifetimeCandidate && row.normalized.endDate ? <small>Legacy expiry {row.normalized.endDate} will be retained as source evidence, not used as the R12 expiry, only after explicit Golden Ticket product mapping.</small> : null}</div><span className={row.blockers.length ? "error-text" : "muted"}>{row.blockers.length ? row.blockers.join("; ") : row.warnings.join("; ") || "Ready to review"}</span></article>)}</div>
       <button type="button" className="primary" disabled={pending} onClick={stage}>{pending ? "Staging…" : "Run server dry run"}</button></> : null}
-    {batchId && packageNames.length ? <div className="card" style={{ marginTop: 12 }}><h3>Map membership packages</h3>{packageNames.map(name => <label key={name}>{name}<select defaultValue="" onChange={event => startTransition(async () => { const result = await mapMemberImportPackageAction({ organisationId, batchId, sourcePackage: name, clubProductId: event.target.value }); setMessage(result.ok ? `${name} mapped.` : result.error ?? "Package mapping could not be saved."); if (result.ok) await refresh(batchId); })}><option value="">Choose an existing R12 package</option>{membershipProducts.map(product => <option key={product.id} value={product.id}>{product.isLifetime ? "Golden Ticket — Lifetime Membership" : product.name}</option>)}</select></label>)}</div> : null}
+    {batchId && packageNames.length ? <div className="card" style={{ marginTop: 12 }}><h3>Map membership packages</h3>{packageNames.map(name => <label key={name}>{name}<select defaultValue="" onChange={event => startTransition(async () => { const result = await mapMemberImportPackageAction({ organisationId, batchId, sourcePackage: name, clubProductId: event.target.value }); setMessage(result.ok ? `${name} mapped.` : result.error ?? "Package mapping could not be saved."); if (result.ok) await refresh(batchId); })}><option value="">Choose an existing R12 package</option>{membershipProducts.map(product => <option key={product.id} value={product.id}>{product.legacyImportCategory ? `${product.name} · historical only, no billing or access` : `${product.name}${product.archived ? " · archived product, review historical/current mapping" : ""}`}</option>)}</select></label>)}</div> : null}
     {batchId ? <div className="card" style={{ marginTop: 12 }}><strong>Server dry-run result</strong><p className="muted">{String(batch.valid_count ?? 0)} accepted · {String(batch.imported_count ?? 0)} imported · {String(batch.linked_count ?? 0)} linked · {String(batch.skipped_count ?? 0)} skipped · {String(batch.conflicted_count ?? 0)} conflicted · {String(batch.rejected_count ?? batch.blocking_count ?? 0)} rejected</p>
       {serverRows.length ? <p className="muted">Home locations: {homeLocationsMatched} matched · {homeLocationsMissing} not supplied · {homeLocationsBlocked} requiring correction</p> : null}
       {serverRows.length ? <button type="button" className="secondary" onClick={downloadReport}>Download row-by-row report</button> : null}
       <button type="button" className="secondary" disabled={pending || Number(batch.valid_count) < 1} onClick={() => startTransition(async () => { const result = await authoriseMemberImportAction(organisationId, batchId); setMessage(result.ok ? "Valid rows authorised. Conflicted and rejected rows will remain unchanged." : result.error ?? "Import could not be authorised."); if (result.ok) await refresh(batchId); })}>Authorise accepted rows</button>
       <button type="button" className="primary" disabled={pending || String(batch.status) !== "ready"} onClick={execute}>{pending ? "Importing…" : "Execute confirmed import"}</button>
-      {activationSummary ? <p className="muted">Activation queue outcome is separate from membership import success. Emails remain held until the activation release is enabled.</p> : null}
+      <p className="muted">Import does not send account invitations, activation emails or marketing.</p>
       {serverRows.filter(row => (row.blockers?.length ?? 0) > 0).slice(0, 20).map(row => <p className="error-text" key={row.source_row_number}>Row {row.source_row_number}: {row.blockers?.join("; ")}</p>)}
     </div> : null}
     {message ? <p role="status">{message}</p> : null}

@@ -171,3 +171,6 @@ supabase/migrations/2027-01-23-glow-customer-details-and-age-safety.sql
 supabase/migrations/2026-11-13-club-glow-management-report-rpc.sql
 supabase/migrations/2026-11-13-club-glow-finance-report-rpc.sql
 supabase/migrations/2026-11-13-club-finance-member-counts-rpc.sql
+supabase/migrations/2026-11-18-club-historical-import-categories.sql
+supabase/migrations/2026-11-19-club-auto-link-verified-imported-members.sql
+supabase/migrations/2026-11-20-club-versioned-join-health-declarations.sql

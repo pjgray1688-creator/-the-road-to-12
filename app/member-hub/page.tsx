@@ -4,10 +4,12 @@ import { clubRepository } from "@/lib/club-repository";
 import { MemberHub, type MemberHubData } from "@/components/member-hub";
 import { hasPlayReviewerEntitlement } from "@/lib/play-reviewer";
 import { reviewerMemberHubData } from "@/lib/play-reviewer-member-data";
+import { autoLinkVerifiedMadhouseMember } from "@/lib/madhouse-auto-link";
 
 export default async function MemberHubPage() {
   const supabase = await serverSupabase(); const { data: { user } } = await supabase.auth.getUser(); if (!user) redirect("/account?mode=signIn&next=%2Fmember-hub");
   if (hasPlayReviewerEntitlement(user)) return <MemberHub data={reviewerMemberHubData()} demoMode />;
+  await autoLinkVerifiedMadhouseMember(supabase, undefined, user);
   const { data, error } = await supabase.rpc("club_list_my_memberships");
   if (error) return <MemberHub data={[]} />;
   const memberships = Array.isArray(data) ? data as Array<Record<string, unknown>> : [];

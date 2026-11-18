@@ -16,6 +16,7 @@ export type JoinDetails = {
   email: string; phone: string; dateOfBirth: string; addressLine1: string; addressLine2?: string;
   townCity?: string; postcode: string; emergencyName: string; emergencyPhone: string;
   termsAccepted: boolean; privacyAccepted: boolean; marketingConsent: boolean;
+  healthDeclarationVersionId?: string; healthDeclarationAccepted?: boolean;
   paymentMethod: "card" | "direct_debit" | "card_and_direct_debit" | "staff_manual"; idempotencyKey: string;
 };
 
@@ -25,6 +26,23 @@ export async function startClubJoiningAction(input: JoinDetails): Promise<Joinin
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { ok: false, error: "Create or sign into your personal R12 account to continue." };
     if (!user.email_confirmed_at) return { ok: false, error: "Confirm your email before continuing." };
+    const { data: healthData, error: healthError } = await supabase.rpc("club_get_current_join_health_declaration", { p_organisation_id: input.organisationId });
+    if (!healthError && healthData && typeof healthData === "object") {
+      const declaration = healthData as { id?: unknown; required_for_joining?: unknown };
+      if (typeof declaration.id === "string" && declaration.required_for_joining === true
+          && (input.healthDeclarationVersionId !== declaration.id || input.healthDeclarationAccepted !== true)) {
+        return { ok: false, error: "Read and accept the current required health declaration before continuing." };
+      }
+      if (typeof declaration.id === "string" && input.healthDeclarationAccepted === true) {
+        if (input.healthDeclarationVersionId !== declaration.id) return { ok: false, error: "The health declaration changed. Refresh this page and review the current version." };
+        const { error: acceptanceError } = await supabase.rpc("club_accept_join_health_declaration", {
+          p_organisation_id: input.organisationId, p_version_id: declaration.id,
+        });
+        if (acceptanceError) return { ok: false, error: "Your declaration acceptance could not be recorded. Please try again." };
+      }
+    } else if (!healthError && input.healthDeclarationAccepted) {
+      return { ok: false, error: "The health declaration is unavailable. Refresh the page and try again." };
+    }
     const { data, error } = await supabase.rpc("club_start_membership_joining_optional_home_location", {
       p_organisation_id: input.organisationId, p_product_id: input.productId, p_home_location_id: input.locationId ?? null,
       p_first_name: input.firstName, p_last_name: input.lastName, p_email: input.email, p_phone: input.phone,
