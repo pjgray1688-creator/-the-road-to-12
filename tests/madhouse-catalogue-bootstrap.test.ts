@@ -10,10 +10,10 @@ const byName = (name: string) => madhouseCatalogue.find(product => product.name 
 const entitlement = (product: (typeof madhouseCatalogue)[number], key: string) => product.entitlements.find(item => item.entitlementKey === key);
 
 test("Madhouse catalogue includes the staff-only Family contract product", () => {
-  assert.equal(madhouseCatalogue.length, 13);
+  assert.equal(madhouseCatalogue.length, 14);
   assert.deepEqual(Object.fromEntries(madhouseCatalogue.map(product => [product.name, product.priceMinor])), {
     "Gym Day Pass": 500, "Week Pass": 1200, "Standard Monthly": 2700,
-    "Concession Monthly": 2200, "Couples Membership": 4500, "Family Membership": 0, "Yearly Membership": 25000, "Transformation Bronze": 25000,
+    "Concession Monthly": 2200, "Off Peak": 1499, "Couples Membership": 4500, "Family Membership": 0, "Yearly Membership": 25000, "Transformation Bronze": 25000,
     "Transformation Silver": 40000, "Transformation Gold": 52500, "Single PT Session": 3000,
     "10 PT Session Block": 20000, "Golden Ticket Founding Membership": 50000,
   });
@@ -44,7 +44,10 @@ test("Golden Ticket and Couple definitions remain assignment-ready without assig
   assert.equal(membershipSupportsAdditionalPerson("Family Membership"), true);
   assert.equal(membershipSupportsAdditionalPerson("Standard Monthly"), false);
   assert.equal(madhouseMembershipRules["Concession Monthly"].eligibilityVerificationRequired, true);
-  assert.equal(madhouseMembershipRules["Off Peak"], undefined);
+  assert.deepEqual(madhouseMembershipRules["Off Peak"].accessWindows?.map(window => [window.timeZone, window.weekdays, window.opensAt, window.closesAt]), [
+    ["Europe/London", [1, 2, 3, 4, 5], "10:00", "15:00"],
+    ["Europe/London", [1, 2, 3, 4, 5], "22:00", "03:00"],
+  ]);
 });
 
 class CatalogueRepository implements Pick<ClubRepository, "listProducts" | "createProduct"> {
@@ -59,7 +62,7 @@ class CatalogueRepository implements Pick<ClubRepository, "listProducts" | "crea
 
 test("catalogue reconciliation creates missing products through the repository and never assigns", async () => {
   const repository = new CatalogueRepository(); const results = await reconcileMadhouseCatalogue(repository);
-  assert.equal(results.filter(result => result.status === "created").length, 13); assert.equal(repository.creates.length, 13); assert.equal(repository.updates, 0); assert.equal(repository.assignments, 0);
+  assert.equal(results.filter(result => result.status === "created").length, 13); assert.equal(results.find(result => result.name === "Off Peak")?.status, "requires_migration"); assert.equal(repository.creates.length, 13); assert.equal(repository.updates, 0); assert.equal(repository.assignments, 0);
   assert.ok(repository.creates.every(product => product.organisationId === MADHOUSE_PRODUCTION_ORGANISATION_ID));
 });
 
@@ -100,7 +103,14 @@ test("a sellable production Golden Ticket is drift while every other catalogue p
 
 test("create authorization failures are reported safely and do not fall back to assignments", async () => {
   const repository = new CatalogueRepository([], true); const results = await reconcileMadhouseCatalogue(repository);
-  assert.equal(results.every(result => result.status === "failed" && result.detail === "create_failed"), true); assert.equal(repository.assignments, 0);
+  assert.equal(results.filter(result => result.status === "failed" && result.detail === "create_failed").length, 13); assert.deepEqual(results.find(result => result.name === "Off Peak"), { name: "Off Peak", status: "requires_migration", detail: "complete_membership_configuration" }); assert.equal(repository.assignments, 0);
+});
+
+test("Off Peak cannot be bootstrapped as a bare product without its charge and access policy", async () => {
+  const repository = new CatalogueRepository();
+  const results = await reconcileMadhouseCatalogue(repository);
+  assert.equal(repository.creates.some(product => product.name === "Off Peak"), false);
+  assert.equal(results.find(result => result.name === "Off Peak")?.status, "requires_migration");
 });
 
 test("MemoryClubRepository materialises the shared catalogue definitions", async () => {

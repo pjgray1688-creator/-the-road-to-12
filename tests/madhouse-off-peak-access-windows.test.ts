@@ -19,6 +19,12 @@ function approvedWindowModel(instant: string) {
 }
 
 test("Off-Peak migration installs the approved weekday windows at the decision audit boundary", () => {
+  assert.match(migration, /values\(v_org_id,'Off Peak','membership',1499,'GBP','recurring'/);
+  assert.match(migration, /'joining_fee',2200,'GBP',true,true/);
+  assert.match(migration, /'gym_access','future_locations','\{\}'/);
+  assert.match(migration, /Existing Off Peak product terms differ[\s\S]*no changes made/);
+  assert.match(migration, /Existing Off Peak joining fee differs[\s\S]*no changes made/);
+  assert.ok(migration.indexOf("'Off Peak','membership',1499") < migration.indexOf("create trigger club_membership_access_window_guard"));
   assert.match(migration, /madhouse\.membership\.off-peak\.v1/);
   assert.match(migration, /Exactly one sellable Madhouse Off-Peak membership rule is required/);
   assert.match(migration, /pg_get_function_result\(to_regprocedure\('public\.club_access_decide_customer\(uuid,uuid,uuid,text,text,uuid,text\)'\)\)<>'jsonb'/);
@@ -46,8 +52,11 @@ test("approved hours include Friday night through Saturday 03:00 and exclude oth
     ["2026-11-21T02:59:00Z", true], // Saturday from Friday window
     ["2026-11-21T03:00:00Z", false],
     ["2026-11-21T10:00:00Z", false],
+    ["2026-11-22T10:00:00Z", false], // Sunday daytime remains denied
     ["2026-11-22T22:00:00Z", false],
     ["2026-11-23T02:00:00Z", false], // Monday early morning is from Sunday
+    ["2026-11-23T09:59:00Z", false],
+    ["2026-11-23T10:00:00Z", true], // access resumes Monday at 10:00
   ];
   for (const [instant, expected] of cases) assert.equal(approvedWindowModel(instant), expected, instant);
 });

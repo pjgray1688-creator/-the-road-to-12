@@ -6,7 +6,7 @@ export const MADHOUSE_CATALOGUE_BOOTSTRAP_CONFIRMATION = "bootstrap-madhouse-cat
 
 export type CatalogueEntitlement = Omit<ProductEntitlement, "productId">;
 export type CatalogueProduct = Omit<ClubProduct, "id" | "organisationId" | "entitlements"> & { entitlements: CatalogueEntitlement[] };
-export type CatalogueBootstrapResult = { name: string; status: "created" | "already_matching" | "drift_detected" | "failed"; detail?: string };
+export type CatalogueBootstrapResult = { name: string; status: "created" | "already_matching" | "drift_detected" | "failed" | "requires_migration"; detail?: string };
 
 const gymAccess: CatalogueEntitlement = { entitlementKey: "gym_access", scope: "future_locations" };
 const transformation = (weeklyPtCredits: number): CatalogueEntitlement[] => [
@@ -22,6 +22,7 @@ export const madhouseCatalogue: readonly CatalogueProduct[] = [
   { name: "Week Pass", kind: "membership", priceMinor: 1200, currency: "GBP", billing: "one_off", durationDays: 7, sellable: true, entitlements: [gymAccess] },
   { name: "Standard Monthly", kind: "membership", priceMinor: 2700, currency: "GBP", billing: "recurring", sellable: true, entitlements: [gymAccess] },
   { name: "Concession Monthly", kind: "membership", priceMinor: 2200, currency: "GBP", billing: "recurring", sellable: true, entitlements: [gymAccess] },
+  { name: "Off Peak", kind: "membership", priceMinor: 1499, currency: "GBP", billing: "recurring", sellable: true, entitlements: [gymAccess] },
   { name: "Couples Membership", kind: "membership", priceMinor: 4500, currency: "GBP", billing: "recurring", sellable: true, entitlements: [gymAccess] },
   { name: "Family Membership", kind: "membership", priceMinor: 0, pricingOnRequest: true, currency: "GBP", billing: "recurring", sellable: false, entitlements: [gymAccess] },
   { name: "Yearly Membership", kind: "membership", priceMinor: 25000, currency: "GBP", billing: "one_off", durationDays: 365, sellable: true, entitlements: [gymAccess] },
@@ -38,7 +39,10 @@ export type MadhouseMembershipRule = {
   shared: boolean;
   defaultHouseholdCompositions?: readonly ["2_adults_1_child", "1_adult_2_children"];
   eligibilityVerificationRequired: boolean;
-  accessWindow?: { timeZone: "Europe/London"; weekdays: readonly [1, 2, 3, 4, 5]; opensAt: "10:00"; closesAt: "15:00" };
+  accessWindows?: readonly [
+    { timeZone: "Europe/London"; weekdays: readonly [1, 2, 3, 4, 5]; opensAt: "10:00"; closesAt: "15:00" },
+    { timeZone: "Europe/London"; weekdays: readonly [1, 2, 3, 4, 5]; opensAt: "22:00"; closesAt: "03:00" },
+  ];
 };
 
 /** Public copy mirrors the authoritative database rules installed by the catalogue migration. */
@@ -47,6 +51,10 @@ export const madhouseMembershipRules: Readonly<Record<string, MadhouseMembership
   "Week Pass": { maximumHolders: 1, shared: false, eligibilityVerificationRequired: false },
   "Standard Monthly": { maximumHolders: 1, shared: false, eligibilityVerificationRequired: false },
   "Concession Monthly": { maximumHolders: 1, shared: false, eligibilityVerificationRequired: true },
+  "Off Peak": { maximumHolders: 1, shared: false, eligibilityVerificationRequired: false, accessWindows: [
+    { timeZone: "Europe/London", weekdays: [1, 2, 3, 4, 5], opensAt: "10:00", closesAt: "15:00" },
+    { timeZone: "Europe/London", weekdays: [1, 2, 3, 4, 5], opensAt: "22:00", closesAt: "03:00" },
+  ] },
   "Couples Membership": { maximumHolders: 2, shared: true, eligibilityVerificationRequired: false },
   "Family Membership": { maximumHolders: null, shared: true, defaultHouseholdCompositions: ["2_adults_1_child", "1_adult_2_children"], eligibilityVerificationRequired: false },
   "Yearly Membership": { maximumHolders: 1, shared: false, eligibilityVerificationRequired: false },
@@ -59,7 +67,7 @@ export function membershipSupportsAdditionalPerson(productName: string | undefin
 export function membershipRuleSummary(productName: string): string {
   const rule = madhouseMembershipRules[productName];
   if (!rule) return "Access includes both Madhouse gyms; home gym is a preference only.";
-  if (rule.accessWindow) return "Both gyms · Monday to Friday, 10am–3pm · no weekend access unless separately authorised.";
+  if (rule.accessWindows) return "Both gyms · Monday–Friday, 10am–3pm and 10pm–3am the following morning · Europe/London.";
   if (rule.eligibilityVerificationRequired) return "Both gyms · eligibility must be verified by Madhouse before checkout.";
   if (rule.maximumHolders === 2) return "Both gyms · covers two linked people on one membership.";
   if (rule.shared) return "Both gyms · covers the people recorded on one existing family contract.";
@@ -96,6 +104,9 @@ export async function reconcileMadhouseCatalogue(repository: Pick<ClubRepository
     const matches = existing.filter(product => product.name === definition.name);
     if (matches.length > 1) { results.push({ name: definition.name, status: "drift_detected", detail: "duplicate_exact_name" }); continue; }
     if (matches.length === 1) { results.push({ name: definition.name, status: catalogueProductMatches(matches[0], definition) ? "already_matching" : "drift_detected", ...(catalogueProductMatches(matches[0], definition) ? {} : { detail: "catalogue_difference" }) }); continue; }
+    // This product must be installed with its joining charge, membership rule
+    // and database-enforced access windows as one reviewed SQL operation.
+    if (definition.name === "Off Peak") { results.push({ name: definition.name, status: "requires_migration", detail: "complete_membership_configuration" }); continue; }
     try {
       const candidate = materialiseCatalogueProduct(definition, organisationId); const { id: _catalogueId, ...createInput } = candidate;
       await repository.createProduct(createInput); results.push({ name: definition.name, status: "created" });

@@ -2,6 +2,79 @@
 -- audit boundary. No credentials, memberships, grants or attendance rows change.
 begin;
 
+-- The product and its access guard are installed atomically below. This avoids
+-- publishing a sellable membership before the approved hours are enforced.
+do $$
+declare v_org_id uuid; v_product_id uuid; v_product_count integer; v_count integer;
+begin
+  if to_regclass('public.club_product_entitlements') is null
+     or to_regclass('public.club_membership_initial_charges') is null then
+    raise exception 'Off-Peak product entitlement or joining-charge prerequisites are missing';
+  end if;
+  if not exists(select 1 from information_schema.columns where table_schema='public' and table_name='club_products' and column_name='is_lifetime')
+     or not exists(select 1 from information_schema.columns where table_schema='public' and table_name='club_products' and column_name='pricing_on_request')
+     or not exists(select 1 from information_schema.columns where table_schema='public' and table_name='club_membership_product_rules' and column_name='shared_membership') then
+    raise exception 'Off-Peak product schema does not match the reviewed Madhouse contract';
+  end if;
+  select id into v_org_id from public.club_organisations where slug='madhouse-gym' and active;
+  if v_org_id is null or (select count(*) from public.club_organisations where slug='madhouse-gym' and active)<>1 then
+    raise exception 'Exactly one active Madhouse organisation is required';
+  end if;
+  perform pg_advisory_xact_lock(hashtext(v_org_id::text),hashtext('madhouse-off-peak-product-restoration'));
+
+  select count(*) into v_product_count from public.club_products where organisation_id=v_org_id and name='Off Peak';
+  if v_product_count>1 then raise exception 'Duplicate Madhouse Off Peak product; manual review required'; end if;
+  if v_product_count=0 then
+    insert into public.club_products(organisation_id,name,kind,price_minor,currency,billing,duration_days,
+      pricing_on_request,is_lifetime,sellable,archived_at)
+    values(v_org_id,'Off Peak','membership',1499,'GBP','recurring',null,false,false,true,null)
+    returning id into v_product_id;
+  else
+    select id into v_product_id from public.club_products where organisation_id=v_org_id and name='Off Peak';
+    if not exists(select 1 from public.club_products where id=v_product_id and organisation_id=v_org_id
+      and kind='membership' and price_minor=1499 and currency='GBP' and billing='recurring'
+      and duration_days is null and not pricing_on_request and not is_lifetime and sellable and archived_at is null) then
+      raise exception 'Existing Off Peak product terms differ from the approved contract; no changes made';
+    end if;
+  end if;
+
+  select count(*) into v_count from public.club_membership_product_rules
+    where organisation_id=v_org_id and (product_id=v_product_id or catalogue_code='madhouse.membership.off-peak.v1');
+  if v_count=0 then
+    insert into public.club_membership_product_rules(product_id,organisation_id,catalogue_code,maximum_holders,
+      shared_membership,eligibility_verification_required,access_timezone,access_weekdays,access_opens_at,access_closes_at)
+    values(v_product_id,v_org_id,'madhouse.membership.off-peak.v1',1,false,false,'Europe/London',array[1,2,3,4,5],'10:00','15:00');
+  elsif v_count<>1 or not exists(select 1 from public.club_membership_product_rules where product_id=v_product_id
+      and organisation_id=v_org_id and catalogue_code='madhouse.membership.off-peak.v1' and maximum_holders=1
+      and not shared_membership and not eligibility_verification_required and access_timezone='Europe/London'
+      and access_weekdays=array[1,2,3,4,5] and access_opens_at='10:00' and access_closes_at='15:00') then
+    raise exception 'Existing Off Peak membership rule differs from the approved contract; no changes made';
+  end if;
+
+  select count(*) into v_count from public.club_product_entitlements where organisation_id=v_org_id and product_id=v_product_id;
+  if v_count=0 then
+    insert into public.club_product_entitlements(product_id,organisation_id,position,entitlement_key,scope,location_ids)
+    values(v_product_id,v_org_id,0,'gym_access','future_locations','{}');
+  elsif v_count<>1 or not exists(select 1 from public.club_product_entitlements where product_id=v_product_id
+      and organisation_id=v_org_id and position=0 and entitlement_key='gym_access' and scope='future_locations'
+      and coalesce(cardinality(location_ids),0)=0 and allowance_quantity is null and allowance_period is null
+      and discount_percent is null and discount_period is null and discount_max_uses is null) then
+    raise exception 'Existing Off Peak product entitlements differ from the approved gym-access contract';
+  end if;
+
+  select count(*) into v_count from public.club_membership_initial_charges
+    where organisation_id=v_org_id and product_id=v_product_id and charge_type='joining_fee';
+  if v_count=0 then
+    insert into public.club_membership_initial_charges(organisation_id,product_id,charge_type,amount_minor,currency,required,active,position)
+    values(v_org_id,v_product_id,'joining_fee',2200,'GBP',true,true,0);
+  elsif v_count<>1 or not exists(select 1 from public.club_membership_initial_charges where organisation_id=v_org_id
+      and product_id=v_product_id and charge_type='joining_fee' and amount_minor=2200 and currency='GBP' and required and active) then
+    raise exception 'Existing Off Peak joining fee differs from the approved £22 charge; no changes made';
+  end if;
+  -- Existing membership promotion rows are neither edited nor newly created.
+end;
+$$;
+
 do $$
 declare product_count integer; rules_count integer;
 begin
