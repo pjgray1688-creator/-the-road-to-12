@@ -18,8 +18,7 @@ test("reception route is operationally protected and keeps organisation context"
   assert.match(route, /redirect\(`\/club/);
   assert.match(route, /params\?\.org/);
   assert.match(route, /params\?\.location/);
-  assert.match(overview, /serverSupabase/);
-  assert.match(overview, /auth\.getUser/);
+  assert.match(overview, /getServerUser/);
   assert.match(overview, /listClubOrganisationContexts/);
   assert.match(overview, /isClubStaffRole\(role\)/);
   assert.match(overview, /listCashDeclarations\(context\.organisation\.id\)/);

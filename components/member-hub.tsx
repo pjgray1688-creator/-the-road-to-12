@@ -9,14 +9,17 @@ import type { Organisation } from "@/lib/club";
 import { memberMembershipStateLabel } from "@/lib/club-operational";
 import { membershipPresentation } from "@/lib/club-membership-presentation";
 import { MemberDemoNotice } from "@/components/member-demo-notice";
+import { LoadRecovery } from "@/components/load-recovery";
+import type { LoadFailureKind } from "@/lib/club-load-state";
 
 const money = (minor: number | undefined, currency = "GBP") => typeof minor === "number" ? new Intl.NumberFormat("en-GB", { style: "currency", currency }).format(minor / 100) : "—";
 const date = (value: string) => new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London", dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
 export type MemberHubData = { organisation: Organisation; profile: ClubMemberOperationalRead; balance?: ClubBalanceAccount; balanceHistory?: Array<{id:string;entryType:string;amountMinor:number;createdAt:string}>; sessions: ClubClassSession[]; bookings: Array<{ sessionId: string; status: string }>; orders: ClubOrder[]; schedule: MemberScheduleItem[]; lifetimeProductIds?: string[] };
 
-export function MemberHub({ data, demoMode = false }: { data: MemberHubData[]; demoMode?: boolean }) {
+export function MemberHub({ data, demoMode = false, loadIssue }: { data: MemberHubData[]; demoMode?: boolean; loadIssue?: LoadFailureKind }) {
+  if (!data.length && loadIssue) return <AppShell className="module-page member-hub-page member-area-page"><PageHeader title="Member Area"/><LoadRecovery app="Member Hub" kind={loadIssue} signInHref={loadIssue === "session" ? "/account?mode=signIn&next=%2Fmember-hub" : undefined}/></AppShell>;
   if (!data.length) return <AppShell className="module-page member-hub-page member-area-page"><PageHeader title="Member Area"/><Surface className="member-hub-section"><EmptyState title="Connect your gym">Already a member? Link your membership to R12, or join an onboarded gym to get started.</EmptyState><div className="quick-grid"><Link className="member-hub-link" href="/member-hub/link"><strong>Link existing membership</strong><small>Verify the email held by your gym</small></Link><Link className="member-hub-link" href="/join"><strong>Join a gym</strong><small>Choose an onboarded gym</small></Link></div></Surface></AppShell>;
-  return <AppShell className="module-page member-hub-page member-area-page"><PageHeader title="Member Area"/>{demoMode ? <MemberDemoNotice/> : null}{data.map(item => {
+  return <AppShell className="module-page member-hub-page member-area-page"><PageHeader title="Member Area"/>{loadIssue ? <LoadRecovery app="Member Hub" kind={loadIssue} signInHref={loadIssue === "session" ? "/account?mode=signIn&next=%2Fmember-hub" : undefined}/> : null}{demoMode ? <MemberDemoNotice/> : null}{data.map(item => {
     const orderedMemberships = [...item.profile.memberships].sort((a,b)=>b.startsAt.localeCompare(a.startsAt));
     const currentMemberships = orderedMemberships.filter(m => m.status === "active" || m.status === "paused");
     const membershipsToShow = currentMemberships.length ? currentMemberships : orderedMemberships.slice(0,1);

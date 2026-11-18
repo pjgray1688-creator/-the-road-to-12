@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { exerciseById } from "@/lib/workout";
 import { CoachDashboard } from "@/components/coach-dashboard";
 import { CoachClientWorkspace, type CoachWorkspaceSection, type NutritionSummary } from "@/components/coach-client-workspace";
@@ -57,6 +57,9 @@ export function CoachWorkspace({ initialClients, initialPending, memberContexts,
   const [clientEmail, setClientEmail] = useState("");
   const [relationshipType, setRelationshipType] = useState<"primary" | "cover">("primary");
   const [addingClient, setAddingClient] = useState(false);
+  const [startingSessionId, setStartingSessionId] = useState<string | null>(null);
+  const [savingSession, setSavingSession] = useState(false);
+  const sessionKeys = useRef(new Map<string, string>());
 
   useEffect(() => {
     if (!selected) return;
@@ -117,28 +120,40 @@ export function CoachWorkspace({ initialClients, initialPending, memberContexts,
   };
 
   const startSession = async (day: PlannedDay) => {
-    if (!selected || !day.id) return;
-    const response = await fetch(`/api/coach/clients/${selected.clientUserId}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ organisationId: selected.organisationId, assignmentId: selected.assignmentId, relationshipId: selected.relationshipId, idempotencyKey: crypto.randomUUID(), programmeSessionId: day.id }) });
-    const result = await response.json().catch(() => null);
-    if (!response.ok) { setMessage(result?.error ?? "Session could not be started."); return; }
-    setSession({ id: result.session.id, programmeSessionId: day.id, sessionName: day.name ?? "Programme session", exerciseLogs: exerciseLogsFor(day) }); setMessage("Session started. Your log is attached to today’s session only."); setSection("programme");
+    if (!selected || !day.id || startingSessionId) return;
+    setStartingSessionId(day.id); setMessage("");
+    const sessionKey = `${selected.assignmentId}:${day.id}`;
+    const idempotencyKey = sessionKeys.current.get(sessionKey) ?? crypto.randomUUID();
+    sessionKeys.current.set(sessionKey, idempotencyKey);
+    try {
+      const response = await fetch(`/api/coach/clients/${selected.clientUserId}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ organisationId: selected.organisationId, assignmentId: selected.assignmentId, relationshipId: selected.relationshipId, idempotencyKey, programmeSessionId: day.id }) });
+      const result = await response.json().catch(() => null);
+      if (!response.ok) { setMessage(result?.error ?? "Session could not be started."); return; }
+      sessionKeys.current.delete(sessionKey);
+      setSession({ id: result.session.id, programmeSessionId: day.id, sessionName: day.name ?? "Programme session", exerciseLogs: exerciseLogsFor(day) }); setMessage("Session started. Your log is attached to today’s session only."); setSection("programme");
+    } catch { setMessage("Connection interrupted. Try starting this session again."); }
+    finally { setStartingSessionId(null); }
   };
 
   const updateSet = (exerciseIndex: number, setIndex: number, field: "weight" | "reps" | "rir", value: string) => setSession(current => current ? { ...current, exerciseLogs: current.exerciseLogs.map((exercise, index) => index !== exerciseIndex ? exercise : { ...exercise, sets: exercise.sets.map((set, index) => index !== setIndex ? set : { ...set, [field]: value }) }) } : current);
 
   const saveSession = async (complete: boolean) => {
-    if (!session) return;
+    if (!session || savingSession) return;
+    setSavingSession(true); setMessage("");
     const exerciseLogs = session.exerciseLogs.map(exercise => ({ exerciseId: exercise.exerciseId, exerciseName: exercise.exerciseName, target: exercise.target, sets: exercise.sets.map(set => ({ weight: numberOrNull(set.weight), reps: numberOrNull(set.reps), rir: numberOrNull(set.rir) })) }));
-    const response = await fetch(`/api/coach/sessions/${session.id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ notes, adaptations, substitutions: substitutions.split("\n").map(value => value.trim()).filter(Boolean), exerciseLogs, complete }) });
-    const result = await response.json().catch(() => null);
-    if (!response.ok) { setMessage(result?.error ?? "Session could not be saved."); return; }
-    if (result?.session && detail) setDetail({ ...detail, sessions: [result.session, ...detail.sessions.filter(item => item.id !== result.session.id)] });
-    setMessage(complete ? "Session saved and attributed to you as cover PT." : "Session log saved.");
+    try {
+      const response = await fetch(`/api/coach/sessions/${session.id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ notes, adaptations, substitutions: substitutions.split("\n").map(value => value.trim()).filter(Boolean), exerciseLogs, complete }) });
+      const result = await response.json().catch(() => null);
+      if (!response.ok) { setMessage(result?.error ?? "Session could not be saved."); return; }
+      if (result?.session && detail) setDetail({ ...detail, sessions: [result.session, ...detail.sessions.filter(item => item.id !== result.session.id)] });
+      setMessage(complete ? "Session saved and attributed to you as cover PT." : "Session log saved.");
+    } catch { setMessage("Connection interrupted. Your session log was not confirmed as saved."); }
+    finally { setSavingSession(false); }
   };
 
   const programmeContent = detail ? <>
-    <div aria-label="Programme with programmed exercises"><CoachProgrammeBlocks programme={detail.programme} canManage={detail.relationship === "primary"} clientUserId={detail.clientUserId} organisationId={detail.organisationId} assignmentId={detail.assignmentId} relationshipId={detail.relationshipId} onSaved={programme => setDetail(current => current ? { ...current, programme } : current)} onRunSession={day => void startSession(day)} /></div>
-    <div className="coach-session-log"><div className="coach-section-heading"><div><span className="eyebrow">SESSION LOG</span><h3>{session?.sessionName ?? "Run an authorised session"}</h3></div>{session ? <span className="coach-lock">Session-scoped</span> : null}</div>{message ? <p className="coach-message" role="status">{message}</p> : null}{session ? <><p className="muted coach-log-boundary">These entries record what happened today. They do not change the programme.</p><div className="coach-exercises">{session.exerciseLogs.map((exercise, exerciseIndex) => <fieldset className="coach-exercise" key={exercise.exerciseId}><legend><strong>{exercise.exerciseName}</strong><small>{exercise.target}</small></legend>{exercise.sets.map((set, setIndex) => <div className="coach-set" key={`${exercise.exerciseId}-${setIndex}`}><span className="coach-set-number">Set {setIndex + 1}</span><label>Load<input inputMode="decimal" type="number" min="0" step="any" value={set.weight} onChange={event => updateSet(exerciseIndex, setIndex, "weight", event.target.value)} /></label><label>Reps<input inputMode="numeric" type="number" min="0" step="1" value={set.reps} onChange={event => updateSet(exerciseIndex, setIndex, "reps", event.target.value)} /></label><label>RIR<input inputMode="numeric" type="number" min="0" step="1" value={set.rir} onChange={event => updateSet(exerciseIndex, setIndex, "rir", event.target.value)} /></label></div>)}</fieldset>)}</div><label className="coach-field">Substitutions, one per line<textarea value={substitutions} onChange={event => setSubstitutions(event.target.value)} placeholder="e.g. Leg press → Goblet squat" /></label><label className="coach-field">Session adaptations<textarea value={adaptations} onChange={event => setAdaptations(event.target.value)} placeholder="What changed for today only?" /></label><label className="coach-field">Notes<textarea value={notes} onChange={event => setNotes(event.target.value)} placeholder="Session observations" /></label><div className="coach-actions"><button type="button" className="secondary" onClick={() => void saveSession(false)}>Save session log</button><button type="button" className="primary" onClick={() => void saveSession(true)}>Complete session</button></div></> : <p className="muted">Choose a programmed session above to record what happened.</p>}</div>
+    <div aria-label="Programme with programmed exercises"><CoachProgrammeBlocks programme={detail.programme} canManage={detail.relationship === "primary"} clientUserId={detail.clientUserId} organisationId={detail.organisationId} assignmentId={detail.assignmentId} relationshipId={detail.relationshipId} runningSessionId={startingSessionId ?? undefined} onSaved={programme => setDetail(current => current ? { ...current, programme } : current)} onRunSession={day => void startSession(day)} /></div>
+    <div className="coach-session-log"><div className="coach-section-heading"><div><span className="eyebrow">SESSION LOG</span><h3>{session?.sessionName ?? "Run an authorised session"}</h3></div>{session ? <span className="coach-lock">Session-scoped</span> : null}</div>{message ? <p className="coach-message" role="status">{message}</p> : null}{session ? <><p className="muted coach-log-boundary">These entries record what happened today. They do not change the programme.</p><div className="coach-exercises">{session.exerciseLogs.map((exercise, exerciseIndex) => <fieldset className="coach-exercise" key={exercise.exerciseId}><legend><strong>{exercise.exerciseName}</strong><small>{exercise.target}</small></legend>{exercise.sets.map((set, setIndex) => <div className="coach-set" key={`${exercise.exerciseId}-${setIndex}`}><span className="coach-set-number">Set {setIndex + 1}</span><label>Load<input inputMode="decimal" type="number" min="0" step="any" value={set.weight} onChange={event => updateSet(exerciseIndex, setIndex, "weight", event.target.value)} /></label><label>Reps<input inputMode="numeric" type="number" min="0" step="1" value={set.reps} onChange={event => updateSet(exerciseIndex, setIndex, "reps", event.target.value)} /></label><label>RIR<input inputMode="numeric" type="number" min="0" step="1" value={set.rir} onChange={event => updateSet(exerciseIndex, setIndex, "rir", event.target.value)} /></label></div>)}</fieldset>)}</div><label className="coach-field">Substitutions, one per line<textarea value={substitutions} onChange={event => setSubstitutions(event.target.value)} placeholder="e.g. Leg press → Goblet squat" /></label><label className="coach-field">Session adaptations<textarea value={adaptations} onChange={event => setAdaptations(event.target.value)} placeholder="What changed for today only?" /></label><label className="coach-field">Notes<textarea value={notes} onChange={event => setNotes(event.target.value)} placeholder="Session observations" /></label><div className="coach-actions"><button type="button" className="secondary" disabled={savingSession} aria-busy={savingSession} onClick={() => void saveSession(false)}>{savingSession ? "Saving…" : "Save session log"}</button><button type="button" className="primary" disabled={savingSession} aria-busy={savingSession} onClick={() => void saveSession(true)}>{savingSession ? "Saving…" : "Complete session"}</button></div></> : <p className="muted">Choose a programmed session above to record what happened.</p>}</div>
   </> : null;
 
   return <main className="coach-shell"><h1 className="coach-visually-hidden">Clients</h1><header className="coach-header"><div className="coach-header-actions"><button type="button" className="secondary coach-add-client-action coach-header-action" onClick={() => setShowAddClient(true)}><span className="coach-add-icon" aria-hidden="true">+</span>Add client</button></div></header>

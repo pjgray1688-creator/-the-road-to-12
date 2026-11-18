@@ -5,13 +5,15 @@ import { redirect } from "next/navigation";
 import { ClubSectionNav } from "@/components/club-shell";
 import styles from "@/components/club-operations.module.css";
 import { AppShell, EmptyState, PageHeader, Surface } from "@/components/ui";
-import { serverSupabase } from "@/lib/supabase-server";
+import { getServerUser } from "@/lib/supabase-server";
 import { listClubOrganisationContexts, isClubStaffRole, toClubNavContexts } from "@/lib/club-server-context";
 import { resolveOrganisationTheme } from "@/lib/club";
 import type { Metadata } from "next";
 import { clubMetadata } from "@/lib/club-metadata";
 import { hasPlayReviewerEntitlement } from "@/lib/play-reviewer";
-import { ClubMemberHome, MemberClubUnavailable } from "@/components/club-member-home";
+import { ClubMemberHome } from "@/components/club-member-home";
+import { LoadRecovery } from "@/components/load-recovery";
+import { classifyLoadFailure, safeLoadFailureFields } from "@/lib/club-load-state";
 import overviewStyles from "@/components/club-desktop-overview.module.css";
 import type { ClubClassBooking, ClubClassSession, ClubServiceTransaction } from "@/lib/club-operations";
 import { listLinkedInstructorIdentities, resolveInstructorName } from "@/lib/club-instructor-name";
@@ -22,7 +24,7 @@ const roleLabel = (role: string) => role.replace(/_/g, " ").replace(/\b\w/g, let
 
 export async function generateMetadata({ searchParams }: { searchParams?: Promise<{ org?: string; location?: string }> }): Promise<Metadata> {
   try {
-    const supabase = await serverSupabase(); const { data: { user } } = await supabase.auth.getUser();
+    const { client: supabase, user } = await getServerUser();
     if (!user) return clubMetadata("Overview");
     if (hasPlayReviewerEntitlement(user)) return clubMetadata("Google Play review · demo");
     const contexts = await listClubOrganisationContexts(supabase, user.id); const params = await searchParams; const orgId = params?.org; const organisation = contexts.find(item => item.organisation.id === orgId)?.organisation ?? (contexts.length === 1 ? contexts[0].organisation : undefined);
@@ -31,8 +33,10 @@ export async function generateMetadata({ searchParams }: { searchParams?: Promis
 }
 
 export default async function ClubPage({ searchParams }: { searchParams?: Promise<{ org?: string; location?: string }> }) {
-  const supabase = await serverSupabase();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { client: supabase, user, error: authError } = await getServerUser();
+  if (!user && authError && classifyLoadFailure(authError) !== "unavailable") {
+    return <AppShell className="module-page club-page"><PageHeader eyebrow="R12 CLUB" title="Club"/><LoadRecovery app="Club" kind={classifyLoadFailure(authError)} signInHref="/account?app=club&mode=signIn&next=%2Fclub"/></AppShell>;
+  }
   if (!user) { const params = await searchParams; const next = `/club${params?.org ? `?org=${encodeURIComponent(params.org)}` : ""}`; redirect(`/account?app=club&mode=signIn&next=${encodeURIComponent(next)}`); }
   if (hasPlayReviewerEntitlement(user)) redirect("/club/reviewer");
   try {
@@ -65,8 +69,10 @@ export default async function ClubPage({ searchParams }: { searchParams?: Promis
         const serviceTransactions = customerId ? value<ClubServiceTransaction[]>(5, []).filter(item => item.customerId === customerId) : [];
         const sessions = value<ClubClassSession[]>(2, []).filter(item => item.status === "scheduled" && new Date(item.startsAt).getTime() >= Date.now()).sort((a, b) => a.startsAt.localeCompare(b.startsAt));
         return <ClubMemberHome organisation={context.organisation} role={role} contexts={navContexts} profile={profile} balance={value(0, undefined)} locations={value(1, [])} sessions={sessions} orders={value(3, [])} bookings={bookings} serviceTransactions={serviceTransactions} billing={Array.isArray(billingResult.data) ? billingResult.data as Array<{ state?: string; amount_minor?: number; currency?: string; next_due_at?: string }> : []} lifetimeProductIds={products.filter(product => product.isLifetime).map(product => product.id)} />;
-      } catch {
-        return <MemberClubUnavailable />;
+      } catch (error) {
+        const failure = safeLoadFailureFields(error);
+        console.error("[club] member workspace load failed", failure);
+        return <AppShell className="module-page club-page"><PageHeader eyebrow="R12 CLUB" title="Club" description="Your Madhouse membership workspace."/><LoadRecovery app="Club member workspace" kind={failure.kind}/></AppShell>;
       }
     }
     const [locations, declarations, sessions, classTypes, canReviewBilling, memberIdentities, canManageOrders] = await Promise.all([
@@ -90,9 +96,11 @@ export default async function ClubPage({ searchParams }: { searchParams?: Promis
         : Promise.resolve({ data: false, error: null }),
     ]);
     const canOpenGlowZone = Boolean(!glowCapability.error && glowCapability.data === true && glowCarlton && !glowLocationAccess.error && glowLocationAccess.data === true);
-    const billingResult = canReviewBilling ? await supabase.rpc("club_list_membership_billing_attention", { p_organisation_id: context.organisation.id }) : { data: null, error: null };
+    const [billingResult, shelfResult] = await Promise.all([
+      canReviewBilling ? supabase.rpc("club_list_membership_billing_attention", { p_organisation_id: context.organisation.id }) : Promise.resolve({ data: null, error: null }),
+      supabase.rpc("club_list_collection_shelf_checks", { p_organisation_id: context.organisation.id }),
+    ]);
     const billingAttention = !billingResult.error && Array.isArray(billingResult.data) ? billingResult.data.length : 0;
-    const shelfResult = await supabase.rpc("club_list_collection_shelf_checks", { p_organisation_id: context.organisation.id });
     const shelfAttention = !shelfResult.error && Array.isArray(shelfResult.data) ? shelfResult.data.length : 0;
     const now = Date.now();
     const upcomingSessions = sessions.filter(session => session.status === "scheduled" && new Date(session.startsAt).getTime() >= now).sort((a, b) => a.startsAt.localeCompare(b.startsAt));
@@ -120,5 +128,9 @@ export default async function ClubPage({ searchParams }: { searchParams?: Promis
         </div>
       </section>
     </AppShell>;
-  } catch { return <AppShell className="module-page club-page"><PageHeader eyebrow="R12 CLUB" title="Club" description="Operational workspace." /><EmptyState title="Club couldn’t be loaded.">Try again shortly.</EmptyState></AppShell>; }
+  } catch (error) {
+    const failure = safeLoadFailureFields(error);
+    console.error("[club] overview load failed", failure);
+    return <AppShell className="module-page club-page"><PageHeader eyebrow="R12 CLUB" title="Club" description="Operational workspace."/><LoadRecovery app="Club" kind={failure.kind}/></AppShell>;
+  }
 }

@@ -34,7 +34,7 @@ test("account and Member Area are direct destinations while programme setup is e
   const home = read("components/home-shell.tsx");
   const onboarding = read("app/onboarding/page.tsx");
   assert.match(account, /setAccount\(\{ id: user\.id/);
-  assert.match(member, /getUser\(\)/);
+  assert.match(member, /getServerUser\(\)/);
   assert.match(home, /href="\/onboarding"/);
   assert.match(onboarding, /TrainingSetupChoice/);
   assert.match(read("components/training-setup-choice.tsx"), /router\.push\("\/member-hub"\)/);

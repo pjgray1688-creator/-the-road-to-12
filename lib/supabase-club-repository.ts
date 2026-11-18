@@ -10,7 +10,7 @@ import type { ClubCapability } from "./club-capabilities";
 
 type Row = Record<string, unknown>;
 type SupabaseFailure = { message?: string; code?: string };
-export type ClubRepositoryError = Error & { code: "UNAVAILABLE" | "FORBIDDEN" | "NOT_FOUND" | "INVALID" | "CONFLICT" | "FAILED"; operation: string };
+export type ClubRepositoryError = Error & { code: "UNAVAILABLE" | "FORBIDDEN" | "NOT_FOUND" | "INVALID" | "CONFLICT" | "FAILED"; operation: string; supabaseCode?: string };
 
 const roles: ClubRole[] = ["member", "trainer", "gym_staff", "gym_admin", "owner", "guest"];
 const productKinds: ClubProduct["kind"][] = ["membership", "class", "pt", "transformation"];
@@ -31,8 +31,17 @@ const fulfilmentStatuses: ClubFulfilmentStatus[] = ["pending", "fulfilled", "can
 const safeError = (operation: string, failure?: SupabaseFailure | null, code: ClubRepositoryError["code"] = "FAILED"): never => {
   if (failure && process.env.NODE_ENV !== "test") console.error(`[club-repository] ${operation}`, { code: failure.code, message: failure.message });
   const error = new Error(code === "NOT_FOUND" ? "Club record not found" : code === "FORBIDDEN" ? "Club operation is not permitted" : code === "INVALID" ? "Club operation is invalid" : code === "CONFLICT" ? "This staff member already has a calendar item during that time." : "Club data is unavailable") as ClubRepositoryError;
-  error.code = code; error.operation = operation; throw error;
+  error.code = code; error.operation = operation; error.supabaseCode = failure?.code; throw error;
 };
+
+async function measureSupabaseRequest<T>(operation: string, run: () => PromiseLike<T>): Promise<T> {
+  const startedAt = performance.now();
+  try { return await run(); }
+  finally {
+    const durationMs = Math.round(performance.now() - startedAt);
+    if (durationMs >= 250) console.warn("[club-repository] slow Supabase request", { operation, durationMs });
+  }
+}
 
 const row = (value: unknown): Row => value && typeof value === "object" && !Array.isArray(value) ? value as Row : {};
 const rows = (value: unknown): Row[] => Array.isArray(value) ? value.map(row) : [];
@@ -121,12 +130,12 @@ const productRpcArguments = (product: Omit<ClubProduct, "id"> | ClubProduct) => 
 export class SupabaseClubRepository implements ClubRepository {
   constructor(private readonly client: SupabaseClient) {}
   async staffSettleSplitPayment(orderId: string, balanceMinor: number, cashMinor: number, idempotencyKey: string): Promise<void> { const { error } = await this.client.rpc("club_staff_settle_split_payment", { p_order_id: orderId, p_balance_minor: balanceMinor, p_cash_minor: cashMinor, p_idempotency_key: idempotencyKey }); if (error) safeError("staff_settle_split_payment", error, error.code === "42501" ? "FORBIDDEN" : "FAILED"); }
-  async hasCapability(organisationId: string, userId: string, capability: ClubCapability) { const { data, error } = await this.client.rpc("club_capability_allowed", { p_organisation_id: organisationId, p_user_id: userId, p_capability: capability }); if (error) safeError("club_capability_allowed", error, error.code === "42501" ? "FORBIDDEN" : "FAILED"); return data === true; }
+  async hasCapability(organisationId: string, userId: string, capability: ClubCapability) { const { data, error } = await measureSupabaseRequest("club_capability_allowed", () => this.client.rpc("club_capability_allowed", { p_organisation_id: organisationId, p_user_id: userId, p_capability: capability })); if (error) safeError("club_capability_allowed", error, error.code === "42501" ? "FORBIDDEN" : "FAILED"); return data === true; }
   async appendAuditEvent(input: { organisationId: string; action: string; targetType?: string; targetId?: string; reason?: string }) { const { error } = await this.client.rpc("club_append_audit_event", { p_organisation_id: input.organisationId, p_action: input.action, p_target_type: input.targetType ?? null, p_target_id: input.targetId ?? null, p_location_id: null, p_reason: input.reason ?? null, p_metadata: {} }); if (error && process.env.NODE_ENV !== "test") console.warn("[club-repository] audit trail unavailable", { code: error.code, operation: input.action }); }
 
-  async listOrganisations() { const { data, error } = await this.client.from("club_organisations").select("*").order("name"); if (error) safeError("list_organisations", error); return rows(data).map(mapOrganisation); }
+  async listOrganisations() { const { data, error } = await measureSupabaseRequest("list_organisations", () => this.client.from("club_organisations").select("*").order("name")); if (error) safeError("list_organisations", error); return rows(data).map(mapOrganisation); }
   async listLocations(organisationId: string) { const { data, error } = await this.client.from("club_locations").select("*").eq("organisation_id", organisationId).order("name"); if (error) safeError("list_locations", error); return rows(data).map(mapLocation); }
-  async listMembers(organisationId: string) { const { data, error } = await this.client.from("club_members").select("id,organisation_id,user_id,role,active,created_at,preferred_location_id").eq("organisation_id", organisationId).order("created_at"); if (error) safeError("list_members", error); return rows(data).map(mapMember); }
+  async listMembers(organisationId: string) { const { data, error } = await measureSupabaseRequest("list_members", () => this.client.from("club_members").select("id,organisation_id,user_id,role,active,created_at,preferred_location_id").eq("organisation_id", organisationId).order("created_at")); if (error) safeError("list_members", error); return rows(data).map(mapMember); }
   async resolveMemberIdentity(organisationId: string, userId: string) { const { data, error } = await this.client.rpc("club_resolve_member_identity", { p_organisation_id: organisationId, p_user_id: userId }); if (error) { if (error.code === "42883") return undefined; safeError("resolve_member_identity", error, error.code === "42501" ? "FORBIDDEN" : error.code === "P0002" ? "NOT_FOUND" : "FAILED"); } const x = row(data); return x.user_id ? { userId: String(x.user_id), ...(optionalString(x.display_name) ? { displayName: String(x.display_name) } : {}), ...(optionalString(x.email) ? { email: String(x.email) } : {}) } : undefined; }
   async listMemberIdentities(organisationId: string) { const { data, error } = await this.client.rpc("club_list_member_identities", { p_organisation_id: organisationId }); if (error) { if (error.code === "42883") return []; safeError("list_member_identities", error, error.code === "42501" ? "FORBIDDEN" : "FAILED"); } return rows(data).flatMap(item => { const x = row(item); return x.user_id ? [{ userId: String(x.user_id), ...(optionalString(x.display_name) ? { displayName: String(x.display_name) } : {}), ...(optionalString(x.email) ? { email: String(x.email) } : {}) }] : []; }); }
   async listMemberSummaries(organisationId: string) { const { data, error } = await this.client.rpc("club_list_member_summaries", { p_organisation_id: organisationId }); if (error) safeError("list_member_summaries", error, error.code === "42501" ? "FORBIDDEN" : "FAILED"); return rows(data).map(item => { const x = row(item); const home = row(x.home_location); return { id: String(x.id), organisationId, userId: String(x.user_id), ...(optionalString(x.customer_id) ? { customerId: String(x.customer_id) } : {}), role: String(x.role) as ClubMemberSummaryRead["role"], active: x.active === true, displayName: String(x.display_name), ...(optionalString(x.email) ? { email: String(x.email) } : {}), ...(optionalString(x.membership_name) ? { membershipName: String(x.membership_name) } : {}), ...(optionalString(x.membership_status) ? { membershipStatus: String(x.membership_status) } : {}), ...(optionalString(x.membership_ends_at) ? { membershipEndsAt: String(x.membership_ends_at) } : {}), ...(home.id ? { homeLocation: { id: String(home.id), name: String(home.name) } } : {}), accessState: String(x.access_state) as ClubMemberSummaryRead["accessState"] }; }); }

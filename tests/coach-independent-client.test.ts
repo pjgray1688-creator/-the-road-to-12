@@ -71,8 +71,9 @@ test("direct and Club sessions use the same authorised logging boundary", () => 
 });
 
 test("unexpected Coach list failures are not shown as fake permission failures", () => {
-  assert.match(page, /Coach service unavailable/);
-  assert.match(page, /firstError\.code === "42501"/);
+  assert.match(page, /const kind = classifyLoadFailure\(firstError\)/);
+  assert.match(page, /if \(kind === "permission"\)/);
+  assert.match(page, /LoadRecovery app="Coach" kind=\{kind\}/);
   assert.match(page, /console\.error\("\[coach\] workspace load failed"/);
 });
 

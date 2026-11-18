@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { cache } from "react";
 import { clubRepository, type ClubRepository } from "./club-repository";
 import type { ClubRole, Organisation, OrganisationMember } from "./club";
 
@@ -18,43 +19,65 @@ export type ClubOrganisationContext = {
 export function toClubNavContexts(contexts: ClubOrganisationContext[]) { return contexts.map(context => ({ organisation: context.organisation, role: context.role, navigation: context.navigation })); }
 
 /** Resolve only organisations where the signed-in user has an active membership. */
-export async function listClubOrganisationContexts(client: SupabaseClient, userId: string) {
+async function loadClubOrganisationContexts(client: SupabaseClient, userId: string) {
+  const startedAt = performance.now();
+  let organisationCount = 0;
+  let capabilityChecks = 0;
   const repository = clubRepository(client);
-  const organisations = await repository.listOrganisations();
-  const contexts = await Promise.all(organisations.map(async (organisation): Promise<ClubOrganisationContext | undefined> => {
-    const members = await repository.listMembers(organisation.id);
-    const member = members.find(item => item.userId === userId && item.active);
-    if (!member) return undefined;
-    const [canViewMembers, finance, cashControls, memberships, memberImports, promotions, suppliers, supplierOrders, supplierReceive, staff, venues, reports, services, workSubmit, workReview, classManagement, cashTaking, induction, coachDiary] = await Promise.all([
-      repository.hasCapability(organisation.id, userId, "members.view"),
-      repository.hasCapability(organisation.id, userId, "finance.view"),
-      repository.hasCapability(organisation.id, userId, "cash.reconcile"),
-      repository.hasCapability(organisation.id, userId, "memberships.manage"),
-      repository.hasCapability(organisation.id, userId, "members.import"),
-      repository.hasCapability(organisation.id, userId, "commerce.pricing_manage"),
-      repository.hasCapability(organisation.id, userId, "supplier.catalogue_manage"),
-      repository.hasCapability(organisation.id, userId, "supplier.orders_manage"),
-      repository.hasCapability(organisation.id, userId, "supplier.receive"),
-      repository.hasCapability(organisation.id, userId, "staff.permissions_manage"),
-      repository.hasCapability(organisation.id, userId, "induction.manage_policy"),
-      repository.hasCapability(organisation.id, userId, "finance.export"),
-      repository.hasCapability(organisation.id, userId, "services.manage"),
-      repository.hasCapability(organisation.id, userId, "staff.work_submit"),
-      repository.hasCapability(organisation.id, userId, "staff.work_review"),
-      repository.hasCapability(organisation.id, userId, "classes.manage"),
-      repository.hasCapability(organisation.id, userId, "payments.record_cash"),
-      repository.hasCapability(organisation.id, userId, "induction.perform"),
-      ["trainer", "gym_staff", "gym_admin", "owner"].includes(member.role)
-        ? client.rpc("coach_has_access", { p_client_user_id: null }).then(result => !result.error && result.data === true)
-        : Promise.resolve(false),
-    ]);
-    const classSetup = member.role === "gym_admin" || member.role === "owner";
-    const classReports = classManagement && (cashTaking || cashControls);
-    const navigation = { members: canViewMembers, doorAccess: canViewMembers, payments: finance, finance, cashControls, cashTill: canViewMembers, balanceTopUp: cashTaking, collections: supplierReceive, classSetup, memberships, memberImports, promotions, suppliers, supplierOrders, staff, stationAdmin: staff, venues, reports, services, workSubmit, workReview, dailyChecks: workSubmit || workReview, classReports, coachDiary, induction, management: finance || cashControls || classSetup || memberships || memberImports || promotions || suppliers || staff || venues || reports || workReview };
-    return { repository, organisation, members, member, role: member.role, navigation } satisfies ClubOrganisationContext;
-  }));
-  return contexts.filter((context): context is ClubOrganisationContext => Boolean(context));
+  try {
+    const organisations = await repository.listOrganisations();
+    organisationCount = organisations.length;
+    const contexts = await Promise.all(organisations.map(async (organisation): Promise<ClubOrganisationContext | undefined> => {
+      const members = await repository.listMembers(organisation.id);
+      const member = members.find(item => item.userId === userId && item.active);
+      if (!member) return undefined;
+      const isOperational = ["trainer", "gym_staff", "gym_admin", "owner"].includes(member.role);
+      capabilityChecks += isOperational ? 19 : 18;
+      const [canViewMembers, finance, cashControls, memberships, memberImports, promotions, suppliers, supplierOrders, supplierReceive, staff, venues, reports, services, workSubmit, workReview, classManagement, cashTaking, induction, coachDiary] = await Promise.all([
+        repository.hasCapability(organisation.id, userId, "members.view"),
+        repository.hasCapability(organisation.id, userId, "finance.view"),
+        repository.hasCapability(organisation.id, userId, "cash.reconcile"),
+        repository.hasCapability(organisation.id, userId, "memberships.manage"),
+        repository.hasCapability(organisation.id, userId, "members.import"),
+        repository.hasCapability(organisation.id, userId, "commerce.pricing_manage"),
+        repository.hasCapability(organisation.id, userId, "supplier.catalogue_manage"),
+        repository.hasCapability(organisation.id, userId, "supplier.orders_manage"),
+        repository.hasCapability(organisation.id, userId, "supplier.receive"),
+        repository.hasCapability(organisation.id, userId, "staff.permissions_manage"),
+        repository.hasCapability(organisation.id, userId, "induction.manage_policy"),
+        repository.hasCapability(organisation.id, userId, "finance.export"),
+        repository.hasCapability(organisation.id, userId, "services.manage"),
+        repository.hasCapability(organisation.id, userId, "staff.work_submit"),
+        repository.hasCapability(organisation.id, userId, "staff.work_review"),
+        repository.hasCapability(organisation.id, userId, "classes.manage"),
+        repository.hasCapability(organisation.id, userId, "payments.record_cash"),
+        repository.hasCapability(organisation.id, userId, "induction.perform"),
+        isOperational
+          ? client.rpc("coach_has_access", { p_client_user_id: null }).then(result => !result.error && result.data === true)
+          : Promise.resolve(false),
+      ]);
+      const classSetup = member.role === "gym_admin" || member.role === "owner";
+      const classReports = classManagement && (cashTaking || cashControls);
+      const navigation = { members: canViewMembers, doorAccess: canViewMembers, payments: finance, finance, cashControls, cashTill: canViewMembers, balanceTopUp: cashTaking, collections: supplierReceive, classSetup, memberships, memberImports, promotions, suppliers, supplierOrders, staff, stationAdmin: staff, venues, reports, services, workSubmit, workReview, dailyChecks: workSubmit || workReview, classReports, coachDiary, induction, management: finance || cashControls || classSetup || memberships || memberImports || promotions || suppliers || staff || venues || reports || workReview };
+      return { repository, organisation, members, member, role: member.role, navigation } satisfies ClubOrganisationContext;
+    }));
+    const result = contexts.filter((context): context is ClubOrganisationContext => Boolean(context));
+    const durationMs = Math.round(performance.now() - startedAt);
+    if (durationMs >= 500) console.warn("[club-context] slow organisation context load", { durationMs, organisationCount, memberListQueries: organisationCount, capabilityChecks, estimatedSupabaseCalls: 1 + organisationCount + capabilityChecks });
+    return result;
+  } catch (error) {
+    const durationMs = Math.round(performance.now() - startedAt);
+    if (durationMs >= 500) {
+      const failure = error as { operation?: unknown; supabaseCode?: unknown; code?: unknown };
+      console.warn("[club-context] organisation context load failed", { durationMs, organisationCount, memberListQueries: organisationCount, capabilityChecks, operation: typeof failure.operation === "string" ? failure.operation : "unknown", supabaseCode: typeof failure.supabaseCode === "string" ? failure.supabaseCode : undefined, failureCode: typeof failure.code === "string" ? failure.code : undefined });
+    }
+    throw error;
+  }
 }
+
+// React cache is request scoped, so layout, metadata and page share the same
+// authorisation reads during one render without retaining permissions across requests.
+export const listClubOrganisationContexts = cache(loadClubOrganisationContexts);
 
 /** An explicit organisation is required when a user belongs to more than one. */
 export async function resolveClubOrganisationContext(client: SupabaseClient, userId: string, organisationId?: string) {

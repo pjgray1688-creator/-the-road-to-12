@@ -63,7 +63,7 @@ test("Coach Diary has a mobile date strip and safe empty/loading/error states", 
   assert.match(calendarCss, /@media\(max-width:720px\)/);
   assert.match(calendarCss, /@media\(max-width:360px\)/);
   assert.match(diaryCss, /@media\(max-width:600px\)/);
-  assert.match(page, /Your diary couldn’t be loaded/);
+  assert.match(page, /<LoadRecovery app="Coach Diary"/);
   assert.match(page, /No Club diary is linked yet/);
 });
 

@@ -1,20 +1,27 @@
 import { redirect } from "next/navigation";
-import { serverSupabase } from "@/lib/supabase-server";
+import { getServerUser } from "@/lib/supabase-server";
 import { clubRepository } from "@/lib/club-repository";
 import { MemberHub, type MemberHubData } from "@/components/member-hub";
 import { hasPlayReviewerEntitlement } from "@/lib/play-reviewer";
 import { reviewerMemberHubData } from "@/lib/play-reviewer-member-data";
 import { autoLinkVerifiedMadhouseMember } from "@/lib/madhouse-auto-link";
+import { classifyLoadFailure, safeLoadFailureFields, type LoadFailureKind } from "@/lib/club-load-state";
 
 export default async function MemberHubPage() {
-  const supabase = await serverSupabase(); const { data: { user } } = await supabase.auth.getUser(); if (!user) redirect("/account?mode=signIn&next=%2Fmember-hub");
+  const { client: supabase, user, error: authError } = await getServerUser();
+  if (!user && authError && classifyLoadFailure(authError) !== "unavailable") return <MemberHub data={[]} loadIssue={classifyLoadFailure(authError)}/>;
+  if (!user) redirect("/account?mode=signIn&next=%2Fmember-hub");
   if (hasPlayReviewerEntitlement(user)) return <MemberHub data={reviewerMemberHubData()} demoMode />;
   await autoLinkVerifiedMadhouseMember(supabase, undefined, user);
   const { data, error } = await supabase.rpc("club_list_my_memberships");
-  if (error) return <MemberHub data={[]} />;
+  if (error) {
+    const kind = classifyLoadFailure(error);
+    console.error("[member-hub] memberships load failed", safeLoadFailureFields(error));
+    return <MemberHub data={[]} loadIssue={kind}/>;
+  }
   const memberships = Array.isArray(data) ? data as Array<Record<string, unknown>> : [];
-  const repository = clubRepository(supabase); const loaded: MemberHubData[] = [];
-  for (const item of memberships) {
+  const repository = clubRepository(supabase);
+  const results = await Promise.all(memberships.map(async (item): Promise<{ data?: MemberHubData; issue?: LoadFailureKind }> => {
     const org = (item.organisation && typeof item.organisation === "object" ? item.organisation : {}) as Record<string, unknown>;
     const organisation = { id: String(org.id), name: String(org.name), slug: String(org.slug), active: org.active !== false, branding: org.branding as never };
     try {
@@ -37,8 +44,14 @@ export default async function MemberHubPage() {
       }) : [];
       const bookings = allBookings.filter((booking) => booking.customerId === profile.customer?.id).map((booking) => ({ sessionId: booking.sessionId, status: booking.status }));
       const schedule = !scheduleResult.error && Array.isArray(scheduleResult.data) ? scheduleResult.data as MemberHubData["schedule"] : [];
-      loaded.push({ organisation, profile, balance, balanceHistory, sessions, bookings, orders, schedule, lifetimeProductIds: products.filter(product => product.isLifetime).map(product => product.id) });
-    } catch { /* An invalid/inactive relationship is not exposed. */ }
-  }
-  return <MemberHub data={loaded}/>;
+      return { data: { organisation, profile, balance, balanceHistory, sessions, bookings, orders, schedule, lifetimeProductIds: products.filter(product => product.isLifetime).map(product => product.id) } };
+    } catch (reason) {
+      const failure = safeLoadFailureFields(reason);
+      console.error("[member-hub] organisation workspace load failed", failure);
+      return { issue: failure.kind };
+    }
+  }));
+  const loaded = results.flatMap(result => result.data ? [result.data] : []);
+  const loadIssue = results.find(result => result.issue)?.issue;
+  return <MemberHub data={loaded} loadIssue={loadIssue}/>;
 }

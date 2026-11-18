@@ -65,7 +65,7 @@ test("Club navigation exposes staff operations and gates management reporting", 
   assert.doesNotMatch(shell.slice(shell.indexOf("const mobileNavigation"), shell.indexOf("const isGroupOpen")), /Glow Zone/);
   assert.match(layout, /context\.navigation\.services&&carlton/);
   assert.match(layout, /club_location_authorized/);
-  assert.match(layout, /access\.data===true/);
+  assert.match(layout, /glowZoneAccess\.set\(context\.organisation\.id,authorisedLocationIds\.has\(carlton\.id\)\)/);
   assert.match(management, /context\.navigation\.services && context\.navigation\.management && context\.navigation\.finance && !glowAccess\.error && glowAccess\.data === true/);
   assert.match(management, /club_location_authorized/);
   assert.match(shell, /access\.finance/);

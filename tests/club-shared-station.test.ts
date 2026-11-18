@@ -76,6 +76,21 @@ test("station setup cannot lock a browser until a staff PIN is eligible and mana
   assert.doesNotMatch(chooser,/No active staff are available for this station/);
 });
 
+test("disabled station cookies are cleared only after an authoritative disabled-registration check",()=>{
+  const page=readFileSync("app/club/lock/page.tsx","utf8");
+  const recover=readFileSync("app/api/club/station/recover/route.ts","utf8");
+  const proxy=readFileSync("proxy.ts","utf8");
+  assert.match(page,/!registered\?\.enabled\)redirect\("\/api\/club\/station\/recover"\)/);
+  assert.match(recover,/eq\("token_hash", tokenHash\)/);
+  assert.match(recover,/if \(error\)[\s\S]*status: 503[\s\S]*return NextResponse\.json/);
+  assert.match(recover,/if \(!isDisabled\) return NextResponse\.redirect\(new URL\("\/club\/lock"/);
+  assert.match(recover,/isDisabled = !data \|\| data\.enabled !== true/);
+  assert.match(recover,/new URL\("\/club", request\.url\)/);
+  assert.match(recover,/response\.cookies\.set\(CLUB_STATION_COOKIE[\s\S]*response\.cookies\.set\(CLUB_STATION_USER_COOKIE/);
+  assert.match(recover,/sec-fetch-site/);
+  assert.match(proxy,/pathname\.startsWith\("\/api\/club\/station\/"\)/);
+});
+
 test("staff PIN is bcrypt-hashed, private, recently reauthenticated and independently rate-limited",()=>{
   assert.match(migration,/extensions\.crypt\(p_pin,extensions\.gen_salt\('bf',12\)\)/);
   assert.match(migration,/auth_time[\s\S]{0,200}extract\(epoch from now\(\)\)::bigint-300/);

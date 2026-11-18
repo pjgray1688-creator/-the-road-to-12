@@ -46,8 +46,9 @@ export async function proxy(request: NextRequest) {
     try {
       const { data, error } = await supabase.auth.getUser();
       if (!error && data.user) verifiedUser = { id: data.user.id, email: data.user.email, app_metadata: data.user.app_metadata };
-    } catch {
-      // Unavailable or invalid sessions are treated as unauthenticated here.
+      else if (error) console.warn("[auth] proxy identity verification failed", { code: error.code, status: error.status });
+    } catch (error) {
+      console.warn("[auth] proxy identity verification unavailable", { name: error instanceof Error ? error.name : "unknown" });
     }
   }
 

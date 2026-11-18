@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { serverSupabase } from "@/lib/supabase-server";
+import { getServerUser } from "@/lib/supabase-server";
 import { isClubStaffRole, listClubOrganisationContexts, resolveClubOperationalContext, toClubNavContexts } from "@/lib/club-server-context";
 import { ClubIdentityControl } from "@/components/club-identity-control";
 import { ClubDesktopShell, type DesktopClubLocation } from "@/components/club-desktop-shell";
@@ -10,11 +10,11 @@ import { CLUB_STATION_COOKIE, stationCookieValue, stationSessionTtlSeconds } fro
 import { headers } from "next/headers";
 import { hasPlayReviewerEntitlement } from "@/lib/play-reviewer";
 import { listLinkedInstructorIdentities } from "@/lib/club-instructor-name";
+import { safeLoadFailureFields } from "@/lib/club-load-state";
 
 export async function generateMetadata(): Promise<Metadata> {
   try {
-    const supabase = await serverSupabase();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { client: supabase, user } = await getServerUser();
     if (hasPlayReviewerEntitlement(user)) return { title: "R12 Club · Google Play review", description: "Read-only synthetic Club demonstration.", manifest: "/club/manifest.webmanifest" };
     const context = user ? await resolveClubOperationalContext(supabase, user.id) : undefined;
     return { title: context?.organisation.name ? `R12 Club · ${context.organisation.name}` : "R12 Club", description: "Operational tools for R12 clubs.", manifest: "/club/manifest.webmanifest" };
@@ -24,11 +24,11 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function ClubLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  const client=await serverSupabase();const {data:{user}}=await client.auth.getUser();const cookieStore=await cookies();const station=stationCookieValue(cookieStore.get(CLUB_STATION_COOKIE)?.value);
+  const { client, user } = await getServerUser();const cookieStore=await cookies();const station=stationCookieValue(cookieStore.get(CLUB_STATION_COOKIE)?.value);
   const reviewer=hasPlayReviewerEntitlement(user);
   const profile=user&&!reviewer?await client.from("profiles").select("first_name,last_name,display_name").eq("id",user.id).maybeSingle():{data:null};
   const lockRoute=(await headers()).get("x-r12-club-lock-route")==="1";
-  const contexts=user&&!reviewer&&!(station&&lockRoute)?await listClubOrganisationContexts(client,user.id).catch(()=>[]):[];
+  const contexts=user&&!reviewer&&!(station&&lockRoute)?await listClubOrganisationContexts(client,user.id).catch(error=>{console.warn("[club-shell] organisation context unavailable",safeLoadFailureFields(error));return [];}):[];
   const staffContexts=contexts.filter(context=>isClubStaffRole(context.role));
   const linkedIdentities = user && staffContexts[0]
     ? await listLinkedInstructorIdentities(client, staffContexts[0].organisation.id).catch(() => [])
@@ -40,17 +40,17 @@ export default async function ClubLayout({ children }: Readonly<{ children: Reac
   const locationsByOrganisation:Record<string,DesktopClubLocation[]>={};
   const glowZoneAccess = new Map<string, boolean>();
   await Promise.all(staffContexts.map(async context=>{
-    const locations=await context.repository.listLocations(context.organisation.id).catch(()=>[]);
+    const locations=await context.repository.listLocations(context.organisation.id).catch(error=>{console.warn("[club-shell] locations unavailable",safeLoadFailureFields(error));return [];});
     const authorised = await Promise.all(locations.filter(location=>location.active).map(async location=>{
       const result=await client.rpc("club_location_authorized",{p_organisation_id:context.organisation.id,p_location_id:location.id});
       return !result.error&&result.data===true?location.id:null;
     }));
     const permittedIds=new Set(authorised.filter((id):id is string=>Boolean(id)));
     locationsByOrganisation[context.organisation.id]=locations.map(location=>({id:location.id,name:location.name,active:location.active&&permittedIds.has(location.id)}));
+    const authorisedLocationIds = new Set(permittedIds);
     const carlton=locations.find(location=>location.active&&location.name.toLocaleLowerCase("en-GB").includes("carlton"));
     if(context.organisation.slug==="madhouse-gym"&&context.navigation.services&&carlton){
-      const access=await client.rpc("club_location_authorized",{p_organisation_id:context.organisation.id,p_location_id:carlton.id});
-      glowZoneAccess.set(context.organisation.id,!access.error&&access.data===true);
+      glowZoneAccess.set(context.organisation.id,authorisedLocationIds.has(carlton.id));
     }
   }));
   const navContexts=toClubNavContexts(staffContexts).map(context=>({ ...context, navigation:{...context.navigation,glowZone:glowZoneAccess.get(context.organisation.id)===true}, accent: resolveOrganisationTheme(context.organisation).primaryAccent }));

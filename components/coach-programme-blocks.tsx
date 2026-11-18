@@ -6,7 +6,7 @@ import type { BuilderProgramme } from "@/lib/coach-programme-builder";
 import type { PlannedSession } from "@/lib/domain";
 
 type Block = { id: string; title: string; description?: string | null; coachNotes?: string | null; status: "draft" | "active" | "completed" | "archived"; plannedWeeks?: number | null; startDate?: string | null; targetEndDate?: string | null; updatedAt?: string; definition: BuilderProgramme };
-type Props = { programme: BuilderProgramme; canManage: boolean; clientUserId: string; organisationId: string | null; assignmentId: string; relationshipId?: string; onSaved: (programme: BuilderProgramme) => void; onRunSession?: (session: PlannedSession) => void };
+type Props = { programme: BuilderProgramme; canManage: boolean; clientUserId: string; organisationId: string | null; assignmentId: string; relationshipId?: string; runningSessionId?: string; onSaved: (programme: BuilderProgramme) => void; onRunSession?: (session: PlannedSession) => void };
 
 function copy<T>(value: T): T { return JSON.parse(JSON.stringify(value)) as T; }
 function freshDefinition(source: BuilderProgramme, title: string): BuilderProgramme {
