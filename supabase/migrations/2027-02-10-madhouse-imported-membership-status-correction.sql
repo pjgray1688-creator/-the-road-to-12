@@ -114,7 +114,7 @@ begin
   get diagnostics v_audit=row_count;
   if v_audit<>v_candidates then raise exception 'Audit count assertion failed: expected %, got %; transaction rolled back',v_candidates,v_audit; end if;
 
-  update public.club_memberships m set status='active',updated_at=now()
+  update public.club_memberships m set status='active'
   from public.club_member_import_rows ir, public.club_products p
   where m.organisation_id=v_org and m.import_batch_id=v_batch and m.source='legacy_import'
     and ir.id=m.import_row_id and ir.organisation_id=m.organisation_id and ir.batch_id=v_batch

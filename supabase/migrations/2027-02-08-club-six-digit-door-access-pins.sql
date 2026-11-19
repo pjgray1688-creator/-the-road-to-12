@@ -262,8 +262,8 @@ begin
     end if;
   end loop;
   if issued_count<>eligible_count then raise exception 'PIN rotation count mismatch'; end if;
-  if exists(select 1 from r12_pin_rotation r join public.club_access_credentials old on old.id=r.old_credential_id
-    where r.old_length=8 and old.status<>'revoked') then raise exception 'A legacy PIN remained active'; end if;
+  if exists(select 1 from r12_pin_rotation rot join public.club_access_credentials old on old.id=rot.old_credential_id
+    where rot.old_length=8 and old.status<>'revoked') then raise exception 'A legacy PIN remained active'; end if;
   if exists(select 1 from public.club_access_credentials where credential_type='pin'
     and status='active' and pin_length is distinct from 6) then raise exception 'A non-six-digit PIN remained active'; end if;
 end;
