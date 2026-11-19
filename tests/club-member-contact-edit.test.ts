@@ -31,7 +31,9 @@ test("linked member profiles show the name once and retain contact editing", () 
   const customer = read("app/club/members/customer/[customerId]/page.tsx");
   assert.doesNotMatch(linked, /IDENTITY<\/span><h2>\{customer\?\.displayName/);
   assert.doesNotMatch(customer, /IDENTITY<\/span><h2>\{customer\.displayName/);
-  assert.match(linked, /<ClubMemberContactEditor/);
+  assert.match(linked, /<ClubMemberProfileEditor/);
+  assert.match(customer, /<ClubMemberProfileEditor/);
+  assert.match(linked, /IDENTITY &amp; CONTACT/);
 });
 
 test("contact editing action has readable purple button states", () => {

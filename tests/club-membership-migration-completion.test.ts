@@ -34,7 +34,7 @@ test("management category groups include products regardless of public sale stat
   assert.deepEqual(groups.find(group => group.key === "family")?.products.map(product => product.id), ["b"]);
   assert.deepEqual(groups.find(group => group.key === "passes")?.products.map(product => product.id), ["c"]);
   assert.equal(groups.flatMap(group => group.products).some(product => product.id === "d"), false);
-  assert.deepEqual(groups.map(group => group.label).slice(0, 6), ["Off-Peak", "Family", "Couples", "Standard", "Lifetime", "Passes"]);
+  assert.deepEqual(groups.map(group => group.label), ["Off-Peak", "Family", "Couples", "Standard", "Lifetime", "Fixed-term offers", "Passes", "Other membership products"]);
 });
 
 test("family terms page uses the secure projection rather than querying a revoked table", () => {

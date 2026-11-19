@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ClubMemberSummaryRead } from "@/lib/club-operational";
-import { clubDirectoryPageCount, compareClubMemberDirectoryRows, formatClubMemberDisplayName, matchesClubMemberDirectoryFilters, type ClubDirectoryRow, type ClubDirectorySortField } from "@/lib/club-member-directory";
+import { clubDirectoryMembershipStatus, clubDirectoryPageCount, compareClubMemberDirectoryRows, formatClubMemberDisplayName, matchesClubMemberDirectoryFilters, type ClubDirectoryRow, type ClubDirectorySortField } from "@/lib/club-member-directory";
 import styles from "./club-members-directory.module.css";
 
 type DirectoryMember = ClubMemberSummaryRead & { phone?: string };
@@ -52,13 +52,16 @@ export function ClubMembersDirectory({ members, organisationId, customers = [], 
     ...members.map(member => ({
       key: `member:${member.id}`, id: member.customerId ?? member.id, userId: member.userId,
       displayName: formatClubMemberDisplayName(member.displayName), email: member.email, phone: member.phone,
-      plan: member.membershipName, status: member.membershipStatus, endsAt: member.membershipEndsAt,
+      plan: member.membershipName, status: clubDirectoryMembershipStatus(member.membershipStatus, member.membershipEndsAt), endsAt: member.membershipEndsAt,
       homeId: member.homeLocation?.id, homeName: member.homeLocation?.name,
       ref: (member.customerId ?? member.id).slice(0, 8).toUpperCase(), accessState: member.accessState, imported: false,
     })),
     ...customers.map(customer => ({
       key: `customer:${customer.id}`, id: customer.id, userId: customer.userId, displayName: formatClubMemberDisplayName(customer.displayName),
-      email: customer.email, phone: customer.phone, plan: customer.membershipName, status: customer.directoryStatus ?? customer.membershipStatus ?? "pending_review",
+      email: customer.email, phone: customer.phone, plan: customer.membershipName,
+      status: customer.membershipName
+        ? clubDirectoryMembershipStatus(customer.membershipStatus ?? customer.directoryStatus, customer.membershipEndsAt)
+        : customer.directoryStatus ?? customer.membershipStatus ?? "pending_review",
       endsAt: customer.membershipEndsAt, homeId: customer.homeLocation?.id, homeName: customer.homeLocation?.name,
       ref: customer.id.slice(0, 8).toUpperCase(), imported: true,
     })),

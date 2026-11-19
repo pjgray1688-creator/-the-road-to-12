@@ -301,3 +301,75 @@ export async function createClubCustomerAction(input: { organisationId: string; 
     return { ok: false, error: "Person couldn’t be added." };
   }
 }
+
+export async function updateClubCustomerProfileAction(input: { organisationId: string; customerId: string; displayName: string; email: string; phone: string; addressLine1: string; addressLine2: string; townCity: string; postcode: string; dateOfBirth: string; homeLocationId: string; reason: string }): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    const supabase = await serverSupabase();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { ok: false, error: "Sign in to update member details." };
+    const context = await resolveClubOperationalContext(supabase, user.id, input.organisationId);
+    if (!context || !(await context.repository.hasCapability(context.organisation.id, user.id, "members.create"))) return { ok: false, error: "You don’t have permission to edit member details." };
+    const name = input.displayName.trim();
+    if (!name || name.length > 160 || input.reason.trim().length < 3 || input.reason.trim().length > 500) return { ok: false, error: "Enter a name and a short reason for the change." };
+    const { error } = await supabase.rpc("club_update_customer_profile_details", {
+      p_organisation_id: context.organisation.id, p_customer_id: input.customerId, p_display_name: name,
+      p_email: input.email.trim() || null, p_phone: input.phone.trim() || null,
+      p_address_line_1: input.addressLine1.trim() || null, p_address_line_2: input.addressLine2.trim() || null,
+      p_town_city: input.townCity.trim() || null, p_postcode: input.postcode.trim() || null,
+      p_date_of_birth: input.dateOfBirth || null, p_home_location_id: input.homeLocationId || null,
+      p_reason: input.reason.trim(),
+    });
+    if (error) return { ok: false, error: error.code === "42501" ? "You aren’t authorised to update this member record." : "Member details could not be saved. Check the information and try again." };
+    revalidatePath(`/club/members/customer/${encodeURIComponent(input.customerId)}`);
+    revalidatePath("/club/members", "page");
+    return { ok: true };
+  } catch { return { ok: false, error: "Member details could not be saved." }; }
+}
+
+export async function updateClubMembershipAction(input: { organisationId: string; customerId: string; membershipId: string; productId: string; status: "active" | "paused" | "expired"; startsOn: string; endsOn: string; reason: string }): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    const supabase = await serverSupabase();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { ok: false, error: "Sign in to manage memberships." };
+    const context = await resolveClubOperationalContext(supabase, user.id, input.organisationId);
+    if (!context || !(await context.repository.hasCapability(context.organisation.id, user.id, "memberships.manage"))) return { ok: false, error: "You don’t have permission to manage memberships." };
+    if (!input.startsOn || input.reason.trim().length < 8 || !["active", "paused", "expired"].includes(input.status)) return { ok: false, error: "Enter the membership dates and a clear reason." };
+    const { error } = await supabase.rpc("club_update_manual_membership", {
+      p_organisation_id: context.organisation.id, p_membership_id: input.membershipId,
+      p_product_id: input.productId, p_status: input.status, p_starts_on: input.startsOn,
+      p_ends_on: input.endsOn || null, p_reason: input.reason.trim(),
+    });
+    if (error) return { ok: false, error: error.code === "55000" ? "This membership is controlled by a payment provider or shared contract. Update it through that verified record." : error.code === "42501" ? "You aren’t authorised to change this membership." : "Membership changes could not be saved. No billing arrangement was changed." };
+    revalidatePath(`/club/members/customer/${encodeURIComponent(input.customerId)}`);
+    revalidatePath("/club/members", "page");
+    revalidatePath("/club/membership-billing", "page");
+    return { ok: true };
+  } catch { return { ok: false, error: "Membership changes could not be saved." }; }
+}
+
+export async function recordExistingMembershipCashPaymentAction(input: { organisationId: string; customerId: string; membershipId: string; locationId: string; amountMinor: number; receiptDate: string; periodStart: string; periodEnd: string; paidThrough: string; note: string; idempotencyKey: string }): Promise<{ ok: true; paidThrough: string } | { ok: false; error: string }> {
+  try {
+    const supabase = await serverSupabase();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { ok: false, error: "Sign in to record cash." };
+    const context = await resolveClubOperationalContext(supabase, user.id, input.organisationId);
+    if (!context || context.role !== "owner" && context.role !== "gym_admin"
+      || !(await context.repository.hasCapability(context.organisation.id, user.id, "memberships.manage"))
+      || !(await context.repository.hasCapability(context.organisation.id, user.id, "payments.record_cash"))) return { ok: false, error: "Only authorised management can record membership cash." };
+    if (!Number.isSafeInteger(input.amountMinor) || input.amountMinor <= 0 || input.note.trim().length < 8
+      || !/^\d{4}-\d{2}-\d{2}$/.test(input.receiptDate) || !/^\d{4}-\d{2}-\d{2}$/.test(input.periodStart)
+      || !/^\d{4}-\d{2}-\d{2}$/.test(input.periodEnd) || !/^\d{4}-\d{2}-\d{2}$/.test(input.paidThrough)
+      || input.periodEnd < input.periodStart || input.paidThrough !== input.periodEnd) return { ok: false, error: "Enter a valid cash amount, received date and matching covered period." };
+    const { data, error } = await supabase.rpc("club_record_existing_membership_cash_payment", {
+      p_organisation_id: context.organisation.id, p_customer_id: input.customerId, p_membership_id: input.membershipId,
+      p_location_id: input.locationId, p_amount_minor: input.amountMinor, p_receipt_date: input.receiptDate,
+      p_period_start: input.periodStart, p_period_end: input.periodEnd, p_paid_through: input.paidThrough,
+      p_note: input.note.trim(), p_idempotency_key: input.idempotencyKey,
+    });
+    if (error) return { ok: false, error: error.code === "55000" ? "This membership has provider, household or unpaid-payment controls. Reconcile those records before taking cash." : error.code === "42501" ? "This venue or payment is not authorised." : "Cash could not be recorded. No payment or membership change was saved." };
+    revalidatePath(`/club/members/customer/${encodeURIComponent(input.customerId)}`);
+    revalidatePath("/club/payments/cash-collections", "page");
+    revalidatePath("/club/payments/membership", "page");
+    return { ok: true, paidThrough: String((data as { paid_through_date?: string } | null)?.paid_through_date ?? input.paidThrough) };
+  } catch { return { ok: false, error: "Cash could not be recorded." }; }
+}

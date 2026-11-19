@@ -33,6 +33,17 @@ export function clubMembershipStatusMatches(status: string | undefined, filter: 
   return value === filter;
 }
 
+/** Expired source records become Former only after the agreed two-month window. */
+export function clubDirectoryMembershipStatus(status: string | undefined, endsAt?: string, now = new Date()): string {
+  const value = (status ?? "").toLowerCase();
+  if (["cancelled", "ended", "former"].includes(value)) return "former";
+  if (!["expired", "lapsed"].includes(value) || !endsAt) return value;
+  const expiry = new Date(`${endsAt.slice(0, 10)}T00:00:00.000Z`);
+  if (!Number.isFinite(expiry.getTime())) return "lapsed";
+  const cutoff = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 2, now.getUTCDate()));
+  return expiry < cutoff ? "former" : "lapsed";
+}
+
 export function formatClubMemberDisplayName(value?: string) {
   // Presentation-only cleanup: preserve Unicode spelling and letter case.
   return value?.normalize("NFC").trim().replace(/\s+/g, " ") || "Member";

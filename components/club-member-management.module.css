@@ -1,0 +1,29 @@
+.editor,
+.manager,
+.cashForm {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.actions button {
+  min-height: 44px;
+}
+
+.feedback {
+  margin: 0;
+  min-height: 1.4em;
+}
+
+@media (max-width: 560px) {
+  .actions button {
+    flex: 1 1 150px;
+  }
+}
