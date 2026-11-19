@@ -22,8 +22,71 @@
   min-height: 1.4em;
 }
 
+.accountDetails {
+  border: 1px solid #e6deeb;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.accountDetails summary {
+  min-height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  color: #4d2868;
+  font-weight: 700;
+  cursor: pointer;
+  list-style-position: inside;
+}
+
+.accountDetails summary:focus-visible {
+  outline: 3px solid #b992d2;
+  outline-offset: 2px;
+}
+
+.accountContent {
+  display: grid;
+  gap: 12px;
+  padding: 0 14px 14px;
+  min-width: 0;
+}
+
+.accessControls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+}
+
+.accessControls label {
+  min-width: 0;
+}
+
+.accessControls button {
+  min-height: 44px;
+  white-space: nowrap;
+}
+
+.accessMessage {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
 @media (max-width: 560px) {
   .actions button {
     flex: 1 1 150px;
+  }
+
+  .accessControls {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .accessMessage {
+    grid-column: auto;
   }
 }

@@ -36,7 +36,7 @@ export function ClubMemberProfileEditor({ organisationId, profile, locations, ca
     });
   }
   return <section className={styles.editor}>
-    {!open ? <button className="secondary" type="button" onClick={() => { setMessage(""); setOpen(true); }}>Edit member details</button> : null}
+    {!open ? <button className="secondary" type="button" onClick={() => { setMessage(""); setOpen(true); }}>Edit details</button> : null}
     {open ? <form action={submit} className={styles.editor}>
       <label>Full name<input name="displayName" required maxLength={160} defaultValue={profile.display_name} /></label>
       <label>Contact email<input name="email" type="email" maxLength={254} defaultValue={profile.email ?? ""} /></label>

@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { setMembershipAccessStatusAction } from "@/app/club/members/actions";
+import styles from "@/components/club-member-management.module.css";
 
 export function ClubMembershipAccessStatus({ organisationId, membershipId, status }: { organisationId: string; membershipId: string; status: string }) {
   const router = useRouter();
@@ -21,14 +22,14 @@ export function ClubMembershipAccessStatus({ organisationId, membershipId, statu
     });
   };
 
-  return <div className="membership-access-controls">
+  return <div className={styles.accessControls}>
     <label>{nextStatus === "paused" ? "Reason for pausing access" : "Reason for reactivating access"}
       <input value={reason} maxLength={500} onChange={event => setReason(event.target.value)} placeholder="For example, member requested a temporary pause" />
     </label>
     <button type="button" className={nextStatus === "paused" ? "secondary" : "primary"} onClick={submit} disabled={pending || reason.trim().length < 3}>
       {pending ? "Saving…" : nextStatus === "paused" ? "Pause access" : "Reactivate access"}
     </button>
-    {message ? <p role="status" className="muted">{message}</p> : null}
-    {status === "paused" ? <p className="muted">Access is paused. Membership dates and recurring billing are unchanged.</p> : null}
+    {message ? <p role="status" className={`muted ${styles.accessMessage}`}>{message}</p> : null}
+    {status === "paused" ? <p className={`muted ${styles.accessMessage}`}>Access is paused. Membership dates and recurring billing are unchanged.</p> : null}
   </div>;
 }
