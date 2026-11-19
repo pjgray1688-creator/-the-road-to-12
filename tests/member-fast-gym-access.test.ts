@@ -27,8 +27,9 @@ test("the standard Member Hub no longer waits for pass issuance or unrelated acc
 
 test("credentials are rendered only when the server says access is currently allowed", () => {
   const pass = read("components/member-access-pass.tsx");
-  assert.match(pass, /pass\.accessAllowed \? accessQrMatrix\(pass\.qrToken\) : \[\]/);
-  assert.match(pass, /pass\.accessAllowed \? <><div/);
+  assert.match(pass, /passReady = pass\.accessAllowed && \/\^\\d\{6\}\$\/.test\(pass\.pin\) && Boolean\(pass\.qrToken\)/);
+  assert.match(pass, /passReady \? accessQrMatrix\(pass\.qrToken\) : \[\]/);
+  assert.match(pass, /passReady \? <><div/);
   assert.match(pass, /PIN and QR are hidden because access is not currently active/);
 });
 

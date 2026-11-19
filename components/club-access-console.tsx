@@ -68,15 +68,18 @@ export function ClubAccessConsole({ organisationId, locations, customers, initia
     if (result.ok) { setDecision(result.decision as Decision); setMessage(""); }
     else { setDecision(undefined); setMessage(result.error ?? "Access could not be checked."); }
   };
-  const scan = () => start(async () => show(await decideScannedAccessAction({ organisationId, locationId, credential, credentialType })));
+  const scan = () => {
+    if (credentialType === "pin" && !/^\d{6}$/.test(credential)) { setMessage("Enter exactly six digits for a gym-entry PIN."); return; }
+    start(async () => show(await decideScannedAccessAction({ organisationId, locationId, credential, credentialType })));
+  };
 
   return <div>
     <div className="catalogue-import-mapping">
       <label>Venue<select value={locationId} onChange={(event) => setLocationId(event.target.value)}>{active.map((location) => <option value={location.id} key={location.id}>{location.name}</option>)}</select></label>
-      <label>Credential type<select value={credentialType} onChange={(event) => setCredentialType(event.target.value as CredentialType)}><option value="pin">Personal PIN</option><option value="qr">R12 QR pass</option><option value="legacy_member_reference">Legacy member reference</option><option value="barcode">Barcode</option></select></label>
-      <label>Scan or enter credential<input aria-label="Member access credential" inputMode={credentialType === "pin" ? "numeric" : "text"} autoComplete="off" value={credential} onChange={(event) => setCredential(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") scan(); }} /></label>
+      <label>Credential type<select value={credentialType} onChange={(event) => { setCredentialType(event.target.value as CredentialType); setCredential(""); }}><option value="pin">Six-digit PIN</option><option value="qr">R12 QR pass</option><option value="legacy_member_reference">Legacy member reference</option><option value="barcode">Barcode</option></select></label>
+      <label>Scan or enter credential<input aria-label={credentialType === "pin" ? "Six-digit gym-entry PIN" : "Member access credential"} inputMode={credentialType === "pin" ? "numeric" : "text"} autoComplete="off" maxLength={credentialType === "pin" ? 6 : 256} pattern={credentialType === "pin" ? "[0-9]{6}" : undefined} placeholder={credentialType === "pin" ? "Enter six digits" : undefined} value={credential} onChange={(event) => setCredential(credentialType === "pin" ? event.target.value.replace(/[^0-9]/g, "").slice(0, 6) : event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") scan(); }} /></label>
     </div>
-    <button className="primary" type="button" disabled={pending || !locationId || !credential.trim()} onClick={scan}>{pending ? "Checking…" : "Check access"}</button>
+    <button className="primary" type="button" disabled={pending || !locationId || !credential.trim() || (credentialType === "pin" && !/^\d{6}$/.test(credential))} onClick={scan}>{pending ? "Checking…" : "Check access"}</button>
     <label>Or find a member<input aria-label="Find member for access check" placeholder="Name, email or phone" value={query} onChange={(event) => setQuery(event.target.value)} /></label>
     {matches.map((customer) => <button className="club-detail-row" type="button" key={customer.id} disabled={pending} onClick={() => start(async () => show(await decideCustomerAccessAction({ organisationId, locationId, customerId: customer.id })))}><strong>{customer.displayName}</strong><small>{customer.email ?? customer.phone ?? "Member record"}</small></button>)}
     {decision ? <div className={decision.allowed ? "checkout-receipt balance-topup-success" : "card"} role="status">

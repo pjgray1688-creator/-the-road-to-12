@@ -14,7 +14,7 @@ const HEADERS = {
   "cache-control": "no-store, no-cache, max-age=0",
   pragma: "no-cache",
 };
-const PIN_PATTERN = /^\d{8}$/;
+const PIN_PATTERN = /^\d{6}$/;
 
 type Config = {
   akuvoxHardwareDeviceId: string;

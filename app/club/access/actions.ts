@@ -53,7 +53,7 @@ export async function decideCustomerAccessAction(input: { organisationId: string
 export async function revealMyClubAccessPin(organisationId: string) {
   try {
     const result = await ownAccessPass(organisationId);
-    if (!result || result.pass.accessAllowed !== true || typeof result.pass.pin !== "string") {
+    if (!result || result.pass.accessAllowed !== true || typeof result.pass.pin !== "string" || !/^\d{6}$/.test(result.pass.pin)) {
       return { ok: false as const, error: "Your staff access PIN is unavailable. Ask a Madhouse manager to check your staff access." };
     }
     return { ok: true as const, pin: result.pass.pin };

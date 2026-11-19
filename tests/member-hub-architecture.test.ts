@@ -28,7 +28,7 @@ test("member hub shows server-authoritative credentials and uses verified-email 
   assert.doesNotMatch(hub, /MemberAccessPass/);
   assert.match(accessPage, /MemberAccessPass/);
   assert.match(accessPage, /club_get_my_access_pass/);
-  assert.match(pass, /Personal access PIN/);
+  assert.match(pass, /Six-digit gym-entry PIN/);
   assert.match(pass, /confirmed live/);
   assert.match(link, /club_preview_existing_member_claim/);
   assert.match(link, /verified personal R12 account/);

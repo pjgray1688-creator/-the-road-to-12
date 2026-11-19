@@ -1,5 +1,9 @@
 # Akuvox A02/A02S R12 PIN gateway (commissioning preparation)
 
+Gym-entry PINs accepted by the gateway are exactly six numeric digits. The
+R12 access decision remains authoritative; existing QR credentials use their
+separate opaque-token format. Shared Club station sign-in PINs are unrelated.
+
 This gateway is an on-premises HTTPS bridge. It does not decide membership
 eligibility and does not store member PINs. It forwards the member's existing
 PIN to R12's authenticated device decision endpoint. A positive result is

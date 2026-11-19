@@ -4,6 +4,7 @@ import test from "node:test";
 import { accessQrMatrix } from "@/lib/qr-code";
 
 const sql = readFileSync("supabase/migrations/2026-12-04-member-pin-qr-access-pass.sql", "utf8");
+const sixDigitSql = readFileSync("supabase/migrations/2027-02-08-club-six-digit-door-access-pins.sql", "utf8");
 const memberPage = readFileSync("app/member-hub/access/page.tsx", "utf8");
 const memberPass = readFileSync("components/member-access-pass.tsx", "utf8");
 const consoleUi = readFileSync("components/club-access-console.tsx", "utf8");
@@ -18,8 +19,10 @@ test("pgcrypto calls use the Supabase extensions schema and UTF-8 bytea HMAC inp
 });
 
 test("1 member receives a server-generated permanent PIN", () => {
-  assert.match(sql, /extensions\.gen_random_bytes\(4\)/);
-  assert.match(sql, /'pin'.*true.*'active'/s);
+  assert.match(sixDigitSql, /extensions\.gen_random_bytes\(4\)/);
+  assert.match(sixDigitSql, /lpad\(\(candidate%1000000\)::text,6,'0'\)/);
+  assert.match(sixDigitSql, /pin !~ '\^\[0-9\]\{6\}\$'/);
+  assert.match(sixDigitSql, /'pin'.*true.*'active',6/s);
   assert.match(sql, /club_holder_access_projection_refresh/);
 });
 
@@ -30,15 +33,17 @@ test("2 PIN remains stable across membership changes", () => {
 
 test("3 active PINs are unique", () => {
   assert.match(sql, /club_access_person_token_uq/);
-  assert.match(sql, /exception when unique_violation then[\s\S]+if found then exit/);
-  assert.match(sql, /%100000000/);
+  assert.match(sql, /club_access_one_permanent_type_uq/);
+  assert.match(sixDigitSql, /exception when unique_violation then[\s\S]+if found then exit/);
+  assert.match(sixDigitSql, /candidate>=4294000000/);
+  assert.match(sixDigitSql, /attempts>256/);
 });
 
 test("4 member can view their own PIN", () => {
   assert.match(sql, /club_get_my_access_pass/);
   assert.match(sql, /pgp_sym_decrypt\(pin_row\.secret_ciphertext/);
   assert.match(memberPage, /club_get_my_access_pass/);
-  assert.match(memberPass, /Personal access PIN/);
+  assert.match(memberPass, /Six-digit gym-entry PIN/);
 });
 
 test("5 another member cannot view the PIN", () => {
@@ -173,7 +178,7 @@ test("27 existing staff and Coach roles are untouched", () => {
 });
 
 test("28 reception supports PIN, QR and clear operating outcomes", () => {
-  assert.match(consoleUi, /Personal PIN/);
+  assert.match(consoleUi, /Six-digit PIN/);
   assert.match(consoleUi, /R12 QR pass/);
   assert.match(consoleUi, /Arrival recorded/);
   assert.match(consoleUi, /Door unlock permitted/);

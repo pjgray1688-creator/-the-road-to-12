@@ -12,7 +12,7 @@ const basic = `Basic ${Buffer.from(`${deviceUser}:${devicePassword}`).toString("
 function makeRequest(overrides: Partial<Parameters<ReturnType<typeof createAkuvoxA02Handler>>[0]> = {}) {
   return {
     method: "GET",
-    url: new URL(`https://gateway.test/akuvox/a02/pin?pin=12345678&deviceId=${akuvoxId}&time=2026-11-14T12%3A00%3A00Z`),
+    url: new URL(`https://gateway.test/akuvox/a02/pin?pin=123456&deviceId=${akuvoxId}&time=2026-11-14T12%3A00%3A00Z`),
     authorization: basic,
     remoteAddress: allowedIp,
     ...overrides,
@@ -46,7 +46,7 @@ test("gateway forwards the member PIN to the existing authoritative R12 device d
   assert.equal(captured.init?.method, "POST");
   assert.equal((captured.init?.headers as Record<string, string>).authorization, `Bearer ${secret}`);
   assert.equal((captured.init?.headers as Record<string, string>)["x-r12-device-id"], "00000000-0000-4000-8000-000000000001");
-  assert.deepEqual(JSON.parse(String(captured.init?.body)), { credential: "12345678", credentialType: "pin" });
+  assert.deepEqual(JSON.parse(String(captured.init?.body)), { credential: "123456", credentialType: "pin" });
   assert.ok((captured.init?.headers as Record<string, string>)["x-r12-request-nonce"]);
 });
 
@@ -68,9 +68,11 @@ test("invalid credentials, unexpected source/device, methods and PIN shape never
     makeRequest({ authorization: null }),
     makeRequest({ authorization: `Basic ${Buffer.from(`${deviceUser}:wrong`).toString("base64")}` }),
     makeRequest({ remoteAddress: "192.168.10.21" }),
-    makeRequest({ url: new URL(`https://gateway.test/akuvox/a02/pin?pin=12345678&deviceId=other`) }),
-    makeRequest({ url: new URL("https://gateway.test/akuvox/a02/pin?pin=12345678&time=2026-11-14T12%3A00%3A00Z") }),
+    makeRequest({ url: new URL(`https://gateway.test/akuvox/a02/pin?pin=123456&deviceId=other`) }),
+    makeRequest({ url: new URL("https://gateway.test/akuvox/a02/pin?pin=123456&time=2026-11-14T12%3A00%3A00Z") }),
     makeRequest({ url: new URL(`https://gateway.test/akuvox/a02/pin?pin=1234&deviceId=${akuvoxId}`) }),
+    makeRequest({ url: new URL(`https://gateway.test/akuvox/a02/pin?pin=12345678&deviceId=${akuvoxId}&time=2026-11-14T12%3A00%3A00Z`) }),
+    makeRequest({ url: new URL(`https://gateway.test/akuvox/a02/pin?pin=12a456&deviceId=${akuvoxId}&time=2026-11-14T12%3A00%3A00Z`) }),
     makeRequest({ method: "POST" }),
   ];
   for (const request of invalid) assert.deepEqual(JSON.parse((await handler(request)).body), { isvalid: false });
@@ -101,7 +103,7 @@ test("replayed successful PIN is temporarily denied without another R12 decision
   let calls = 0;
   const handler = createAkuvoxA02Handler({ akuvoxHardwareDeviceId: akuvoxId, r12DeviceId: "device", r12DeviceSecret: secret, basicUsername: deviceUser, basicPassword: devicePassword, allowedIps: new Set([allowedIp]), now: () => 1_000, fetcher: mockFetch({ allowed: true, decision: "allow", unlockPermitted: true }, { capture: () => { calls += 1; } }) });
   const first = await handler(makeRequest());
-  const replay = await handler(makeRequest({ url: new URL(`https://gateway.test/akuvox/a02/pin?pin=12345678&deviceId=${akuvoxId}&time=changed`) }));
+  const replay = await handler(makeRequest({ url: new URL(`https://gateway.test/akuvox/a02/pin?pin=123456&deviceId=${akuvoxId}&time=changed`) }));
   assert.deepEqual(JSON.parse(first.body), { isvalid: true });
   assert.deepEqual(JSON.parse(replay.body), { isvalid: false });
   assert.equal(calls, 1);

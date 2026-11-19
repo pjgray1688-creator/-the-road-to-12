@@ -28,7 +28,7 @@ export function ClubAccessPinControls({ organisationId, canReset }: { organisati
   };
 
   return <div className="club-access-pin-controls">
-    <div className="club-detail-row"><span>Personal access PIN</span><strong aria-live="polite" className={styles.pinValue}>{pin ?? "••••••••"}</strong></div>
+    <div className="club-detail-row"><span>Six-digit gym-entry PIN</span><strong aria-live="polite" className={styles.pinValue}>{pin ?? "••••••"}</strong></div>
     <div className={styles.actions}>
       <button className="secondary" type="button" onClick={reveal} disabled={pending}>{pending ? "Please wait…" : pin ? "Hide PIN" : "Reveal PIN"}</button>
       {canReset ? <button className="secondary" type="button" onClick={reset} disabled={pending}>Reset my PIN</button> : null}

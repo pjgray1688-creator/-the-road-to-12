@@ -9,6 +9,7 @@ export async function POST(request: NextRequest) {
   if(!deviceId||!nonce||!presentedAt||!authorization?.startsWith("Bearer "))return NextResponse.json({error:"Device authentication required"},{status:401,headers:noStore});
   let body:{credential?:unknown;credentialType?:unknown}; try{body=await request.json()}catch{return NextResponse.json({error:"Invalid request"},{status:400,headers:noStore})}
   if(typeof body.credential!=="string"||body.credential.length<1||body.credential.length>256||!(["pin","qr","legacy_member_reference","barcode"] as unknown[]).includes(body.credentialType??"pin"))return NextResponse.json({error:"Invalid credential"},{status:400,headers:noStore});
+  if((body.credentialType??"pin")==="pin"&&!/^\d{6}$/.test(body.credential as string))return NextResponse.json({error:"Invalid access PIN"},{status:400,headers:noStore});
   const {data,error}=await adminSupabase().rpc("club_device_access_decision",{p_device_id:deviceId,p_secret:authorization.slice(7),p_nonce:nonce,p_presented_at:presentedAt,p_credential:body.credential,p_credential_type:body.credentialType??"pin"});
   if(error){const status=error.code==="42501"?401:error.code==="23505"?409:error.code==="54000"?429:400;return NextResponse.json({error:status===429?"Too many requests":"Access request rejected"},{status,headers:noStore});}
   return NextResponse.json(data,{headers:noStore});
