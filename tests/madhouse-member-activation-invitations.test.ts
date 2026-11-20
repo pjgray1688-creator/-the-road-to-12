@@ -99,9 +99,17 @@ test("management sending requires explicit confirmation and worker configuration
   assert.match(actions, /notificationTransportAvailable\(\)/);
   assert.match(actions, /nudgeNotificationWorker\(\)/);
   const rendered = renderNotification({ templateKey: "madhouse_member_invitation", payload: {
-    name: "Member", maskedEmail: "p••••@gmail.com", activationUrl: `https://app.r12.live/member-hub/activate?invitation=${invitationId}#token=${deriveMemberInvitationToken(invitationId, secret)}`,
+    name: "Alex Member", maskedEmail: "p••••@gmail.com", activationUrl: `https://app.r12.live/member-hub/activate?invitation=${invitationId}#token=${deriveMemberInvitationToken(invitationId, secret)}`,
   } });
   assert.equal(rendered.cta, "ACTIVATE YOUR R12 ACCOUNT");
+  assert.equal(rendered.senderName, "Madhouse Gym");
+  assert.deepEqual(rendered.replyTo, { name: "Madhouse Gym", address: "contact@madhousegym.online" });
+  assert.match(rendered.text, /Hi Alex Member/);
+  assert.match(rendered.html, /Hi Alex Member/);
+  assert.match(rendered.text, /single-use invitation link expires seven days/i);
+  assert.match(rendered.html, /single-use invitation link expires seven days/i);
+  assert.match(rendered.html, /max-width:600px/);
+  assert.match(rendered.html, /madhouse-club-wide\.png/);
   assert.match(rendered.text, /existing membership will be retained/);
   assert.match(rendered.text, /There is no payment/);
   assert.match(rendered.text, /p••••@gmail\.com/);

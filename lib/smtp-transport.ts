@@ -76,7 +76,25 @@ function write(socket: Socket, value: string) {
 }
 
 function safeHeader(value: string) { return value.replace(/[\r\n]/g, " ").trim(); }
-function encodeHeader(value: string) { return `=?UTF-8?B?${Buffer.from(safeHeader(value), "utf8").toString("base64")}?=`; }
+function encodeHeader(value: string) {
+  const characters = Array.from(safeHeader(value));
+  if (!characters.length) return "";
+  const words: string[] = [];
+  let chunk = "";
+  let bytes = 0;
+  for (const character of characters) {
+    const characterBytes = Buffer.byteLength(character, "utf8");
+    if (bytes && bytes + characterBytes > 45) {
+      words.push(`=?UTF-8?B?${Buffer.from(chunk, "utf8").toString("base64")}?=`);
+      chunk = "";
+      bytes = 0;
+    }
+    chunk += character;
+    bytes += characterBytes;
+  }
+  if (chunk) words.push(`=?UTF-8?B?${Buffer.from(chunk, "utf8").toString("base64")}?=`);
+  return words.join("\r\n ");
+}
 function encodeBody(value: string) { return Buffer.from(value.replace(/\r?\n/g, "\r\n"), "utf8").toString("base64").match(/.{1,76}/g)?.join("\r\n") ?? ""; }
 function formatAddress(name: string, address: string) { return `${encodeHeader(name)} <${address}>`; }
 function smtpSender(config: SmtpConfiguration, sender: NotificationEnvelope["sender"], allowUnverifiedTest = false) {
@@ -93,7 +111,12 @@ function smtpSender(config: SmtpConfiguration, sender: NotificationEnvelope["sen
 function buildMessage(config: SmtpConfiguration, envelope: NotificationEnvelope, allowUnverifiedTest = false) {
   const recipient = envelope.recipientEmail.trim().toLowerCase();
   if (!/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(recipient)) throw smtpError("Recipient email address is invalid");
-  const from = smtpSender(config, envelope.sender, allowUnverifiedTest);
+  const configuredFrom = smtpSender(config, envelope.sender, allowUnverifiedTest);
+  const from = { ...configuredFrom, name: envelope.senderName?.trim() || configuredFrom.name };
+  const replyTo = envelope.replyTo;
+  if (replyTo && (!/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(replyTo.address) || /[\r\n]/.test(replyTo.name))) {
+    throw smtpError("Reply-to address is invalid");
+  }
   const boundary = `${envelope.sender === "apparel" ? "madhouse" : "r12"}-${randomUUID()}`;
   let host = envelope.sender === "apparel" ? "madhousegym.online" : "the-road-to-12.vercel.app";
   if (envelope.sender !== "apparel") {
@@ -101,6 +124,7 @@ function buildMessage(config: SmtpConfiguration, envelope: NotificationEnvelope,
   }
   return [
     `From: ${formatAddress(from.name, from.address)}`,
+    ...(replyTo ? [`Reply-To: ${formatAddress(replyTo.name, replyTo.address)}`] : []),
     `To: <${recipient}>`,
     `Subject: ${encodeHeader(envelope.subject)}`,
     `Date: ${new Date().toUTCString()}`,

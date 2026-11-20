@@ -75,9 +75,10 @@ test("Madhouse delivery test uses fixed recipient and branded sender without ope
   assert.match(result.reference, /queued-id-789/);
   assert.match(transcript, /MAIL FROM:<contact@madhousegym\.online>/);
   assert.match(transcript, /RCPT TO:<contact@madhousegym\.online>/);
-  const subject = transcript.match(/^Subject: =\?UTF-8\?B\?([^?]+)\?=\r$/m)?.[1];
+  const subject = transcript.match(/^Subject: ((?:=\?UTF-8\?B\?[^?]+\?=(?:\r\n )?)+)\r$/m)?.[1];
   const textBase64 = transcript.match(/Content-Type: text\/plain; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n([\s\S]*?)\r\n--madhouse-/)?.[1]?.replaceAll("\r\n", "");
-  assert.equal(Buffer.from(subject ?? "", "base64").toString(), "[TEST] Madhouse Apparel email delivery verification");
+  const subjectWords = subject?.matchAll(/=\?UTF-8\?B\?([^?]+)\?=/g);
+  assert.equal(Array.from(subjectWords ?? [], word => Buffer.from(word[1], "base64").toString()).join(""), "[TEST] Madhouse Apparel email delivery verification");
   assert.match(Buffer.from(textBase64 ?? "", "base64").toString(), /No customer order was created, no payment was taken/);
   assert.doesNotMatch(transcript, /R12/i);
   assert.equal(process.env.MADHOUSE_APPAREL_EMAIL_SENDER_VERIFIED, undefined);

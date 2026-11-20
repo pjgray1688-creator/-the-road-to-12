@@ -21,12 +21,16 @@ export async function GET(request: NextRequest) {
   const auth = verifyInternalWorkerAuth(request, [process.env.R12_NOTIFICATION_WORKER_SECRET, process.env.CRON_SECRET]);
   if (auth === "missing_configuration") return NextResponse.json({ error: "Notification worker authentication is not configured" }, { status: 503 });
   if (auth === "unauthorized") return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const apparelSenderReady = process.env.MADHOUSE_APPAREL_EMAIL_SENDER_VERIFIED === "true"
+    && /^[^\s@<>]+@madhousegym\.online$/i.test(process.env.MADHOUSE_APPAREL_EMAIL_FROM?.trim() ?? "");
+  const r12TransportReady = notificationTransportAvailable();
+  if (!r12TransportReady && !apparelSenderReady) {
+    return NextResponse.json({ error: "Notification delivery is unavailable; no intents were claimed." }, { status: 503 });
+  }
   let operation = "database_configuration";
   try {
     const client = admin();
     operation = "apparel_outbox";
-    const apparelSenderReady = process.env.MADHOUSE_APPAREL_EMAIL_SENDER_VERIFIED === "true"
-      && /^[^\s@<>]+@madhousegym\.online$/i.test(process.env.MADHOUSE_APPAREL_EMAIL_FROM?.trim() ?? "");
     const { data: apparelRows, error: apparelError } = apparelSenderReady
       ? await client.from("club_madhouse_apparel_email_outbox").select("id,order_id,event_key,recipient_email,template_key,attempts").eq("state", "queued").order("created_at", { ascending: true }).limit(30)
       : { data: [], error: null };
@@ -54,7 +58,7 @@ export async function GET(request: NextRequest) {
         apparelFailed++;
       }
     }
-    if (!notificationTransportAvailable()) return NextResponse.json({ apparelSent, apparelSuppressed, apparelFailed, apparelBlocked: !apparelSenderReady, error: "R12 notification delivery adapter is unavailable." }, { status: 503 });
+    if (!r12TransportReady) return NextResponse.json({ apparelSent, apparelSuppressed, apparelFailed, apparelBlocked: !apparelSenderReady, error: "R12 notification delivery adapter is unavailable." }, { status: 503 });
     operation = "generate_intents";
     const { error: generationError } = await client.rpc("club_generate_notification_intents");
     if (generationError) throw generationError;
@@ -101,7 +105,7 @@ export async function GET(request: NextRequest) {
         };
       }
       const rendered = renderNotification({ templateKey: row.template_key, payload });
-      const result = await deliverNotification({ id: row.id, recipientEmail: row.target_email, sender: rendered.sender, subject: rendered.subject, text: rendered.text, html: rendered.html });
+      const result = await deliverNotification({ id: row.id, recipientEmail: row.target_email, sender: rendered.sender, senderName: rendered.senderName, subject: rendered.subject, text: rendered.text, html: rendered.html, replyTo: rendered.replyTo });
       if (result.ok) {
         const { error: stateError } = await client.rpc("club_complete_notification_intent", { p_id: row.id, p_provider_reference: result.reference });
         if (stateError) { stateUpdateFailures++; console.error("[notifications] completion state could not be saved", { code: stateError.code }); }

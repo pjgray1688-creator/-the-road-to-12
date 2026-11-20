@@ -11,6 +11,8 @@ export type NotificationEnvelope = {
   subject: string;
   text: string;
   html: string;
+  senderName?: string;
+  replyTo?: { address: string; name: string };
 };
 
 export type NotificationDelivery =

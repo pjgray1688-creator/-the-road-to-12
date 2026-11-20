@@ -256,8 +256,14 @@ test("the repository's explicit SQLSTATE 55000 guards are outside the notificati
 test("notification worker refuses to touch the outbox while no real transport is available", async () => {
   const worker = process.env.R12_NOTIFICATION_WORKER_SECRET;
   const cron = process.env.CRON_SECRET;
+  const providerSetting = process.env.R12_EMAIL_PROVIDER;
+  const apparelVerified = process.env.MADHOUSE_APPAREL_EMAIL_SENDER_VERIFIED;
+  const apparelFrom = process.env.MADHOUSE_APPAREL_EMAIL_FROM;
   process.env.R12_NOTIFICATION_WORKER_SECRET = "dedicated-test-secret";
   process.env.CRON_SECRET = "cron-test-secret";
+  process.env.R12_EMAIL_PROVIDER = "unavailable";
+  delete process.env.MADHOUSE_APPAREL_EMAIL_SENDER_VERIFIED;
+  delete process.env.MADHOUSE_APPAREL_EMAIL_FROM;
   try {
     const response = await runNotificationWorker(new NextRequest("https://app.test/api/internal/notification-worker", { headers: { authorization: "Bearer cron-test-secret" } }));
     assert.equal(response.status, 503);
@@ -267,6 +273,9 @@ test("notification worker refuses to touch the outbox while no real transport is
   } finally {
     if (worker === undefined) delete process.env.R12_NOTIFICATION_WORKER_SECRET; else process.env.R12_NOTIFICATION_WORKER_SECRET = worker;
     if (cron === undefined) delete process.env.CRON_SECRET; else process.env.CRON_SECRET = cron;
+    if (providerSetting === undefined) delete process.env.R12_EMAIL_PROVIDER; else process.env.R12_EMAIL_PROVIDER = providerSetting;
+    if (apparelVerified === undefined) delete process.env.MADHOUSE_APPAREL_EMAIL_SENDER_VERIFIED; else process.env.MADHOUSE_APPAREL_EMAIL_SENDER_VERIFIED = apparelVerified;
+    if (apparelFrom === undefined) delete process.env.MADHOUSE_APPAREL_EMAIL_FROM; else process.env.MADHOUSE_APPAREL_EMAIL_FROM = apparelFrom;
   }
 });
 
@@ -350,8 +359,11 @@ test("fixed-recipient Madhouse verification email can test SMTP while the live s
     assert.match(result.reference, /queued-id-789/);
     assert.match(transcript, /MAIL FROM:<contact@madhousegym\.online>/);
     assert.match(transcript, /RCPT TO:<contact@madhousegym\.online>/);
-    assert.match(transcript, /\[TEST\] Madhouse Apparel email delivery verification/);
-    assert.match(transcript, /No customer order was created, no payment was taken/);
+    const encodedSubject = transcript.match(/^Subject: ((?:=\?UTF-8\?B\?[^?]+\?=(?:\r\n )?)+)\r$/m)?.[1];
+    const encodedText = transcript.match(/Content-Type: text\/plain; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n([\s\S]*?)\r\n--madhouse-/)?.[1]?.replaceAll("\r\n", "");
+    const subjectWords = encodedSubject?.matchAll(/=\?UTF-8\?B\?([^?]+)\?=/g);
+    assert.equal(Array.from(subjectWords ?? [], word => Buffer.from(word[1], "base64").toString()).join(""), "[TEST] Madhouse Apparel email delivery verification");
+    assert.match(Buffer.from(encodedText ?? "", "base64").toString(), /No customer order was created, no payment was taken/);
     assert.doesNotMatch(transcript, /R12/);
     assert.equal(process.env.MADHOUSE_APPAREL_EMAIL_SENDER_VERIFIED, undefined);
   } finally {
@@ -361,6 +373,7 @@ test("fixed-recipient Madhouse verification email can test SMTP while the live s
 
 test("SMTP transport sends multipart mail over an already-secured test socket and records acceptance", async () => {
   class FakeSmtpSocket extends EventEmitter {
+    writes: string[] = [];
     destroy() { this.emit("close"); }
     pause() { return this; }
     resume() { return this; }
@@ -368,6 +381,7 @@ test("SMTP transport sends multipart mail over an already-secured test socket an
     write(chunk: string, callback?: (error?: Error | null) => void) {
       callback?.();
       const value = chunk.toString();
+      this.writes.push(value);
       let response = "";
       if (value.startsWith("EHLO")) response = "250-smtp.test\r\n250 AUTH LOGIN\r\n";
       else if (value.startsWith("AUTH LOGIN")) response = "334 VXNlcm5hbWU6\r\n";
@@ -382,12 +396,20 @@ test("SMTP transport sends multipart mail over an already-secured test socket an
     }
   }
   const socket = new FakeSmtpSocket();
-  const result = await sendSmtpMessage({ id: "sample", recipientEmail: "member@example.test", sender: "members", subject: "Hello", text: "Plain copy", html: "<p>HTML copy</p>" }, {
+  const subject = `Madhouse café ${"membership invitation ".repeat(8)}`.trim();
+  const result = await sendSmtpMessage({ id: "sample", recipientEmail: "member@example.test", sender: "members", senderName: "Madhouse Gym", subject, text: "Plain copy", html: "<p>HTML copy</p>", replyTo: { name: "Madhouse Gym", address: "contact@madhousegym.online" } }, {
     host: "smtp.example.test", port: 465, secure: true, requireTLS: false, username: "user", password: "password",
     from: { members: { address: "members@r12.live", name: "R12" }, staff: { address: "staff@r12.live", name: "R12" }, billing: { address: "billing@r12.live", name: "R12" } },
   }, async () => { setImmediate(() => socket.emit("data", Buffer.from("220 smtp.test ready\r\n"))); return socket as never; });
   assert.equal(result.provider, "smtp");
   assert.match(result.reference, /queued-id-123/);
+  assert.match(socket.writes.join(""), /From: =\?UTF-8\?B\?TWFkaG91c2UgR3lt\?= <members@r12\.live>/);
+  assert.match(socket.writes.join(""), /Reply-To: =\?UTF-8\?B\?[A-Za-z0-9+/=]+\?= <contact@madhousegym\.online>/);
+  const encodedSubject = socket.writes.join("").match(/^Subject: ((?:=\?UTF-8\?B\?[^?]+\?=(?:\r\n )?)+)\r$/m)?.[1];
+  assert.ok(encodedSubject);
+  const encodedWords = encodedSubject!.split(/\r\n |\s+/).filter(Boolean);
+  assert.ok(encodedWords.every(word => word.length <= 75));
+  assert.equal(encodedWords.map(word => Buffer.from(word.slice("=?UTF-8?B?".length, -"?=".length), "base64").toString("utf8")).join(""), subject);
 });
 
 test("SMTP transport failures are retry-classified without exposing relay error details", async () => {
