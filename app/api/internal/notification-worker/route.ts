@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { deliverNotification, notificationTransportAvailable } from "@/lib/notification-provider";
+import { deliverNotification, notificationConfig, notificationTransportAvailable } from "@/lib/notification-provider";
 import { renderNotification, type NotificationTemplateKey } from "@/lib/notification-templates";
 import { notificationWorkerLimits, shouldRetry, retryDelaySeconds, workerId } from "@/lib/notification-worker";
 import { verifyInternalWorkerAuth } from "@/lib/internal-worker-auth";
 import { renderMadhouseApparelEmail } from "@/lib/madhouse-apparel-email";
+import { deriveMemberInvitationToken, maskInvitationEmail, validInvitationSecret, verifyMemberInvitationToken, memberInvitationUrl } from "@/lib/madhouse-member-invitation-token";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -60,8 +61,46 @@ export async function GET(request: NextRequest) {
     const limits = notificationWorkerLimits();
     const startedAt = Date.now();
     let claimed = 0; let sent = 0; let unavailable = 0; let failed = 0; let stateUpdateFailures = 0; let batches = 0;
+    let madhouseInvitationsClaimed = 0;
+    const invitationSecret = process.env.R12_MADHOUSE_MEMBER_INVITATION_TOKEN_SECRET;
+    const invitationDeliveryEnabled = process.env.R12_MADHOUSE_MEMBER_INVITATIONS_ENABLED === "true" && validInvitationSecret(invitationSecret);
     const processRow = async (row: { id: string; target_email: string; template_key: NotificationTemplateKey; payload: Record<string, unknown> | null; attempts: number }) => {
-      const rendered = renderNotification({ templateKey: row.template_key, payload: row.payload ?? {} });
+      let payload = row.payload ?? {};
+      if (row.template_key === "madhouse_member_invitation") {
+        const rejectInvitation = async (code: string, terminalState: "failed" | "unavailable" = "failed") => {
+          const { error: stateError } = await client.rpc("club_fail_notification_intent", {
+            p_id: row.id, p_code: code, p_message: "The member invitation could not be prepared safely.", p_retry_at: null, p_terminal_state: terminalState,
+          });
+          if (stateError) stateUpdateFailures++;
+        };
+        if (!invitationDeliveryEnabled || !invitationSecret) {
+          await rejectInvitation("member_invitation_delivery_disabled", "unavailable");
+          unavailable++;
+          return;
+        }
+        const invitationId = typeof payload.invitationId === "string" ? payload.invitationId : "";
+        const { data: context, error: contextError } = await client.rpc("club_get_madhouse_member_activation_delivery_context", { p_invitation_id: invitationId });
+        const details = context && typeof context === "object" ? context as Record<string, unknown> : {};
+        const tokenHash = typeof details.token_hash === "string" ? details.token_hash : "";
+        const expiresAt = typeof details.expires_at === "string" ? Date.parse(details.expires_at) : NaN;
+        const recipientEmail = typeof details.recipient_email === "string" ? details.recipient_email : "";
+        if (contextError || !invitationId || !tokenHash || !Number.isFinite(expiresAt) || expiresAt <= Date.now()
+          || recipientEmail.trim().toLowerCase() !== row.target_email.trim().toLowerCase()
+          || !verifyMemberInvitationToken(invitationId, invitationSecret, tokenHash)) {
+          await rejectInvitation("member_invitation_context_unavailable");
+          failed++;
+          return;
+        }
+        const token = deriveMemberInvitationToken(invitationId, invitationSecret);
+        payload = {
+          ...payload,
+          name: typeof details.name === "string" ? details.name : "there",
+          organisationName: typeof details.organisation_name === "string" ? details.organisation_name : "Madhouse Gym",
+          maskedEmail: maskInvitationEmail(recipientEmail),
+          activationUrl: memberInvitationUrl(notificationConfig().appBaseUrl, invitationId, token),
+        };
+      }
+      const rendered = renderNotification({ templateKey: row.template_key, payload });
       const result = await deliverNotification({ id: row.id, recipientEmail: row.target_email, sender: rendered.sender, subject: rendered.subject, text: rendered.text, html: rendered.html });
       if (result.ok) {
         const { error: stateError } = await client.rpc("club_complete_notification_intent", { p_id: row.id, p_provider_reference: result.reference });
@@ -78,16 +117,19 @@ export async function GET(request: NextRequest) {
       const runtimeSafeBatchSize = Math.floor((remainingMs / limits.messageTimeoutMs) * limits.sendConcurrency);
       if (runtimeSafeBatchSize < 1) break;
       operation = "claim_intents";
+      const includeMadhouseInvitations = invitationDeliveryEnabled && madhouseInvitationsClaimed < 250;
       const { data: rows, error } = await client.rpc("club_claim_notification_intents_for_worker", {
-        p_limit: Math.min(limits.batchSize, runtimeSafeBatchSize),
+        p_limit: Math.min(includeMadhouseInvitations ? 25 : limits.batchSize, runtimeSafeBatchSize),
         p_worker_id: workerId(),
         p_include_member_activation: process.env.R12_MEMBER_ACTIVATION_EMAILS_ENABLED === "true",
+        p_include_madhouse_member_invitations: includeMadhouseInvitations,
       });
       if (error) throw error;
       const batch = Array.isArray(rows) ? rows as Array<{ id: string; target_email: string; template_key: string; payload: Record<string, unknown> | null; attempts: number }> : [];
       if (!batch.length) break;
       batches++;
       claimed += batch.length;
+      madhouseInvitationsClaimed += batch.filter(row => row.template_key === "madhouse_member_invitation").length;
       for (let offset = 0; offset < batch.length; offset += limits.sendConcurrency) {
         operation = "deliver_or_update_state";
         await Promise.all(batch.slice(offset, offset + limits.sendConcurrency).map(row => processRow({ ...row, template_key: row.template_key as NotificationTemplateKey })));

@@ -3,6 +3,7 @@ import { notificationConfig, senderAddress, type NotificationSender } from "./no
 export type NotificationTemplateKey =
   | "staff_invitation"
   | "member_activation"
+  | "madhouse_member_invitation"
   | "coach_relationship_invite"
   | "join_incomplete"
   | "monthly_payment_failed"
@@ -66,6 +67,16 @@ export function renderNotification(input: NotificationTemplateInput) {
       path = "/member-hub/link";
       cta = "ACTIVATE MY R12 ACCOUNT";
       break;
+    case "madhouse_member_invitation":
+      sender = "members";
+      subject = "Activate your existing Madhouse membership on R12";
+      personalityLine = "Your membership is ready for R12.";
+      heading = "Welcome to R12 × Madhouse Gym.";
+      body = `We’re bringing your Madhouse membership to the R12 member app. This invitation was sent to ${text(p.maskedEmail, "your registered email address")}.\n\nYour existing membership will be retained when you activate your account. There is no payment to make as part of this process.\n\nUse the secure link below to create an R12 account or sign in with this same email address. We’ll verify that you own the invited email before linking your existing membership.`;
+      footerPersonality = "Your membership stays yours.";
+      path = "/member-hub/activate";
+      cta = "ACTIVATE YOUR R12 ACCOUNT";
+      break;
     case "coach_relationship_invite":
       {
         const coachName = text(p.coachName, "Your Coach");
@@ -102,7 +113,16 @@ export function renderNotification(input: NotificationTemplateInput) {
   }
 
   const greeting = `Hi ${name},`;
-  const url = link(path);
+  const suppliedActivationUrl = text(p.activationUrl);
+  let url = link(path);
+  if (input.templateKey === "madhouse_member_invitation") {
+    try {
+      const candidate = new URL(suppliedActivationUrl);
+      if (candidate.origin === new URL(notificationConfig().appBaseUrl).origin && candidate.pathname === "/member-hub/activate" && candidate.hash.startsWith("#token=")) url = candidate.toString();
+    } catch {
+      // A missing or untrusted invitation URL never replaces the normal safe fallback.
+    }
+  }
   const testPrefix = testMode ? "[TEST] " : "";
   const textContent = `${testMode ? "TEST EMAIL — nothing will be changed.\n\n" : ""}${heading ? `${personalityLine}\n\n${heading}\n\n` : `${greeting}\n\n`}${accessSummary.length ? `YOUR ACCESS\n${accessSummary.map(([label, value]) => `${label}: ${value}`).join("\n")}\n\n` : ""}${body}\n\n${cta}: ${url}\n\n${footerPersonality ? `${footerPersonality}\n\n` : ""}R12 × MADHOUSE\nYour club. Your progress.`;
   const logoUrl = link("/club-branding/madhouse-club-wide.png");
@@ -110,6 +130,6 @@ export function renderNotification(input: NotificationTemplateInput) {
     ? `<p style="margin:0 0 14px;color:#6d28d9;font-size:15px;font-style:italic">${html(personalityLine)}</p><h1 style="margin:0 0 18px;color:#211a2b;font-size:25px;line-height:1.2">${html(heading)}</h1>${accessSummary.length ? `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 20px;border:1px solid #e9e2f1;border-radius:12px;background:#faf9fc"><tr><td colspan="2" style="padding:14px 16px 8px;color:#6d28d9;font-size:11px;font-weight:bold;letter-spacing:1.5px">YOUR ACCESS</td></tr>${accessSummary.map(([label, value]) => `<tr><td style="padding:7px 16px;color:#675e70;font-size:13px">${html(label)}</td><td align="right" style="padding:7px 16px;color:#211a2b;font-size:14px;font-weight:bold">${html(value)}</td></tr>`).join("")}<tr><td colspan="2" style="height:8px"></td></tr></table>` : ""}<p style="margin:0;color:#403849;font-size:15px;line-height:1.65;white-space:pre-line">${html(body)}</p>`
     : `<p style="margin:0 0 16px">${html(greeting)}</p><p style="margin:0;color:#403849;font-size:15px;line-height:1.65;white-space:pre-line">${html(body)}</p>`;
   const htmlContent = `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0;background:#f2eff6;font-family:Arial,Helvetica,sans-serif;color:#211a2b"><tr><td align="center" style="padding:18px 10px"><table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="width:100%;max-width:600px;background:#ffffff;border:1px solid #e9e3ef;border-radius:14px;overflow:hidden"><tr><td align="center" style="padding:18px 22px 16px;background:#17131f;border-bottom:3px solid #8052d8"><img src="${html(logoUrl)}" width="220" alt="R12 × Madhouse Gym" style="display:block;width:220px;max-width:100%;height:auto;border:0"><div style="margin-top:10px;color:#ffffff;font-size:15px;font-weight:bold;letter-spacing:1px">R12 × MADHOUSE</div><div style="margin-top:4px;color:#d8c9f3;font-size:10px;font-weight:bold;letter-spacing:1.5px">MADHOUSE · ROTHERHAM · CARLTON</div></td></tr>${testMode ? `<tr><td style="padding:8px 22px;background:#f3effa;color:#5b4778;font-size:11px;font-weight:bold;letter-spacing:.3px">TEST EMAIL — nothing will be changed</td></tr>` : ""}<tr><td style="padding:24px 22px 10px">${contentHtml}<table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin:22px 0 0"><tr><td align="center" bgcolor="#6d28d9" style="border-radius:9px"><a href="${html(url)}" style="display:inline-block;min-height:48px;padding:15px 20px;box-sizing:border-box;color:#ffffff;font-size:13px;font-weight:bold;letter-spacing:.5px;text-decoration:none">${html(cta)}</a></td></tr></table><p style="margin:13px 0 0;color:#665d6e;font-size:12px;line-height:1.5">Button not opening? Copy this link into your browser:<br><a href="${html(url)}" style="color:#5c2bbd;word-break:break-all">${html(url)}</a></p></td></tr><tr><td style="padding:16px 22px;background:#f8f6fb;border-top:1px solid #eee9f3;color:#625a6c;font-size:12px;line-height:1.6"><div style="margin-bottom:7px;color:#6d28d9;font-style:italic">${html(footerPersonality || "")}</div><strong style="color:#211a2b">R12 × MADHOUSE</strong><br>Your club. Your progress.</td></tr></table></td></tr></table>`;
-  const destinationType = input.templateKey === "staff_invitation" ? "Staff access activation page" : input.templateKey === "member_activation" ? "R12 membership account link page" : "R12 account page";
+  const destinationType = input.templateKey === "staff_invitation" ? "Staff access activation page" : input.templateKey === "member_activation" ? "R12 membership account link page" : input.templateKey === "madhouse_member_invitation" ? "Madhouse membership activation page" : "R12 account page";
   return { sender, senderName: notificationConfig().fromNames[sender], senderAddress: senderAddress(sender), subject: `${testPrefix}${subject}`, cta, destination: url, destinationType, text: textContent, html: htmlContent };
 }

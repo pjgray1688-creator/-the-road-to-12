@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { AppNav } from "@/components/app-nav";
 import { ClubMemberOnboarding } from "@/components/club-member-onboarding";
 import { ClubMembersDirectory } from "@/components/club-members-directory";
@@ -69,6 +70,7 @@ export default async function ClubMembersPage({ searchParams }: { searchParams?:
   return <AppShell className="module-page club-page">
     <PageHeader title="Members" description="Search member records, manage memberships and open access or billing details." />
     <ClubSectionNav organisation={context.organisation} role={context.role} contexts={context.availableContexts} />
+    {context.organisation.id === "fa44592a-1593-4ad3-a621-63a4a4bcbceb" && ["owner", "gym_admin"].includes(context.role) ? <Surface><div className="section-heading"><div><h2>R12 member activation</h2><p className="muted">Preview current members who can securely link their existing membership.</p></div><Link className="primary" href={`/club/members/activation?org=${encodeURIComponent(context.organisation.id)}`}>Invite existing members to R12</Link></div></Surface> : null}
     {canAssign ? <Surface><ClubMemberOnboarding organisationId={context.organisation.id} organisationSlug={context.organisation.slug} customers={onboardingCustomers} products={products} locations={locations.filter(location => location.active).map(location => ({ id: location.id, name: location.name }))} role={context.role} canAssign={canAssign} /></Surface> : null}
     <Surface><ClubMembersDirectory members={directoryMembers} customers={unlinkedMembershipCustomers} organisationId={context.organisation.id} billingStatusAvailable={billingStatusAvailable} arrearsUserIds={arrearsUserIds} initialQuery={params?.q ?? ""} initialStatus={allowedStatuses.has(params?.status ?? "") ? params?.status : "all"} initialAccess={allowedAccess.has(params?.access ?? "") ? params?.access : "all"} initialHome={params?.home ?? "all"} initialPlan={params?.plan ?? "all"} initialSort={sort} initialDirection={params?.dir === "desc" ? "desc" : "asc"} initialPage={page} /></Surface>
     {canExtendGrace ? <Surface><h2>Authorised payment grace</h2><p className="muted">Open a member profile to review failed or overdue obligations. Payment remains outstanding until genuinely recovered.</p></Surface> : null}
