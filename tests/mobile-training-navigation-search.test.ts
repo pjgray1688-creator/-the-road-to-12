@@ -37,10 +37,12 @@ test("manual builder uses ranked shared search and protects edited work during n
   assert.match(css, /@media\(max-width:360px\)/);
 });
 
-test("training setup has safe mobile heading and truthful navigation destinations", () => {
+test("training setup has safe mobile heading, shared navigation and truthful destinations", () => {
   const setup = read("components/training-setup-choice.tsx");
   const css = read("app/globals.css");
-  assert.match(setup, /<BackButton href="\/training">Training<\/BackButton>/);
+  assert.match(setup, /<AppNav \/>/);
+  assert.doesNotMatch(setup, /BackButton|training-setup-nav|YOUR TRAINING/);
+  assert.match(setup, /eyebrow="TRAINING SETUP"/);
   assert.match(setup, /title="How would you like to train\?"/);
   assert.equal((setup.match(/id: "(r12|manual|coach|skip)"/g) ?? []).length, 4);
   assert.doesNotMatch(setup, /Back to Training Home/);

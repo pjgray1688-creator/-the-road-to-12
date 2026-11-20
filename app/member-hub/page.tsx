@@ -6,6 +6,7 @@ import { hasPlayReviewerEntitlement } from "@/lib/play-reviewer";
 import { reviewerMemberHubData } from "@/lib/play-reviewer-member-data";
 import { autoLinkVerifiedMadhouseMember } from "@/lib/madhouse-auto-link";
 import { classifyLoadFailure, safeLoadFailureFields, type LoadFailureKind } from "@/lib/club-load-state";
+import { uniqueMembershipOrganisationRows } from "@/lib/member-hub-view";
 
 export default async function MemberHubPage() {
   const { client: supabase, user, error: authError } = await getServerUser();
@@ -19,7 +20,7 @@ export default async function MemberHubPage() {
     console.error("[member-hub] memberships load failed", safeLoadFailureFields(error));
     return <MemberHub data={[]} loadIssue={kind}/>;
   }
-  const memberships = Array.isArray(data) ? data as Array<Record<string, unknown>> : [];
+  const memberships = uniqueMembershipOrganisationRows(Array.isArray(data) ? data as Array<Record<string, unknown>> : []);
   const repository = clubRepository(supabase);
   const results = await Promise.all(memberships.map(async (item): Promise<{ data?: MemberHubData; issue?: LoadFailureKind }> => {
     const org = (item.organisation && typeof item.organisation === "object" ? item.organisation : {}) as Record<string, unknown>;

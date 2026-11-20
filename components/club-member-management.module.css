@@ -90,3 +90,8 @@
     grid-column: auto;
   }
 }
+
+@media (max-width: 700px) {
+  .accessControls { grid-template-columns: minmax(0, 1fr); align-items: stretch; }
+  .accessControls button { width: 100%; white-space: normal; }
+}

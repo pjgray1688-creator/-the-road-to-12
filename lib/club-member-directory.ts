@@ -50,10 +50,13 @@ export function formatClubMemberDisplayName(value?: string) {
 }
 
 export function matchesClubMemberDirectoryFilters(row: ClubDirectoryRow, filters: ClubDirectoryFilters) {
-  const term = filters.query.trim().toLocaleLowerCase("en-GB");
-  const searchable = `${row.displayName} ${row.email ?? ""} ${row.phone ?? ""} ${row.ref}`.toLocaleLowerCase("en-GB");
+  const normalise = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[’']/g, "").toLocaleLowerCase("en-GB").replace(/\s+/g, " ").trim();
+  const term = normalise(filters.query);
+  const searchable = normalise(`${row.displayName} ${row.email ?? ""} ${row.phone ?? ""} ${row.ref}`);
+  const digits = filters.query.replace(/\D/g, "");
+  const phoneDigits = (row.phone ?? "").replace(/\D/g, "");
   const accessMatches = filters.access === "all" || (!row.imported && row.accessState === filters.access);
-  return (!term || searchable.includes(term))
+  return (!term || searchable.includes(term) || (digits.length >= 4 && phoneDigits.includes(digits)))
     && clubMembershipStatusMatches(row.status, filters.status, row.userId, filters.arrearsUserIds)
     && accessMatches
     && (filters.home === "all" || row.homeId === filters.home)
