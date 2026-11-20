@@ -44,6 +44,18 @@ test("24-hour eligibility requires active projected access, a controlled locatio
   assert.match(migration, /access_scope <> 'locations'/);
 });
 
+test("forward acceptance migration removes only the missing-DOB blanket block and retains known-minor blocks", () => {
+  const fix = readFileSync("supabase/migrations/2027-02-13-member-access-and-coach-search-acceptance.sql", "utf8");
+  const start = fix.indexOf("create or replace function public.club_access_safety_facts");
+  const end = fix.indexOf("-- Coach search", start);
+  const facts = fix.slice(start, end);
+  assert.doesNotMatch(facts, /age_state='missing_date_of_birth' then age_block/);
+  assert.match(facts, /age_state='date_of_birth_conflict' then age_block := 'date_of_birth_conflict'/);
+  assert.match(facts, /age_state='under_16' then age_block := 'under_16_restricted'/);
+  assert.match(facts, /age_state='under_18' then age_block := 'under_18_restricted'/);
+  assert.match(facts, /age_state='adult' and blocked_reason is null/);
+});
+
 test("reception and member profiles show age, induction and 24-hour outcomes in plain language", () => {
   assert.match(accessUi, /Under 16 — staff review required/);
   assert.match(accessUi, /Under 18 — 24-hour door access is not available/);

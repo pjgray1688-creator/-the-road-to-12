@@ -24,11 +24,20 @@ export default async function ClubMembersPage({ searchParams }: { searchParams?:
     context.repository.hasCapability(context.organisation.id, user.id, "payments.extend_grace"),
     context.repository.hasCapability(context.organisation.id, user.id, "payments.take"),
   ]);
-  const [unlinkedMembershipResult, billingAttentionResult] = await Promise.all([
+  const [unlinkedMembershipResult, billingAttentionResult, directoryAccessResult] = await Promise.all([
     supabase.rpc("club_list_unlinked_membership_customers", { p_organisation_id: context.organisation.id }),
     canReviewPayments ? supabase.rpc("club_list_membership_billing_attention", { p_organisation_id: context.organisation.id }) : Promise.resolve({ data: null, error: { message: "not_authorised" } }),
+    supabase.rpc("club_list_member_directory_access_facts", { p_organisation_id: context.organisation.id }),
   ]);
   const { data: unlinkedMembershipData, error: unlinkedMembershipError } = unlinkedMembershipResult;
+  const accessFactRows = !directoryAccessResult.error && Array.isArray(directoryAccessResult.data) ? directoryAccessResult.data as Array<Record<string, unknown>> : [];
+  const accessFactsByCustomer = new Map(accessFactRows.flatMap(row => typeof row.customer_id === "string" ? [[row.customer_id, {
+    membershipActive: typeof row.membership_active === "boolean" ? row.membership_active : undefined,
+    r12Linked: typeof row.r12_linked === "boolean" ? row.r12_linked : undefined,
+    accountVerified: typeof row.account_verified === "boolean" ? row.account_verified : undefined,
+    credentialIssued: typeof row.credential_issued === "boolean" ? row.credential_issued : undefined,
+    accessEligible: typeof row.access_eligible === "boolean" ? row.access_eligible : undefined,
+  }] as const] : []));
   const unlinkedMembershipCustomers = !unlinkedMembershipError && Array.isArray(unlinkedMembershipData)
     ? unlinkedMembershipData.flatMap((value: unknown) => {
       if (!value || typeof value !== "object") return [];
@@ -37,6 +46,7 @@ export default async function ClubMembersPage({ searchParams }: { searchParams?:
       const customer = customers.find(item => item.id === row.id);
       const home = row.home_location && typeof row.home_location === "object" ? row.home_location as Record<string, unknown> : {};
       const savedHome = typeof home.id === "string" && typeof home.name === "string" ? { id: home.id, name: home.name } : locations.find(location => location.id === customer?.preferredLocationId);
+      const facts = accessFactsByCustomer.get(row.id);
       return [{
         id: row.id,
         ...(typeof row.user_id === "string" ? { userId: row.user_id } : {}),
@@ -46,6 +56,7 @@ export default async function ClubMembersPage({ searchParams }: { searchParams?:
         ...(typeof row.membership_status === "string" ? { membershipStatus: row.membership_status } : {}),
         ...(typeof row.directory_status === "string" ? { directoryStatus: row.directory_status } : {}),
         ...(typeof row.membership_ends_at === "string" ? { membershipEndsAt: row.membership_ends_at } : {}),
+        ...(facts ? { membershipActive: facts.membershipActive, r12Linked: facts.r12Linked, accountVerified: facts.accountVerified, credentialIssued: facts.credentialIssued, accessEligible: facts.accessEligible } : {}),
         ...(typeof row.phone === "string" && row.phone.trim() ? { phone: row.phone } : customer?.phone ? { phone: customer.phone } : {}),
         ...(savedHome ? { homeLocation: { id: savedHome.id, name: savedHome.name } } : {}),
       }];
@@ -55,7 +66,11 @@ export default async function ClubMembersPage({ searchParams }: { searchParams?:
   const arrearsUserIds = [...new Set(billingRows.filter(row => ["failed", "grace", "overdue", "retry_scheduled"].includes(String(row.state))).map(row => String(row.user_id ?? "")).filter(Boolean))];
   const billingStatusAvailable = !billingAttentionResult.error && Array.isArray(billingAttentionResult.data);
   const customerById = new Map(customers.map(customer => [customer.id, customer]));
-  const directoryMembers = members.map(member => ({ ...member, phone: member.customerId ? customerById.get(member.customerId)?.phone : undefined }));
+  const directoryMembers = members.map(member => {
+    const facts = member.customerId ? accessFactsByCustomer.get(member.customerId) : undefined;
+    return { ...member, phone: member.customerId ? customerById.get(member.customerId)?.phone : undefined,
+      ...(facts ? { membershipActive: facts.membershipActive, r12Linked: facts.r12Linked, accountVerified: facts.accountVerified, credentialIssued: facts.credentialIssued, accessEligible: facts.accessEligible } : {}) };
+  });
   const onboardingCustomers = [...new Map([
     ...directoryMembers.filter(member => member.customerId).map(member => {
       const customer = customerById.get(member.customerId!);
@@ -66,7 +81,7 @@ export default async function ClubMembersPage({ searchParams }: { searchParams?:
   const allowedStatuses = new Set(["all", "active", "lapsed", "former", "pending_review", "arrears"]);
   const sort = ["name", "home", "plan", "status", "ends"].includes(params?.sort ?? "") ? params?.sort as "name" | "home" | "plan" | "status" | "ends" : "name";
   const page = Math.max(1, Math.min(100000, Number.parseInt(params?.page ?? "1", 10) || 1));
-  const allowedAccess = new Set(["all", "active", "needs_attention", "unavailable"]);
+  const allowedAccess = new Set(["all", "active_membership", "linked", "credential_issued", "access_eligible"]);
   return <AppShell className="module-page club-page">
     <PageHeader title="Members" description="Search member records, manage memberships and open access or billing details." />
     <ClubSectionNav organisation={context.organisation} role={context.role} contexts={context.availableContexts} />

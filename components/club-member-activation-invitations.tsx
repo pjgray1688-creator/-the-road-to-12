@@ -20,6 +20,9 @@ export function ClubMemberActivationInvitations({ organisationId, preview, deliv
   const [message, setMessage] = useState<string>();
   const rows = preview.members ?? [];
   const sendable = rows.filter(row => row.sendable);
+  const duplicateCount = (preview.counts?.shared_or_ambiguous_email ?? 0) + (preview.counts?.shared_or_placeholder ?? 0);
+  const excludedCount = Math.max(0, rows.length - sendable.length);
+  const unlinkedCount = Math.max(0, rows.length - (preview.counts?.already_linked ?? 0));
 
   const send = () => {
     if (!sendable.length || !deliveryReady) return;
@@ -44,6 +47,9 @@ export function ClubMemberActivationInvitations({ organisationId, preview, deliv
       <article className="card"><strong>{(preview.counts?.queued ?? 0) + (preview.counts?.sent ?? 0)}</strong><span>Pending or sent</span></article>
       <article className="card"><strong>{(preview.counts?.completed ?? 0)}</strong><span>Completed</span></article>
       <article className="card"><strong>{(preview.counts?.shared_or_ambiguous_email ?? 0) + (preview.counts?.shared_or_placeholder ?? 0) + (preview.counts?.account_link_conflict ?? 0) + (preview.counts?.exception ?? 0)}</strong><span>Staff verification needed</span></article>
+      <article className="card"><strong>{unlinkedCount}</strong><span>Not linked to R12</span></article>
+      <article className="card"><strong>{duplicateCount}</strong><span>Duplicate or shared email</span></article>
+      <article className="card"><strong>{excludedCount}</strong><span>Excluded from invitation</span></article>
     </div>
     <p className="muted">No invitation is sent until an authorised manager confirms below. The link expires after seven days. Existing membership history and payer arrangements remain unchanged; this does not request payment or enable physical door access.</p>
     {!deliveryReady ? <p role="status" className="muted">Sending is disabled until the invitation signing secret, email transport, worker credentials and the explicit invitation-delivery feature flag are configured.</p> : null}

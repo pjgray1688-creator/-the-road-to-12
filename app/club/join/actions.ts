@@ -13,7 +13,7 @@ import { serverSupabase } from "@/lib/supabase-server";
 export type JoiningActionResult = { ok: true; requestId: string; status: string; paymentState: string; productName: string; amountMinor: number; upfrontAmountMinor: number; checkoutKind: string; billing: string; durationDays?: number } | { ok: false; error: string; existingMember?: boolean };
 export type JoinDetails = {
   organisationId: string; productId: string; locationId?: string; firstName: string; lastName: string;
-  email: string; phone: string; dateOfBirth: string; addressLine1: string; addressLine2?: string;
+  email: string; phone: string; dateOfBirth?: string; addressLine1: string; addressLine2?: string;
   townCity?: string; postcode: string; emergencyName: string; emergencyPhone: string;
   termsAccepted: boolean; privacyAccepted: boolean; marketingConsent: boolean;
   healthDeclarationVersionId?: string; healthDeclarationAccepted?: boolean;
@@ -46,7 +46,7 @@ export async function startClubJoiningAction(input: JoinDetails): Promise<Joinin
     const { data, error } = await supabase.rpc("club_start_membership_joining_optional_home_location", {
       p_organisation_id: input.organisationId, p_product_id: input.productId, p_home_location_id: input.locationId ?? null,
       p_first_name: input.firstName, p_last_name: input.lastName, p_email: input.email, p_phone: input.phone,
-      p_date_of_birth: input.dateOfBirth, p_address_line_1: input.addressLine1, p_address_line_2: input.addressLine2 ?? "",
+      p_date_of_birth: input.dateOfBirth || null, p_address_line_1: input.addressLine1, p_address_line_2: input.addressLine2 ?? "",
       p_town_city: input.townCity ?? "", p_postcode: input.postcode, p_emergency_name: input.emergencyName,
       p_emergency_phone: input.emergencyPhone, p_terms_accepted: input.termsAccepted,
       p_privacy_accepted: input.privacyAccepted, p_marketing_consent: input.marketingConsent,

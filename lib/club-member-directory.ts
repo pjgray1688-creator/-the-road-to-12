@@ -11,6 +11,11 @@ export type ClubDirectoryRow = {
   homeName?: string;
   userId?: string;
   accessState?: string;
+  membershipActive?: boolean;
+  r12Linked?: boolean;
+  accountVerified?: boolean;
+  credentialIssued?: boolean;
+  accessEligible?: boolean;
   imported: boolean;
 };
 export type ClubDirectoryFilters = {
@@ -55,7 +60,11 @@ export function matchesClubMemberDirectoryFilters(row: ClubDirectoryRow, filters
   const searchable = normalise(`${row.displayName} ${row.email ?? ""} ${row.phone ?? ""} ${row.ref}`);
   const digits = filters.query.replace(/\D/g, "");
   const phoneDigits = (row.phone ?? "").replace(/\D/g, "");
-  const accessMatches = filters.access === "all" || (!row.imported && row.accessState === filters.access);
+  const accessMatches = filters.access === "all"
+    || (filters.access === "active_membership" && row.membershipActive === true)
+    || (filters.access === "linked" && row.r12Linked === true)
+    || (filters.access === "credential_issued" && row.credentialIssued === true)
+    || (filters.access === "access_eligible" && row.accessEligible === true);
   return (!term || searchable.includes(term) || (digits.length >= 4 && phoneDigits.includes(digits)))
     && clubMembershipStatusMatches(row.status, filters.status, row.userId, filters.arrearsUserIds)
     && accessMatches

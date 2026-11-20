@@ -31,6 +31,7 @@
 .member .reference { color: #a29ba8; font-size: 9px; }
 .avatar { display: grid; flex: 0 0 31px; width: 31px; height: 31px; place-items: center; border: 1px solid #e6d9f0; border-radius: 9px; background: #f3ebf9; color: #6f3999; font-size: 12px; font-weight: 800; }
 .status { display: inline-flex; min-height: 22px; align-items: center; padding: 3px 7px; border: 1px solid #e3dfe8; border-radius: 999px; background: #f6f5f7; color: #635b69; font-size: 9px; font-weight: 750; text-transform: capitalize; }
+.factLine { display: block; margin-top: 3px; color: #71697a; font-size: 9px; white-space: normal; }
 .status[data-state="active"] { border-color: #cce8d6; background: #eff9f2; color: #286b43; }
 .status[data-state="pending"] { border-color: #f0dfb9; background: #fff9e8; color: #806014; }
 .status[data-state="pending_review"] { border-color: #f0dfb9; background: #fff9e8; color: #806014; }
@@ -101,7 +102,7 @@
   .mobileMain strong { font-size: 12px; }
   .mobileMain small { margin-top: 3px; color: #8f9aa1; font-size: 11px; }
   .mobileMain small:last-of-type { color: #b5c1c7; }
-  .mobileMain em { color: #bd8d92; font-size: 11px; font-style: normal; }
+  .mobileMain em { color: #c6b4d7; font-size: 10px; font-style: normal; white-space: normal; line-height: 1.35; }
   .mobileMain em[data-state="active"] { color: #d5b5f1; }
   .mobileMain em[data-state="needs_attention"] { color: #e6c889; }
   .mobileMain em[data-state="unavailable"] { color: #bd8d92; }

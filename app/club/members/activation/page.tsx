@@ -33,9 +33,21 @@ export default async function MadhouseMemberActivationPage({ searchParams }: { s
     <PageHeader eyebrow="R12 CLUB · MEMBERS" title="Invite existing members to R12" description="Help current Madhouse members connect their existing membership to one verified R12 account." />
     <Surface>
       <p>Invitations are tied to one existing Madhouse customer and expire after seven days. Members must verify the exact invited email. Shared emails and identity conflicts require staff review.</p>
-      {preview ? <ClubMemberActivationInvitations organisationId={context.organisation.id} preview={preview} deliveryReady={deliveryReady} /> : <EmptyState title="Preview unavailable">The invitation preview could not be loaded. No email has been sent.</EmptyState>}
+      {preview ? <ClubMemberActivationInvitations organisationId={context.organisation.id} preview={preview} deliveryReady={deliveryReady} /> : <EmptyState title="Preview unavailable">{safePreviewFailure(previewError?.code)} No email has been sent. Refresh the page after the reported database or permission issue is corrected.</EmptyState>}
       <p><Link className="secondary" href={`/club/members?org=${encodeURIComponent(context.organisation.id)}`}>Back to Members</Link></p>
     </Surface>
     <AppNav />
   </AppShell>;
+}
+
+function safePreviewFailure(code?: string) {
+  if (!code || !/^[0-9A-Z]{5,8}$/.test(code)) return "The preview service returned no diagnostic code.";
+  const description: Record<string, string> = {
+    "42501": "The database rejected the preview permission check.",
+    "42883": "The required invitation preview function is missing from this database.",
+    "42703": "The invitation preview function refers to a database column that is unavailable.",
+    "57014": "The database cancelled the preview query because it exceeded its time limit.",
+    "PGRST202": "The API schema cache cannot find the invitation preview function.",
+  };
+  return `${description[code] ?? "The invitation preview database request failed."} Diagnostic code: ${code}.`;
 }

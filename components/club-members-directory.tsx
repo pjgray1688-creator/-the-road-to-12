@@ -6,8 +6,8 @@ import type { ClubMemberSummaryRead } from "@/lib/club-operational";
 import { clubDirectoryMembershipStatus, clubDirectoryPageCount, compareClubMemberDirectoryRows, formatClubMemberDisplayName, matchesClubMemberDirectoryFilters, type ClubDirectoryRow, type ClubDirectorySortField } from "@/lib/club-member-directory";
 import styles from "./club-members-directory.module.css";
 
-type DirectoryMember = ClubMemberSummaryRead & { phone?: string };
-type ImportedMember = { id: string; userId?: string; displayName: string; email?: string; phone?: string; membershipName?: string; membershipStatus?: string; directoryStatus?: string; membershipEndsAt?: string; homeLocation?: { id: string; name: string } };
+type DirectoryMember = ClubMemberSummaryRead & { phone?: string; membershipActive?: boolean; r12Linked?: boolean; accountVerified?: boolean; credentialIssued?: boolean; accessEligible?: boolean };
+type ImportedMember = { id: string; userId?: string; displayName: string; email?: string; phone?: string; membershipName?: string; membershipStatus?: string; directoryStatus?: string; membershipEndsAt?: string; membershipActive?: boolean; r12Linked?: boolean; accountVerified?: boolean; credentialIssued?: boolean; accessEligible?: boolean; homeLocation?: { id: string; name: string } };
 type SortField = ClubDirectorySortField;
 type Props = {
   members: DirectoryMember[];
@@ -30,6 +30,7 @@ const statusOptions = [["all", "All Members"], ["active", "Active"], ["lapsed", 
 const labelStatus = (value?: string) => value ? ({ expired: "Lapsed", lapsed: "Lapsed", cancelled: "Former", ended: "Former", former: "Former", pending_review: "Pending Review" } as Record<string, string>)[value.toLowerCase()] ?? value.replace(/_/g, " ").replace(/\b\w/g, letter => letter.toUpperCase()) : "Pending Review";
 const formatDate = (value?: string) => value ? new Date(value).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—";
 const normaliseStatus = (value?: string) => (value ?? "").toLowerCase();
+const factLabel = (value: boolean | undefined, yes: string, no: string) => value === undefined ? "Not checked" : value ? yes : no;
 
 type Row = ClubDirectoryRow & {
   key: string; id: string; userId?: string; displayName: string; email?: string; phone?: string; plan?: string;
@@ -54,7 +55,9 @@ export function ClubMembersDirectory({ members, organisationId, customers = [], 
       displayName: formatClubMemberDisplayName(member.displayName), email: member.email, phone: member.phone,
       plan: member.membershipName, status: clubDirectoryMembershipStatus(member.membershipStatus, member.membershipEndsAt), endsAt: member.membershipEndsAt,
       homeId: member.homeLocation?.id, homeName: member.homeLocation?.name,
-      ref: (member.customerId ?? member.id).slice(0, 8).toUpperCase(), accessState: member.accessState, imported: false,
+      ref: (member.customerId ?? member.id).slice(0, 8).toUpperCase(), accessState: member.accessState,
+      membershipActive: member.membershipActive, r12Linked: member.r12Linked ?? Boolean(member.userId), accountVerified: member.accountVerified,
+      credentialIssued: member.credentialIssued, accessEligible: member.accessEligible, imported: false,
     })),
     ...customers.map(customer => ({
       key: `customer:${customer.id}`, id: customer.id, userId: customer.userId, displayName: formatClubMemberDisplayName(customer.displayName),
@@ -63,7 +66,9 @@ export function ClubMembersDirectory({ members, organisationId, customers = [], 
         ? clubDirectoryMembershipStatus(customer.membershipStatus ?? customer.directoryStatus, customer.membershipEndsAt)
         : customer.directoryStatus ?? customer.membershipStatus ?? "pending_review",
       endsAt: customer.membershipEndsAt, homeId: customer.homeLocation?.id, homeName: customer.homeLocation?.name,
-      ref: customer.id.slice(0, 8).toUpperCase(), imported: true,
+      ref: customer.id.slice(0, 8).toUpperCase(), membershipActive: customer.membershipActive,
+      r12Linked: customer.r12Linked ?? Boolean(customer.userId), accountVerified: customer.accountVerified,
+      credentialIssued: customer.credentialIssued, accessEligible: customer.accessEligible, imported: true,
     })),
   ], [members, customers]);
 
@@ -113,21 +118,21 @@ export function ClubMembersDirectory({ members, organisationId, customers = [], 
     <div className={styles.statusViews} role="group" aria-label="Member directory views">{statusOptions.slice(0, 5).map(([value, label]) => <button type="button" key={value} aria-pressed={statusFilter === value} onClick={() => changeFilter(setStatusFilter, value)}>{label}</button>)}</div>
     <div className={styles.mobileFilters}>
       <label className={styles.mobileSearch}><span className="sr-only">Search by name or email</span><input type="search" aria-label="Search by name or email" placeholder="Search by name or email" value={query} onChange={event => { setQuery(event.target.value); setPage(1); }} /></label>
-      <label><span className="sr-only">Filter access</span><select aria-label="Filter access" value={accessFilter} onChange={event => changeFilter(setAccessFilter, event.target.value)}><option value="all">All access</option><option value="active">Access active</option><option value="needs_attention">Needs attention</option><option value="unavailable">Access unavailable</option></select></label>
+      <label><span className="sr-only">Filter member access status</span><select aria-label="Filter member access status" value={accessFilter} onChange={event => changeFilter(setAccessFilter, event.target.value)}><option value="all">All access states</option><option value="active_membership">Active membership</option><option value="linked">R12 linked</option><option value="credential_issued">PIN or QR issued</option><option value="access_eligible">Access eligible now</option></select></label>
       <label><span className="sr-only">Filter membership</span><select aria-label="Filter membership" value={statusFilter} onChange={event => changeFilter(setStatusFilter, event.target.value)}><option value="all">All membership history</option>{[...new Set(rows.map(row => row.status).filter((value): value is string => Boolean(value)))].sort().map(value => <option value={value} key={value}>{labelStatus(value)}</option>)}</select></label>
     </div>
     <div className={styles.resultSummary}><strong>{filtered.length.toLocaleString("en-GB")}</strong><span>{filtered.length === 1 ? "member profile" : "member profiles"}</span><span className={styles.mobilePeople}>{filtered.length.toLocaleString("en-GB")} {filtered.length === 1 ? "person" : "people"}</span><span className={`${styles.dataNote} club-member-history-note`}>Imported profiles remain pending review until evidence is reconciled; a profile alone grants no access.</span></div>
     {filtered.length ? <>
       <div className={styles.desktopTableWrap}>
         <table className={styles.table}>
-          <thead><tr><th scope="col">{sortButton("name", "Member")}</th><th scope="col">{sortButton("home", "Home gym")}</th><th scope="col">{sortButton("plan", "Membership")}</th><th scope="col">{sortButton("status", "Status")}</th><th scope="col">Payment</th><th scope="col">{sortButton("ends", "Renewal / expiry")}</th><th scope="col">Last attendance</th></tr></thead>
+          <thead><tr><th scope="col">{sortButton("name", "Member")}</th><th scope="col">{sortButton("home", "Home gym")}</th><th scope="col">{sortButton("plan", "Membership")}</th><th scope="col">{sortButton("status", "Membership status")}</th><th scope="col">Payment</th><th scope="col">{sortButton("ends", "Renewal / expiry")}</th><th scope="col">Last attendance</th></tr></thead>
           <tbody>{pageRows.map(row => {
             const overdue = row.userId ? arrears.has(row.userId) : false;
             return <tr key={row.key} onClick={() => router.push(personHref(row))}>
               <td><a className={styles.member} href={personHref(row)} onClick={event => event.stopPropagation()}><span className={styles.avatar} aria-hidden="true">{row.displayName.slice(0, 1).toUpperCase()}</span><span><strong>{row.displayName}</strong><small>{row.email ?? row.phone ?? "Contact details unavailable"}</small><small className={styles.reference}>Ref {row.ref}</small></span></a></td>
               <td>{row.homeName ?? <span className={styles.notRecorded}>Not recorded</span>}</td>
               <td>{row.plan ?? <span className={styles.notRecorded}>Membership history</span>}</td>
-              <td><span className={styles.status} data-state={normaliseStatus(row.status)}>{labelStatus(row.status)}</span></td>
+              <td><span className={styles.status} data-state={normaliseStatus(row.status)}>{labelStatus(row.status)}</span><small className={styles.factLine}>R12 {factLabel(row.r12Linked, "linked", "not linked")}</small><small className={styles.factLine}>Credential {factLabel(row.credentialIssued, "issued", "not issued")}</small><small className={styles.factLine}>Access {factLabel(row.accessEligible, "eligible", "not eligible")}</small></td>
               <td>{billingStatusAvailable ? overdue ? <span className={styles.paymentFlag}>Arrears</span> : <span className={styles.paymentClear}>No open arrears</span> : <span className={styles.notRecorded} title="Payment detail is not available for this role or account">Not available</span>}</td>
               <td>{formatDate(row.endsAt)}</td>
               <td><span className={styles.notRecorded} title="Last attendance is not included in the directory data">—</span></td>
@@ -136,7 +141,7 @@ export function ClubMembersDirectory({ members, organisationId, customers = [], 
         </table>
       </div>
       <div className={styles.mobileList}>
-        {pageRows.map(row => <a className={styles.mobileRow} key={row.key} href={personHref(row)}><span className={styles.avatar} aria-hidden="true">{row.displayName.slice(0, 1).toUpperCase()}</span><span className={styles.mobileMain}><strong>{row.displayName}</strong><small>{row.email ?? row.phone ?? "R12 account"}</small><small>{row.plan ?? "Gym membership"} · {labelStatus(row.status)}{row.endsAt ? ` · ${formatDate(row.endsAt)}` : ""}{row.homeName ? ` · Home: ${row.homeName}` : ""}</small><em data-state={row.accessState ?? "unavailable"}>{row.accessState === "active" ? "Access active" : row.accessState === "needs_attention" ? "Needs attention" : "Access unavailable"}</em></span><b aria-hidden="true">›</b></a>)}
+        {pageRows.map(row => <a className={styles.mobileRow} key={row.key} href={personHref(row)}><span className={styles.avatar} aria-hidden="true">{row.displayName.slice(0, 1).toUpperCase()}</span><span className={styles.mobileMain}><strong>{row.displayName}</strong><small>{row.email ?? row.phone ?? "Contact details unavailable"}</small><small>{row.plan ?? "Membership history"} · {labelStatus(row.status)}{row.endsAt ? ` · ${formatDate(row.endsAt)}` : ""}{row.homeName ? ` · Home: ${row.homeName}` : ""}</small><em>Membership {factLabel(row.membershipActive, "Active", "Not active")} · R12 {factLabel(row.r12Linked, "Linked", "Not linked")}</em><em>Credential {factLabel(row.credentialIssued, "Issued", "Not issued")} · Access {factLabel(row.accessEligible, "Eligible now", "Not eligible")}</em></span><b aria-hidden="true">›</b></a>)}
       </div>
       <div className={styles.pagination}><span>Showing {((safePage - 1) * pageSize + 1).toLocaleString("en-GB")}–{Math.min(safePage * pageSize, filtered.length).toLocaleString("en-GB")} of {filtered.length.toLocaleString("en-GB")}</span><div><button type="button" disabled={safePage <= 1} onClick={() => setPage(value => Math.max(1, value - 1))}>Previous</button><span>Page {safePage} of {pageCount}</span><button type="button" disabled={safePage >= pageCount} onClick={() => setPage(value => Math.min(pageCount, value + 1))}>Next</button></div></div>
     </> : <p className={styles.empty}>{query || statusFilter !== "all" || accessFilter !== "all" || homeFilter !== "all" || planFilter !== "all" ? "No membership records match these filters." : "No membership records yet."}</p>}

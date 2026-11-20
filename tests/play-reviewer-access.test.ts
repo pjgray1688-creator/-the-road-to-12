@@ -46,8 +46,9 @@ test("reviewer class and shop routes reuse production screens and guard all muta
   assert.match(shopUi, /if \(demoMode\) \{ setMessage\("Demo only: no payment was taken and no order was created/);
   assert.match(shopUi, /if \(demoMode\) return;/);
   assert.match(shopUi, /demoMode \? localPricing/);
-  assert.equal((classesRoute.match(/className="module-page club-page member-area-page"/g) ?? []).length, 2);
-  assert.equal((shopRoute.match(/className="module-page club-page member-area-page member-shop-page"/g) ?? []).length, 2);
+  assert.equal((classesRoute.match(/className="module-page club-page member-area-page"/g) ?? []).length, 0);
+  assert.equal((classesRoute.match(/className="module-page member-area-page"/g) ?? []).length, 3);
+  assert.equal((shopRoute.match(/className="module-page member-area-page member-shop-page"/g) ?? []).length, 2);
   assert.match(readFileSync("components/club-shop.module.css", "utf8"), /@media/);
 });
 
