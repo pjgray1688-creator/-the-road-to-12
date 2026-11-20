@@ -20,7 +20,8 @@ test("Club shell constrains identity and preserves venue navigation", () => {
 test("Club overview uses person terminology and Reception keeps compact result styling", () => {
   const overview = readFileSync(new URL("../app/club/page.tsx", import.meta.url), "utf8");
   const receptionStyles = readFileSync(new URL("../components/club-reception.module.css", import.meta.url), "utf8");
-  assert.match(overview, /Find a member/);
-  assert.match(overview, /Member management/);
+  assert.match(overview, /Shift actions/);
+  assert.match(overview, /Operational alerts/);
+  assert.match(overview, /Members/);
   assert.match(receptionStyles, /min-height:54px/);
 });

@@ -92,7 +92,7 @@ test("Management orders are discoverable in Shop Administration and not duplicat
   assert.match(more,/sectionLabels\.shop[\s\S]*Customer orders & payments/);
   assert.match(more,/canManageOrders[\s\S]*Customer orders & payments/);
   assert.doesNotMatch(shop,/Create customer order/i);
-  assert.match(overview,/canManageOrders[\s\S]*Customer orders/);
+  assert.doesNotMatch(overview,/Customer orders/);
 });
 
 test("Management action rows are distinct keyboard-accessible targets at every viewport",()=>{

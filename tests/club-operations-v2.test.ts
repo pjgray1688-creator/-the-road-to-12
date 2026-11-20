@@ -43,11 +43,11 @@ test("Club V2 surfaces are role-aware and organisation-scoped", () => {
   const overview = read("app/club/page.tsx");
   const directory = read("components/club-members-directory.tsx");
   const locations = read("app/club/locations/page.tsx");
-  assert.match(overview, /NEEDS ATTENTION/);
+  assert.match(overview, /Operational alerts/);
   assert.match(overview, /cash .*need verification/);
-  assert.match(overview, /No fake|No upcoming classes scheduled/);
-  assert.match(directory, /Search by name or email/);
-  assert.match(directory, /Filter access/);
+  assert.match(overview, /No fake|No upcoming sessions are scheduled/);
+  assert.match(directory, /Name, email, phone or reference/);
+  assert.match(directory, /Filter (?:member )?access/);
   assert.match(directory, /Filter membership/);
   assert.match(directory, /member\.userId/);
   assert.match(locations, /resolveClubOperationalContext/);
@@ -55,10 +55,10 @@ test("Club V2 surfaces are role-aware and organisation-scoped", () => {
 });
 
 test("member profile presents operational language without narrowing home-gym access", () => {
-  const profile = read("app/club/members/[userId]/page.tsx");
-  assert.match(profile, /preference only/);
+  const profile = read("components/club-member-profile-layout.tsx");
+  assert.match(profile, /preference only/i);
   assert.match(profile, /All current and future locations/);
-  assert.match(profile, /Gym Balance/);
+  assert.match(profile, /Madhouse Balance/);
   assert.match(profile, /Awaiting cash verification/);
   assert.doesNotMatch(profile, /entitlement grant|RPC/);
 });

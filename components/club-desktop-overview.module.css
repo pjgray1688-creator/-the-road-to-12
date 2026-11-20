@@ -1,4 +1,4 @@
-.desktopOverview { display: none; }
+.desktopOverview { display: grid; gap: 12px; min-width: 0; }
 .heading { display: flex; align-items: end; justify-content: space-between; gap: 18px; }
 .heading h2 { margin: 0; color: #29212f; font-size: 17px; letter-spacing: -.02em; }
 .heading p { margin-top: 5px; color: #7c7483; font-size: 11px; }
@@ -36,15 +36,14 @@
 .barTrack > span { display: block; height: 100%; border-radius: inherit; background: #9a64bd; }
 .mixRow strong { color: #51475a; font-size: 10px; text-align: right; }
 .quickLinks { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 7px; }
-.shiftActions { display: grid; grid-template-columns: repeat(5,minmax(0,1fr)); gap: 8px; }
-.quickLink { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 39px; padding: 8px 10px; border: 1px solid #ece8ef; border-radius: 8px; color: #4d4058; font-size: 10px; font-weight: 700; text-decoration: none; }
+.shiftActions { display: grid; grid-template-columns: repeat(6,minmax(0,1fr)); gap: 8px; }
+.quickLink { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; min-height: 44px; padding: 8px 10px; border: 1px solid #ece8ef; border-radius: 9px; background:linear-gradient(180deg,#fff,#faf7fc); box-shadow:inset 0 1px #fff,0 2px 5px rgba(45,32,58,.04); color: #4d4058; font-size: 11px; font-weight: 750; text-decoration: none; }
 .quickLink:hover,.quickLink:focus-visible { border-color: #c9addc; background: #fbf8fd; outline: none; }
 .quickLink span:last-child { color: #a18baa; font-size: 15px; }
 
-@media (min-width: 1100px) {
-  .desktopOverview { display: grid; gap: 13px; }
-}
 @media (min-width: 1100px) and (max-width: 1320px) {
   .mainGrid { grid-template-columns: minmax(0,1.4fr) minmax(260px,.8fr); }
 }
-@media (max-width: 1199px) { .shiftActions { grid-template-columns: repeat(3,minmax(0,1fr)); } }
+@media (max-width: 1100px) { .shiftActions { grid-template-columns: repeat(3,minmax(0,1fr)); } }
+@media (max-width: 900px) { .mainGrid { grid-template-columns: minmax(0,1fr); } }
+@media (max-width: 520px) { .shiftActions { grid-template-columns: repeat(2,minmax(0,1fr)); gap:6px; }.quickLink{padding:8px;font-size:11px}.session{grid-template-columns:52px minmax(0,1fr);gap:8px}.session time{font-size:9px}.session small{line-height:1.3} }

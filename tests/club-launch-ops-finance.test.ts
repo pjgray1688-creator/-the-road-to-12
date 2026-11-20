@@ -101,12 +101,13 @@ test("management Shop Administration links to the capability-gated order workflo
 });
 
 test("member profile and till log keep existing operations with less duplicated chrome", async () => {
-  const [profile, till, css] = await Promise.all([
+  const [profile, profileLayout, till, css] = await Promise.all([
     read("app/club/members/[userId]/page.tsx"),
+    read("components/club-member-profile-layout.tsx"),
     read("components/club-recent-sales.tsx"),
     read("app/globals.css"),
   ]);
-  assert.match(profile, /IDENTITY &amp; CONTACT/);
+  assert.match(profileLayout, /Identity, contact &amp; access/);
   assert.doesNotMatch(profile, /R12 account linked/);
   assert.match(profile, /club-profile-back/);
   assert.match(css, /\.club-profile-back[^}]*color:#4b315e/);

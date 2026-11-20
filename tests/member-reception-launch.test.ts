@@ -49,9 +49,11 @@ test("linked member profile exposes authorised checkout and recurring billing st
   assert.match(migration, /revoke all on function public\.club_get_member_join_state\(uuid,uuid\) from public,anon,authenticated/);
   assert.match(profile, /club_get_member_join_state/);
   assert.match(profile, /club_list_customer_billing/);
-  assert.match(profile, /Upfront card payment/);
-  assert.match(profile, /Recurring membership payment/);
-  assert.match(profile, /Stripe · Franchise/);
+  const profileLayout = read("components/club-member-profile-layout.tsx");
+  assert.match(profile, /club_get_member_join_state/);
+  assert.match(profileLayout, /Initial payment/);
+  assert.match(profileLayout, /Recurring payment authority/);
+  assert.match(profileLayout, /Stripe · Franchise/);
 });
 
 test("launch migration is included in the reviewed deployment manifest", () => {

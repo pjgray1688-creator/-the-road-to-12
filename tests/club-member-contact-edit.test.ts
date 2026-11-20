@@ -28,12 +28,13 @@ test("member record onboarding remains available because it is an active creatio
 
 test("linked member profiles show the name once and retain contact editing", () => {
   const linked = read("app/club/members/[userId]/page.tsx");
+  const linkedLayout = read("components/club-member-profile-layout.tsx");
   const customer = read("app/club/members/customer/[customerId]/page.tsx");
   assert.doesNotMatch(linked, /IDENTITY<\/span><h2>\{customer\?\.displayName/);
   assert.doesNotMatch(customer, /IDENTITY<\/span><h2>\{customer\.displayName/);
-  assert.match(linked, /<ClubMemberProfileEditor/);
+  assert.match(linkedLayout, /<ClubMemberProfileEditor/);
   assert.match(customer, /<ClubMemberProfileEditor/);
-  assert.match(linked, /IDENTITY &amp; CONTACT/);
+  assert.match(linkedLayout, /Identity, contact &amp; access/);
 });
 
 test("contact editing action has readable purple button states", () => {

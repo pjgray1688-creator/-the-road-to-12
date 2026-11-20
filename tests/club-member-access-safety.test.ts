@@ -5,6 +5,7 @@ import { readFileSync } from "node:fs";
 const migration = readFileSync("supabase/migrations/2026-12-13-member-age-induction-access-eligibility.sql", "utf8");
 const accessUi = readFileSync("components/club-access-console.tsx", "utf8");
 const memberPage = readFileSync("app/club/members/[userId]/page.tsx", "utf8");
+const memberProfileLayout = readFileSync("components/club-member-profile-layout.tsx", "utf8");
 const customerPage = readFileSync("app/club/members/customer/[customerId]/page.tsx", "utf8");
 const inductionAction = readFileSync("app/club/induction/actions.ts", "utf8");
 const inductionCompletion = readFileSync("components/club-member-induction-completion.tsx", "utf8");
@@ -61,8 +62,8 @@ test("reception and member profiles show age, induction and 24-hour outcomes in 
   assert.match(accessUi, /Under 18 — 24-hour door access is not available/);
   assert.match(accessUi, /Induction:/);
   assert.match(accessUi, /24-hour access:/);
-  assert.match(memberPage, /ACCESS/);
-  assert.match(memberPage, /24-hour door access:/);
+  assert.match(memberProfileLayout, /CURRENT ACCESS/);
+  assert.match(memberProfileLayout, /24-hour access/);
   assert.match(customerPage, /ACCESS ELIGIBILITY/);
 });
 
@@ -70,7 +71,7 @@ test("family holder summaries remain organisation-scoped and reveal names only t
   assert.match(migration, /club_get_membership_household/);
   assert.match(migration, /club_capability_allowed\(p_organisation_id,auth\.uid\(\),'members\.view'\)/);
   assert.match(migration, /c\.organisation_id=h\.organisation_id/);
-  assert.match(memberPage, /ClubMembershipHousehold/);
+  assert.match(memberProfileLayout, /ClubMembershipHousehold/);
   assert.match(customerPage, /Shared with/);
 });
 
@@ -97,7 +98,7 @@ test("family holder changes are capability-checked, membership-locked, constrain
 test("staff can complete only an authorised booked induction through the existing audited RPC", () => {
   assert.match(migration, /'inductionBooking',case when booking_row\.id is null then null/);
   assert.match(migration, /inductionBooking',safety->'inductionBooking'/);
-  assert.match(memberPage, /ClubMemberInductionCompletion/);
+  assert.match(memberProfileLayout, /ClubMemberInductionCompletion/);
   assert.match(inductionAction, /["']induction\.perform["']/);
   assert.match(inductionAction, /club_reconcile_induction_booking/);
   assert.match(inductionAction, /p_status: "completed"/);

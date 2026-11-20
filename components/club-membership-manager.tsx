@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { ClubProduct, OrganisationLocation } from "@/lib/club";
 import { recordExistingMembershipCashPaymentAction, updateClubMembershipAction } from "@/app/club/members/actions";
-import { formatClubDate, membershipPaidThroughDate, membershipPaidThroughDateInput } from "@/lib/club-date-display";
+import { formatClubDate, membershipPaidThroughDateInput } from "@/lib/club-date-display";
 import styles from "./club-member-management.module.css";
 
 type Payment = { id: string; kind: string; method?: string; state?: string; amount_minor: number; currency: string; payment_received_at?: string; external_reference?: string; paid_through_date?: string; evidence_note?: string };
@@ -53,10 +53,12 @@ export function ClubMembershipManager({ organisationId, customerId, detail, prod
       setPaymentKey(crypto.randomUUID()); setCashOpen(false); router.refresh();
     });
   }
-  const providerLabel = detail.billing_arrangement ? `${detail.billing_arrangement.provider_type ?? "Manual"} · ${detail.billing_arrangement.payment_method_family ?? "payment method not recorded"} · ${detail.billing_arrangement.state ?? "status unavailable"}` : "No provider-managed billing arrangement";
+  const providerLabel = detail.billing_arrangement ? `${detail.billing_arrangement.provider_type ?? "Payment provider"} · ${detail.billing_arrangement.payment_method_family ?? "method not recorded"} · ${detail.billing_arrangement.state ?? "status unavailable"}` : undefined;
   return <section className={styles.manager}>
-    <div className="club-detail-row"><span><strong>Manage membership</strong><small>{detail.product_name} · {detail.status.replaceAll("_", " ")} · {detail.source.replaceAll("_", " ")}</small><small>{formatClubDate(detail.starts_at)} – {detail.is_lifetime ? "Lifetime" : detail.ends_at ? membershipPaidThroughDate(detail.ends_at) : "End date not recorded"}</small><small>{providerLabel}{detail.billing_arrangement?.provider_subscription_reference ? ` · Ref ${detail.billing_arrangement.provider_subscription_reference}` : ""}</small></span>
-      {canManage && !providerManaged && detail.status !== "cancelled" && !detail.shared_contract ? <button className="secondary" type="button" onClick={() => { setEditing(value => !value); setMessage(""); }}>{editing ? "Close editor" : "Manage membership"}</button> : providerManaged ? <span className="muted">Provider managed</span> : detail.shared_contract ? <span className="muted">Household managed</span> : null}</div>
+    <div className={styles.membershipTools}>
+      <div>{providerLabel ? <span>{providerLabel}{detail.billing_arrangement?.provider_subscription_reference ? ` · Ref ${detail.billing_arrangement.provider_subscription_reference}` : ""}</span> : null}{detail.shared_contract ? <span>Managed through household agreement</span> : null}{providerManaged ? <span>Paid-through status follows verified provider records</span> : null}</div>
+      {canManage && !providerManaged && detail.status !== "cancelled" && !detail.shared_contract ? <button className="secondary" type="button" onClick={() => { setEditing(value => !value); setMessage(""); }}>{editing ? "Close editor" : "Edit membership"}</button> : providerManaged ? <span className={styles.readOnly}>Provider managed</span> : detail.shared_contract ? <span className={styles.readOnly}>Household managed</span> : null}
+    </div>
     {editing ? <form action={update} className={styles.manager}>
       <label>Membership product<select name="productId" defaultValue={detail.product_id}>{productOptions.map(product => <option key={product.id} value={product.id}>{product.name}{product.isLifetime ? " · Lifetime" : product.fixedTermValue ? ` · ${product.fixedTermValue} ${product.fixedTermUnit} fixed term` : ` · ${product.billing}`}{product.archivedAt || product.legacyImportCategory ? " · existing record" : ""}</option>)}</select></label>
       <label>Status<select name="status" defaultValue={detail.status === "cancelled" ? "expired" : detail.status} disabled={detail.status === "cancelled"}><option value="active">Active</option><option value="paused">Paused</option><option value="expired">Lapsed</option></select></label>
@@ -67,7 +69,7 @@ export function ClubMembershipManager({ organisationId, customerId, detail, prod
       <label>Reason for change<textarea name="reason" required minLength={8} maxLength={500} /></label>
       <div className={styles.actions}><button className="primary" disabled={pending || detail.shared_contract} type="submit">{pending ? "Saving…" : "Save membership"}</button><button className="secondary" type="button" disabled={pending} onClick={() => setEditing(false)}>Cancel</button></div>
     </form> : null}
-    {canRecordCash && !providerManaged && !detail.shared_contract && !detail.has_billing_obligation ? <div className="club-cash-member-payment">
+    {canRecordCash && detail.status === "active" && !detail.is_lifetime && !providerManaged && !detail.shared_contract && !detail.has_billing_obligation ? <div className="club-cash-member-payment">
       {!cashOpen ? <button className="secondary" type="button" onClick={() => { setCashOpen(true); setPaidThroughPreview(""); setMessage(""); }}>Record cash payment</button> : <form action={recordCash} className={styles.cashForm}>
         <p className="muted">Record money physically received. This records the payment and paid-through date; it does not create a subscription or provider payment.</p>
         <label>Venue<select name="locationId" required defaultValue=""><option value="" disabled>Choose venue</option>{locations.filter(location => location.active).map(location => <option key={location.id} value={location.id}>{location.name}</option>)}</select></label>
@@ -81,10 +83,9 @@ export function ClubMembershipManager({ organisationId, customerId, detail, prod
         <div className={styles.actions}><button className="primary" type="submit" disabled={pending}>{pending ? "Recording…" : "Confirm cash received"}</button><button className="secondary" type="button" disabled={pending} onClick={() => setCashOpen(false)}>Cancel</button></div>
       </form>}
     </div> : null}
-    {detail.has_billing_obligation ? <p className="muted">This membership already has a billing schedule. Record cash against its outstanding obligation so the schedule reconciles correctly.</p> : null}
-    {detail.shared_contract ? <p className="muted">Payments for this membership are managed through its verified shared payer contract.</p> : null}
-    {providerManaged ? <p className="muted">Paid-through status follows the verified provider records. Manual date and cash changes are disabled.</p> : null}
-    {detail.payments.length ? <div><h3>Payment history</h3>{detail.payments.map(payment => <div className="club-detail-row" key={`${payment.kind}:${payment.id}`}><span>{payment.method ?? payment.kind} · {payment.state ?? "recorded"}<small>{payment.payment_received_at ? new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London", dateStyle: "medium", timeStyle: "short" }).format(new Date(payment.payment_received_at)) : "Date not recorded"}{payment.paid_through_date ? ` · Paid through ${formatClubDate(payment.paid_through_date)}` : ""}{payment.external_reference ? ` · Ref ${payment.external_reference}` : ""}{payment.evidence_note ? ` · ${payment.evidence_note}` : ""}</small></span><strong>{money(payment.amount_minor, payment.currency)}</strong></div>)}</div> : <p className="muted">No membership payment history is recorded here.</p>}
+    {detail.has_billing_obligation ? <p className="muted">This membership has a billing schedule. Record cash against its outstanding obligation so the schedule reconciles correctly.</p> : null}
+    {detail.shared_contract ? <p className="muted">Payments are managed through the verified shared payer agreement.</p> : null}
+    {detail.payments.length ? <details className={styles.paymentHistory}><summary>Payment history <span>{detail.payments.length}</span></summary><div>{detail.payments.map(payment => <div className="club-detail-row" key={`${payment.kind}:${payment.id}`}><span>{payment.method ?? payment.kind} · {payment.state ?? "recorded"}<small>{payment.payment_received_at ? new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London", dateStyle: "medium", timeStyle: "short" }).format(new Date(payment.payment_received_at)) : "Date not recorded"}{payment.paid_through_date ? ` · Paid through ${formatClubDate(payment.paid_through_date)}` : ""}{payment.external_reference ? ` · Ref ${payment.external_reference}` : ""}{payment.evidence_note ? ` · ${payment.evidence_note}` : ""}</small></span><strong>{money(payment.amount_minor, payment.currency)}</strong></div>)}</div></details> : null}
     {message ? <p role="status" className="muted">{message}</p> : null}
   </section>;
 }

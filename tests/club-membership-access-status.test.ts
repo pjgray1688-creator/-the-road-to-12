@@ -6,6 +6,8 @@ const migration = readFileSync("supabase/migrations/2026-12-12-membership-access
 const action = readFileSync("app/club/members/actions.ts", "utf8");
 const memberPage = readFileSync("app/club/members/[userId]/page.tsx", "utf8");
 const customerPage = readFileSync("app/club/members/customer/[customerId]/page.tsx", "utf8");
+const manager = readFileSync("components/club-membership-manager.tsx", "utf8");
+const accessStatus = readFileSync("components/club-membership-access-status.tsx", "utf8");
 const manifest = readFileSync("supabase/deployment/2026-11-22-madhouse-launch-migrations.txt", "utf8");
 
 test("membership access pause/reactivation is transactional, capability-gated and auditable", () => {
@@ -32,7 +34,7 @@ test("staff and unlinked customer profiles expose only capability-authorized lif
   assert.match(memberPage, /canChangeMembershipAccess/);
   assert.match(customerPage, /club_list_customer_memberships/);
   assert.match(customerPage, /ClubMembershipAccessStatus/);
-  assert.match(customerPage, /Pausing access does not change recurring billing/);
+  assert.match(accessStatus, /Access is paused\. Membership dates and recurring billing are unchanged\./);
 });
 
 test("customer membership lookup is organisation- and capability-scoped; migration is ordered after live refunds", () => {
