@@ -264,8 +264,7 @@ begin
                'original_source',v_duplicate_row.source,
                'import_batch_id',v_duplicate_row.import_batch_id,
                'import_row_id',v_duplicate_row.import_row_id
-             )),
-           updated_at=v_now
+             ))
      where id=v_duplicate and organisation_id=v_org and product_id=v_product and status='active';
     if not found then raise exception 'Duplicate retirement update did not affect exactly the active target row'; end if;
   end if;
